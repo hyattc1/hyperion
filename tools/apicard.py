@@ -43,8 +43,9 @@ def _fields(cls) -> list[tuple[str, str, str]]:
 
 def _table(rows, header=("field", "type", "default")) -> str:
     lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
+    last = len(header) - 1
     for r in rows:
-        lines.append("| " + " | ".join(f"`{c}`" if i < 2 else str(c) for i, c in enumerate(r)) + " |")
+        lines.append("| " + " | ".join(f"`{c}`" if i < last else str(c) for i, c in enumerate(r)) + " |")
     return "\n".join(lines)
 
 
@@ -60,7 +61,7 @@ def _config_rows(cfg_cls, prefix="") -> list[tuple[str, str, str]]:
         d = repr(f.default) if f.default is not dataclasses.MISSING else "(factory)"
         if len(d) > 60:
             d = d[:57] + "..."
-        rows.append((prefix + f.name, "", d))
+        rows.append((prefix + f.name, d))
     return rows
 
 
@@ -96,7 +97,7 @@ def render() -> str:
               "Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `hyperion/drills/fakekits/*/RUBRIC.md` "
               "lists the gotchas each one covers.", ""]
     parts += ["## Config keys (`hero.config_from_dict({'a.b': v})`; every tunable lives here)", "",
-              _table(_config_rows(Config), ("key", "", "default")), ""]
+              _table(_config_rows(Config), ("key", "default")), ""]
     parts += ["## Commands", ""] + [f"- {what}: `{cmd}`" for what, cmd in COMMANDS] + [""]
     parts += ["## Entry points", "",
               "- `hyperion.strategy.hero.make_bot(config=None)` -> Hero (SafeBot-wrapped). `Hero.cheap()` -> the 15-minute fallback.",
