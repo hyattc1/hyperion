@@ -579,3 +579,22 @@ prior: all within noise.
 canonical hole (KeyError in the evaluator, swallowed by SafeBot): the canonical board is passed through
 and a 50-table permuted-rules test guards it. The bestiary `Hero` is seeded and takes
 `--hero-config` / `HERO_CONFIG` overrides, which is how the sweep reaches the levers.
+
+## 2026-10-31 drill 4 follow-up (builder: tools/drills)
+
+- **Drill 4's prompt edits land inside each prompt's previous byte count.** All of 01 (3), 02 (2), 03 (4),
+  05 (4) and seven of 04's eight are in, and every file is at or under its old size, which is why other
+  sentences got terser. Skipped: 04's `/tmp/load` -> scratch edit, because `tests/test_nightof_docs.py` pins
+  `--out /tmp/load`. Relocated: the Stage 0 edit aimed at `NIGHT-template.md`'s header is a one-sentence note
+  in prompt 01 instead (the template was not in this pass). Prompt 05's short-deck bullet names no key:
+  `postflop.flush_tier_shift` / `straight_tier_shift` / `draw_outs_mult` were not in CONTRACTS.md when it was
+  written and the test that 05 names only real keys must hold; reword the bullet when they land.
+- **`tools/latency.py --native kit_d` hangs the state off a synthetic round-start parent** so the adapter's
+  `previous_state` walk recovers the pot (drill 4 finding 4), and picks `last_raise` so `raise_bounds()`
+  reproduces `min_raise`. Its round-trip test expects kit D's own legality rule, which differs from the sim's
+  in two places (no FoldAction when a check is free; no RaiseAction when nobody left in the hand can call);
+  the builder does not paper over that.
+- **Kit D's runner keeps the last 4,000 characters of the bot's stderr in the note and, past that, the whole
+  text in a temp file named in the note** (drill 4 finding 6). The tail is what the operator reads in the
+  terminal; the file is for a long conformance report. Rejected homes for the file: the runner's cwd (litters
+  the repo root under pytest) and the submission's directory (may be read-only, or the repo's reference dir).

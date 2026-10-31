@@ -28,6 +28,8 @@ uv venv .venv && uv pip install -e ".[dev]"
 .venv/bin/python -m hyperion.drills.run --variant permuted_ranks --kit b --seed 1
 ```
 
+Drills: `hyperion/drills/` holds the fake starter kits, the reference adapters and the timed drill runner; the report from each drill lives in `docs/drills/`.
+
 ## What it does not do
 
 Full-game CFR, neural nets, real-time search. Ruled out by the millisecond and the secret variant.
