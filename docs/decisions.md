@@ -16,7 +16,7 @@ Append only. Newest at the bottom. One paragraph each: what was decided, why, wh
   bot decision the engine asks for through the hook's `ask` callback.
 - **Toss or Hold'em preset is the 8-max adaptation**: discards are face-up but dead, not community cards.
   MIT 2026 heads-up put them on the board, which at 8-max means 12 board cards and best-5-of-14; the
-  evaluator stops at 8 cards. If Sequoia keeps MIT's rule, `board_sizes` becomes `(0, 2, 2+n, 3+n, 4+n)` and
+  evaluator stops at 8 cards. If the organizers use the discard-to-board rule, `board_sizes` becomes `(0, 2, 2+n, 3+n, 4+n)` and
   the evaluator needs a best-5-of-many path. Recorded as a known gap, not built.
 - **Short deck is `extras["removed_ranks"]` plus a `score_hand` hook**, not a Rules field. Rules is frozen by
   the core builder; the generator honours `removed_ranks` for the deck, the category reorder (flush over full
@@ -386,7 +386,7 @@ Test: `tests/test_hrc_crosscheck.py` exercises the parser and the comparison on 
 HRC layout (`tests/fixtures/hrc_hu_small.csv`, invented values, real header order). If the download
 fails, `--zip` accepts a local copy.
 
-## Kit D: the MIT Pokerbots shape at 8 seats (2026-10-31)
+## Kit D: the university-engine shape at 8 seats (2026-10-31)
 
 `hyperion/drills/fakekits/kit_d/` imitates the engine-2026 python skeleton from the documented interface
 (research note section 3a), not from its code: `Bot` with `handle_new_round` / `get_action` /
