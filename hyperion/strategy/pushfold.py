@@ -41,7 +41,7 @@ DEFAULT_DEPTHS = tuple(range(1, 26))
 
 @dataclass
 class PushFoldParams:
-    threshold_bb: float = 12.0  # effective stack at or below this: push or fold preflop
+    threshold_bb: float = 10.0  # effective stack at or below this: push or fold preflop (swept: 12 -> 10 is +0.14 on the strong field, 15 is -0.11)
     tighten_per_player: float = 0.3  # the c in the multiway rule
     multiway_equity_penalty: float = 0.02  # per extra caller, off the equity vs the HU calling range
     reshove_raiser_call_prob: float = 0.6

@@ -142,8 +142,8 @@ def test_calls_down_lighter_against_maniac(pp):
         prof._dials[s] = prof._compute_dials(s)
     assert prof.maniac(7)
     bet = [0] * 8
-    bet[7] = 120
-    mid = street_obs("9c 8d", "Ks 9d 2h", 1, pot=120, in_hand=HU, bets=bet, history=PRE + [(1, K), (7, R(120))])
+    bet[7] = 60  # half pot: middle pair is a fold at the default margin, a call once the bettor is a flagged maniac
+    mid = street_obs("9c 8d", "Ks 9d 2h", 1, pot=120, in_hand=HU, bets=bet, history=PRE + [(1, K), (7, R(60))])
     assert decide(pp, mid, aggressor=False) == F
     assert decide(pp, mid, prof, aggressor=False) == C
 

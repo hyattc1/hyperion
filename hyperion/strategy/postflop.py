@@ -70,7 +70,7 @@ class PostflopParams:
     station_river_tier: int = 4  # ... then bet the river big with this and up
     station_river_size: float = 1.0
     dead_bet_size: float = 0.33
-    call_margin: float = 0.05  # equity must beat pot odds by this to call
+    call_margin: float = 0.15  # equity must beat pot odds by this to call (swept: 0.05 -> 0.15 is +0.07 vs tags, 0.20 costs the weak field)
     multiway_call_penalty: float = 0.07  # per extra opponent, made hands only
     raise_tier: int = 6
     raise_size: float = 1.0  # pot-sized raise
@@ -81,8 +81,8 @@ class PostflopParams:
     cheap_value_tier: int = 5  # Hero.cheap(): bet this and up, call with value_tier, otherwise check/fold
     # ICM gate on commitments: a call or value bet that risks at least icm_gate_frac of my chips must have
     # ICM-weighted EV above folding/checking, with the equity proxy discounted by icm_margin.
-    icm_gate_frac: float = 2.0  # 2.0 = never (the gate is off); 0.3 = any call for 30%+ of my stack
-    icm_margin: float = 0.05
+    icm_gate_frac: float = 0.5  # 2.0 = never (the gate is off); 0.5 = any commitment of half my stack or more
+    icm_margin: float = 0.10  # the single biggest lever found: +0.14/+0.15/+0.07 on mixed/strong/weak fields, busts 54% -> 50%
     river_call_margin: float = 0.0  # extra margin on river calls: a student who bets the river has it
     river_min_tier: int = 0  # never call a river bet below this tier (0 = off)
 

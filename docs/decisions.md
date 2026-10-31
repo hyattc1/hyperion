@@ -493,3 +493,89 @@ Not applied from drill 3's list, by ownership: the README timeline row (defect 3
 whether the kit's dealer implements each non-standard rule" (29; the spec's step 4 carries the
 consequence instead), prompt 05's payoff wording (26; the spec's step 4 no longer points at 05). Stage 0's
 "no Track B drill has run yet" line in the playbook is stale and outside this pass.
+
+## Hero tuning pass (2026-10-31, builder: hero tuning)
+
+Method: `tools/sweep.py` plays every setting on the same duplicate-dealt seed set (eight rotations per seed,
+sample unit = one seed) across several fields in parallel and reports the paired delta against the base;
+a lever was kept only when its delta was positive on every field in the stage. Six stages, 150-400 seeds
+each; final confirmation at 1,000 seeds. Raw outputs lived under `scratch/` (gitignored).
+
+**Before / after, 1,000 duplicate seeds, seed 7, strict.** "old defaults" = the same code with the previous
+`Config` values, so the two middle columns separate the bug fixes from the tuning.
+
+| field | hero before (old code) | hero, old defaults | hero after | tag after | hero - tag (paired) | hero bust% before -> after |
+|---|---|---|---|---|---|---|
+| realistic (`--field realistic`) | 5.30 (coordinator) | 5.296 ± 0.045 | **5.943 ± 0.043** | 5.574 ± 0.038 | +0.369 ± 0.061 | 66.8 -> 52.3 |
+| strong (`--field strong`) | 4.71 (coordinator) | 4.564 ± 0.050 | **5.011 ± 0.048** | 4.658 ± 0.040 | +0.353 ± 0.068 | 68.7 -> 60.5 |
+| mixed: hero,tag,nit,naive,station,maniac,random,allin | 6.420 ± 0.032 | 6.461 ± 0.031 | **6.825 ± 0.028** | 6.273 ± 0.027 | +0.551 ± 0.044 | 54.0 -> 46.3 |
+| tag/nit: hero,tag,tag,nit,nit,naive,naive,tag | 5.312 ± 0.050 | - | **6.064 ± 0.048** | 5.136 ± 0.023 | +0.928 ± 0.059 | 52.9 -> 38.3 |
+| weak: hero,station,station,random,maniac,allin,naive,random | 7.118 ± 0.021 | - | **7.373 ± 0.015** | (naive 5.891) | - | 52.6 -> 46.4 |
+
+Hero is first on points in every field, the intervals against `tag` are disjoint everywhere, and
+exceptions and illegal actions are zero on all 40,000 table-seats. Latency is unchanged: `act()` mean
+14.1 us, p99 21.4 us (min-of-3), the 0.15 ms / 0.5 ms test passes. `hero_tight` and `hero_loose` inherit
+every default they do not override, so they moved with the base and now also beat tag on the strong field.
+
+**Where the busts came from (`--trace-busts hero`, new in the runner).** Before: 60% of hero's busts
+happened with more than 50 bb at hand start, three to five players left, in the first 25 hands, and the
+single biggest bucket (34%) was the deep-stack preflop module *calling a shove* with hands like ATo, A2o,
+K6s against a bot that had just won a mountain of chips (allin, maniac, naive). Two causes:
+(1) a bug: `IcmCurve.value` extrapolated linearly past its last sample (3x my stack), so when a covering
+stack shoved, winning was valued at 8.34 points of a maximum 8 and anything passed the gate;
+(2) a modelling gap: pure ICM says call A2o there (6.65 vs 6.16 for folding) because it does not know
+the shover will offer the same spot next hand with a better hand for us. Postflop had no ICM gate at
+all: another third of busts were top-pair calls and commitments on raw pot odds against bots that only
+bet two pair or better. After the fixes the residual tail is the forced short-stack phase (16,000 chips
+at 200/400 make everyone short; half of hero's remaining busts are push/fold shoves at <= 12 bb that get
+called, loose_aggro first), and hero is above the table average through hand 100 in every field, so it
+is not bleeding chips before that phase.
+
+**Timeouts are hypervisor jitter, not hero's code.** Measured inside `act()` in the real engine with
+`thread_time` and `perf_counter`, plus `gc.callbacks` and `sys.getallocatedblocks()`: per second spent
+inside `act()`, hero and tag overrun at the same rate (114.5/s vs 115.8/s under load; a trivial 10 us
+arithmetic loop in the same process spiked 98/s); every one of hero's 342 overruns replayed on the same
+observation in 3-7 us, none over 1 ms; no GC collection started inside any overrun; hero nets 9
+allocated blocks per call (tag 7), nothing accumulates. Hero shows ~3x tag's timeouts because it has
+~3x the exposure: p50 15 us against 3 us and a few percent more calls. Lowering the per-call time
+would lower the count proportionally, but p50 is already 15 us. Not fixed because nothing is broken;
+recorded so nobody chases it again. Side effect worth knowing: under heavy load SafeBot's panic (5
+overruns and >= 2% of calls) fires in ~1% of tables and plays the rest of that table in cheap mode.
+
+**What changed in `Config` and why (all swept, numbers are paired deltas on mixed / strong / weak unless
+stated).**
+- `postflop.icm_gate_frac` 2.0 (off) -> 0.5, `icm_margin` 0.10: a call or value bet that risks half the
+  stack must beat folding in ICM points. The biggest lever found: +0.14 / +0.15 / +0.07, busts 54 -> 50%.
+- `preflop.open_frac` 0.40/0.42/0.28/... -> 0.60/0.60/0.42/0.30/0.24/0.20/0.17: tighter opens cost
+  -0.17 against tags and nits, wider gained +0.16 and then +0.05 everywhere. The field folds too much.
+- `postflop.call_margin` 0.05 -> 0.15: +0.07 against tags, neutral elsewhere; 0.20 starts costing the
+  weak field.
+- `preflop.patience_deep` 0.2 (new), scaled by the share of the stack at risk: the option value of
+  waiting when deep. +0.09 / +0.01 / +0.13. The unscaled form folded AA to a 30%-of-stack shove at 100 bb;
+  the scaled form is point-neutral and calls it.
+- `preflop.three_bet_frac` 0.05 -> 0.03: +0.07 on the mixed field, neutral elsewhere; 0.08 was negative.
+- `pushfold.threshold_bb` 12 -> 10: +0.06 / +0.14 / +0.01 on realistic / strong / mixed; 15 was -0.11.
+- `preflop.reraise_margin` 0.15 (new): 4-bet and 5-bet shoves go through the ICM gate with the
+  re-raiser's range discounted. Small but never negative; it stops QQ re-shoving into a nit's 4-bet.
+- `icm_ratios` now dense around 1x (0.9, 1.0, 1.1, ...) and the ICM memo key keeps my exact chip share
+  while rounding opponents: the old three-point curve had a kink at my stack that priced a +-7% flip at
+  57% equity where exact ICM says 47%, biasing every gate against small risks. Point-neutral, correct.
+  `ICM_BUCKETS` 40 -> 100: rounding seven opponents up by 12% had distorted V by 0.13 points.
+
+**Tried and not kept.** Tightening the shoving range in any form (`push_equity_margin`, a larger
+`multiway_equity_penalty`, `tighten_per_player` 0.45-0.8): negative on two or three fields each; the
+shoves that bust are the price of the shoves that win. Conditioning the shove slice on the callers'
+observed call-vs-shove rate (`loose_caller_tighten`, `loose_caller_equity_blend`, built as asked):
++0.010 +- 0.055 at 400 seeds on realistic, nothing elsewhere; left in at 0. A separate river threshold
+(`river_call_margin`, `river_min_tier`): negative once the gate and `call_margin` were in. A patience
+premium keyed to the shover's shove rate: nothing beyond `patience_deep`. Flipping the unknown-archetype
+call-down slope (call down more against aggressive bettors): -0.54 on the tag field; in this room a
+bettor's aggression stat signals strength. Disabling the profiler: -0.34 there. Hero with `value_tier`
+5, `call_raise_frac` 0.3, a steeper call-down slope or 0.7 opens is better against tags only, and was
+not taken. Open size, c-bet frequency and size, semibluff frequency, `commit_frac`, profiler blend and
+prior: all within noise.
+
+**Also fixed on the way.** Under a permuted `rank_order` postflop read the displayed board next to the
+canonical hole (KeyError in the evaluator, swallowed by SafeBot): the canonical board is passed through
+and a 50-table permuted-rules test guards it. The bestiary `Hero` is seeded and takes
+`--hero-config` / `HERO_CONFIG` overrides, which is how the sweep reaches the levers.

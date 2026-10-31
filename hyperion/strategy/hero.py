@@ -32,7 +32,8 @@ try:  # the ICM module is another builder's; chip-proportional if it is missing 
 except Exception:  # noqa: BLE001
     _icm_equity = None
 
-ICM_BUCKETS = 100  # stacks are rounded to 1/100 of the chips in play before the (memoised) exact ICM call
+ICM_BUCKETS = 100  # opponents' stacks are rounded to 1/100 of the chips in play before the (memoised) exact ICM call
+ICM_ME_SUBDIV = 4  # my own units are chosen so my *share* of the chips is kept, to 1/4 of an opponent unit
 
 
 @lru_cache(maxsize=1 << 15)
@@ -41,15 +42,27 @@ def _icm_bucketed(key: tuple, me: int, payouts: tuple) -> float:
 
 
 def icm_value(stacks, me: int, payouts) -> float:
-    """My exact ICM points for `stacks`, with every live stack rounded to 1% of the chips in play so
-    the eight-seat computation (~0.5 ms) is memoised across hands and tables."""
+    """My exact ICM points for `stacks`, memoised on a rounded key. Opponents are rounded to 1% of the
+    chips in play (their mutual proportions barely move my equity); my own entry is then set so that
+    my share of the rounded total equals my true share, because that share is what the curve reads."""
     total = 0.0
     for s in stacks:
         if s > 0:
             total += s
     unit = total / ICM_BUCKETS if total > 0 else 1.0
-    key = tuple(0 if s <= 0 else max(1, int(s / unit + 0.5)) for s in stacks)
-    return _icm_bucketed(key, me, tuple(float(p) for p in payouts))
+    sub = ICM_ME_SUBDIV
+    key = [0] * len(stacks)
+    others = 0
+    for i, s in enumerate(stacks):
+        if i != me and s > 0:
+            u = sub * max(1, int(s / unit + 0.5))
+            key[i] = u
+            others += u
+    mine = stacks[me]
+    if mine > 0:
+        rest = total - mine
+        key[me] = max(1, int(mine / rest * others + 0.5)) if rest > 0 and others > 0 else sub * ICM_BUCKETS
+    return _icm_bucketed(tuple(key), me, tuple(float(p) for p in payouts))
 
 
 @dataclass
@@ -63,7 +76,9 @@ class Config:
     profiler_calldown_slope: float = -0.8  # unknown archetype: call_down_mult = 1.4 + slope * aggression
     use_profiler: bool = True
     use_icm: bool = True
-    icm_ratios: tuple = (0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0)  # my-stack multiples the ICM curve samples
+    # my-stack multiples the ICM curve samples. Dense around 1x: with samples only at 0.5/1/1.5 the piecewise-linear
+    # curve had a kink at my stack that priced a +-7% flip at 57% equity where exact ICM says 47%.
+    icm_ratios: tuple = (0.0, 0.25, 0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 2.0, 3.0, 4.0, 6.0)
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5

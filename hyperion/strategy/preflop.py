@@ -21,7 +21,9 @@ _CALL = Action(ActionKind.CALL)
 
 def _default_open_frac() -> dict:
     # fraction of hands to open-raise, keyed by players still to act after me (unopened pot)
-    return {0: 0.0, 1: 0.40, 2: 0.42, 3: 0.28, 4: 0.20, 5: 0.16, 6: 0.13, 7: 0.11}
+    # swept 2026-10-31: the field folds too much to be left alone; 0.3/0.32/... cost -0.17 on a tag/nit table,
+    # 0.5/0.52/... gained +0.16 there, this set a further +0.05 everywhere (tools/sweep.py, docs/decisions.md)
+    return {0: 0.0, 1: 0.60, 2: 0.60, 3: 0.42, 4: 0.30, 5: 0.24, 6: 0.20, 7: 0.17}
 
 
 @dataclass
@@ -33,7 +35,7 @@ class PreflopParams:
     overlimp_frac: float = 0.35  # limp behind in position
     bb_raise_over_limps_frac: float = 0.12
     sb_complete_frac: float = 0.45
-    three_bet_frac: float = 0.05
+    three_bet_frac: float = 0.03  # swept: 0.05 -0.07 and 0.08 -0.04 on the mixed field vs 0.03
     four_bet_frac: float = 0.03
     five_bet_frac: float = 0.02
     call_raise_frac: float = 0.45  # never flat a raise outside this rank slice
@@ -48,11 +50,12 @@ class PreflopParams:
     shove_call_multiway: float = 0.08  # extra margin once a shove has already been called
     # option value of waiting: a deep stack can decline a flip and wait for a better one, and a frequent
     # shover will offer the same spot again. Both are extra equity margin on calling off a stack.
-    patience_deep: float = 0.0  # full extra margin at patience_deep_bb (linear from patience_from_bb)
+    patience_deep: float = 0.2  # full extra margin at patience_deep_bb (linear from patience_from_bb); swept 0.1/0.2/0.3
     patience_from_bb: float = 20.0
     patience_deep_bb: float = 60.0
+    patience_risk_scaled: bool = True  # the deep premium scales with to_call / my stack: a 10% call keeps my options
     patience_shover: float = 0.0  # times the shover's shove rate above the prior (0 .. ~1)
-    reraise_margin: float = 0.0  # 4-bet / 5-bet shoves: equity vs random is discounted by this (a 3-bettor is not random)
+    reraise_margin: float = 0.15  # 4-bet / 5-bet shoves: equity vs random is discounted by this (a 3-bettor is not random)
     reraise_tight_pfr: float = 0.0  # ... plus this much more when the re-raiser's PFR is below the prior (0 = off)
     raise_or_fold_bb: float = 25.0  # below this depth, no speculative flats
     short_flat_frac: float = 0.12
@@ -234,7 +237,11 @@ class Preflop:
         m = 0.0
         if p.patience_deep > 0.0:
             t = (spot.my_bb - p.patience_from_bb) / (p.patience_deep_bb - p.patience_from_bb)
-            m += p.patience_deep * (0.0 if t < 0.0 else 1.0 if t > 1.0 else t)
+            t = 0.0 if t < 0.0 else 1.0 if t > 1.0 else t
+            if p.patience_risk_scaled and spot.my_total > 0:
+                share = spot.to_call / spot.my_total
+                t *= 1.0 if share > 1.0 else share
+            m += p.patience_deep * t
         if p.patience_shover > 0.0 and prof is not None and shover >= 0:
             r = prof.shove_rate(shover) - Profiler.P_SHOVE
             if r > 0.0:

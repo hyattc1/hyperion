@@ -68,14 +68,20 @@ def test_short_stacks_do_not_flat(pf):
     assert decide(pf, preflop_obs("Jh Td", 7, stacks=st, actions=open_)) == F
 
 
-def test_facing_shove_uses_pot_odds_versus_equity(pf):
+def test_facing_shove_weighs_equity_against_icm_risk(pf):
+    """A deep stack facing a shove: the premium for waiting scales with the share of the stack at risk.
+    Under Malmuth-Harville with 8..1 payouts a 30%-of-stack call needs ~60% equity eight-handed, so QQ
+    calls a 30 bb shove, AK calls a 10 bb shove, and 72o folds both. (AK into the 30 bb shove is a
+    coin flip in points once the shover's range is discounted; it is not asserted either way.)"""
     st = [2000] * 8
     st[5] = 600
-    shove = FOLDS(2, 3, 4) + [(5, R(600))] + FOLDS(6)
-    assert decide(pf, preflop_obs("Ah Kd", 7, stacks=st, actions=shove)) == C
-    assert decide(pf, preflop_obs("7h 2d", 7, stacks=st, actions=shove)) == F
-    assert decide(pf, preflop_obs("Qh Jd", 7, stacks=st, actions=shove)) == F
-
+    shove30 = FOLDS(2, 3, 4) + [(5, R(600))] + FOLDS(6)
+    assert decide(pf, preflop_obs("Qh Qd", 7, stacks=st, actions=shove30)) == C
+    assert decide(pf, preflop_obs("7h 2d", 7, stacks=st, actions=shove30)) == F
+    st[5] = 200
+    shove10 = FOLDS(2, 3, 4) + [(5, R(200))] + FOLDS(6)
+    assert decide(pf, preflop_obs("Ah Kd", 7, stacks=st, actions=shove10)) == C
+    assert decide(pf, preflop_obs("7h 2d", 7, stacks=st, actions=shove10)) == F
 
 def test_open_size_shrinks_as_blinds_grow(pf):
     a = decide(pf, preflop_obs("Ah Ad", 2, blinds=(100, 200)))
@@ -92,7 +98,7 @@ def test_steal_dial_from_profiler_widens_button(pf):
         prof.folds[s] = 10
     for s in range(8):
         prof._dials[s] = prof._compute_dials(s)
-    obs = preflop_obs("Jh 7d", 7, actions=FOLDS(2, 3, 4, 5, 6))
+    obs = preflop_obs("8h 3d", 7, actions=FOLDS(2, 3, 4, 5, 6))  # below the button's 60% open range
     assert decide(pf, obs) == F
     assert decide(pf, obs, prof).kind is ActionKind.RAISE
 

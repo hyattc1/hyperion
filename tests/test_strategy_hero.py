@@ -165,7 +165,7 @@ def test_icm_curve_is_concave_and_updates_at_hand_end():
     assert c.value(2000) == pytest.approx(36 / 8)  # equal stacks: average of all payouts
     h.act(preflop_obs("Ah Ad", 0, hand_no=0))
     h.hand_end(HandResult(0, [1000, -1000, 0, 0, 0, 0, 0, 0], {}, (), []))
-    assert h.core.last_stacks[0] == 3000 and c.xs[2] == 3000
+    assert h.core.last_stacks[0] == 3000 and 3000.0 in c.xs  # the 1x sample sits at the new stack
     assert c.value(3000) > 36 / 8
     # the eight-handed risk premium: AK (65%) doubling up is worth less than the stack it risks
     v = c.value
