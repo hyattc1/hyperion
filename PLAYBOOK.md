@@ -1,7 +1,8 @@
 # PLAYBOOK: the hour, stage by stage
 
-This is the single guide for event night. The human reads it; the agent is fed it as its first
-message together with `docs/prompts/00-briefing.md`. It is variant-agnostic by construction: every
+This is the single guide for event night. The human reads it; the agent receives `docs/prompts/00-briefing.md`
+as its first message, which tells it to read this file, then `docs/packet/CHALLENGE.md` (facts and our
+assumption list) and `docs/packet/CONTRACTS.md` (the generated API card), and nothing else. It is variant-agnostic by construction: every
 hold'em twist moves one of four axes, and the stages below are the same no matter which axis moved.
 Only Stage 5 branches.
 

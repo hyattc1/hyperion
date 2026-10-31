@@ -83,8 +83,7 @@ class _Checker(kit.Bot):
         assert rs.in_hand == st["in_hand"]
         assert rs.button == st["button"] and tuple(rs.blinds) == tuple(st["blinds"])
         assert _street_of(len(rs.board)) == st["street"] and _street_of(rs.street) == st["street"]
-        assert [kit.parse_card(c) if hasattr(kit, "parse_card") else c for c in rs.board] == list(
-            run_d.card_str(c) for c in st["board"])
+        assert rs.board == [run_d.card_str(c) for c in st["board"]]
         assert self.round_total - sum(rs.stacks) - sum(rs.pips) == st["pot"]
         assert game_state.round_num - 1 == st["hand_no"]
         legal = {c.__name__ for c in rs.legal_actions()}
@@ -135,8 +134,7 @@ def _state(stacks, pips, button=7, hands=None, blinds=(10, 20)):
 
 
 def test_round_state_start_follows_the_dead_button():
-    rs = _state([2000] * 7 + [1990], [0] * 6 + [20, 10], button=6)  # wait: button 6 posts? no: SB is seat 7
-    # eight live seats, button 6: SB = 7, BB = 0 ... build it properly below
+    # eight live seats, button 6: SB = 7, BB = 0, seat 1 opens
     stacks = [1980, 2000, 2000, 2000, 2000, 2000, 2000, 1990]
     pips = [20, 0, 0, 0, 0, 0, 0, 10]
     rs = _state(stacks, pips, button=6)
@@ -195,10 +193,12 @@ def test_kit_d_adapter_translates_state():
     for _ in range(5):
         rs2 = rs2.proceed(kit.FoldAction())
     rs2 = rs2.proceed(kit.FoldAction()).proceed(kit.CheckAction()).proceed_street(["Ah", "Kd", "2c"])
+    assert rs2.acting == 0  # the big blind acts first postflop
+    rs2 = rs2.proceed(kit.CheckAction())
     assert rs2.acting == 1
     obs2 = ad.to_observation((gs, rs2, 1))
     assert obs2.street == 1 and obs2.pot == 50 and obs2.to_call == 0 and ActionKind.FOLD not in obs2.legal
-    assert obs2.board == (48, 45, 0) and obs2.in_hand == [False, True, False, False, False, False, False, False]
+    assert obs2.board == (50, 45, 0) and obs2.in_hand == [True, True, False, False, False, False, False, False]
     assert isinstance(ad.from_action(Action.fold().clamp(obs2), obs2, (gs, rs2, 1)), kit.CheckAction)
     assert isinstance(ad.native_safe((gs, rs2, 1)), kit.CheckAction)
     # without a new_round call the pot still comes out right, from the previous_state chain

@@ -189,13 +189,14 @@ class Engine:
         """History since the last packet, with a B clause wherever the street changed."""
         out = []
         hist = self.table.history
-        for i in range(self.sent, len(hist)):
-            board = self.board_at.get(i, ())
-            if len(board) > self.board_sent:
+        for i in range(self.sent, len(hist) + 1):  # + 1: the street may have changed for the decision being asked
+            board = self.board_at.get(i)
+            if board is not None and len(board) > self.board_sent:
                 out.append("B" + _cards(board))
                 self.board_sent = len(board)
-            seat, kind, total = hist[i]
-            out.append(_HIST.get(kind) or f"R{total}")
+            if i < len(hist):
+                seat, kind, total = hist[i]
+                out.append(_HIST.get(kind) or f"R{total}")
         self.sent = len(hist)
         return out
 
