@@ -95,3 +95,73 @@ Append only. Newest at the bottom. One paragraph each: what was decided, why, wh
   the evaluator for 3 hole cards; 4+ hole cards exceed its 8-card limit and SafeBot folds). No
   bounty/auction hooks. The profiler models frequencies, not ranges. Parameters are untuned beyond
   the one sweep above; `Config` is the place to tune.
+
+## Realistic fields baseline (2026-10-31)
+
+Three named fields in `hyperion/sim/bestiary.py` (`python -m hyperion.sim --field NAME`), each run for
+1000 strict tables: `--tables 125 --seed 7 --rotate`. The three runs went in parallel on the WSL2 box,
+so `tmo` for the fast bots (Hero 80-380, tag 30-80) is the host's scheduling noise described above, not
+the bots; the slow bots' `tmo` is real (MonteCarloBot's 200 rollouts cost 1-3 ms, the modeled
+timeouts sleep 2 ms). Hero's `1st_us` of ~4 ms is its per-table ICM curve and warm-up, as before. Hero
+entered panic mode on 2 of 1000 tables in realistic and chaos, none in strong.
+
+**realistic** = hero, montecarlo30, montecarlo, pushfold, loose_aggro, naive, tag, timeout_then_recover
+
+```
+bot                      n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill  p50us  p99us  maxus  1st_us
+tag                    125  5.768 0.108    14   30   19   14    9    5    5    3   62.0    81     0     0      3     16  13390    4019
+pushfold               125  5.548 0.121    19   21   20   13   10    7    6    5   65.3   129     0     0      4     22  22785    4032
+hero                   125  5.299 0.127    22   14   12   14   14   11    7    5   66.0   378     0     0     17     83  14335    4051
+loose_aggro            125  5.218 0.148    31   11   10    9   10   10   10    9   60.5    70     0     0      2     11  26179    4045
+montecarlo             125  3.828 0.085     1    4   11   20   22   19   12   11   97.9 36463     0     0      3   5709  37715      47
+montecarlo30           125  3.690 0.115     6    6    9   11   15   20   18   15   91.5 13756     0     0      3   6440  43462    4020
+timeout_then_recover   125  3.326 0.104     1    8   13   10    8   14   20   26   91.7 28249     0     0      3   5816  29028    4345
+naive                  125  3.323 0.128     7    6    6    9   12   13   21   27   90.5    36     0     0      2      7   8019     192
+1000 tables, 184426 hands in 286.1s: 645 hands/s. p1..pN are finish-position percentages; 1st_us is the slowest first call of a table.
+```
+
+**strong** = hero, pushfold, pushfold, tag, hero_tight, hero_loose, nit, loose_aggro (pushfold holds two
+seats, so one line with twice the seats; the field averages 36/8 = 4.5 points per name-seat)
+
+```
+bot             n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill  p50us  p99us  maxus  1st_us
+tag           125  4.887 0.109     7   20   18   15   13   12    7    8   73.5    31     0     0      4     17  11208      43
+hero          125  4.708 0.129    24   11    8    8   10   14   14   12   65.8   104     0     0     15     60  11421    4874
+hero_loose    125  4.505 0.155    20   10    9    8   12   12   17   12   71.2    82     0     0     15     60  10226     211
+hero_tight    125  4.424 0.150    14   12   10   10   10   16   17   10   73.6    90     0     0     15     58  23810     328
+nit           125  4.421 0.087     0    7   20   26   20   11    7    8   91.2    11     0     0      1      6   4667    2434
+pushfold      125  4.416 0.083     8   15   14   14   13   11   12   14   76.9    57     0     0      4     22  15639     287
+loose_aggro   125  4.223 0.141    19   10    8    6    9   12   14   21   69.5    23     0     0      3     14   4567     134
+1000 tables, 191940 hands in 301.2s: 637 hands/s. p1..pN are finish-position percentages; 1st_us is the slowest first call of a table.
+```
+
+**chaos** = hero, crasher, random, allin, station, montecarlo, maniac, timeout_then_recover
+
+```
+bot                      n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill  p50us  p99us  maxus  1st_us
+hero                   125  6.778 0.084    53    9   12   16    8    1    0    0   41.6   387     0     0     16     74  17642    4748
+crasher                125  6.272 0.045     0   39   48   12    0    0    0    0   93.7    22 137239     0      0      4   8017     114
+montecarlo             125  5.319 0.120    17   20   11   19   14    9    6    5   73.4 57095     0     0      6   5819  29277      73
+timeout_then_recover   125  5.176 0.111     8   25   11   17   20   10    4    4   78.7 44755     0     0      4   7287  28684    4761
+random                 125  3.588 0.100     3    2    5   13   25   30   11   10   96.6     3     0     0      1      4   8014      66
+allin                  125  3.132 0.151    10    1    4    7   11   17   23   28   89.8     2     0     0      0      2   4016      27
+maniac                 125  2.940 0.123     7    0    6    6    8   17   29   26   92.8     2     0     0      1      3   4014    5150
+station                125  2.794 0.117     1    4    3    9   13   16   28   27   98.3     6     0     0      0      1  10357    4014
+1000 tables, 149995 hands in 268.2s: 559 hands/s. p1..pN are finish-position percentages; 1st_us is the slowest first call of a table.
+```
+
+**Where Hero stands.** Hero wins the most tables in every field (22% / 24% / 53% first places) but it is
+only first on points in chaos (6.78 ± 0.08, where surviving the self-destructors is the whole game and
+even the crasher finishes 2nd-3rd by folding). In realistic it is third, 5.30 ± 0.13 behind `tag`
+(5.77) and `pushfold` (5.55), and in strong second, 4.71 ± 0.13 behind `tag` (4.89), with CIs that
+barely overlap. The gap is the tail, not the top: Hero finishes 5th-8th 37% of the time in realistic
+against tag's 22%, and busts 66% vs 62%. The bust tracer on the realistic field (240 seats) says 37% of
+Hero's busts are push/fold shoves at or below 12 bb that get called and lose, 18% are river calls, and
+the opponent most often on the other side is `loose_aggro` (alone in the pot for 18% of busts, present in
+29%), which calls short shoves and 3-bets wide enough that Hero's shoving range, tuned against folders,
+pays it off; `montecarlo30` is second (11%). So the archetype that hurts Hero most is the loose-aggressive
+student, and the lever is the shove range vs opponents whose observed call rate is high, not postflop.
+The two presets bracket the default (hero_loose 4.51, hero_tight 4.42, both below 4.71), so neither
+direction of the preflop dials alone closes the gap to `tag`. Note what `tag` and `pushfold` have in
+common: they never shove light and they fold the river; that is the baseline Hero must beat before any
+exploit matters.
