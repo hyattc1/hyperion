@@ -36,7 +36,8 @@ def _job(args):
     out = {}
     for nm, b in rep.bots.items():
         out[nm] = {"samples": b.samples, "seats": b.seats, "busts": b.busts, "places": b.places,
-                   "tmo": b.stats.over_budget, "exc": b.stats.exceptions, "ill": b.stats.illegal}
+                   "tmo": b.stats.over_budget, "exc": b.stats.exceptions, "ill": b.stats.illegal,
+                   "safe_err": b.stats.safe_err, "safe_over": b.stats.safe_over}
     return setting, field, offset, out, rep.hands
 
 
@@ -45,7 +46,8 @@ def _merge(parts):
     merged = {}
     for _, _, _, out, _ in sorted(parts, key=lambda p: p[2]):
         for nm, b in out.items():
-            m = merged.setdefault(nm, {"samples": [], "seats": 0, "busts": 0, "places": None, "tmo": 0, "exc": 0, "ill": 0})
+            m = merged.setdefault(nm, {"samples": [], "seats": 0, "busts": 0, "places": None, "tmo": 0, "exc": 0, "ill": 0,
+                                       "safe_err": 0, "safe_over": 0})
             m["samples"] += b["samples"]
             m["seats"] += b["seats"]
             m["busts"] += b["busts"]
@@ -53,6 +55,8 @@ def _merge(parts):
             m["tmo"] += b["tmo"]
             m["exc"] += b["exc"]
             m["ill"] += b["ill"]
+            m["safe_err"] += b.get("safe_err", 0)
+            m["safe_over"] += b.get("safe_over", 0)
     return merged
 
 
@@ -85,7 +89,8 @@ def settings_from_spec(spec: dict) -> dict[str, dict]:
 def format_results(results: dict, fields: dict, settings: dict, rival: str = "tag") -> str:
     lines = []
     base = results["base"]
-    head = f"{'setting':<44} {'field':<7} {'hero':>6} {'±':>5} {'bust%':>5} {'tmo':>4} {rival:>6} {'Δhero':>6} {'±':>5} {'Δ(h-' + rival + ')':>8}"
+    head = (f"{'setting':<44} {'field':<7} {'hero':>6} {'±':>5} {'bust%':>5} {'tmo':>4} {'serr':>4} {rival:>6} "
+            f"{'Δhero':>6} {'±':>5} {'Δ(h-' + rival + ')':>8}")
     lines.append(head)
     summary = {}
     for name in settings:
@@ -109,7 +114,8 @@ def format_results(results: dict, fields: dict, settings: dict, rival: str = "ta
                 dd, _ = mean_ci([(x - y) - (bx - by) for x, y, bx, by in zip(h["samples"], rv["samples"], b, br)])
             else:
                 dd = float("nan")
-            lines.append(f"{name[:44]:<44} {field:<7} {hm:>6.3f} {hc:>5.3f} {bust:>5.1f} {h['tmo']:>4} {rm:>6.3f} {d:>+6.3f} {dc:>5.3f} {dd:>+8.3f}")
+            lines.append(f"{name[:44]:<44} {field:<7} {hm:>6.3f} {hc:>5.3f} {bust:>5.1f} {h['tmo']:>4} "
+                         f"{h.get('safe_err', 0):>4} {rm:>6.3f} {d:>+6.3f} {dc:>5.3f} {dd:>+8.3f}")
             worst = d if worst is None else min(worst, d)
         summary[name] = worst
     lines.append("")

@@ -91,6 +91,7 @@ class Preflop:
         self.rank = tables.rank
         self.equity = tables.equity
         self.curve = _Linear()  # Hero installs its ICM curve; chip EV otherwise
+        self.last = ""  # the sub-decision that put chips in last (diagnostics: the runner's bust tracer reads it)
 
     # ------------------------------------------------------------------ sizing
     def open_size(self, spot: Spot) -> int:
@@ -115,11 +116,14 @@ class Preflop:
             return _CHECK if ActionKind.CHECK in obs.legal else _FOLD
         rank = self.rank[cls]
         p = self.p
+        self.last = ""
         if cheap:
+            self.last = "cheap"
             return self._cheap(spot, rank)
         if spot.n_raises == 0:
             return self._unopened(spot, rank, prof)
         if spot.facing_shove:
+            self.last = "call_shove"
             return self._facing_shove(spot, cls, rank, prof)
         if spot.n_raises == 1:
             return self._facing_open(spot, cls, rank, prof)
@@ -128,14 +132,18 @@ class Preflop:
             if rank >= 1.0 - frac:
                 amount = spot.cur_bet * p.four_bet_mult
                 if amount >= p.shove_instead_frac * spot.my_total and not self._reraise_ok(spot, cls, prof):
+                    self.last = "call_3bet_flat"
                     return _CALL if spot.to_call <= p.call_max_stack_frac * spot.my_total else _FOLD
+                self.last = "4bet"
                 return self._raise_to(spot, amount)
             if spot.raiser != spot.me and self._opened(spot):
                 if rank >= 1.0 - p.call_3bet_frac and spot.to_call <= p.call_max_stack_frac * spot.my_total \
                         and spot.my_bb >= p.raise_or_fold_bb and spot.behind == 0:
+                    self.last = "call_3bet"
                     return _CALL
             return _FOLD
         if rank >= 1.0 - p.five_bet_frac and self._reraise_ok(spot, cls, prof):
+            self.last = "5bet"
             return Action(ActionKind.RAISE, obs.max_raise)
         return _FOLD
 
@@ -175,8 +183,10 @@ class Preflop:
             if spot.exposed:
                 frac *= self._exposed_steal_mult(spot)
             if rank >= 1.0 - frac:
+                self.last = "open"
                 return self._raise_to(spot, self.open_size(spot))
             if me == spot.sb_seat and rank >= 1.0 - p.sb_complete_frac and spot.to_call <= spot.bb and spot.my_bb >= p.raise_or_fold_bb:
+                self.last = "complete"
                 return _CALL
             return _CHECK if can_check else _FOLD
         # limpers ahead
@@ -185,12 +195,15 @@ class Preflop:
             iso *= self._steal_mult(spot, prof)
         if me == spot.bb_seat:
             if rank >= 1.0 - p.bb_raise_over_limps_frac:
+                self.last = "raise_limps"
                 return self._raise_to(spot, self.open_size(spot))
             return _CHECK if can_check else _CALL
         if rank >= 1.0 - iso:
+            self.last = "iso"
             return self._raise_to(spot, self.open_size(spot))
         if spot.behind <= p.steal_positions and rank >= 1.0 - p.overlimp_frac and spot.to_call <= spot.bb \
                 and spot.my_bb >= p.raise_or_fold_bb:
+            self.last = "overlimp"
             return _CALL
         return _CHECK if can_check else _FOLD
 
@@ -227,22 +240,27 @@ class Preflop:
             three *= max(0.6, min(2.0, 1.0 + (pfr - 0.15) * 3.0))
         if rank >= 1.0 - three:
             mult = p.three_bet_mult_ip if spot.behind == 0 else p.three_bet_mult_oop
+            self.last = "3bet"
             return self._raise_to(spot, spot.cur_bet * mult)
         to_call, my_total = spot.to_call, spot.my_total
         if to_call > p.call_max_stack_frac * my_total:
             # a big raise: it is shove-or-fold territory, and only premiums continue
             margin = p.shove_call_margin + self._patience(spot, prof, spot.raiser)
             if rank >= 1.0 - p.short_flat_frac and self._icm_call_ok(spot, cls, margin, 0):
+                self.last = "big_raise_call"
                 return Action(ActionKind.RAISE, spot.obs.max_raise) if to_call >= 0.4 * my_total else _CALL
             return _FOLD
         pair = cls[0] == cls[1]
         if pair and spot.eff >= p.setmine_ratio * to_call:
+            self.last = "setmine"
             return _CALL
         if spot.my_bb < p.raise_or_fold_bb:
+            self.last = "short_flat"
             return _CALL if rank >= 1.0 - p.short_flat_frac else _FOLD
         if rank < 1.0 - p.call_raise_frac:
             return _FOLD
         margin = p.call_margin_ip if spot.behind == 0 else p.call_margin_oop
+        self.last = "call_open"
         return _CALL if self._equity_ok(spot, cls, margin, 1 if spot.behind >= p.crowd_behind else 0) else _FOLD
 
     def _facing_shove(self, spot: Spot, cls: str, rank: float, prof: Profiler | None) -> Action:

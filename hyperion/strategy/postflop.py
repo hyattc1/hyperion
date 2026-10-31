@@ -141,6 +141,7 @@ class Postflop:
         self.wild_rank = -1  # canonical rank index of the wild card, -1 = none
         self.flush_over_full = False
         self._mult = 1.0  # bet-size multiplier for the current decision (two boards: 0.5)
+        self.last = ""  # the sub-decision taken last (diagnostics: the runner's bust tracer reads it)
 
     def set_mode(self, low: bool = False, wild_rank: int = -1, flush_over_full: bool = False) -> None:
         """Ranking-axis switches Hero sets per table from Rules.extras."""
@@ -592,24 +593,31 @@ class Postflop:
             all_dead = False
         value_tier = p.value_tier + int(shift) + value_shift
         big_value_tier = p.big_value_tier + value_shift
+        self.last = ""
         if cheap:
+            self.last = "cheap"
             return self._cheap(spot, tier, eq, wet)
 
         if spot.to_call == 0:
             # ---- nobody has bet: value, c-bet, semi-bluff, or check
             if all_dead:
+                self.last = "dead_bet"
                 return self._bet(spot, p.dead_bet_size)
             if any_station:
                 if street == 3:
                     if tier >= p.station_river_tier + value_shift:
+                        self.last = "station_river"
                         return self._bet(spot, p.station_river_size, eq=eq)
                     return _CHECK
                 if tier >= p.station_early_tier + value_shift:
+                    self.last = "station_value"
                     return self._bet(spot, p.value_size_wet, eq=eq)
                 return _CHECK
             if tier >= big_value_tier:
+                self.last = "big_value"
                 return self._bet(spot, p.big_value_size, eq=eq)
             if tier >= value_tier:
+                self.last = "value"
                 return self._bet(spot, p.value_size_wet if wet else p.value_size_dry, eq=eq)
             if bluff_mult <= 0.0 or spot.my_total <= 0:
                 return _CHECK
@@ -624,10 +632,12 @@ class Postflop:
                 if self.rng.random() < freq:
                     size = p.cbet_size_wet if wet else p.cbet_size_dry
                     if size * spot.pot_total <= p.bluff_max_stack_frac * spot.my_total:
+                        self.last = "cbet"
                         return self._bet(spot, size, bluff=True)
                 return _CHECK
             if tier == 3 and cards_to_come and self.rng.random() < p.semibluff_freq * bluff_mult:
                 if p.bluff_size * spot.pot_total <= p.bluff_max_stack_frac * spot.my_total:
+                    self.last = "semibluff"
                     return self._bet(spot, p.bluff_size, bluff=True)
             return _CHECK
 
@@ -642,8 +652,10 @@ class Postflop:
         if any_station and bettor >= 0 and prof is not None and prof.station(bettor):
             margin += p.passive_bettor_extra_margin
         if tier >= p.raise_tier + value_shift:
+            self.last = "raise"
             return self._bet(spot, p.raise_size, eq=eq)
         if eq >= pot_odds + margin:
+            self.last = "call"
             if spot.to_call >= p.icm_gate_frac * obs.stacks[spot.me] and not self._commit_ok(spot, eq, spot.to_call):
                 return _FOLD
             return _CALL

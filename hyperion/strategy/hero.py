@@ -347,6 +347,7 @@ class HeroCore:
         self.panic = on
 
     def act(self, obs: Observation) -> Action:
+        self.last_path = "act"  # until a module is chosen: an error before that point is attributed here
         hole = obs.hole
         board = obs.board
         rm = self._remap

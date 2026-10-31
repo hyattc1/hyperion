@@ -29,7 +29,7 @@ from ..core.cards import hole_class
 from ..core.types import ActionKind, Rules
 from . import bestiary
 from .bestiary import FIELDS, REGISTRY, field_names, make_bot
-from .engine import BotStats, play_table
+from .engine import BUDGET_NS, BotStats, find_safe, play_table
 
 
 @dataclass
@@ -61,8 +61,12 @@ class BotReport:
 
 class BustTracer:
     """Wraps one bot and remembers, per hand, its last decision that put chips in. When the bot
-    busts, that decision is the one that did it: street, module (hero exposes `core.last_path`),
-    kind, how much of the stack it cost, stack in blinds, players alive, and who was in the pot."""
+    busts, that decision is the one that did it: street, module and sub-decision (hero exposes
+    `core.last_path` and each module's `last`, e.g. `pushfold.call_shove`), kind, how much of the stack
+    it cost, stack in blinds, players alive, and who was in the pot. Two attribution flags: `inner_error`
+    when the bot's SafeBot swallowed an exception during that act (the fallback acted, not the module),
+    and `overran` when the call took longer than the engine's budget (in strict mode the engine then
+    checked or folded, whatever the bot returned)."""
 
     def __init__(self, inner, name: str, seating: Sequence[str], sink: list):
         self.inner = inner
@@ -73,15 +77,19 @@ class BustTracer:
         self.last = None
         self.start = None
         self.hand_no = -1
+        self.safe = None
 
     def new_table(self, rules, seat, n):
         self.seat = seat
         self.inner.new_table(rules, seat, n)
+        self.safe = find_safe(self.inner)
 
     def _path(self) -> str:
         impl = getattr(self.inner, "impl", None)
         core = getattr(impl, "core", None)
-        return getattr(core, "last_path", "") or type(impl or self.inner).__name__
+        path = getattr(core, "last_path", "") or type(impl or self.inner).__name__
+        sub = getattr(getattr(core, path, None), "last", "") if core is not None else ""
+        return f"{path}.{sub}" if sub else path
 
     def act(self, obs):
         me = self.seat
@@ -89,7 +97,11 @@ class BustTracer:
             self.hand_no = obs.hand_no
             self.start = obs.stacks[me] + obs.bets[me]
             self.last = None
+        safe = self.safe
+        err0 = safe.errors if safe is not None else 0
+        t0 = time.perf_counter_ns()
         a = self.inner.act(obs)
+        dt = time.perf_counter_ns() - t0
         k = a.kind
         if k is ActionKind.CALL or k is ActionKind.RAISE:
             total = obs.stacks[me] + obs.bets[me]
@@ -97,8 +109,10 @@ class BustTracer:
             bb = obs.blinds[1] or 1
             shover = any(obs.in_hand[s] and obs.stacks[s] == 0 and obs.bets[s] >= max(obs.bets) > 0
                          for s in range(len(obs.stacks)) if s != me)
+            inner_error = safe is not None and safe.errors > err0
             self.last = {
-                "hand": obs.hand_no, "street": obs.street, "path": self._path(), "kind": k.value,
+                "hand": obs.hand_no, "street": obs.street, "path": ("safe_error:" if inner_error else "") + self._path(),
+                "kind": k.value, "inner_error": inner_error, "overran": dt > BUDGET_NS,
                 "frac": put / obs.stacks[me] if obs.stacks[me] else 1.0, "bb": self.start / bb, "to_call_bb": obs.to_call / bb,
                 "alive": obs.players_left, "cls": hole_class(obs.hole) if len(obs.hole) == 2 else "?",
                 "n_opps": sum(obs.in_hand) - 1, "facing_shove": shover,
@@ -111,7 +125,8 @@ class BustTracer:
         if self.start is not None and result.hand_no == self.hand_no and result.deltas[self.seat] <= -self.start:
             rec = dict(self.last) if self.last else {"hand": result.hand_no, "street": -1, "path": "none", "kind": "blind",
                                                      "frac": 1.0, "bb": 0.0, "to_call_bb": 0.0, "alive": 0, "cls": "?",
-                                                     "n_opps": 0, "facing_shove": False, "opps": ()}
+                                                     "n_opps": 0, "facing_shove": False, "opps": (),
+                                                     "inner_error": False, "overran": False}
             self.sink.append(rec)
 
 
@@ -122,6 +137,10 @@ def format_busts(busts: list, seats: int) -> str:
     from collections import Counter
     n = len(busts)
     out = [f"{n} busts in {seats} seats ({100 * n / seats:.1f}%)"]
+    n_err = sum(1 for b in busts if b.get("inner_error"))
+    n_over = sum(1 for b in busts if b.get("overran"))
+    out.append(f"  fatal decisions attributed to the module that acted; {n_err} had an inner error swallowed by "
+               f"SafeBot (its fallback acted), {n_over} ran over the 1 ms budget (strict mode: the engine acted)")
 
     def table(title, key, top=12):
         c = Counter(key(b) for b in busts)
@@ -162,23 +181,30 @@ class Report:
         w = max(10, max((len(nm) for nm in self.bots), default=10))
         head = (f"{'bot':<{w}} {'n':>5} {'pts':>6} {'±95%':>5}  "
                 + " ".join(f"{'p' + str(i + 1):>4}" for i in range(n_places))
-                + f"  {'bust%':>5} {'tmo':>5} {'exc':>5} {'ill':>5} "
+                + f"  {'bust%':>5} {'tmo':>5} {'exc':>5} {'ill':>5} {'safe_err':>8} {'safe_over':>9} "
                 f"{'p50us':>6} {'p99us':>6} {'maxus':>6} {'1st_us':>7}")
         lines = [head]
+        swallowed = 0
         for name, b in sorted(self.bots.items(), key=lambda kv: -kv[1].mean):
             dist = " ".join(f"{100 * c / b.seats:4.0f}" if b.seats else "   -" for c in b.places)
             st = b.stats
+            swallowed += st.safe_err
             lines.append(
                 f"{name:<{w}} {len(b.samples):>5} {b.mean:>6.3f} {b.ci95:>5.3f}  {dist}  "
                 f"{100 * b.bust_rate:>5.1f} {st.over_budget:>5} {st.exceptions:>5} {st.illegal:>5} "
+                f"{st.safe_err:>8} {st.safe_over:>9} "
                 f"{st.percentile_us(0.5):>6.0f} {st.percentile_us(0.99):>6.0f} {st.max_ns / 1000:>6.0f} "
                 f"{st.first_max_ns / 1000:>7.0f}"
             )
         lines.append(
             f"{self.tables} tables, {self.hands} hands in {self.seconds:.1f}s: "
             f"{self.hands_per_second:,.0f} hands/s. p1..pN are finish-position percentages; "
-            f"1st_us is the slowest first call of a table."
+            f"1st_us is the slowest first call of a table; safe_err / safe_over are exceptions and deadline "
+            f"overruns a SafeBot swallowed inside the bot (the engine's exc column cannot see them)."
         )
+        if swallowed:
+            lines.append(f"WARNING: {swallowed} inner exceptions were swallowed by SafeBot and played as a check or "
+                         f"fold; run with --trace-busts BOT or look at hero.safe.stats() before trusting the points.")
         return "\n".join(lines)
 
 

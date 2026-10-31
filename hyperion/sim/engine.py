@@ -77,7 +77,7 @@ class BotStats:
 
     __slots__ = (
         "name", "calls", "sum_ns", "max_ns", "hist", "over_budget", "exceptions", "illegal",
-        "first_calls", "first_sum_ns", "first_max_ns", "last_error", "_fresh",
+        "first_calls", "first_sum_ns", "first_max_ns", "last_error", "_fresh", "safe_err", "safe_over",
     )
 
     def __init__(self, name: str = "bot"):
@@ -93,6 +93,11 @@ class BotStats:
         self.first_sum_ns = 0
         self.first_max_ns = 0
         self.last_error = ""
+        # what a SafeBot wrapper (hyperion.strategy.safe) swallowed: inner exceptions turned into a check or
+        # fold, and inner calls over its own deadline. The engine never sees either, so `exceptions` stays 0;
+        # a silent KeyError once ran at one hand in 25 for hours. Harvested once per table (Table._harvest_safe).
+        self.safe_err = 0
+        self.safe_over = 0
         self._fresh = True
 
     def new_table(self) -> None:
@@ -129,6 +134,8 @@ class BotStats:
         self.first_sum_ns += other.first_sum_ns
         self.first_max_ns = max(self.first_max_ns, other.first_max_ns)
         self.last_error = self.last_error or other.last_error
+        self.safe_err += other.safe_err
+        self.safe_over += other.safe_over
 
     def percentile_us(self, q: float) -> float:
         """q in [0, 1]; resolution 1 us; values beyond 10 ms report as 10000."""
@@ -351,6 +358,7 @@ class Table:
         self.bonus = [0.0] * n  # points added by a variant's on_bust (knockout bounties)
         self.alive_count = sum(1 for s in self.stacks if s > 0)
         self.done = self.alive_count <= 1
+        self._harvested = False
         for s, bot in enumerate(self.bots):
             try:
                 bot.new_table(rules, s, n)
@@ -746,11 +754,44 @@ class Table:
                 self.places[s] = place
                 self.points[s] = eq[s] + self.bonus[s]
             self.done = True
+        if self.done:
+            self._harvest_safe()
+
+    def _harvest_safe(self) -> None:
+        """Observability only. A SafeBot (hyperion.strategy.safe) turns its inner bot's exceptions and
+        deadline overruns into legal actions, so `BotStats.exceptions` never sees them. Once per table, read
+        its counters (it resets them in new_table) into safe_err / safe_over."""
+        if self._harvested:
+            return
+        self._harvested = True
+        for s, bot in enumerate(self.bots):
+            safe = find_safe(bot)
+            if safe is not None:
+                st = self.stats[s]
+                st.safe_err += int(getattr(safe, "errors", 0) or 0)
+                st.safe_over += int(getattr(safe, "overruns", 0) or 0)
 
     def _place(self, seat: int, place: int) -> None:
         payouts = self.rules.payouts
         self.places[seat] = place
         self.points[seat] = (float(payouts[place]) if place < len(payouts) else 0.0) + self.bonus[seat]
+
+
+def find_safe(bot, depth: int = 5):
+    """The SafeBot inside a possibly wrapped bot: `bot.safe`, or the same through the .impl / .inner chain
+    (BustTracer -> bestiary.Hero -> strategy.Hero.safe), or the object itself when it is the SafeBot."""
+    obj = bot
+    for _ in range(depth):
+        if obj is None:
+            return None
+        safe = getattr(obj, "safe", None)
+        if safe is not None and hasattr(safe, "errors") and hasattr(safe, "overruns"):
+            return safe
+        if hasattr(obj, "errors") and hasattr(obj, "overruns") and hasattr(obj, "panic_mode"):
+            return obj
+        nxt = getattr(obj, "impl", None)
+        obj = nxt if nxt is not None else getattr(obj, "inner", None)
+    return None
 
 
 def play_table(

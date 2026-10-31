@@ -309,6 +309,7 @@ class PushFold:
         self.call_disc = {D: self._discount(self.push_set[D], self.eq_vs_call[D]) for D in self.depths}
         self.push_disc = {D: self._discount(self.call_set[D], self.eq_vs_push[D]) for D in self.depths}
         self.curve = _Linear()
+        self.last = ""  # the sub-decision taken last (diagnostics: the runner's bust tracer reads it)
 
     def with_tables(self, tables: Tables) -> "PushFold":
         """The same solution and dials, looking hands up in another rank / equity table (a 3- or 4-card
@@ -377,11 +378,13 @@ class PushFold:
 
     # ------------------------------------------------------------ decisions
     def act(self, spot: Spot, prof: Profiler | None, cheap: bool = False) -> Action:
-        obs = spot.obs
         if spot.facing_shove:
+            self.last = "call_shove"
             return self._call_shove(spot, prof, cheap)
         if spot.n_raises == 0:
+            self.last = "push"
             return self._push_or_fold(spot, prof, cheap)
+        self.last = "reshove"
         return self._reshove(spot, prof, cheap)
 
     def _callers(self, spot: Spot, prof: Profiler | None):
@@ -407,6 +410,7 @@ class PushFold:
         free = _CHECK if ActionKind.CHECK in obs.legal else _FOLD
         if k == 0:
             # nobody live can call: any shove takes the pot (dead seats fold to a bet)
+            self.last = "push_free"
             return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else free
         f = self.p_push[D] / (1.0 + p.tighten_per_player * (k - 1))
         loose_sum = 0.0
@@ -483,6 +487,7 @@ class PushFold:
             if self._push_ev_ok(spot, pc_raiser, e, spot.cover_frac):
                 return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else _CALL
         if spot.behind == 0 and spot.to_call <= p.bb_flat_max_frac * spot.my_total and self.rank[cls] >= p.bb_flat_min_rank:
+            self.last = "bb_flat"
             return _CALL
         return _CHECK if ActionKind.CHECK in obs.legal else _FOLD
 
