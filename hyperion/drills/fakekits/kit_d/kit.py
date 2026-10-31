@@ -1,6 +1,6 @@
-"""Fake starter kit D: an MIT Pokerbots style skeleton, widened from heads-up to the 8-seat Sequoia table.
+"""Fake starter kit D: a socket-skeleton style kit, widened from heads-up to the 8-seat target table.
 
-Written from the documented interface of mitpokerbots/engine-2026 python_skeleton (bot.py, states.py,
+Written from the documented interface of a public heads-up engine's 2026 python_skeleton (bot.py, states.py,
 actions.py, runner.py), not from its code. What a submission sees:
 
   class Bot                 subclass it and implement

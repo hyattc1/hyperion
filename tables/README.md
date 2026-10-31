@@ -39,6 +39,6 @@ matrix at 1/20 of that) so the whole catalog generates in a few minutes on 7 wor
 shared with `tables/` ("default"), or cannot be generated ("unsupported": lowball, wild_deuces and
 hi_lo need a score hook the generator does not have). The 169x169 matrix exists only for 2-card
 entries; 3- and 4-card entries get `hole_classes.json`. `tools/gen_catalog.py --only NAME`
-regenerates one entry; raise `SAMPLES` in that file for event-night precision. Hero does not read
+regenerates one entry; raise `SAMPLES` in that file when precision matters more than minutes. Hero does not read
 these directories yet: `strategy/tables.py` loads `tables/` only (a `tables_dir` knob is the
 strategy owner's).

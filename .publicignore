@@ -1,0 +1,24 @@
+# Paths left out of the public export built by tools/export_public.py.
+# One pattern per line, gitignore style: a trailing slash names a directory, a leading slash or an
+# inner slash anchors the pattern to the repo root, * and ? glob within one path segment.
+# The tool also always drops .git/, this file, itself and its test.
+.git/
+.venv/
+.pytest_cache/
+.benchmarks/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+scratch/
+drills/scratch/
+drills/log/
+docs/research/
+docs/drills/
+docs/packet/
+docs/prompts/
+docs/night-of.md
+# the decision log is a working journal, not public documentation
+docs/decisions.md
+PLAYBOOK.md
+NIGHT*.md

@@ -1,4 +1,4 @@
-"""Fake starter kit C: a line protocol over stdin/stdout, in the spirit of MIT Pokerbots.
+"""Fake starter kit C: a line protocol over stdin/stdout, in the spirit of the classic pokerbot engines.
 
 Every message is one line of space-separated clauses; the first character of a clause is its key.
 The engine writes to your stdin, you write ONE line to stdout only when the message has an L clause.

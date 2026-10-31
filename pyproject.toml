@@ -1,7 +1,7 @@
 [project]
 name = "hyperion"
 version = "0.1.0"
-description = "A millisecond poker bot and training ground for Sequoia's No Limit bot-building tournament"
+description = "Millisecond-budget poker engine, bot sandbox and strategy tables in pure Python"
 requires-python = ">=3.10"
 dependencies = []
 

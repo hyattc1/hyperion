@@ -1,4 +1,4 @@
-# Kit D rubric: MIT Pokerbots style Bot, 8 seats, socket
+# Kit D rubric: skeleton-style Bot over a socket, 8 seats
 
 | Kit D | Ours | Trap |
 |---|---|---|

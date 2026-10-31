@@ -404,3 +404,21 @@ three hole cards a submission must warm it before `run_bot`.
 
 `hyperion/drills/run.py` does not list kit D: adding it is two edits (`KITS` and a branch in
 `Drill.run_kit`), spelled out at the end of `kit_d/RUBRIC.md`; run.py is owned elsewhere this round.
+
+## Public surface (2026-10-31)
+
+The repo is private and stays private, but its public-facing surface now reads as a generic project: a
+millisecond-budget poker engine, bot sandbox and strategy tables. Scrubbed in place: `README.md` (new intro,
+no event framing or event links; layout, run commands and "what it does not do" kept), the `pyproject.toml`
+description, `tables/README.md`, the design spec (event references became "the target format" with the
+constraints stated plainly), and every docstring or comment under `core/`, `sim/`, `drills/`, `tools/` and
+`tests/` that named the event, its hosts, its dates, or the competition the fake kits imitate.
+`tools/export_public.py` builds the public tree: it copies the repo minus `.git`, `.venv`, `docs/research/`,
+`docs/drills/`, `docs/packet/`, `docs/prompts/`, `PLAYBOOK.md`, `docs/night-of.md`, `drills/log/`, `NIGHT*.md`,
+this log (a working journal with event references on two lines) and whatever `.publicignore` lists, drops
+itself, its test and `.publicignore`, then checks every exported path and text file against the denylist and
+exits non-zero listing `file:line` on any hit; `--init-git` makes a single squashed commit.
+`tests/test_export_public.py` runs that export and fails on any hit, so the public surface cannot regress
+unnoticed. Any public release must be a fresh-history export made by that tool: commit messages and the
+excluded docs are event material and never ship. GitHub metadata checked: description generic, no homepage,
+no topics.

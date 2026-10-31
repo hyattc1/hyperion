@@ -578,8 +578,8 @@ def toss_or_holdem() -> Variant:
             "{'decision': 'discard'}), and opponents' discards are dead cards (obs.extras['discards']) hero "
             "should remove from any HS estimate. Hero plays 3 hole cards as check/fold preflop and safe "
             "postflop until the preflop module reads hole_label; expect it to finish near the bottom. "
-            "If Sequoia keeps MIT's rule that discards join the board, board_sizes become (0, 2, 2+n, 3+n, "
-            "4+n) and the evaluator needs a best-5-of-many path; nothing here is ready for that."
+            "If the target format keeps the heads-up rule that discards join the board, board_sizes become "
+            "(0, 2, 2+n, 3+n, 4+n) and the evaluator needs a best-5-of-many path; nothing here is ready for that."
         ),
         checklist=(
             "python tools/gen_tables.py --rules variant.json --out tables/  (writes hole_classes.json)",

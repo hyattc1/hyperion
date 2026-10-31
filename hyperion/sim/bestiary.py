@@ -349,7 +349,7 @@ class Hero(_Base):
         self.impl.hand_end(result)
 
 
-# ----- the field at the event: one-hour Codex builds under a 1 ms clock -------------------------
+# ----- the field: one-hour agent-assisted builds under a 1 ms clock ------------------------------
 
 
 class MonteCarloBot(_Base):

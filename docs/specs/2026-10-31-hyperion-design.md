@@ -1,22 +1,22 @@
 # hyperion design
 
-Prep for Sequoia's "No Limit: A Bot Building Tournament" (pokerbot.sequoiacap.com). Full research is in
-`docs/research/`. This document is the build contract.
+A millisecond-budget poker bot for a timed bot-building format, called the target format below; its
+constraints are stated plainly under "Hard constraints". This document is the build contract.
 
 ## Intent
 
 Win tables, not poker. Scoring is relative: eight bots per table, points by finishing position plus ICM, averaged
-over 10,000 tables, six tournaments weighted 1..6. The field is one-hour student bots. The bot that wins is the
+over 10,000 tables, six tournaments weighted 1..6. The field is bots built in an hour. The bot that wins is the
 one that never crashes, never times out, plays the short-stack phase correctly, and exploits the archetypes that
 one-hour bots always are.
 
-## Hard constraints (from the official rules)
+## Hard constraints (the target format)
 
 - Python only. Provided `Agent` interface, unknown signature until build start.
 - 1 ms per decision. Timeout or exception auto-folds (checks if possible).
 - 100 MB submission cap, sandboxed, no network, state reset per table, opponents anonymized.
 - 8-max SNG: 2,000 chips, blinds 10/20 rising every 25 hands, 200-hand cap, ICM at cap.
-- Variant secret until build; Finals use a different variant.
+- Variant secret until build; a later round may use a different variant.
 - Allowed third-party packages unknown. Decision path is stdlib only.
 
 ## Goals
@@ -25,7 +25,7 @@ one-hour bots always are.
 2. Have every decision under 0.3 ms in pure Python on a slow laptop (3x margin on 1 ms).
 3. Regenerate every table from parameters (rank order, hole-card count, hand-category order) in under 5 minutes.
 4. Measure, not guess: a local 8-max SNG harness with a bestiary of likely opponents and confidence intervals.
-5. Rehearse: timed drills against past MIT Pokerbots variants with a fake kit.
+5. Rehearse: timed drills against a catalog of plausible variants with a fake kit.
 
 ## Non-goals
 

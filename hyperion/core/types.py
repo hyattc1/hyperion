@@ -16,7 +16,7 @@ SUITS = "cdhs"
 
 @dataclass(frozen=True)
 class Rules:
-    """Variant parameters. Defaults are standard no-limit hold'em, 8-max SNG per the Sequoia rules."""
+    """Variant parameters. Defaults are standard no-limit hold'em, 8-max SNG in the target format."""
 
     hole_cards: int = 2
     board_sizes: tuple[int, ...] = (0, 3, 4, 5)  # cards on board per street index
