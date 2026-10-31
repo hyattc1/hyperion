@@ -6,6 +6,9 @@ from hyperion.sim.engine import Table, play_table
 from tests.sim_helpers import Auditor
 
 NAMES = [n for n in B.REGISTRY if n not in ("crasher", "timeout")]
+# bots that spend the budget on purpose (Monte Carlo rollouts, modeled timeouts)
+SLOW = ("montecarlo", "montecarlo30", "timeout_then_recover")
+FAST = [n for n in NAMES if n not in SLOW]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -26,9 +29,9 @@ def test_each_bot_plays_200_hands_without_error(name):
     assert sum(len(b.decisions) for b in bots) > 0
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", FAST)
 def test_each_bot_in_a_mixed_field_stays_under_budget(name):
-    names = [name] + [n for n in NAMES if n != name][:7]
+    names = [name] + [n for n in FAST if n != name][:7]
     while len(names) < 8:
         names.append("station")
     bots = [B.make_bot(n, seed=s) for s, n in enumerate(names)]

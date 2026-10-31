@@ -11,7 +11,7 @@ import random
 import time
 from typing import Optional
 
-from ..core.cards import hole_class
+from ..core.cards import deck_for, hole_class
 from ..core.eval import category, evaluate
 from ..core.types import RANKS, Action, ActionKind, HandResult, Observation, Rules
 
@@ -117,6 +117,24 @@ def _raise_or_call(obs: Observation, total: int) -> Action:
     if RAISE in obs.legal:
         return Action.raise_to(max(obs.min_raise, min(obs.max_raise, int(total))))
     return _check_or_call(obs)
+
+
+def chen_preflop(obs: Observation, raise_score: float = 9.0, call_score: float = 6.0) -> Action:
+    """The preflop most students ship: Chen score thresholds, 3x opens, limp-along when it is cheap."""
+    bb = obs.big_blind
+    score = chen_score(obs.hole)
+    if score >= raise_score:
+        return _raise_or_call(obs, 3 * bb if obs.to_call <= bb else 3 * (obs.to_call + obs.bets[obs.seat]))
+    if score >= call_score or obs.to_call <= bb and score >= 4:
+        return _check_or_call(obs)
+    return _check_or_fold(obs)
+
+
+def facing_shove(obs: Observation) -> bool:
+    """Someone still in the hand is all-in for at least the current bet."""
+    top = max(obs.bets)
+    return any(obs.in_hand[s] and obs.stacks[s] == 0 and obs.bets[s] >= top > 0
+               for s in range(obs.n_players) if s != obs.seat)
 
 
 class _Base:
@@ -235,12 +253,7 @@ class NaiveEquityBot(_Base):
     def act(self, obs: Observation) -> Action:
         bb = obs.big_blind
         if obs.street == 0:
-            score = chen_score(obs.hole)
-            if score >= self.raise_score:
-                return _raise_or_call(obs, 3 * bb if obs.to_call <= bb else 3 * (obs.to_call + obs.bets[obs.seat]))
-            if score >= self.call_score or obs.to_call <= bb and score >= 4:
-                return _check_or_call(obs)
-            return _check_or_fold(obs)
+            return chen_preflop(obs, self.raise_score, self.call_score)
         cat = made_category(obs.hole, obs.board)
         eq = self.CATEGORY_EQUITY[max(cat, 0)]
         if obs.to_call == 0:
@@ -336,6 +349,337 @@ class Hero(_Base):
         self.impl.hand_end(result)
 
 
+# ----- the field at the event: one-hour Codex builds under a 1 ms clock -------------------------
+
+
+class MonteCarloBot(_Base):
+    """What most students actually write: Chen preflop, Monte Carlo equity postflop, bet when
+    equity beats pot odds by a margin. The rollouts genuinely take the time (200 of them cost
+    1-3 ms in pure Python), so in strict mode almost every postflop decision is auto-folded and
+    in measure mode the bot plays.
+
+    Two ways to put it in a field:
+      samples=200, timeout_frac=None   the honest bot: use it to see what really happens to it.
+      timeout_frac=0.3                 cheap model of "times out 30% of the time": that share of
+                                       postflop decisions sleeps past the budget; the rest run
+                                       `fast_samples` rollouts via rng.sample so they land in time.
+                                       Use this for large fields (10x faster) and when the question
+                                       is how Hero does against a partially broken opponent.
+    """
+
+    def __init__(self, seed: Optional[int] = None, samples: int = 200, timeout_frac: Optional[float] = None,
+                 fast_samples: int = 30, margin: float = 0.05, bet_eq: float = 0.6, raise_eq: float = 0.75,
+                 sleep_s: float = 0.002):
+        super().__init__(seed)
+        self.samples, self.timeout_frac, self.fast_samples = samples, timeout_frac, fast_samples
+        self.margin, self.bet_eq, self.raise_eq, self.sleep_s = margin, bet_eq, raise_eq, sleep_s
+        self.deck = list(deck_for(self.rules))
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self.deck = list(deck_for(rules))
+
+    def equity(self, hole: tuple[int, ...], board: tuple[int, ...], n_opp: int, samples: int, fast: bool) -> float:
+        """Equity vs n_opp random hands run out to the river, displayed cards evaluated as is."""
+        dead = set(hole) | set(board)
+        stub = [c for c in self.deck if c not in dead]
+        k = self.rules.hole_cards
+        need = self.rules.board_sizes[-1] - len(board)
+        n_opp = max(1, n_opp)
+        take = n_opp * k + need
+        if take > len(stub) or len(hole) + self.rules.board_sizes[-1] > 8:
+            return 0.5
+        rng, shuffle, sample = self.rng, self.rng.shuffle, self.rng.sample
+        acc = 0.0
+        for _ in range(samples):
+            if fast:
+                pick = sample(stub, take)
+            else:
+                shuffle(stub)  # the student's deck.shuffle(); deal from the top
+                pick = stub
+            full = board + tuple(pick[n_opp * k : take])
+            mine = evaluate(hole + full)
+            best, ties = 0, 1
+            for i in range(n_opp):
+                s = evaluate(tuple(pick[i * k : i * k + k]) + full)
+                if s > best:
+                    best, ties = s, 1
+                elif s == best:
+                    ties += 1
+            acc += 1.0 if mine > best else (1.0 / ties if mine == best else 0.0)
+        return acc / samples
+
+    def act(self, obs: Observation) -> Action:
+        if obs.street == 0:
+            return chen_preflop(obs)
+        n_opp = obs.active - 1
+        if self.timeout_frac is not None:
+            if self.rng.random() < self.timeout_frac:
+                time.sleep(self.sleep_s)
+            eq = self.equity(obs.hole, obs.board, n_opp, min(self.samples, self.fast_samples), True)
+        else:
+            eq = self.equity(obs.hole, obs.board, n_opp, self.samples, False)
+        pot = obs.total_pot
+        if obs.to_call == 0:
+            if eq >= self.bet_eq and RAISE in obs.legal:
+                return _raise_or_call(obs, obs.bets[obs.seat] + max(obs.big_blind, (2 * pot) // 3))
+            return Action.check()
+        odds = obs.to_call / (pot + obs.to_call)
+        if eq >= self.raise_eq and RAISE in obs.legal:
+            return _raise_or_call(obs, obs.bets[obs.seat] + obs.to_call + pot)
+        if eq >= odds + self.margin:
+            return Action.call()
+        return Action.fold()
+
+
+class MonteCarloTimeout30(MonteCarloBot):
+    """MonteCarloBot that times out on 30% of postflop decisions (timeout_frac=0.3, see there)."""
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed, timeout_frac=0.3)
+
+
+class PushFoldBot(_Base):
+    """The good-student baseline: tight-aggressive above 15 bb from hardcoded position ranges,
+    pure push/fold below from a chart by stack depth, tight shove calls. No ICM, no reads."""
+
+    OPEN = {
+        "early": expand_range("77+ ATs+ AJo+ KQs"),
+        "middle": expand_range("55+ A8s+ ATo+ KTs+ KQo QJs JTs"),
+        "late": expand_range("22+ A2s+ A5o+ K7s+ K9o+ Q8s+ QTo+ J8s+ JTo T8s+ 97s+ 86s+ 75s+ 65s"),
+    }
+    THREE_BET = expand_range("JJ+ AQs+ AKo")
+    CALL_RAISE = expand_range("22+ ATs+ AJo+ KQs KQo QJs JTs T9s")
+    # push chart: (max stack in bb, position) -> range. Depth buckets are tried shallowest first.
+    PUSH = {
+        (5, "early"): expand_range("22+ A2s+ A7o+ KTs+ KQo"),
+        (5, "middle"): expand_range("22+ A2s+ A2o+ K9s+ KTo+ QJs"),
+        (5, "late"): expand_range("22+ A2s+ A2o+ K2s+ K5o+ Q2s+ Q7o+ J6s+ J9o+ T7s+ T9o 97s+ 87s"),
+        (10, "early"): expand_range("55+ ATs+ AJo+ KQs"),
+        (10, "middle"): expand_range("22+ A2s+ A8o+ KJs+ KQo"),
+        (10, "late"): expand_range("22+ A2s+ A2o+ K2s+ K9o+ Q8s+ Q9o+ J8s+ JTo T8s+ 98s"),
+        (15, "early"): expand_range("77+ AJs+ AQo+"),
+        (15, "middle"): expand_range("55+ A9s+ ATo+ KQs"),
+        (15, "late"): expand_range("22+ A2s+ A7o+ K9s+ KTo+ QTs+ JTs"),
+    }
+    CALL_SHOVE = expand_range("99+ AQs+ AKo")
+    CALL_SHOVE_SHORT = expand_range("77+ ATs+ AJo+ KQs")  # at or below 8 bb, or when the shove is small
+
+    def __init__(self, seed: Optional[int] = None, pushfold_bb: float = 15.0, open_bb: float = 2.5):
+        super().__init__(seed)
+        self.pushfold_bb, self.open_bb = pushfold_bb, open_bb
+        self.aggressor_hand = -1
+        self.cbet_done_hand = -1
+
+    @staticmethod
+    def _position(obs: Observation) -> str:
+        behind = players_behind(obs)
+        return "late" if behind <= 2 else "middle" if behind <= 4 else "early"
+
+    def _push_range(self, obs: Observation) -> frozenset[str]:
+        pos = self._position(obs)
+        for cap in (5, 10, 15):
+            if obs.stack_bb <= cap:
+                return self.PUSH[(cap, pos)]
+        return self.PUSH[(15, pos)]
+
+    def act(self, obs: Observation) -> Action:
+        bb = obs.big_blind
+        cls = two_card_class(obs.hole)
+        if obs.street == 0:
+            facing_raise = obs.to_call > bb or (obs.to_call > 0 and obs.bets[obs.seat] >= bb)
+            shove = facing_shove(obs) or obs.to_call >= obs.my_stack / 3
+            if shove and obs.to_call > 0:
+                rng_ = self.CALL_SHOVE_SHORT if obs.stack_bb <= 8 or obs.to_call <= obs.my_stack / 4 else self.CALL_SHOVE
+                return Action.call() if cls in rng_ else _check_or_fold(obs)
+            if obs.stack_bb <= self.pushfold_bb:
+                if facing_raise:
+                    return _raise_or_call(obs, obs.max_raise) if cls in self.CALL_SHOVE else _check_or_fold(obs)
+                if cls in self._push_range(obs):
+                    self.aggressor_hand = obs.hand_no
+                    return _raise_or_call(obs, obs.max_raise)
+                return _check_or_fold(obs)
+            if facing_raise:
+                if cls in self.THREE_BET:
+                    self.aggressor_hand = obs.hand_no
+                    target = obs.bets[obs.seat] + obs.to_call * 3
+                    return _raise_or_call(obs, target if target < obs.my_stack // 2 else obs.max_raise)
+                if cls in self.CALL_RAISE and obs.to_call <= obs.my_stack // 10:
+                    return Action.call()
+                return _check_or_fold(obs)
+            if cls in self.OPEN[self._position(obs)] and RAISE in obs.legal:
+                self.aggressor_hand = obs.hand_no
+                limpers = sum(1 for s in range(obs.n_players) if obs.in_hand[s] and obs.bets[s] >= bb) - 1
+                return _raise_or_call(obs, self.open_bb * bb + max(0, limpers) * bb)
+            return _check_or_fold(obs)
+        strong = top_pair_or_better(obs.hole, obs.board)
+        big = made_category(obs.hole, obs.board) >= 2
+        if obs.stack_bb <= self.pushfold_bb:  # saw a flop short (big blind, mostly): shove or give up
+            if strong:
+                return _raise_or_call(obs, obs.max_raise)
+            return _check_or_fold(obs)
+        if obs.to_call == 0:
+            if strong:
+                return _raise_or_call(obs, obs.bets[obs.seat] + max(bb, (2 * obs.total_pot) // 3))
+            if (obs.street == 1 and self.aggressor_hand == obs.hand_no and self.cbet_done_hand != obs.hand_no
+                    and obs.active == 2):
+                self.cbet_done_hand = obs.hand_no
+                return _raise_or_call(obs, max(bb, obs.total_pot // 2))
+            return Action.check()
+        if big:
+            return _raise_or_call(obs, obs.bets[obs.seat] + obs.to_call + obs.total_pot)
+        if strong:
+            return Action.call()
+        return Action.fold()
+
+
+class LooseAggroStudent(_Base):
+    """Opens wide, c-bets every flop with one size, barrels half the turns, folds to a raise
+    without top pair. Common and exploitable, but not a maniac: it does fold."""
+
+    def __init__(self, seed: Optional[int] = None, open_score: float = 5.0, call_score: float = 6.0,
+                 three_bet_score: float = 10.0, open_bb: float = 2.5, bet_frac: float = 0.5,
+                 barrel_frac: float = 0.5, shove_below_bb: float = 10.0, shove_score: float = 7.0):
+        super().__init__(seed)
+        self.open_score, self.call_score, self.three_bet_score = open_score, call_score, three_bet_score
+        self.open_bb, self.bet_frac, self.barrel_frac = open_bb, bet_frac, barrel_frac
+        self.shove_below_bb, self.shove_score = shove_below_bb, shove_score
+        self.aggressor_hand = -1
+        self.bet_street = (-1, -1)  # (hand, street) of the last bet, so each street fires once
+        self.barrel_hand = (-1, False)
+
+    def _bet(self, obs: Observation) -> Action:
+        self.bet_street = (obs.hand_no, obs.street)
+        return _raise_or_call(obs, obs.bets[obs.seat] + max(obs.big_blind, int(obs.total_pot * self.bet_frac)))
+
+    def act(self, obs: Observation) -> Action:
+        bb = obs.big_blind
+        if obs.street == 0:
+            score = chen_score(obs.hole)
+            facing_raise = obs.to_call > bb or (obs.to_call > 0 and obs.bets[obs.seat] >= bb)
+            if obs.stack_bb <= self.shove_below_bb:
+                if score >= self.shove_score:
+                    self.aggressor_hand = obs.hand_no
+                    return _raise_or_call(obs, obs.max_raise)
+                return _check_or_fold(obs)
+            if facing_raise:
+                if score >= self.three_bet_score:
+                    self.aggressor_hand = obs.hand_no
+                    return _raise_or_call(obs, obs.bets[obs.seat] + obs.to_call * 3)
+                if score >= self.call_score and obs.to_call <= obs.my_stack // 6:
+                    return Action.call()
+                return _check_or_fold(obs)
+            if score >= self.open_score and RAISE in obs.legal:
+                self.aggressor_hand = obs.hand_no
+                limpers = sum(1 for s in range(obs.n_players) if obs.in_hand[s] and obs.bets[s] >= bb) - 1
+                return _raise_or_call(obs, self.open_bb * bb + max(0, limpers) * bb)
+            return _check_or_fold(obs)
+        strong = top_pair_or_better(obs.hole, obs.board)
+        aggressor = self.aggressor_hand == obs.hand_no
+        if obs.to_call == 0:
+            if strong and RAISE in obs.legal:
+                return self._bet(obs)
+            if aggressor and RAISE in obs.legal and self.bet_street != (obs.hand_no, obs.street):
+                if obs.street == 1:
+                    return self._bet(obs)
+                if obs.street == 2:
+                    if self.barrel_hand[0] != obs.hand_no:
+                        self.barrel_hand = (obs.hand_no, self.rng.random() < self.barrel_frac)
+                    if self.barrel_hand[1]:
+                        return self._bet(obs)
+            return Action.check()
+        if not strong:
+            return Action.fold()
+        if made_category(obs.hole, obs.board) >= 2 and RAISE in obs.legal:
+            return _raise_or_call(obs, obs.bets[obs.seat] + obs.to_call + obs.total_pot)
+        return Action.call()
+
+
+class TimeoutThenRecover(_Base):
+    """Plays an inner bot (naive by default) for the first N hands, then sleeps past the budget on
+    every decision: state that grows, a cache that fills, a leak. N is drawn per table from
+    [first_fail_lo, first_fail_hi] (30..120). Recovery is not modeled; the name is the archetype's
+    slot in the field, and the knob to add if a real bot shows one is an outage length."""
+
+    def __init__(self, seed: Optional[int] = None, inner: str = "naive", first_fail_lo: int = 30,
+                 first_fail_hi: int = 120, sleep_s: float = 0.002):
+        super().__init__(seed)
+        self.inner = make_bot(inner, seed)
+        self.lo, self.hi, self.sleep_s = first_fail_lo, first_fail_hi, sleep_s
+        self.fail_from = self.rng.randint(self.lo, self.hi)
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self.fail_from = self.rng.randint(self.lo, self.hi)
+        self.inner.new_table(rules, seat, n_players)
+
+    def act(self, obs: Observation) -> Action:
+        if obs.hand_no >= self.fail_from:
+            time.sleep(self.sleep_s)
+        return self.inner.act(obs)
+
+    def hand_end(self, result: HandResult) -> None:
+        self.inner.hand_end(result)
+
+
+class HeroClone(_Base):
+    """Hero built with a dict of dotted Config overrides (hero.config_from_dict), on top of
+    HERO_CONFIG. Subclasses set OVERRIDES for named presets. Falls back to ChartTAG like Hero
+    when the strategy package is missing."""
+
+    OVERRIDES: dict = {}
+
+    def __init__(self, seed: Optional[int] = None, overrides: Optional[dict] = None):
+        super().__init__(seed)
+        self.overrides = dict(HERO_CONFIG or {})
+        self.overrides.update(self.OVERRIDES)
+        self.overrides.update(overrides or {})
+        try:
+            from ..strategy.hero import config_from_dict, make_bot as _make_hero  # type: ignore[import-not-found]
+
+            self.impl = _make_hero(config_from_dict(self.overrides, seed=seed))
+        except Exception:  # noqa: BLE001 - strategy may not exist yet
+            self.impl = ChartTAG(seed)
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        self.impl.new_table(rules, seat, n_players)
+
+    def act(self, obs: Observation) -> Action:
+        return self.impl.act(obs)
+
+    def hand_end(self, result: HandResult) -> None:
+        self.impl.hand_end(result)
+
+
+class HeroTight(HeroClone):
+    """Hero preset: opens and defends less, 3-bets a narrower slice, needs a stronger tier to value bet."""
+
+    OVERRIDES = {
+        "preflop.open_frac": {1: 0.30, 2: 0.32, 3: 0.20, 4: 0.14, 5: 0.11, 6: 0.09, 7: 0.08},
+        "preflop.open_frac_default": 0.07,
+        "preflop.three_bet_frac": 0.035,
+        "preflop.call_raise_frac": 0.30,
+        "pushfold.threshold_bb": 10.0,
+        "postflop.cbet_freq_ip_dry": 0.45,
+        "postflop.value_tier": 5,
+        "postflop.semibluff_freq": 0.3,
+    }
+
+
+class HeroLoose(HeroClone):
+    """Hero preset: opens and defends more, 3-bets wider, c-bets and semi-bluffs more often."""
+
+    OVERRIDES = {
+        "preflop.open_frac": {1: 0.50, 2: 0.55, 3: 0.38, 4: 0.28, 5: 0.22, 6: 0.18, 7: 0.15},
+        "preflop.open_frac_default": 0.14,
+        "preflop.three_bet_frac": 0.08,
+        "preflop.call_raise_frac": 0.60,
+        "pushfold.threshold_bb": 15.0,
+        "postflop.cbet_freq_ip_dry": 0.8,
+        "postflop.semibluff_freq": 0.7,
+    }
+
+
 REGISTRY: dict[str, type] = {
     "crasher": Crasher,
     "timeout": TimeoutBot,
@@ -347,8 +691,34 @@ REGISTRY: dict[str, type] = {
     "naive": NaiveEquityBot,
     "tag": ChartTAG,
     "hero": Hero,
+    "montecarlo": MonteCarloBot,  # honest 200 rollouts: times out postflop in strict mode
+    "montecarlo30": MonteCarloTimeout30,  # modeled: 30% of postflop decisions time out
+    "pushfold": PushFoldBot,
+    "loose_aggro": LooseAggroStudent,
+    "timeout_then_recover": TimeoutThenRecover,
+    "hero_tight": HeroTight,
+    "hero_loose": HeroLoose,
 }
 _BY_CLASS = {cls.__name__.lower(): cls for cls in REGISTRY.values()}
+
+# Named 8-bot fields for the runner (`--field`). Duplicated names take two seats.
+FIELDS: dict[str, tuple[str, ...]] = {
+    # the room as we expect it: one competent short-stacker, Monte Carlo bots in both flavours,
+    # a loose-aggressive student, the 40-minute bot, a TAG, and one bot that breaks mid-table
+    "realistic": ("hero", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "naive", "tag",
+                  "timeout_then_recover"),
+    # the table where everybody did their homework, plus two Hero copies with other settings
+    "strong": ("hero", "pushfold", "pushfold", "tag", "hero_tight", "hero_loose", "nit", "loose_aggro"),
+    # the table that busts itself: Hero's job is to survive it and be there at the end
+    "chaos": ("hero", "crasher", "random", "allin", "station", "montecarlo", "maniac", "timeout_then_recover"),
+}
+
+
+def field_names(name: str) -> list[str]:
+    key = name.strip().lower()
+    if key not in FIELDS:
+        raise KeyError(f"unknown field {name!r}; known: {', '.join(FIELDS)}")
+    return list(FIELDS[key])
 
 
 def make_bot(name: str, seed: Optional[int] = None):

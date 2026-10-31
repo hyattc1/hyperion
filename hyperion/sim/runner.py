@@ -1,6 +1,7 @@
 """Tournament runner: many tables, aggregated per bot name, with confidence intervals.
 
 `python -m hyperion.sim --tables 1000 --seed 1 --bots tag,nit,station,maniac --rotate`
+`python -m hyperion.sim --tables 125 --seed 7 --field realistic --rotate`   (named 8-bot fields)
 
 Seats: the named bots are placed in a seeded random order per table; names beyond the table size
 are dropped, fewer are filled with random copies of the names given (the tournament fills with
@@ -26,7 +27,7 @@ from typing import Optional, Sequence
 from ..core.cards import hole_class
 from ..core.types import ActionKind, Rules
 from . import bestiary
-from .bestiary import REGISTRY, make_bot
+from .bestiary import FIELDS, REGISTRY, field_names, make_bot
 from .engine import BotStats, play_table
 
 
@@ -137,6 +138,9 @@ def format_busts(busts: list, seats: int) -> str:
           if b["frac"] < 0.5 else "<100%" if b["frac"] < 0.999 else "all-in")
     table("opponents in the pot", lambda b: ",".join(b["opps"]))
     table("hole class (preflop busts)", lambda b: b["cls"] if b["street"] == 0 else "(postflop)")
+    bucket = lambda bb: "<=5" if bb <= 5 else "<=12" if bb <= 12 else "<=25" if bb <= 25 else "<=50" if bb <= 50 else ">50"  # noqa: E731
+    table("module / kind x stack depth", lambda b: f"{b['path']}/{b['kind']} @{bucket(b['bb'])}bb")
+    table("module x opponents in the pot", lambda b: f"{b['path']} vs {','.join(b['opps'])}")
     return "\n".join(out)
 
 
@@ -154,7 +158,8 @@ class Report:
 
     def format(self) -> str:
         n_places = max((len(b.places) for b in self.bots.values()), default=8)
-        head = (f"{'bot':<10} {'n':>5} {'pts':>6} {'±95%':>5}  "
+        w = max(10, max((len(nm) for nm in self.bots), default=10))
+        head = (f"{'bot':<{w}} {'n':>5} {'pts':>6} {'±95%':>5}  "
                 + " ".join(f"{'p' + str(i + 1):>4}" for i in range(n_places))
                 + f"  {'bust%':>5} {'tmo':>5} {'exc':>5} {'ill':>5} "
                 f"{'p50us':>6} {'p99us':>6} {'maxus':>6} {'1st_us':>7}")
@@ -163,7 +168,7 @@ class Report:
             dist = " ".join(f"{100 * c / b.seats:4.0f}" if b.seats else "   -" for c in b.places)
             st = b.stats
             lines.append(
-                f"{name:<10} {len(b.samples):>5} {b.mean:>6.3f} {b.ci95:>5.3f}  {dist}  "
+                f"{name:<{w}} {len(b.samples):>5} {b.mean:>6.3f} {b.ci95:>5.3f}  {dist}  "
                 f"{100 * b.bust_rate:>5.1f} {st.over_budget:>5} {st.exceptions:>5} {st.illegal:>5} "
                 f"{st.percentile_us(0.5):>6.0f} {st.percentile_us(0.99):>6.0f} {st.max_ns / 1000:>6.0f} "
                 f"{st.first_max_ns / 1000:>7.0f}"
@@ -257,6 +262,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--bots", default="hero,tag,nit,station,maniac,naive,random,allin",
                    help="comma-separated names from the registry; fewer than seats fills with copies")
+    p.add_argument("--field", choices=sorted(FIELDS), default=None,
+                   help="a named 8-bot field from the bestiary; replaces --bots")
     p.add_argument("--rotate", action="store_true", help="play all rotations of each deal (duplicate)")
     p.add_argument("--mode", choices=("strict", "measure"), default="strict")
     p.add_argument("--rules", default="default", help="'default' or a json file of Rules fields")
@@ -267,10 +274,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     a = p.parse_args(argv)
     if a.list:
         for nm, cls in REGISTRY.items():
-            print(f"{nm:<10} {cls.__name__:<16} {(cls.__doc__ or '').strip().splitlines()[0]}")
+            print(f"{nm:<20} {cls.__name__:<20} {(cls.__doc__ or '').strip().splitlines()[0]}")
+        print()
+        for nm, members in FIELDS.items():
+            print(f"field {nm:<14} {','.join(members)}")
         return 0
     rules = load_rules(a.rules)
-    names = a.bots.split(",")
+    names = field_names(a.field) if a.field else a.bots.split(",")
     prof = cProfile.Profile() if a.profile else None
     if prof:
         prof.enable()
