@@ -39,8 +39,20 @@ def test_slow_adapter_is_auto_folded():
     assert r.hands == 8  # the engine survives a slow bot and finishes the hands
 
 
-def test_three_hole_cards_through_kit_d():
-    r = run_ref("kit_d_submission.py", hands=10, hole_cards=3)
+def test_three_hole_cards_through_kit_d(tmp_path):
+    """Three hole cards reach the bot through H and hands[active]. The 8-card evaluator table is built lazily
+    (about 1.4 s on first use), which a pooled game clock cannot absorb: the submission warms it before
+    run_bot, as the rubric says to."""
+    sub = tmp_path / "sub3.py"
+    sub.write_text(
+        "from hyperion.core.eval import warm\n"
+        "warm(8)  # three hole cards + five on the board: pay for the 8-card tables before the clock starts\n"
+        "from hyperion.drills.adapter import KitDBot\n"
+        "from hyperion.drills.fakekits.kit_d.kit import parse_args, run_bot\n"
+        "if __name__ == '__main__':\n"
+        "    run_bot(KitDBot(), parse_args())\n"
+    )
+    r = run_d.run([sys.executable, str(sub)], hands=10, seed=3, hole_cards=3)
     assert r.passed, r.summary() + " " + "; ".join(r.notes)
 
 

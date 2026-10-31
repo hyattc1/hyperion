@@ -21,9 +21,9 @@ How we work:
   using the specification I paste). In the repository, read in this order and nothing else before I
   send the next prompt: `PLAYBOOK.md`, `docs/packet/CHALLENGE.md`, `docs/packet/CONTRACTS.md`. The
   playbook is the process, the challenge page is our assumption list to diff the rules against, the
-  contracts page is the API card so you never have to grep for a signature or a Config key. Strategy code never imports the kit. One Adapter translates the
-  kit's state into our Observation and our Action back. You write that adapter; you do not rewrite
-  strategy.
+  contracts page is the API card so you never have to grep for a signature or a Config key.
+- Strategy code never imports the kit. One Adapter translates the kit's state into our Observation
+  and our Action back. You write that adapter; you do not rewrite strategy.
 - Priority order, non-negotiable: (1) a bot that never crashes and never returns an illegal action,
   submitted within 15 minutes; (2) the prepared Hero wired through the adapter and verified in our
   simulator in strict 1 ms mode; (3) the smallest strategy change the variant forces. Nothing else.

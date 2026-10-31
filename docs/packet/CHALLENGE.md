@@ -8,8 +8,10 @@ wins; write the difference into the rule sheet.
 Sequoia Capital's "No Limit: A Bot Building Tournament," hosted with OpenAI and Citadel Securities.
 Regionals: Menlo Park Nov 6, Cambridge MA Nov 9, Pittsburgh Nov 12, 6:00 to 9:00 PM local. Finals:
 San Francisco Nov 15, a different variant. Top 5 teams per regional win $5,000 and a Finals seat;
-Finals pay $100K / $50K / $25K. Teams of 1 or 2, students or classes of 2025 and 2026 at US and
-Canadian universities. Source: the official rules at pokerbot.sequoiacap.com/rules.html (section
+Finals pay $100K / $50K / $25K; up to five wildcard teams also advance, prize unstated (§5.1). Teams of
+1 or 2 (§1.4). Eligible: currently enrolled students at any US or Canadian university, no class-year
+limit, plus US/Canadian university graduates from the classes of 2025 and 2026 (§1.1). One regional per
+person, in person for the full event (§1.4, §2.3). Source: the official rules at pokerbot.sequoiacap.com/rules.html (section
 numbers below are from it).
 
 ## The build (§3)
@@ -17,9 +19,11 @@ numbers below are from it).
 - 60 minutes, a Python bot implementing the provided `Agent` interface (§3.3).
 - Starter kit: agent template, local simulator, ICM calculator, payout structure, blind schedule (§3.3).
 - The poker variant is confidential until the build phase starts (§3.2). Finals use another (§5.2).
-- Astra and Codex may be used; OpenAI tools are optional (§3.4, §7.3). Other tools are not addressed.
-- One submission per five minutes (§3.5). First tournament at the end of the build, then every 20
-  minutes, six in total (§4.1, §4.2).
+- Astra and Codex may be used "during the build phase"; OpenAI tools are optional at every stage
+  (§3.4, §7.3). Other tools are not addressed. The rules do not restate tool permission for the
+  between-tournament windows.
+- One submission per five minutes (§3.5). Six scored tournaments T1 to T6, starting 20 minutes apart;
+  each team's active bot is frozen at the start of each (§4.1, §4.2).
 
 ## The sandbox (§3.6, §3.7)
 
@@ -30,12 +34,15 @@ numbers below are from it).
 
 ## The game (§3.8, §4)
 
-- Eight bots per table, random seating; empty seats filled with copies of submitted bots (§4.6).
+- Eight bots per table, randomly assigned each iteration (§4.3); empty seats filled with randomly
+  selected copies of submitted bots (§4.6).
 - 2,000 starting chips. Blinds 10/20, rising every 25 hands (§4.4). Schedule in the kit.
-- Table ends at bust-out or 200 hands; survivors split remaining points by ICM (§4.3).
+- Table ends when one bot holds all the chips or at 200 hands (§4.4); survivors split remaining
+  points by ICM (§4.5).
 - Points by finishing position; distribution announced at build start, may vary by variant (§4.5).
 - Bot state resets per table; opponents anonymized (§3.8).
-- Each tournament is 10,000 tables; score = average points per table (§4.3, §4.7).
+- Each tournament is 10,000 iterations (§4.3); score = average points per table (§4.7).
+- Ties: a skill-based tie-breaker challenge set by the Organizer (§4.8). Expect close scores.
 - Final = T1×1 + T2×2 + T3×3 + T4×4 + T5×5 + T6×6. T1 is 4.8% of the score; T5+T6 are 52%.
 
 ## What wins
