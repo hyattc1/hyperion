@@ -294,3 +294,113 @@ ranked as the worst cards); hi_lo (plays high only, loses the low half); bounty 
 / exposed_card / swap_one_turn (ignores `obs.extras`); bonus_card (buys the card by default, then takes the
 safe action with three hole cards); pot_limit / antes_from_level_3 / fast_schedule / straddle (no structural
 break, the default-game gap to tag; `stack_bb` ignores antes and the straddle). None throws.
+
+## HRC cross-check (2026-10-31, builder: tools/hrc_check.py)
+
+`tools/hrc_check.py` downloads HoldemResources' free heads-up Nash push/fold zip
+(`holdemresources_hu_equilibrium.zip`, 86,510 B, two CSVs of 3,981 stack rows x 169 classes, push and
+call **frequencies** at 0.01 resolution) to `~/.cache/hyperion/hrc` (never into the repo: the files carry
+no license) and compares it with `tables/pushfold_hu.json` (matrix `09e796abef5676e2`, read through
+`load_pushfold`) at depths 2..25 bb. HRC's `stack` is the whole effective stack, blind included, the same
+convention as our S (the exact agreement at 4 and 16 bb rules out an off-by-half-blind reading). A class
+"disagrees" when we push (call) and HRC's frequency is below 0.5, or the reverse; MAD is the mean
+absolute difference between our 0/1 and their frequency over the 169 classes; freq is combo-weighted.
+
+| depth | push: disagree (we push / they fold, they push / we fold) | MAD | freq ours / HRC | worst (ours/HRC) |
+|---|---|---|---|---|
+| 2 | 1 (1 / 0) | 0.006 | 0.903 / 0.894 | 83o(1/0.00) |
+| 3 | 0 (0 / 0) | 0.002 | 0.777 / 0.780 | T2o(0/0.35) 85o(1/0.96) |
+| 4 | 0 (0 / 0) | 0.000 | 0.738 / 0.738 |  |
+| 5 | 3 (2 / 1) | 0.017 | 0.716 / 0.715 | 93s(1/0.00) J3o(0/1.00) 96o(1/0.16) |
+| 6 | 4 (4 / 0) | 0.023 | 0.701 / 0.683 | 93s(1/0.00) 94s(1/0.00) 96o(1/0.00) 63s(1/0.06) |
+| 7 | 2 (1 / 1) | 0.010 | 0.659 / 0.663 | 94s(1/0.00) 86o(0/0.77) |
+| 8 | 6 (6 / 0) | 0.034 | 0.641 / 0.619 | 43s(1/0.00) 63s(1/0.00) 84s(1/0.00) 94s(1/0.00) T3s(1/0.00) Q4o(1/0.19) |
+| 9 | 4 (2 / 2) | 0.024 | 0.593 / 0.599 | 97o(0/1.00) J2s(1/0.00) Q5o(1/0.00) T7o(0/1.00) |
+| 10 | 4 (4 / 0) | 0.025 | 0.608 / 0.583 | 94s(1/0.00) J2s(1/0.00) Q6o(1/0.00) T7o(1/0.00) 43s(1/0.72) |
+| 11 | 2 (1 / 1) | 0.012 | 0.551 / 0.545 | T5s(0/1.00) 76o(1/0.05) |
+| 12 | 5 (0 / 5) | 0.030 | 0.505 / 0.532 | 53s(0/1.00) 74s(0/1.00) 87o(0/1.00) J4s(0/1.00) J8o(0/1.00) |
+| 13 | 5 (1 / 4) | 0.028 | 0.496 / 0.515 | 74s(0/1.00) J4s(0/1.00) K4o(0/1.00) Q2s(1/0.00) J8o(0/0.79) |
+| 14 | 1 (0 / 1) | 0.008 | 0.472 / 0.484 | K5o(0/1.00) J8o(0/0.27) |
+| 15 | 3 (0 / 3) | 0.017 | 0.436 / 0.457 | K6o(0/1.00) T8o(0/1.00) Q4s(0/0.85) |
+| 16 | 0 (0 / 0) | 0.000 | 0.448 / 0.448 | K7o(1/0.96) Q4s(1/0.98) |
+| 17 | 2 (0 / 2) | 0.009 | 0.415 / 0.429 | K8o(0/1.00) T8o(0/0.60) |
+| 18 | 2 (0 / 2) | 0.011 | 0.412 / 0.423 | K8o(0/1.00) J6s(0/0.88) |
+| 19 | 1 (0 / 1) | 0.006 | 0.406 / 0.409 | Q5s(0/1.00) |
+| 20 | 1 (0 / 1) | 0.004 | 0.400 / 0.402 | Q5s(0/0.76) |
+| 21 | 4 (2 / 2) | 0.024 | 0.394 / 0.382 | 98o(1/0.00) Q5s(0/1.00) Q6s(0/1.00) Q9o(1/0.00) |
+| 22 | 5 (5 / 0) | 0.028 | 0.409 / 0.382 | 98o(1/0.00) J6s(1/0.00) Q4s(1/0.00) Q9o(1/0.00) T6s(1/0.24) |
+| 23 | 11 (0 / 11) | 0.061 | 0.333 / 0.380 | 75s(0/1.00) 96s(0/1.00) J9o(0/1.00) K4s(0/1.00) Q5s(0/1.00) Q6s(0/1.00) Q7s(0/1.00) T9o(0/1.00) T6s(0/0.98) 54s(0/0.71) |
+| 24 | 6 (0 / 6) | 0.036 | 0.357 / 0.380 | Q5s(0/1.00) Q6s(0/1.00) Q7s(0/1.00) T6s(0/1.00) T9o(0/1.00) Q9o(0/0.62) K9o(1/0.55) |
+| 25 | 1 (1 / 0) | 0.006 | 0.373 / 0.363 | Q9o(1/0.00) |
+
+| depth | call: disagree (we call / they fold, they call / we fold) | MAD | freq ours / HRC | worst (ours/HRC) |
+|---|---|---|---|---|
+| 2 | 0 (0 / 0) | 0.000 | 1.000 / 1.000 |  |
+| 3 | 1 (1 / 0) | 0.003 | 0.928 / 0.923 | 63o(1/0.46) |
+| 4 | 0 (0 / 0) | 0.000 | 0.741 / 0.741 |  |
+| 5 | 1 (0 / 1) | 0.004 | 0.614 / 0.621 | 97o(0/0.75) |
+| 6 | 1 (0 / 1) | 0.006 | 0.535 / 0.544 | 98o(0/1.00) |
+| 7 | 1 (0 / 1) | 0.004 | 0.484 / 0.486 | 97s(0/0.65) |
+| 8 | 2 (0 / 2) | 0.009 | 0.436 / 0.450 | K2o(0/1.00) Q7o(0/0.53) |
+| 9 | 0 (0 / 0) | 0.000 | 0.406 / 0.406 |  |
+| 10 | 1 (0 / 1) | 0.008 | 0.363 / 0.374 | K5o(0/1.00) Q6s(0/0.40) |
+| 11 | 1 (1 / 0) | 0.009 | 0.357 / 0.350 | K2s(1/0.00) K6o(1/0.56) |
+| 12 | 1 (1 / 0) | 0.006 | 0.339 / 0.330 | Q9o(1/0.00) |
+| 13 | 2 (1 / 1) | 0.012 | 0.315 / 0.310 | Q8s(0/1.00) JTo(1/0.04) |
+| 14 | 1 (1 / 0) | 0.007 | 0.294 / 0.293 | J9s(1/0.00) K8o(0/0.21) |
+| 15 | 0 (0 / 0) | 0.002 | 0.288 / 0.285 | QTo(1/0.71) |
+| 16 | 0 (0 / 0) | 0.002 | 0.262 / 0.265 | A2o(0/0.26) |
+| 17 | 0 (0 / 0) | 0.001 | 0.250 / 0.248 | K9o(1/0.77) |
+| 18 | 0 (0 / 0) | 0.001 | 0.238 / 0.238 | JTs(1/0.79) |
+| 19 | 0 (0 / 0) | 0.000 | 0.226 / 0.226 |  |
+| 20 | 0 (0 / 0) | 0.000 | 0.217 / 0.217 |  |
+| 21 | 0 (0 / 0) | 0.000 | 0.208 / 0.208 |  |
+| 22 | 2 (0 / 2) | 0.012 | 0.193 / 0.199 | K9s(0/1.00) QTs(0/0.97) |
+| 23 | 1 (1 / 0) | 0.009 | 0.195 / 0.187 | K9s(1/0.00) KTo(1/0.59) QTs(1/0.86) |
+| 24 | 2 (2 / 0) | 0.010 | 0.183 / 0.179 | K9s(1/0.10) QTs(1/0.26) KTo(0/0.13) |
+| 25 | 0 (0 / 0) | 0.000 | 0.173 / 0.173 |  |
+
+Totals over 24 depths: push 73 disagreements (3.0 per depth, mean MAD 0.018), call 17 (0.7 per depth,
+mean MAD 0.004). Only depth 23 crosses the ~8-classes-per-depth bar (11). Not fixed here: `pushfold.py`
+has an owner. The pattern, for them:
+
+1. **21 to 25 bb: an unconverged oscillation, not a bias.** HRC's push frequency is smooth there (0.382,
+   0.382, 0.380, 0.380, 0.363); ours zig-zags around it (0.394, 0.409, 0.333, 0.357, 0.373). At 22 bb all
+   five disagreements are hands we push and HRC folds (98o, J6s, Q4s, Q9o, T6s); at 23 bb all eleven are
+   hands we fold and HRC pushes (75s, 96s, J9o, K4s, Q5s-Q7s, T9o, T6s, 54s), i.e. the damped best-response
+   loop (40 iterations, damping 0.5) ends on alternate sides of the boundary from one depth to the next.
+   Reading: more iterations or a convergence check per depth (best-response gain), and warm-starting each
+   depth from the previous one, should remove it. The call side at the same depths is within 2 classes.
+2. **5 to 10 bb: we push low suited junk that HRC never pushes.** 93s, 94s, 63s, 43s, 84s, T3s, J2s all
+   appear as "we push / HRC 0.00" (6 of 6 at 8 bb, 4 of 4 at 6 and 10 bb), and our frequency is 1 to 2.5
+   points above HRC's at 6, 8 and 10 bb. That is the equity matrix (1,000 Monte Carlo deals per class pair,
+   `tables/meta.json`), which can flatter suited low cards by a point or two; a matrix with more samples per
+   pair is the test, not the solver.
+3. **12 to 20 bb: slightly tight, all in one direction.** 24 of the 25 disagreements are hands HRC pushes
+   and we fold (74s, J4s, 53s, 87o, J8o, K4o-K8o, T8o, Q5s), and our frequency sits 1 to 3 points under
+   HRC's. Small and consistent; likely the same two causes meeting in the middle.
+4. **Calls agree.** Never more than 2 classes per depth; the flips are boundary hands (K2o at 8, K5o at
+   10, K9s/QTs at 22 to 24) and HRC's own mixed cells.
+
+Test: `tests/test_hrc_crosscheck.py` exercises the parser and the comparison on a synthetic CSV in the
+HRC layout (`tests/fixtures/hrc_hu_small.csv`, invented values, real header order). If the download
+fails, `--zip` accepts a local copy.
+
+## Kit D: the MIT Pokerbots shape at 8 seats (2026-10-31)
+
+`hyperion/drills/fakekits/kit_d/` imitates the engine-2026 python skeleton from the documented interface
+(research note section 3a), not from its code: `Bot` with `handle_new_round` / `get_action` /
+`handle_round_over(game_state, round_state, active)`, namedtuple `GameState`, `RoundState`,
+`TerminalState`, action namedtuples, `legal_actions()` as a set of classes with no `FoldAction` when a
+check is free, `raise_bounds()` as raise-to totals, a TCP socket (`python player.py <port>`), a single
+game clock charged on every round trip, and the letter protocol (T P H G F/C/K/R B O A Q) with three
+additions the SNG table needs: `S` stacks and `I` pips at round start (stacks carry over), `L` blinds, and
+8-wide `A` deltas. The skeleton replays every action, ours included, exactly as MIT does; a test runs the
+replay against the dealer for 180 hands with a random legal bot and asserts pips, stacks, actor, legal set,
+raise bounds and derived pot agree at every decision. The reference `KitDAdapter` pulls the action classes
+out of the legal set, so `adapter.py` still imports no kit. The rubric lists the traps; the one that bit
+during the build is the pooled clock meeting a lazy 8-card evaluator table (1.4 s on first use): with
+three hole cards a submission must warm it before `run_bot`.
+
+`hyperion/drills/run.py` does not list kit D: adding it is two edits (`KITS` and a branch in
+`Drill.run_kit`), spelled out at the end of `kit_d/RUBRIC.md`; run.py is owned elsewhere this round.
