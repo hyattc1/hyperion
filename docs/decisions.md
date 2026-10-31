@@ -888,3 +888,180 @@ Not done, for the record: hi_lo still plays high only (second anyway); bounty us
 pot size, not opponents' bounties; the discard decision does not read opponents' face-up discards as dead
 cards; the Omaha straight-draw count is the two-card mask (it can count a wrap that needs three hole cards);
 the label fallback's bonuses (0.04 / 0.02) and the multi-card tier penalty were not swept.
+
+## Rival 2 in the pool (2026-10-31)
+
+**What landed** (commit `fd8a3fa`). Red-team drill 2's bot (`docs/drills/redteam/redteam-2.md`: a computation-first
+team, built blind in 31 minutes against the same brief and kit as rival 1, with no access to this repo or to rival 1;
+1,476 lines, stdlib only) is in the simulator as `rival2`. `hyperion/sim/rivals/rival2.py` is byte-identical to the
+frozen original (md5 `1ad3b05a...`) below a five-line origin header. `bestiary.Rival2Bot` is `RivalBot` with
+`MODULE = "rival2"` and nothing else: rival 2 reads exactly the kit fields rival 1 does, only `hand_no` from
+`hand_end`, and ignores the rules dict (it never learns the 200-hand cap; its ICM curve values stacks at all
+times). Two process-level facts: importing it costs ~1.15 s (the 169x169 matrix, the push/fold solve, the ICM
+table) and ends in `gc.freeze()`, which applies to the whole importing process; `kit` is not importable here, so it
+uses its own fallback `Agent` and skips its `_warm()` (first act of a table: mean ~230 us, max ~360 us, so the
+skipped warm-up costs nothing on 3.10). Its postflop sampler is time-boxed on the wall clock, so unlike every
+other bot here its play is not bit-reproducible: the same 1,000 seeds traced a second time gave hero 3.530 ± 0.124
+against 3.556 ± 0.111. Fields: `top` seats `rival2` where `montecarlo30` was (hero, rival1, rival1, pushfold, tag,
+hero_tight, loose_aggro, rival2; not re-measured here); new `top2` is hero, rival1, rival2, rival2, pushfold, tag,
+hero_tight, loose_aggro; `realistic` is unchanged.
+
+**Latency and timeouts.** Through the adapter under engine enforcement it decides in p50 54-163 us (depending on the
+field), p90 ~280 us, p99 284-287 us on a quiet host; the adapter adds ~3 us over its native
+p50 54-111 / p99 280-282 us. 0 exceptions and 0 illegal actions on ~6.7 million decisions in the runs below, and
+0 on 1.26 million more with its `DEBUG` switch re-raising what its `act()` would swallow (top2, hero + 7 rival2 and
+rival1 + 7 rival2, 480 tables each, measure mode). Its strict-mode timeout rate depends on the host far more than
+any other bot's, because it spends 5-8x as long per decision as rival 1 and is preempted mid-call that much more often:
+
+| host load (8-core WSL2) | rival2 over 1 ms | rival1 | hero | 5-us bots |
+|---|---|---|---|---|
+| quiet, one process (30 tables) | 0.003-0.04% | ~0.01% (rival 1 entry) | | |
+| ~9 CPU-bound processes (measure-mode runs below) | 0.48-0.92% | 0.06-0.14% | 0.05-0.11% | 0.02-0.03% |
+| ~12 CPU-bound processes (strict runs below) | 1.78-2.69% | 0.34-0.45% | 0.25-0.34% | 0.07-0.10% |
+
+A fixed 200-us busy loop overran 1 ms 1.2-3.3% of the time at the worst of that load, the same as rival 2: these are
+the host's timeouts, not a slow path in the bot (its own worst path is the sampler's 520-us hard cap). On a
+tournament host that gives each table a core the expected rate is the quiet row; on a shared or slower host it is
+real and costs it a fold on that fraction of decisions. The test
+(`test_rival2_timeout_rate_in_strict_mode_is_under_two_percent`) asserts < 2%, and when it is over it times the
+same busy loop and skips with both numbers if the host is the cause.
+
+**Measurements**, 1,000 duplicate tables each (`--tables 125 --rotate --seed 7 --mode strict`), all at HEAD `fd8a3fa`
+(run from a clean worktree of that commit: hero is the committed `hyperion/strategy`, not the deep pass's
+uncommitted edits), five at a time while the deep pass's 7-worker sweep was running, i.e. the ~12-process row
+above. Uniform is 4.50 points.
+
+`--field top2` (HEAD `fd8a3fa`):
+```
+bot             n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill  p50us  p99us
+rival2        125  4.980 0.094    21   14   12   10   12   11   11    9   71.0  8220     0     0    123   4247
+rival1        125  4.722 0.146    24   11    8    8   10   13   14   12   69.9   720     0     0     24    205
+tag           125  4.568 0.109     2   14   20   19   16   11   10    8   87.3   128     0     0      4     23
+hero_tight    125  4.415 0.114     8   12   14   15   13   16   14    9   82.9   475     0     0     17    130
+hero          125  4.363 0.122    12   11   11   10   15   15   14   11   82.5   548     0     0     18    142
+pushfold      125  4.257 0.124     3   14   14   19   12   12   12   14   86.0   138     0     0      5     28
+loose_aggro   125  3.715 0.141     9   10    9    9   11   10   14   28   83.8   100     0     0      4     20
+```
+Paired on the same seeds: hero - rival2 **-0.617 ± 0.177**, hero - rival1 -0.358 ± 0.201, hero - tag -0.205 ± 0.173,
+hero - hero_tight -0.051 ± 0.176, rival1 - rival2 -0.258 ± 0.194.
+
+hero + 7 rival2 (HEAD `fd8a3fa`):
+```
+bot            n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill  p50us  p99us
+rival2       125  4.635 0.016    13   14   13   13   12   12   12   12   72.6 21219     0     0    128   4147
+hero         125  3.556 0.111     6    5    8   11   13   18   19   19   88.9   445     0     0     23    136
+```
+Paired hero - rival2 **-1.079 ± 0.127** (traced replicate: hero 3.530, -1.109 ± 0.141).
+
+rival2 + 7 hero (HEAD `fd8a3fa`):
+```
+bot            n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill  p50us  p99us
+rival2       125  5.189 0.122    19   17   16   10   11   11    6    9   75.5  4265     0     0    163   4265
+hero         125  4.402 0.017    12   12   12   13   13   13   13   13   82.5  2874     0     0     13     87
+```
+Paired rival2 - hero **+0.788 ± 0.139**.
+
+rival1 + 7 rival2, the rivals head to head in our engine (HEAD `fd8a3fa`):
+```
+bot            n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill  p50us  p99us
+rival2       125  4.554 0.021    12   13   13   13   13   13   12   12   75.6 23023     0     0    125   4179
+rival1       125  4.125 0.145    17    8    9    9    8   12   19   18   77.0   551     0     0     26    163
+```
+Paired rival1 - rival2 **-0.429 ± 0.166**.
+
+The same four in measure mode (HEAD `fd8a3fa`, two at a time, nothing folded for time), to check that the
+forced folds above do not carry the result: top2 rival2 5.030, rival1 4.641, hero 4.351 (hero - rival2 -0.679 ±
+0.176); hero + 7 rival2: hero 3.563 (-1.071 ± 0.135); rival2 + 7 hero: rival2 5.350 (+0.971 ± 0.146); rival1 +
+7 rival2: rival1 4.116 (-0.438 ± 0.144). The timeouts cost the lone rival 2 among heroes 0.16 points and change
+nothing else by more than noise.
+
+**Where Hero stands, and how the two rivals compare in our engine.** Hero is well behind rival 2, further than it is
+behind rival 1, and rival 2 is the stronger rival here. Against seven copies of rival 2 hero scores 3.56 ± 0.11,
+0.94 under uniform (against seven rival 1s it was 4.41, -0.09), with 6% firsts and 38% sevenths-or-eighths, and it
+busts in 89% of its seats (rival 2's copies: 73%). The mirror says the same thing from the other side: one
+rival 2 among seven heroes scores 5.19 ± 0.12 (5.35 with no time enforcement), +0.69 over uniform where rival 1
+managed +0.28, with 19% firsts and 17% seconds. In `top2` rival 2 is first (4.98), rival 1 second (4.72), and hero
+fifth of seven at 4.36, behind tag and level with hero_tight; the paired gap to rival 2 is -0.62 ± 0.18, nearly
+twice the gap to rival 1. Head to head, one rival 1 among seven rival 2s scores 4.13 ± 0.15 (-0.43 paired), with
+the top-heavy, bust-heavy shape it shows everywhere: 17% firsts but 37% sevenths-or-eighths. That is a clearer
+verdict than the drill operator's tie in rival 2's own engine (6.22 vs 6.30 in the mixed field, rival 1 ahead
+against nits). The likely reason is the field: ours are competent short-stack players (hero, pushfold, tag,
+the rivals) rather than rule-bot nits, and the operator's summary was that rival 2 wins the preflop, all-in and
+heads-up game, while rival 1 wins the postflop game against nits. Against these fields the preflop and all-in
+game decides the table.
+
+**What rival 2 punishes** (`--trace-busts hero`, hero + 7 rival2: 896 busts in 1,000 seats, every one an all-in;
+plus a 600-table log of every preflop all-in between hero and the field, with the showdown hands, against seven
+rival 1s and seven rival 2s for contrast; percentiles below are of rival 2's own equity-vs-random ranking, lower
+is stronger). By module: `preflop.call_shove` 27.7%, `pushfold.call_shove` 21.9%, `pushfold.reshove` 15.7%,
+`pushfold.push` 14.6%, postflop calls of a shove 8.3% (turn and river 7.3%, half the 14% against rival 1). 64%
+start the hand at <= 12 bb (16% at <= 5) and 21% at 13-25 bb. The classes hero busts with most preflop are
+ATo, JJ, QQ, KQo, 99, AJo, AKo, TT, KTo, 77 and A9o. Read with the all-in log, the busts say three things, in
+order of weight.
+1. *Hero folds to its shoves and re-shoves at 13-25 bb.* This is the leak, and the trace cannot see it because
+   folds do not bust. Rival 2 shoves or re-shoves into hero 2,861 times per 600 tables at 13-25 bb, against 1,472
+   for rival 1. Its re-shove engine prices F x steal + (1-F) x showdown through the ICM curve over every open it
+   sees, so its range there is wide: showdown hands average the top 22%, against rival 1's top 14%. Hero folds
+   93%. The 7% it calls (hands averaging the top 7%) win 63% of 212 showdowns (± ~6.5 points; 50% against rival 1),
+   where a call of a 15-20 bb re-shove over an open needs roughly 40-45% with ICM. So hero's calling threshold
+   there is far tighter than this range warrants. That is an inference from showdowns, not a solve. Each fold
+   gives up hero's open, and the bleed shows up downstream: hero open-shoves at <= 12 bb 961 times per 600 tables
+   against rival 2, against 334 against rival 1.
+2. *Hero faces its short shoves more often; it does not call them worse.* Calls of a shove are half of hero's busts
+   (35% against seven rival 1s), but per call hero does fine. At <= 12 bb rival 2's shoves are tighter than rival
+   1's (showdown hands average the top 19% against 28%), hero calls tighter to match (23% of spots against 28%), and
+   it wins 50% of 980 showdowns, the same 50% as against rival 1, while needing well under 50% with the dead money.
+   The bust share is high because rival 2 shoves into hero 69% more often at that depth (4,319 vs 2,562 spots), and
+   hero is at that depth more often (item 1).
+3. *Hero's own short shoves get called by tighter hands.* Rival 2 folds to them more often than rival 1 (it calls
+   24% of hero's <= 12 bb open-shoves against 32%, and 29% of its re-shoves against 53%) but calls with stronger
+   hands (top 6% against re-shoves, against rival 1's top 9%). Hero wins 43% of called open-shoves and 35% of called
+   re-shoves, against 47% and 32% versus rival 1. That is about the same as rival 1, so this is not where rival 2
+   gains; together these are 30% of busts, a little under the 34-38% in the rival 1 fields.
+
+None of this is exploitation. Rival 2's two-number opponent model barely moves. At the end of each of 100 tables,
+its fold-to-aggression posterior is 0.46-0.50 for every opponent (prior 0.50). It reads hero's VPIP as 0.27-0.31
+(prior 0.25; it reads tag at 0.12 and loose_aggro at 0.33). So it treats hero as an average player and plays its
+computed baseline. Rival 1, by contrast, flagged hero as a nit or folder in about half its views and widened its
+steals 1.6x. Rival 2 beats hero with the objects it computed: a push/fold solve, an exact ICM curve per hand, and
+re-shove equity against the opener's range.
+
+**For the strategy owner**, in this order (Hero is not tuned here; not this builder's files). (a) Calling re-shoves at
+13-25 bb: 93% folds against a range averaging the top 22%, with the calls winning 63%. The lever is the calling
+range against a re-shover whose shove rate is high, the other side of the rival 1 entry's item (a). (b) Shove
+pressure at <= 12 bb: hero's calls win their share of showdowns, but it faces 69% more shoves. Whether its fold-heavy
+short-stack play, or the chips lost in (a), is what puts it there so often is the question to measure first.
+Also worth knowing from these runs: under the ~12-process load, Hero's SafeBot went to panic mode ("after 5
+overruns") 5-12 times per 1,000-table strict run, with `safe_over` at 523-694 for one hero seat and 3,699 across
+seven. That is the same host effect as rival 2's timeouts, seen from inside Hero.
+
+**Also registered here: `micro` and the `public` field** (added at the coordinator's request after the measurements
+above). `hyperion/sim/rivals/microholdem.py` (the sparring agent's adapter, `96bd898`) plays MicroAgent from the
+public repo ryankkhalil19/microholdem (MIT). Per `docs/drills/public-repos-sparring.md` it is the strongest public
+prep bot, level with Hero. Nothing from that repo is copied here; the adapter imports a clone at run time. The
+bestiary registers it as `micro` only when `HYPERION_MICROHOLDEM` is set. When it is unset, `micro` is absent from
+`REGISTRY` and `--list`, and `make_bot("micro")` and `field_names("public")` raise `bestiary.BotUnavailable` (a
+`KeyError`) naming the variable and what it must point at. The new field `public` (hero, micro, micro, rival1, rival2,
+tag, pushfold, loose_aggro) exists only when `micro` is registered. The gate is the variable alone, so importing the
+bestiary never loads numpy or their package. A setup with the variable set but broken fails when the bot is built,
+with the adapter's reason. MicroAgent's engine refuses anything but two hole cards (`ValueError: hero must hold
+exactly two cards`), so `test_bots_survive_a_three_card_variant_with_permuted_ranks` now leaves out
+`bestiary.OPTIONAL_BOTS`; with the variable set, `micro` stays in the 200-hand and budget tests and passes them. Two
+tests cover it. One checks, in a fresh interpreter with the variable removed, that both are disabled and the error
+names the variable. The other plays four strict `public` tables when the variable is set (0 exceptions, 0 illegal, 0
+replay mismatches; MicroAgent p50 20 / p99 145 us) and skips otherwise. To enable it on this box, under the session
+scratchpad (`/tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/`):
+`HYPERION_MICROHOLDEM=<scratchpad>/publicrepos/ryankkhalil19_microholdem`,
+`HYPERION_MICROHOLDEM_CORE=<scratchpad>/mh_build/_core.cpython-312-x86_64-linux-gnu.so`, plus numpy. The project venv
+has no numpy, so for the tests `<scratchpad>/venvs/microholdem/lib/python3.12/site-packages` went on `PYTHONPATH`
+rather than installing anything; run with `python -B` to keep bytecode out of the clone, which `git status --ignored`
+still shows clean. One rough edge, in a file this builder does not own: with the variable unset, `--field public`
+fails in the runner's argparse as an invalid choice (`choices=sorted(FIELDS)`), not with the `BotUnavailable` message.
+`micro` was not measured at 1,000 tables here; the deep pass will do that. It is an opponent only, and nothing from it
+goes into Hero.
+
+**Not done here.** No Hero tuning; no rival tuning (rival 2's knobs `OPEN_BASE`, `MC_BUDGET_US`, `FIT_TYPED` stay at
+the frozen values; a tuned copy would be a new file). `realistic`, `strong` and `chaos` are unchanged; the new
+`top` composition was not measured. The repeat on a quiet host was not possible: the deep pass's sweeps kept the
+box at 8-12 CPU-bound processes throughout. The strict tables above therefore overstate rival 2's timeouts against
+a dedicated host. The measure-mode companions bound the effect on points.

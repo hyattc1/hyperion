@@ -7,6 +7,7 @@ them; their poker sense is only meant for two cards.
 """
 from __future__ import annotations
 
+import os
 import random
 import time
 from typing import Optional
@@ -796,7 +797,32 @@ REGISTRY: dict[str, type] = {
     "rival1": RivalBot,  # red-team drill 1's bot through the kit adapter; `naive` stays available by name
     "rival2": Rival2Bot,  # red-team drill 2's computation-first bot through the same adapter
 }
+
+# Opponents that need something from outside this repo. Each is registered only when its environment
+# variable is set; otherwise asking for it raises BotUnavailable naming the variable. They are opponents
+# only: nothing from them goes into Hero.
+from .rivals import microholdem as _microholdem  # noqa: E402 - stdlib-only module; loads nothing until a bot is built
+
+OPTIONAL_BOTS: dict[str, tuple[str, str]] = {
+    # name -> (environment variable, what it must point at)
+    "micro": (_microholdem.ENV_REPO, "a clone of github.com/ryankkhalil19/microholdem (MIT) with its _core "
+              "compiled, and numpy importable; setup in hyperion/sim/rivals/microholdem.py"),
+}
+if os.environ.get(_microholdem.ENV_REPO):
+    REGISTRY["micro"] = _microholdem.MicroholdemBot  # public-repo MicroAgent through our adapter (sparring)
 _BY_CLASS = {cls.__name__.lower(): cls for cls in REGISTRY.values()}
+
+
+class BotUnavailable(KeyError):
+    """An optional bot (or a field that seats one) was asked for while its environment variable is unset."""
+
+    def __str__(self) -> str:
+        return str(self.args[0]) if self.args else ""
+
+
+def _unavailable(name: str) -> BotUnavailable:
+    var, what = OPTIONAL_BOTS[name]
+    return BotUnavailable(f"bot {name!r} is disabled: {var} is not set (it must point at {what})")
 
 # Named 8-bot fields for the runner (`--field`). Duplicated names take two seats.
 FIELDS: dict[str, tuple[str, ...]] = {
@@ -815,11 +841,22 @@ FIELDS: dict[str, tuple[str, ...]] = {
     # the table that busts itself: Hero's job is to survive it and be there at the end
     "chaos": ("hero", "crasher", "random", "allin", "station", "montecarlo", "maniac", "timeout_then_recover"),
 }
+# fields that seat an optional bot: present in FIELDS only when every bot in them is registered
+OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {
+    # the best public prep bot twice, both red-team rivals, and the competent baselines
+    "public": ("hero", "micro", "micro", "rival1", "rival2", "tag", "pushfold", "loose_aggro"),
+}
+for _name, _members in OPTIONAL_FIELDS.items():
+    if all(m in REGISTRY for m in _members):
+        FIELDS[_name] = _members
 
 
 def field_names(name: str) -> list[str]:
     key = name.strip().lower()
     if key not in FIELDS:
+        if key in OPTIONAL_FIELDS:
+            missing = [m for m in OPTIONAL_FIELDS[key] if m not in REGISTRY]
+            raise BotUnavailable(f"field {name!r} is disabled: {_unavailable(missing[0])}")
         raise KeyError(f"unknown field {name!r}; known: {', '.join(FIELDS)}")
     return list(FIELDS[key])
 
@@ -828,5 +865,7 @@ def make_bot(name: str, seed: Optional[int] = None):
     key = name.strip().lower()
     cls = REGISTRY.get(key) or _BY_CLASS.get(key)
     if cls is None:
+        if key in OPTIONAL_BOTS:
+            raise _unavailable(key)
         raise KeyError(f"unknown bot {name!r}; known: {', '.join(REGISTRY)}")
     return cls(seed)
