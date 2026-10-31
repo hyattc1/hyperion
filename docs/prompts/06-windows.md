@@ -13,15 +13,16 @@ Rules of this loop, which you must not break:
 
 Read the standings for these signals and apply the matching dial:
 - We are finishing 1st often but busting often (high first-place share, high 7th and 8th): survival
-  dial. Raise `Config.pushfold` ICM premium, raise the all-in value threshold one tier, stop 3-betting
-  light. This is the most common mistake under finish-position scoring.
-- We are finishing mid-table, rarely 1st, rarely last: we are too passive for this field. Lower the
-  steal threshold one step on the button and cutoff, raise c-bet frequency against folders.
+  dial. Raise `preflop.patience_deep`, raise `postflop.icm_margin` and `postflop.big_value_tier` by one,
+  lower `preflop.three_bet_frac`. This is the most common mistake under finish-position scoring.
+- We are finishing mid-table, rarely 1st, rarely last: we are too passive for this field. Raise
+  `preflop.open_frac` for the last two seats before the blinds and `postflop.cbet_freq_ip_dry`.
 - Field is full of near-zero scorers (many bots scoring like always-fold): the dead-seat exploit
-  matters most. Lower the dead-seat detection count from 5 to 3 and widen shoves against flagged
-  dead seats.
-- Field is strong and tight (top scores bunched): tighten opens, keep the ICM premium high, and let
-  the profiler's weights grow faster (prior 2 to 1). Do not try to outplay them postflop.
+  matters most. Lower `profiler_blend_n` (8 to 4) so reads act sooner and raise
+  `profiler_dial_strength`; the dead-seat flag itself is not a Config key.
+- Field is strong and tight (top scores bunched): lower `preflop.open_frac_default`, keep
+  `preflop.patience_deep` up, and lower `profiler_prior_n` from 2 to 1 so reads bite sooner. Do not
+  try to outplay them postflop.
 - Our timeouts or errors are nonzero in any log the kit gives us: nothing else matters. Switch to
   `Config.cheap=True`, verify, submit.
 
