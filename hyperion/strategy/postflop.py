@@ -83,6 +83,8 @@ class PostflopParams:
     # ICM-weighted EV above folding/checking, with the equity proxy discounted by icm_margin.
     icm_gate_frac: float = 2.0  # 2.0 = never (the gate is off); 0.3 = any call for 30%+ of my stack
     icm_margin: float = 0.05
+    river_call_margin: float = 0.0  # extra margin on river calls: a student who bets the river has it
+    river_min_tier: int = 0  # never call a river bet below this tier (0 = off)
 
 
 class _Linear:
@@ -338,6 +340,10 @@ class Postflop:
         # ---- facing a bet
         pot_odds = spot.pot_odds
         margin = p.call_margin / call_down if call_down > 0 else p.call_margin
+        if street == 3:
+            margin += p.river_call_margin
+            if tier < p.river_min_tier and tier < p.raise_tier:
+                return _FOLD
         eq += (call_down - 1.0) * p.call_down_equity_bonus
         if any_station and bettor >= 0 and prof is not None and prof.station(bettor):
             margin += p.passive_bettor_extra_margin

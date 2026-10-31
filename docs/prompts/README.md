@@ -1,5 +1,8 @@
 # The prompt pack
 
+**The guide for the hour is `/PLAYBOOK.md`.** This folder holds the paste-able payloads it points to.
+
+
 The hour is not for research or tuning. It is for translation and verification, done by firing a
 fixed sequence of prompts at a coding agent. The prompts are the carried-in knowledge. They are plain
 text, tool-agnostic (the rules name Astra and Codex; whether Claude Code is allowed is unconfirmed),

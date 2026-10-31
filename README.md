@@ -38,4 +38,8 @@ uv venv .venv && uv pip install -e ".[dev]"
 ## What it does not do
 
 Full-game CFR, neural nets, real-time search. Ruled out by the millisecond and the secret variant.
-Omaha-style must-use-two evaluation, boards above eight total cards, bounty or auction scoring in the engine.
+Boards above eight total cards (MIT's discards-join-the-board rule), a real auction (the catalog's
+`bonus_card` posts a fixed price), private per-seat extras (bounties are public in the sim). The engine
+plays the rest of the catalog: `python -m hyperion.drills.variants --list` names 23 entries across hand
+ranking, information, payoff and betting, with Rules JSON for the generator and `--variant NAME` in the sim
+(`docs/decisions.md`, "Variant catalog baseline", says where Hero is weak on each).

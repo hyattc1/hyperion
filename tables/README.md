@@ -29,3 +29,16 @@ lives in `hyperion.drills.variants.ShortDeckHooks.score_hand` and the engine has
 Precision at the defaults: preflop equity standard error ~0.35% (20000 samples per class per
 opponent count), matrix ~1.6% per cell. The strategy's `tables.py` falls back to building small
 tables itself if these files are missing, so a cold clone still runs; it just plays worse.
+
+## tables/variants/
+
+One directory per catalog entry whose card rules differ from default hold'em, written by
+`python tools/gen_catalog.py` at reduced samples (2 cards 4000, 3 cards 1500, 4 cards 300; the
+matrix at 1/20 of that) so the whole catalog generates in a few minutes on 7 workers.
+`manifest.json` records, per entry, whether tables were generated (seconds, files, bytes, rules),
+shared with `tables/` ("default"), or cannot be generated ("unsupported": lowball, wild_deuces and
+hi_lo need a score hook the generator does not have). The 169x169 matrix exists only for 2-card
+entries; 3- and 4-card entries get `hole_classes.json`. `tools/gen_catalog.py --only NAME`
+regenerates one entry; raise `SAMPLES` in that file for event-night precision. Hero does not read
+these directories yet: `strategy/tables.py` loads `tables/` only (a `tables_dir` knob is the
+strategy owner's).

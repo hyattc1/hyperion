@@ -51,6 +51,9 @@ class PushFoldParams:
     dial_max: float = 2.0
     icm_epsilon: float = 1e-6
     call_equity_margin: float = 0.0  # off the equity when calling a shove (the solver's caller is exact; the field is not)
+    # callers who call shoves wider than the prior (profiler call_vs_shove / P_CALL_SHOVE = looseness L):
+    loose_caller_tighten: float = 0.0  # push slice f /= 1 + this * (mean L - 1)+ : fewer light shoves into loose callers
+    loose_caller_equity_blend: float = 0.0  # equity moves from "vs Nash calling range" toward "vs random" by this * (max L - 1)+
     push_equity_margin: float = 0.0  # off the equity when pushing
     cheap_push_frac_mult: float = 0.8  # Hero.cheap(): a bit tighter than the rule, no dials
 
@@ -192,6 +195,7 @@ class PushFold:
     def __init__(self, params: PushFoldParams, tables: Tables, solution: dict | None = None):
         self.p = params
         self.rank = tables.rank
+        self.equity = tables.equity
         sol = solution or load_pushfold(tables)
         self.depths = [int(d) for d in sol["depths"]]
         self.max_depth = max(self.depths)
@@ -266,13 +270,21 @@ class PushFold:
             # nobody live can call: any shove takes the pot (dead seats fold to a bet)
             return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else free
         f = self.p_push[D] / (1.0 + p.tighten_per_player * (k - 1))
+        loose_sum = 0.0
+        loose_max = 1.0
         if cheap:
             f *= p.cheap_push_frac_mult
         elif prof is not None:
             m = 0.0
             for s in callers:
                 m += prof.exploit_dials(s)["steal_mult"]
+                L = self._clamp(prof.call_vs_shove(s) / Profiler.P_CALL_SHOVE)
+                loose_sum += L
+                if L > loose_max:
+                    loose_max = L
             f *= self._clamp(m / k)
+            if p.loose_caller_tighten > 0.0 and loose_sum > k:
+                f /= 1.0 + p.loose_caller_tighten * (loose_sum / k - 1.0)
         if self.push_pct[cls] >= f:
             return free
         # ICM gate
@@ -284,7 +296,14 @@ class PushFold:
                 pc *= self._clamp(prof.call_vs_shove(s) / Profiler.P_CALL_SHOVE)
             pc_none *= 1.0 - (0.98 if pc > 0.98 else pc)
         pc_any = 1.0 - pc_none
-        e = self.eq_vs_call[D][CLASS_INDEX[cls]] - p.multiway_equity_penalty * (k - 1) - p.push_equity_margin
+        e = self.eq_vs_call[D][CLASS_INDEX[cls]]
+        if p.loose_caller_equity_blend > 0.0 and loose_max > 1.0:
+            # a wide caller's range is nearer random than the Nash calling range: junk gains little, value hands gain
+            w = p.loose_caller_equity_blend * (loose_max - 1.0)
+            if w > 1.0:
+                w = 1.0
+            e += w * (self.equity[cls][0] - e)
+        e -= p.multiway_equity_penalty * (k - 1) + p.push_equity_margin
         if self._push_ev_ok(spot, pc_any, e):
             return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else _CALL
         return free

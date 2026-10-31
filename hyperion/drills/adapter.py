@@ -264,3 +264,90 @@ def _default_bot() -> Bot:
         from hyperion.drills.cheapbot import CheapBot
 
         return CheapBot()
+
+
+# ------------------------------------------------------------------ kit D: MIT-style Bot, namedtuple states
+
+_D_STREETS = {0: 0, 3: 1, 4: 2, 5: 3}
+_D_KIND_BY_CLASS = {"FoldAction": "fold", "CallAction": "call", "CheckAction": "check", "RaiseAction": "raise"}
+_D_CLASS_BY_KIND = {v: k for k, v in _D_KIND_BY_CLASS.items()}
+
+
+def _d_round_total(round_state: Any) -> int:
+    """Chips at the table at round start: walk previous_state to the root, where pips are just the blinds."""
+    rs = round_state
+    while getattr(rs, "previous_state", None) is not None:
+        rs = rs.previous_state
+    return sum(rs.stacks) + sum(rs.pips)
+
+
+class KitDAdapter(Adapter):
+    """native = (game_state, round_state, active). RoundState fields: button, street (0/3/4/5), pips, stacks,
+    hands (card strings, ours filled), board, acting, in_hand, blinds, last_raise, previous_state;
+    legal_actions() is a set of action classes (no FoldAction when a check is free); raise_bounds() are
+    raise-to totals. Replies are instances of the classes found in the legal set, so no kit import."""
+
+    def __init__(self, bot: Bot, rules: Rules | None = None):
+        super().__init__(bot, rules)
+        self.round_total: int | None = None
+        self._classes: dict[str, Any] = {}
+
+    def new_round(self, game_state: Any, round_state: Any, active: int) -> None:
+        self.round_total = sum(round_state.stacks) + sum(round_state.pips)
+        if not self.started:
+            self.start(active, len(round_state.stacks))
+
+    def to_observation(self, native: Any) -> Observation:
+        game_state, rs, seat = native
+        stacks, pips = list(rs.stacks), list(rs.pips)
+        self._classes = {cls.__name__: cls for cls in rs.legal_actions()}
+        legal = [_D_KIND_BY_CLASS[name] for name in self._classes]
+        lo, hi = rs.raise_bounds() if "raise" in legal else (0, 0)
+        total = self.round_total if self.round_total is not None else _d_round_total(rs)
+        return make_observation(
+            hole=[parse_card(c) for c in rs.hands[seat]], board=[parse_card(c) for c in rs.board],
+            street=_D_STREETS[int(rs.street)], seat=seat, button=rs.button, stacks=stacks, bets=pips,
+            in_hand=list(rs.in_hand), pot=max(0, total - sum(stacks) - sum(pips)),
+            to_call=min(max(pips) - pips[seat], stacks[seat]), min_raise=lo, max_raise=hi, legal=legal,
+            hand_no=int(game_state.round_num) - 1, blinds=rs.blinds,
+        )
+
+    def from_action(self, a: Action, obs: Observation, native: Any) -> Any:
+        classes = self._classes
+        if a.kind is ActionKind.RAISE:
+            return classes["RaiseAction"](a.amount)
+        cls = classes.get(_D_CLASS_BY_KIND[a.kind.value]) or classes.get("CheckAction") or classes.get("FoldAction")
+        return cls()
+
+    def native_safe(self, native: Any) -> Any:
+        try:
+            classes = {cls.__name__: cls for cls in native[1].legal_actions()}
+        except Exception:  # noqa: BLE001 - native is not even a state; use the classes seen last time
+            classes = self._classes
+        cls = classes.get("CheckAction") or classes.get("FoldAction")
+        return cls() if cls is not None else None
+
+    def round_over(self, game_state: Any, terminal_state: Any, active: int) -> None:
+        try:
+            last = terminal_state.previous_state
+            shown = {s: tuple(parse_card(c) for c in h) for s, h in enumerate(last.hands) if h and s != active}
+            self.bot.hand_end(HandResult(hand_no=int(game_state.round_num) - 1, deltas=list(terminal_state.deltas),
+                                         showdown=shown, board=tuple(parse_card(c) for c in last.board), history=[]))
+        except Exception:  # noqa: BLE001
+            pass
+
+
+class KitDBot:
+    """Drop-in MIT-style Bot around any of our bots. Duck-types kit_d.kit.Bot (three hooks)."""
+
+    def __init__(self, bot: Bot | None = None):
+        self.adapter = KitDAdapter(bot or _default_bot())
+
+    def handle_new_round(self, game_state: Any, round_state: Any, active: int) -> None:
+        self.adapter.new_round(game_state, round_state, active)
+
+    def get_action(self, game_state: Any, round_state: Any, active: int) -> Any:
+        return self.adapter.decide((game_state, round_state, active))
+
+    def handle_round_over(self, game_state: Any, terminal_state: Any, active: int) -> None:
+        self.adapter.round_over(game_state, terminal_state, active)

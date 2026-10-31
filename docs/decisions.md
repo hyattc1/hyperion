@@ -165,3 +165,62 @@ The two presets bracket the default (hero_loose 4.51, hero_tight 4.42, both belo
 direction of the preflop dials alone closes the gap to `tag`. Note what `tag` and `pushfold` have in
 common: they never shove light and they fold the river; that is the baseline Hero must beat before any
 exploit matters.
+
+## Variant catalog (2026-10-31, builder: sim/drills)
+
+- **The engine plays the drills' hooks contract directly.** `play_table(..., variant=hooks)` accepts a
+  `hyperion.drills.variants.VariantHooks` object and wraps it in `engine.HooksVariant`: `on_deal` and
+  `on_street` get the per-seat holes (empty for seats out of the hand) and a `spare` list of the hand's
+  undealt cards they may pop from; a changed board is written back into the runout so later streets keep
+  it; `score_hand` (or `score_splits`) judges the showdown; `on_payout` adjusts chip deltas; `on_bust`
+  adds points; `extras(hand)` fills `Observation.extras` per street; `charges` moves chips into the pot.
+  With `variant=None` every hook is a no-op and the hand loop is unchanged (same results, same speed).
+  Rejected: a second engine or a per-variant subclass of `Table`; the contract already named the four
+  points where a twist can act, and one bridge keeps the drills' presets and the sim's measurement on the
+  same objects.
+- **A bot answers variant decisions through `variant_decide(prompt) -> object`.** The engine looks for it
+  on the bot, then `bot.impl`, then `bot.impl.core`, then `bot.inner`, so the bestiary's `Hero` wrapper
+  and SafeBot do not have to forward it. The call is enforced like `act` (exceptions counted, strict-mode
+  budget), and `None` or an error means the hook's default decision. Prompts are plain dicts
+  (`{"decision": "discard" | "swap" | "buy_card", "hole", "board", "seat", "hand_no", "stacks", ...}`).
+  Hero has no `variant_decide` yet; it gets the defaults everywhere (toss the lowest unpaired card, swap a
+  low unpaired card, buy the bonus card).
+- **Rules grew betting fields with standard-game defaults**: `ante` (chips) with `ante_from_level` and an
+  optional `ante_per_level` schedule (the drill-2 turbo's 4/8/16/32 is now representable, closing that
+  report's repo finding 2), `betting` in nolimit / potlimit / fixedlimit, `straddle` (big blinds), and
+  `must_use_hole` for Omaha-style showdowns (the engine evaluates exactly k hole + 5-k board; `tablegen`
+  honours it too). Antes go straight into `Observation.pot`, never into bets, and a short stack is all-in
+  for what it has. Pot-limit cap = current bet + pot after the call (the same formula as
+  `pot_limit_max_raise`); fixed-limit cap = current bet + 1 bb (preflop, flop) or 2 bb (turn, river) with
+  no raise cap; a straddle is a live blind raise with min re-raise twice the straddle, heads-up none.
+  Everything is gated on the field so the default path pays nothing. `Rules.extras["removed_ranks"]` now
+  also shrinks the engine's deck (short deck played with 36 cards before only in the generator).
+- **Split pots are columns.** `score_splits` returns one score per pot share (two boards: one per board;
+  hi/lo: high and a qualifying low or `None`); each side pot is split evenly over the columns, the
+  remainder and any column nobody qualifies for go to column 0, and odd chips inside a column go clockwise
+  from the button as before.
+- **Bounties: chips from the house by default, points from the house for knockouts.** `BountyHooks`
+  funds the bonus from the house unless `extras["bounty_funding"] == "losers"` (then it is taken pro
+  rata from the hand's losers and chips are conserved); chips in play grow under house funding, which ICM
+  at the cap tolerates. `KnockoutHooks.on_bust` adds points, not chips, to the hand's biggest winner, so a
+  table's points no longer sum to the payouts there. Bounty ranks are public in `obs.extras["bounties"]`
+  (MIT kept them private; a private per-seat extras channel is not built).
+- **Catalog of 23, four axes, every hooks entry implemented.** `hyperion.drills.variants.catalog()`;
+  `names()` stays the seven drill presets so `hyperion.drills.run --variant random` is unchanged. Each
+  entry carries the axis, a summary in the organizers' voice, Rules, hooks (fresh per table via
+  `new_hooks()`, since hooks keep per-hand state), what breaks, a checklist, a `tables` status for
+  `tools/gen_catalog.py` and a `config_patch` sketch. `--list`, `--show NAME` and `--rules NAME --out
+  rules_NAME.json` write the Rules JSON that `tools/gen_tables.py --rules` and `python -m hyperion.sim
+  --rules` accept; `python -m hyperion.sim --variant NAME` plays an entry's Rules and hooks. Two entries
+  are honest simplifications: `bonus_card` posts a fixed price instead of MIT 2023's auction, and the
+  three-card discards are dead, not community (toss_or_holdem's docstring explains why). Not built:
+  boards above eight cards, a real auction, private extras.
+- **`tools/gen_catalog.py` writes `tables/variants/NAME/` only where card rules differ** (hole/board
+  counts, rank order, removed ranks, must-use) and records every entry in `tables/variants/manifest.json`
+  as generate / default / unsupported with the reason. Reduced samples (2 cards 4000, 3 cards 1500,
+  4 cards 300) keep the whole run to a few minutes on 7 workers; the 169x169 matrix is a 2-card object,
+  so 3- and 4-card entries get `hole_classes.json` instead. lowball, wild_deuces and hi_lo get no tables:
+  the generator has no score hook, and the high-hand tables would be wrong in the exact direction that
+  matters. Hero still loads `tables/` only; pointing it at a variant directory is a strategy knob
+  (`tables_dir`) that does not exist yet, so the baseline below measures Hero with default tables on
+  every entry, which is the honest event-night picture unless that knob is added.
