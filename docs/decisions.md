@@ -454,3 +454,42 @@ decisions. Each is now one command, stdlib only:
 
 Not done: the sim runner still prints `tmo` per hands, not decisions (prompt 04 says "per hands as printed");
 `Config` still has no `profiler_dead_after`; the windows prompt (06) was not touched.
+
+## Track B spec v2 and self-contained fake kits (2026-10-31)
+
+Drill 3 ran the Track B spec from a blank directory (legal at minute 4, equity and ICM at 17, second to
+Hero in the realistic field, fifth of eight in the strong one) and listed 32 defects; playbook review 1
+added two (no rank remap; exact Malmuth-Harville on the decision path). The spec is now v2
+(`docs/prompts/track-b-from-scratch.md`, under 1,600 words, tested) with these decisions:
+
+- **ICM is a per-hand value curve, never an exact evaluation inside `act`.** Three Malmuth-Harville
+  evaluations at 0.5x, 1x and 2x of our stack (opponents scaled pro rata) plus the two free endpoints,
+  computed at `new_game` and in the untimed hand-end callback; decisions interpolate. Under kit A, whose
+  `hand_over` carries only our chip change, the curve is built from our exact new stack and the
+  opponents' last-seen chips scaled to the remaining total. Rejected: drill 3's own edit (fold value at the
+  first decision, win and lose values at the all-in decision), because it keeps ~50 µs evaluations on the
+  timed path and multiplies them in multiway spots; and the deep-stack linear stand-in, because the
+  spec has no measured threshold for it.
+- **The ICM gate applies to calls of an all-in and re-shoves only.** Open shoves get step 3b's push rule,
+  which carries fold equity through the same curve; gating an open shove as if always called is the
+  fold/fold failure drill 3 named.
+- **Monte Carlo at 2,000 samples per class inside a 5 s import cap**, the count drill 3 validated (400
+  put JJ above QQ and A3o in the top 12 percent); the sanity lines are in the spec.
+- **The timing gate is a rate, not a max:** under 0.3 percent of 2,000 calls over 1 ms and p99 under
+  500 µs, on three rotating states (mid-hand, first decision of a new hand, all-in call at 8 seats).
+  Drill 3's edit of "p99 under 300 µs" was not taken: the loaded box's p99 for the final bot was 260
+  to 493 µs and the rules' budget is 1 ms; 500 keeps the gate meaningful without failing on the box.
+- **Profiler counts only what it saw:** the per-decision history diff and reported showdowns, one
+  observation per seat per hand per counter with doubled floors when the kit gives nothing at hand end.
+- **The fake kits import nothing from `hyperion`.** `hyperion/drills/fakekits/_eval.py` is a 50-line
+  brute-force evaluator producing the same ordering tuple as `hyperion.core.eval._classify`, plus the
+  deck and `card_str`; `_table.py` and kit D's runner use it. A kit now copies verbatim into a blank
+  directory, which drill 3 could not do without handing the agent the real evaluator. Showdown results
+  are identical (tested on 1,600 random pairs at 5 to 8 cards); the existing kit tests pass unchanged.
+  Rejected: giving the kits their own copy of the prime-keyed evaluator (more code to drift, and a
+  Track B agent would read it).
+
+Not applied from drill 3's list, by ownership: the README timeline row (defect 32), prompt 01's "say
+whether the kit's dealer implements each non-standard rule" (29; the spec's step 4 carries the
+consequence instead), prompt 05's payoff wording (26; the spec's step 4 no longer points at 05). Stage 0's
+"no Track B drill has run yet" line in the playbook is stale and outside this pass.

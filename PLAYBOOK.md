@@ -226,9 +226,19 @@ probability: a few percent; the MIT archive never did it in seven years.
   Hero clean minute 4, Hero first. Correctly skipped Stage 3. Correctly reverted an unverifiable patch.
 - Hero vs the realistic student field before tuning: third behind the tight chart bot and the
   push/fold bot; busts from short shoves into loose callers. Tuning in progress; see `docs/decisions.md`.
+- Drill 3 (Track B from a blank directory, no repo, kit A, bounty payoff): legal cheap bot at
+  minute 4, evaluator and profiler at 9, equity table and ICM gate at 17, payoff patch at 19, spec
+  exhausted at 20; zero human questions, 34 recorded guesses. Its final bot in the real sim (300
+  tables, seed 11, tonight's point table): second in the default field (5.82 vs Hero 6.79), second in
+  the realistic field (5.01 vs Hero 5.56), fifth of eight in the strong field (3.88 vs Hero 4.82);
+  0 exceptions, 0 illegal over 165,000 hands. The gap to Hero is structural, not a timing matter: no
+  push/fold rule by stack depth and seats behind, no flop-strength tables, no bet sizing, and a
+  profiler starved by a kit that shows nothing after our own decision. Spec v2 adds steps 2b and 3b
+  for the two the drill named; v2 is undrilled.
 
 **Unverified**
-- Track B timings. No blank-directory drill has run.
+- Track B spec v2 (step 0 rank map, steps 2b and 3b, the value-curve ICM, the p99 gate). Drill 3
+  ran v1; its minute 4 / 9 / 17 timings are the only Track B evidence.
 - Effort-setting cost per stage.
 - Whether tools other than Astra and Codex are permitted in the room.
 - Whether pre-written code and tables are permitted at all.
@@ -259,10 +269,20 @@ probability: a few percent; the MIT archive never did it in seven years.
 **Track A** (pre-written code confirmed allowed): the agent works in this repo. Stages 2 to 4 are an
 adapter, a generator run and a sim run. Drilled twice.
 
-**Track B** (fallback, only if the organizers forbid pre-written code): blank directory; the agent rebuilds from `docs/prompts/track-b-from-scratch.md`,
-which is the compressed specification of this repo: cheap bot by minute 15, evaluator and profiler by
-30, equity table and ICM gate by 45, axis patch if time remains. The prompt pack is the carried-in
-knowledge; the code is written in the hour by an allowed tool. Not yet drilled.
+**Track B** (fallback, only if the organizers forbid pre-written code): blank directory; the agent
+rebuilds from `docs/prompts/track-b-from-scratch.md` (v2): cheap bot by minute 15, evaluator and
+profiler by 30, equity table and ICM curve by 45, push rule by 50, axis patch if time remains. The
+prompt pack is the carried-in knowledge; the code is written in the hour by an allowed tool.
+
+What the hour can produce, measured in drill 3: a legal bot by minute 5 and a TAG-strength bot by
+minute 20 on the first attempt, with no human questions; second to Hero in the default and realistic
+fields, level with the repo's chart TAG, fifth of eight against three Hero variants. What it cannot:
+Hero. The missing layers are a solved push/fold chart, flop-strength tables, bet sizing and a profiler
+fed by showdowns; the gap is 0.5 to 1.0 points of 32 per table. Its latency tail is worse than Hero's
+(p99 260 to 493 µs against 117 to 154, 1.5 to 3 times the strict-mode timeouts), which step 2b of v2
+targets. Nothing in Track B measures a patch's effect on points, so Stage 5 ships legality-only with
+the pre-patch zip as the fallback, and nothing in Track B is verified against the bestiary unless the
+operator wires the kit to the sim after the fact.
 
 The track is decided in Stage 0, never on the night.
 
@@ -274,6 +294,7 @@ The track is decided in Stage 0, never on the night.
 |---|---|---|
 | 2026-10-31 | v1, consolidating `docs/night-of.md`, `docs/prompts/README.md`, drills 1 and 2 | this session |
 | 2026-10-31 | Review 1 applied: Track A default; Stage 4 gate is errors, latency rate and Hero vs its own Stage 0 number, never vs tag; fallback is the Stage 2 cheap package; §3.5 upload cadence in Stages 2 and 6; Stage 3 timing under load; signal table names real Config keys; agent reads sections 3, 4, 7 only | playbook pass after review 1 |
+| 2026-10-31 | Drill 3 (Track B, kit A, bounty): section 6 carries its timings and sim placings, section 8 says what Track B can and cannot produce; spec v2 (drill-3 defect edits, step 0 rank map, steps 2b and 3b, value-curve ICM off the decision path, p99 gate, under 1,600 words); prompt 02's Track B paragraph matches; fake kits self-contained (`fakekits/_eval.py`) | drill 3 pass |
 | 2026-10-31 | Stage 0 Prepared: offline install, second machine, pull discipline. Prompts 01/02/04/05 now use `hyperion/drills/conformance.py` (`HYPERION_CHECK=1`), `tools/pack.py`, `tools/latency.py`, `hyperion/drills/adapter_template.py` and `docs/packet/NIGHT-template.md`; 01 gained the FIT VERDICT; drill-2 and review-1 prompt defects applied (D1, D2, D3, D5, D7 in the prompts only) | night-of tooling pass |
 
 ---

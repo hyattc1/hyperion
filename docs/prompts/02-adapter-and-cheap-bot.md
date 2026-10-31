@@ -27,8 +27,15 @@ Track A (repo present):
    writes the Submissions row in `NIGHT.md`. If the rules name another layout, match it and say so. Tell
    me to upload.
 
-Track B (blank directory): the same checks by hand, with the cheap bot from the from-scratch spec I
-pasted: a tight hand list preflop, push or fold under 12 big blinds, check-call with top pair or better
-postflop, fold otherwise, no bluffs. Under 150 lines, no imports beyond the standard library.
+Track B (blank directory): steps 1 and 4 are "one file, no vendoring". `submission.py` is steps 0 and 1
+of the from-scratch spec I pasted: the rank map at parse time, the safe wrapper and clamp first, the
+premium and playable lists, push or fold under 12 bb effective, call with top pair or better postflop,
+fold otherwise, no bluffs; about 150 lines of code, standard library only. Step 5's suite is
+`test_bot.py` (the card parser with the two-character ten, the two hand lists, one legal-action check),
+written now and kept green from here. Step 4's run is the kit's own runner for 50 hands plus
+`bench.py`'s 2,000-call loop: zero exceptions, zero illegal actions, under 0.3% of calls over 1 ms, p99
+under 500 µs; over 100 hands the action mix shows fold, check and raise each at least once (a call is
+not required: the tight list made none in 100 hands in drill 3). Zip with `submission.py` at the top
+level, record the sha256 and the minute in `NIGHT.md`, tell me to upload.
 
 Do not optimize anything. Do not touch strategy. Report with the command outputs, not prose.
