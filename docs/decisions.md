@@ -598,3 +598,120 @@ and a 50-table permuted-rules test guards it. The bestiary `Hero` is seeded and 
   text in a temp file named in the note** (drill 4 finding 6). The tail is what the operator reads in the
   terminal; the file is for a long conformance report. Rejected homes for the file: the runner's cwd (litters
   the repo root under pytest) and the submission's directory (may be read-only, or the repo's reference dir).
+
+## Rival 1 in the pool (2026-10-31)
+
+**What landed.** Red-team drill 1's bot (`docs/drills/redteam/redteam-1.md`: built blind in 36 minutes against the
+public brief, no access to this repo, 949 lines, stdlib only) is in the simulator as `rival1`. The file is
+`hyperion/sim/rivals/rival1.py`, byte-identical to the archived original below a five-line origin header; it is
+never edited, a new rival is a new file. `bestiary.RivalBot` is the adapter to the kit interface the brief promised:
+`legal` as a set of strings, history as `(seat, ('kind', amount))` tuples converted incrementally per hand, 1-based
+`hand_no`, rules as a dict carrying `hand_cap`; the rival's `('kind', amount_total)` answer becomes an `Action` and
+goes through `Action.clamp`. The engine times the adapter and the rival together, so the rival sits under the same
+enforcement as every bot. Through the adapter it decides in p50 16-28 us, p99 60-150 us (3-5 us over its native
+15-22 us), with 0 exceptions and 0 illegal actions on several million decisions here, also when its own `debug` switch
+makes it re-raise what its `act()` would swallow. Its strict-mode timeout rate is ~0.01%, the WSL scheduler
+jitter every fast bot shows. Fields: `realistic` now seats `rival1` where `naive` was (`naive` stays registered);
+the new `top` field is hero, rival1, rival1, pushfold, tag, hero_tight, loose_aggro, montecarlo30.
+
+**Measurements**, 1,000 duplicate tables each (`--tables 125 --rotate --seed 7 --mode strict`), run four at a time on
+the 8-core WSL2 box while other agents' sims were also running (which is why `tmo` and `maxus` are not zero for
+anybody; p50/p99 are unaffected). CIs are ~2.8x wider than the tuning pass's, which used 1,000 seeds x 8.
+
+`--field realistic` (new composition):
+```
+bot                      n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill  p50us  p99us
+rival1                 125  5.567 0.129    33   10   10   11   16    8    7    4   60.5    24     0     0     26     81
+hero                   125  5.535 0.120    28   10   16   14   13   10    6    4   64.1    15     0     0     19     58
+tag                    125  5.352 0.102     6   26   21   18   12    7    6    3   80.0     2     0     0      4     14
+pushfold               125  5.024 0.114     8   20   20   13   13   10    8    7   77.5     2     0     0      5     19
+loose_aggro            125  4.756 0.128    17   17    9   11   10   13   11   13   69.9     4     0     0      3     11
+montecarlo             125  3.286 0.108     3    4    5   10   16   21   23   17   95.3 17936     0     0      3   1502
+montecarlo30           125  3.268 0.119     4    5    7   10   12   19   20   23   93.7 11995     0     0      3   2229
+timeout_then_recover   125  3.212 0.109     0    7   12   12    9   12   18   30   95.7 26964     0     0      3   2136
+```
+Paired hero - rival1 on the same seeds: **+0.017 ± 0.199** (a second, traced run: hero 5.587, rival1 5.570).
+
+`--field top`:
+```
+bot              n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill  p50us  p99us
+rival1         125  5.091 0.103    27   12    9    9   11   13   11    8   66.1    50     0     0     23     91
+hero_tight     125  4.839 0.117     8   17   15   15   17   15    9    4   81.4    16     0     0     18     59
+hero           125  4.838 0.135    18   10   13   11   16   12   11    8   76.0    12     0     0     17     58
+tag            125  4.804 0.120     3   16   23   21   11   11    9    6   86.8     1     0     0      4     19
+pushfold       125  4.495 0.111     4   14   18   17   15   10    8   12   87.1     2     0     0      5     23
+loose_aggro    125  4.123 0.139    11   14    9    9   11   11   16   19   78.7     5     0     0      3     15
+montecarlo30   125  2.720 0.110     2    4    5    7    9   15   23   35   96.3 10141     0     0      4   2229
+```
+Paired hero - rival1: **-0.211 ± 0.202**; hero - hero_tight +0.006 ± 0.187; hero - tag +0.033 ± 0.182.
+
+Pure strength, hero + 7 rival1 (uniform = 4.50):
+```
+bot            n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill  p50us  p99us
+rival1       125  4.513 0.017    13   13   12   12   12   12   13   13   82.1   113     0     0     16     67
+hero         125  4.409 0.117     9   10   14   14   16   15   12   10   87.3    16     0     0     20     60
+```
+
+Pure strength, rival1 + 7 hero (uniform = 4.50):
+```
+bot            n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill  p50us  p99us
+rival1       125  4.780 0.139    17   17   10   10    9   12   10   14   74.6    82     0     0     35    135
+hero         125  4.460 0.020    12   12   13   13   13   13   13   12   81.6   267     0     0     15     63
+```
+
+**Where Hero stands.** Level with the rival in the realistic room, behind it at the top table, and at par to a
+little below it heads-up in copies. In `realistic` the two are tied on points (paired +0.02 ± 0.20) but not in
+shape: the rival wins 33% of tables to hero's 28% and busts 4 points less often; hero makes up the difference with
+more thirds and fourths, i.e. hero ladders better and the rival closes better. With `naive` gone from that field
+hero's number fell from 5.94 (tuning pass) to 5.54: the seat that used to feed the table now takes points from
+it. In `top`, where the rival sits twice, it is first by 0.25 and hero is in a three-way tie for second with
+hero_tight and tag; the paired delta (-0.21 ± 0.20) is just past the noise. Against seven copies of the rival hero
+scores 4.41 ± 0.12 (uniform 4.50): fewer firsts (9% vs 13%), the same eighths, and a centre-heavy finish list, so
+it is ground down rather than knocked out early. The mirror is sharper: one rival among seven heroes scores 4.78 ± 0.14, +0.28 over uniform, with 17% firsts
+and 17% seconds against the heroes' 12%, though also 14% eighths (it takes its stands earlier against a table
+that folds). The asymmetry, +0.28 for the rival in a hero room against -0.09 for hero in a rival room, is the
+cleanest statement that the rival is currently the stronger bot. (That run took 1,672 s against 205 s for its
+mirror, for the reason in the last paragraph.)
+
+**The rival's finish distribution** is top-heavy wherever it has weak bots to feed on and flat where it does not:
+33/10/10/11/16/8/7/4 in `realistic`, 27/12/9/9/11/13/11/8 in `top`, 17/17/10/10/9/12/10/14 among seven
+heroes, and by symmetry 13% in every place among its own copies. Its bust rate is the lowest of the competent bots in both fields (60.5%, 66.1%) because it folds its
+way to the cap when it can afford the blinds (cap mode) and refuses deep 60/40s (risk-of-ruin cap), exactly the
+two heuristics its build log describes.
+
+**What the rival punishes** (`--trace-busts hero`, 602 / 750 / 871 busts in realistic / top / vs-7-rivals; every bust
+is an all-in, as always). Three things, in order of weight.
+1. *Hero calling the rival's shoves.* `preflop/pre/call/vs-shove` plus `pushfold/pre/call/vs-shove` are 21% of hero's
+   busts in realistic, 24% in top and 35% against seven rivals, and the fatal classes are 99, JJ, 88, TT, ATo, AJo,
+   QJo, A5o. The rival only shoves deep with a range it has capped by risk of ruin and 4-bet-shoves QQ+ only, so
+   when hero's call model prices its shove as a wide pusher's, hero is behind. Hero's medium pairs and ace-x
+   calls against *this* shover are the single biggest bucket the rival owns.
+2. *Hero's own short shoves getting picked off.* `pushfold/pre/raise` (mostly at <= 12 bb) is 34-38% of busts in every field,
+   as it was in the tuning pass; the rival's shove-calling range is a stack-and-position estimate that tightens per
+   player behind, so against it hero's shoves get called more precisely than against the room average, and hero
+   arrives at the short-stack phase more often than the rival does (bust% 64 vs 60, 76 vs 66).
+3. *Turn and river calls against the rival's shoves* (14% of busts against seven rivals, 7-9% in the fields). The
+   rival's late-street shoves are value: it never bluff-catches, and bluffs the river only against flagged
+   folders when 0.6 pot is <= 25% of its stack. A hero call against a rival's turn or river shove is nearly always
+   against a hand that beats top pair.
+Behind all three is one measurable thing. The rival's opponent model reads hero as a *nit* (VPIP <= 14% after 15
+hands) or a *folder* (fold-to-raise >= 75%) in about half of all table-views by hand 40 (nit 49%, folder 44% of
+1,239 rival-views over 200 tables; hero's VPIP as the rival measures it is 17%, its fold-to-raise 72%, both a
+hair from the thresholds), and once every player behind it is flagged that way it widens its steals 1.6x. The
+rival is one of seven opponents in `realistic` yet the sole opponent in 30% of hero's busts there (38% counting
+multiway pots); in `top`, two of seven and 36% (about half). Hero is not tuned here (not this builder's files).
+
+**For the strategy owner to look at**, in this order: (a) the shove-calling range against a shover whose observed
+shove rate is low: the tuning pass found a patience premium keyed to the shover's shove rate added nothing, but
+that was measured in the old realistic field where the shovers were allin, maniac and naive; against a shover
+whose deep shoves are capped by risk of ruin the busts say this is where its edge sits, so re-ask it with `rival1`
+in the field; (b) blind defence and fold-to-raise: hero's 72% preflop fold-to-raise is what flips the
+rival's folder flag and its steals, and `preflop.call_raise_frac` / 3-bet-as-defence are the levers; (c) the
+turn/river call-down slope against a bettor with a high aggression stat *and* a low VPIP, where the rival's shoves
+are value and hero's `call_margin` 0.15 still pays them off. Not a behaviour but worth knowing: in a table of
+seven heroes hero's `hand_end` averages 6.4 ms per call (exact 8-player Malmuth-Harville in `compute` ->
+`icm_value`, 98% of the table's wall time), which is outside the per-decision budget in our engine but would
+matter if the real kit times `hand_end` or if that curve ever moves into `act()`.
+
+**Not done here.** No Hero tuning; no rival tuning (its knobs OPEN_SCALE / PUSH_SCALE / CAP_MODE / ROR_DEEP stay at
+the frozen values, and a tuned rival would be a second file). The `strong` and `chaos` fields are unchanged.
