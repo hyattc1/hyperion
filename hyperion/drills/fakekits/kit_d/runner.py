@@ -9,7 +9,9 @@ repo root on PYTHONPATH and must connect within 10 s. A pooled game clock of 1 m
 (hands x 3) is charged by the wall time of EVERY round trip, the two acks per round included; once it is
 negative every later action is a fold and the bot is not spoken to again. A reply slower than 2 s marks
 the bot dead. Exceptions, illegal replies (a fold when a check is free is illegal here, as in MIT) and
-latency are reported.
+latency are reported. The bot's stderr goes into the report's notes: the last STDERR_KEEP characters, and
+when there is more than that the whole text is written to a file whose path is in the note, so a long
+conformance report survives.
 """
 from __future__ import annotations
 
@@ -20,6 +22,7 @@ import random
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Callable
@@ -32,6 +35,7 @@ STACK = 2000
 HARD_TIMEOUT_S = 2.0
 CONNECT_TIMEOUT_S = 10.0
 DECISIONS_PER_HAND = 3
+STDERR_KEEP = 4000
 ROOT = Path(__file__).resolve().parents[4]
 
 _HIST = {"fold": "F", "call": "C", "check": "K"}
@@ -291,6 +295,17 @@ def command_for(submission: str) -> tuple[list[str], str | None]:
     return [sys.executable, str(p)], None
 
 
+def stderr_note(err: str) -> str:
+    """The report note for the bot's stderr: all of it up to STDERR_KEEP characters; beyond that the tail,
+    with the whole text saved to a file named in the note."""
+    if len(err) <= STDERR_KEEP:
+        return "stderr: " + err
+    fd, path = tempfile.mkstemp(prefix="kit_d_stderr_", suffix=".log", text=True)
+    with os.fdopen(fd, "w") as f:
+        f.write(err)
+    return f"stderr: {len(err)} chars, full text in {path}; last {STDERR_KEEP}: " + err[-STDERR_KEEP:]
+
+
 def run(cmd: list[str], hands: int = 30, seed: int = 1, budget_ms: float = 1.0, hole_cards: int = 2,
         n_players: int = N_PLAYERS, cwd: str | None = None) -> _table.Report:
     report = _table.Report()
@@ -304,7 +319,7 @@ def run(cmd: list[str], hands: int = 30, seed: int = 1, budget_ms: float = 1.0, 
     if bot is not None:
         err = bot.close().strip()
         if err:
-            report.notes.append("stderr: " + err[-400:])
+            report.notes.append(stderr_note(err))
     return report
 
 

@@ -56,6 +56,35 @@ def test_three_hole_cards_through_kit_d(tmp_path):
     assert r.passed, r.summary() + " " + "; ".join(r.notes)
 
 
+def test_long_stderr_is_kept_in_full(tmp_path):
+    """A conformance report with violations runs past 400 characters; the runner keeps the tail in the note
+    and the whole text in a file it names, instead of truncating it."""
+    sub = tmp_path / "chatty.py"
+    sub.write_text(
+        "import sys\n"
+        "from hyperion.drills.adapter import KitDBot\n"
+        "from hyperion.drills.fakekits.kit_d.kit import parse_args, run_bot\n"
+        "sys.stderr.write('BEGIN-MARKER\\n' + ''.join(f'line {i:05d} of filler\\n' for i in range(1000)))\n"
+        "sys.stderr.flush()\n"
+        "if __name__ == '__main__':\n"
+        "    run_bot(KitDBot(), parse_args())\n"
+        "    sys.stderr.write('conformance report: END-MARKER\\n')\n"
+    )
+    r = run_d.run([sys.executable, str(sub)], hands=3, seed=1)
+    assert r.exceptions == 0, r.summary() + " " + "; ".join(r.notes)
+    note = next(n for n in r.notes if n.startswith("stderr"))
+    assert "END-MARKER" in note and "line 00999" in note and "BEGIN-MARKER" not in note
+    assert len(note) >= run_d.STDERR_KEEP > 400
+    path = Path(note.split("full text in ", 1)[1].split(";", 1)[0])
+    try:
+        text = path.read_text()
+    finally:
+        path.unlink()
+    assert text.startswith("BEGIN-MARKER") and text.rstrip().endswith("END-MARKER") and "line 00000" in text
+    # a short stderr is kept whole, with no file
+    assert run_d.stderr_note("short") == "stderr: short"
+
+
 def test_bot_that_never_connects_is_reported(tmp_path):
     bad = tmp_path / "bad.py"
     bad.write_text("import sys\nsys.exit(3)\n")
