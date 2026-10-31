@@ -42,8 +42,14 @@ def _dump(path: Path, obj) -> None:
         f.write("\n")
 
 
-def _matrix_samples(samples: int) -> int:
-    return max(20, samples // 20)
+MATRIX_SAMPLES = 5000  # per class pair; 1,000 (the old samples // 20) left 1.6% noise per cell, which the 2026-10-31 HRC
+# cross-check saw as low suited junk pushed at 5-10 bb. 5,000 is ~0.7% and ~50 s on 7 workers.
+
+
+def _matrix_samples(samples: int, matrix_samples: int | None = None) -> int:
+    if matrix_samples is not None:
+        return max(20, matrix_samples)
+    return max(20, min(MATRIX_SAMPLES, samples // 4)) if samples < MATRIX_SAMPLES * 4 else MATRIX_SAMPLES
 
 
 def gen_preflop(pool: Pool, classes: dict, samples: int, seed: int, out: Path) -> tuple[dict, dict]:
@@ -103,14 +109,19 @@ def gen_flops(pool: Pool, rules: Rules, seed: int, out: Path, flops_per_bucket: 
 
 
 def run(rules: Rules, samples: int, out: Path, seed: int, workers: int, skip_matrix: bool,
-        flops_per_bucket: int = 0, max_holdings: int = 2000, quiet: bool = False) -> dict[str, float]:
+        flops_per_bucket: int = 0, max_holdings: int = 2000, quiet: bool = False,
+        matrix_samples: int | None = None) -> dict[str, float]:
     """Generate every table into out; returns seconds per table."""
     t_all = time.perf_counter()
+    m_samples = _matrix_samples(samples, matrix_samples)
     classes = tg.class_table(rules)
     times: dict[str, float] = {}
     out.mkdir(parents=True, exist_ok=True)
     log = (lambda *a: None) if quiet else print
 
+    # the rules go down first so anything that reads the half-written set (the push/fold solve below, a
+    # drill's T+30 check) knows which class scheme the files declare; the full meta.json replaces it at the end
+    _dump(out / "meta.json", {"rules": tg.rules_to_dict(rules), "samples": samples, "seed": seed, "partial": True})
     with Pool(workers, initializer=tg._init_worker, initargs=(tg.rules_to_dict(rules), classes)) as pool:
         t = time.perf_counter()
         gen_preflop(pool, classes, samples, seed, out)
@@ -124,9 +135,9 @@ def run(rules: Rules, samples: int, out: Path, seed: int, workers: int, skip_mat
             log("hu_matrix.json  skipped")
         else:
             t = time.perf_counter()
-            gen_matrix(pool, classes, _matrix_samples(samples), seed, out)
+            gen_matrix(pool, classes, m_samples, seed, out)
             times["hu_matrix"] = time.perf_counter() - t
-            log(f"hu_matrix.json  {len(classes)}x{len(classes)} @ {_matrix_samples(samples)} samples  {times['hu_matrix']:.1f}s")
+            log(f"hu_matrix.json  {len(classes)}x{len(classes)} @ {m_samples} samples  {times['hu_matrix']:.1f}s")
             # the push/fold solution depends on the matrix; rebuild it now so no stale cache survives
             t = time.perf_counter()
             stale = out / "pushfold_hu.json"
@@ -135,9 +146,12 @@ def run(rules: Rules, samples: int, out: Path, seed: int, workers: int, skip_mat
             from hyperion.strategy import tables as _tables
             from hyperion.strategy.pushfold import build_pushfold_tables
             _tables._CACHE.clear()
-            build_pushfold_tables(_tables.load(str(out), need_hu=True), str(out))
+            t_loaded = _tables.load(str(out), need_hu=True, strict=True)  # the set just written, never a built fallback
+            sol = build_pushfold_tables(t_loaded, str(out))
             times["pushfold_hu"] = time.perf_counter() - t
-            log(f"pushfold_hu.json  re-solved from the new matrix  {times['pushfold_hu']:.1f}s")
+            worst = max(v[1] for v in sol["converged"].values())
+            log(f"pushfold_hu.json  re-solved from the new matrix over {sol['n_classes']} classes  "
+                f"{times['pushfold_hu']:.1f}s  (worst best-response gain {worst:.2e} bb)")
 
         t = time.perf_counter()
         doc = gen_flops(pool, rules, seed, out, flops_per_bucket, max_holdings)
@@ -148,7 +162,7 @@ def run(rules: Rules, samples: int, out: Path, seed: int, workers: int, skip_mat
     meta = {
         "rules": tg.rules_to_dict(rules),
         "samples": samples,
-        "matrix_samples": None if (skip_matrix or rules.hole_cards != 2) else _matrix_samples(samples),
+        "matrix_samples": None if (skip_matrix or rules.hole_cards != 2) else m_samples,
         "seed": seed,
         "workers": workers,
         "seconds": {k: round(v, 1) for k, v in times.items()},
@@ -160,18 +174,20 @@ def run(rules: Rules, samples: int, out: Path, seed: int, workers: int, skip_mat
     return times
 
 
-def variant_check(rules: Rules, samples: int, seed: int, workers: int, skip_matrix: bool) -> None:
+def variant_check(rules: Rules, samples: int, seed: int, workers: int, skip_matrix: bool,
+                  matrix_samples: int | None = None) -> None:
     """Run every table at 1/20 of the samples and project the full-run budget."""
     scale = 20
     with tempfile.TemporaryDirectory() as tmp:
-        times = run(rules, max(50, samples // scale), Path(tmp), seed, workers, skip_matrix, quiet=True)
+        times = run(rules, max(50, samples // scale), Path(tmp), seed, workers, skip_matrix, quiet=True,
+                    matrix_samples=max(20, _matrix_samples(samples, matrix_samples) // scale))
     print(f"variant check: hole_cards={rules.hole_cards} deck={len(tg.live_deck(rules))} workers={workers}")
     print(f"  measured at samples={max(50, samples // scale)}; projected at samples={samples}:")
     total = 0.0
     for name, secs in times.items():
         if name == "total":
             continue
-        proj = secs * (1 if name == "flop_strength" else scale)
+        proj = secs * (1 if name in ("flop_strength", "pushfold_hu") else scale)
         total += proj
         print(f"  {name:22s} {secs:7.1f}s measured  ~{proj:7.1f}s projected")
     print(f"  {'total':22s} {times['total']:7.1f}s measured  ~{total:7.1f}s projected"
@@ -186,15 +202,18 @@ def main(argv=None) -> int:
     p.add_argument("--seed", type=int, default=2026)
     p.add_argument("--workers", type=int, default=max(1, cpu_count() - 1))
     p.add_argument("--skip-matrix", action="store_true", help="skip the 169x169 heads-up matrix")
+    p.add_argument("--matrix-samples", type=int, default=None,
+                   help=f"Monte Carlo samples per heads-up class pair (default {MATRIX_SAMPLES}, or samples/4 below that)")
     p.add_argument("--flops-per-bucket", type=int, default=0, help="cap canonical flops per texture (0 = all)")
     p.add_argument("--max-holdings", type=int, default=2000, help="sample holdings per flop above this count")
     p.add_argument("--variant-check", action="store_true", help="time each table at reduced samples and project")
     a = p.parse_args(argv)
     rules = load_rules(a.rules)
     if a.variant_check:
-        variant_check(rules, a.samples, a.seed, a.workers, a.skip_matrix)
+        variant_check(rules, a.samples, a.seed, a.workers, a.skip_matrix, a.matrix_samples)
         return 0
-    run(rules, a.samples, Path(a.out), a.seed, a.workers, a.skip_matrix, a.flops_per_bucket, a.max_holdings)
+    run(rules, a.samples, Path(a.out), a.seed, a.workers, a.skip_matrix, a.flops_per_bucket, a.max_holdings,
+        matrix_samples=a.matrix_samples)
     return 0
 
 

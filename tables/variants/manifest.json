@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-31T05:33:59",
+ "generated_at": "2026-10-31T07:20:07",
  "workers": 7,
  "seed": 2026,
- "command": "python tools/gen_catalog.py",
+ "command": "python tools/gen_catalog.py  (short_deck regenerated 2026-10-31 by --only short_deck after the loader fix; other entries from the full run)",
  "entries": {
   "permuted_ranks": {
    "axis": "ranking",
@@ -126,6 +126,7 @@
     "status": "generate",
     "samples": 4000,
     "matrix": true,
+    "matrix_samples": 1000,
     "matrix_note": null,
     "flops_per_bucket": 0,
     "max_holdings": 2000,
@@ -133,13 +134,13 @@
     "approximate": true,
     "note": "36-card deck; generator keeps hold'em category order and misses A6789 (top of the distribution off)"
    },
-   "seconds": 13.1,
+   "seconds": 16.7,
    "seconds_by_table": {
-    "preflop_equity+rank": 6.1,
-    "hu_matrix": 0.9,
-    "pushfold_hu": 5.8,
-    "flop_strength": 0.3,
-    "total": 13.1
+    "preflop_equity+rank": 5.6,
+    "hu_matrix": 3.6,
+    "pushfold_hu": 7.3,
+    "flop_strength": 0.2,
+    "total": 16.7
    },
    "files": [
     "flop_strength.json",
@@ -149,7 +150,7 @@
     "preflop_rank.json",
     "pushfold_hu.json"
    ],
-   "bytes": 162784,
+   "bytes": 151684,
    "rules": {
     "hole_cards": 2,
     "board_sizes": [
@@ -818,6 +819,6 @@
    }
   }
  },
- "total_seconds": 88.3,
- "total_bytes": 908945
+ "total_seconds": 13.6,
+ "total_bytes": 897845
 }

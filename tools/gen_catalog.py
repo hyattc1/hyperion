@@ -12,7 +12,7 @@ share tables/ and are listed in the manifest as "default". Entries the generator
 the reason. The 169x169 heads-up matrix is only generated for 2-card entries; for 3- and 4-card
 entries gen_tables writes hole_classes.json instead and the manifest says so.
 
-Per-entry sample counts (preflop samples per class per opponent count; the matrix uses 1/20):
+Per-entry sample counts (preflop samples per class per opponent count; the 2-card matrix uses 1,000 per pair):
   2 hole cards          4000   (default tables use 20000)
   3 hole cards          1500   (676 best2+tags classes)
   4 hole cards (Omaha)   300   (550 classes, 60 evaluations per showdown)
@@ -37,6 +37,7 @@ import gen_tables  # noqa: E402
 OUT_ROOT = ROOT / "tables" / "variants"
 
 SAMPLES = {2: 4000, 3: 1500, 4: 300}
+MATRIX_SAMPLES_2CARD = 1000  # per class pair for the 2-card entries' heads-up matrix (was samples // 20 = 200)
 FLOPS_PER_BUCKET = {2: 0, 3: 3, 4: 2}  # 0 = every canonical flop
 MAX_HOLDINGS = {2: 2000, 3: 1500, 4: 800}
 
@@ -55,6 +56,7 @@ def plan_for(v: V.Variant) -> dict:
         "status": "generate",
         "samples": SAMPLES[k],
         "matrix": k == 2,
+        "matrix_samples": MATRIX_SAMPLES_2CARD if k == 2 else None,
         "matrix_note": None if k == 2 else "hu_matrix skipped: the 169x169 matrix is a 2-card object; hole_classes.json instead",
         "flops_per_bucket": FLOPS_PER_BUCKET[k],
         "max_holdings": MAX_HOLDINGS[k],
@@ -100,7 +102,8 @@ def main(argv=None) -> int:
             continue
         t = time.perf_counter()
         times = gen_tables.run(v.rules, plan["samples"], out, a.seed, a.workers, skip_matrix=not plan["matrix"],
-                               flops_per_bucket=plan["flops_per_bucket"], max_holdings=plan["max_holdings"], quiet=True)
+                               flops_per_bucket=plan["flops_per_bucket"], max_holdings=plan["max_holdings"], quiet=True,
+                               matrix_samples=plan["matrix_samples"])
         files = sorted(f.name for f in out.iterdir() if f.suffix == ".json")
         size = sum((out / f).stat().st_size for f in files)
         entry.update({
