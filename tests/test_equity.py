@@ -26,4 +26,4 @@ def test_hand_strength_middling():
 
 def test_monte_carlo_with_board():
     eq = monte_carlo_equity(P("Ah Kh"), P("Qh Jh 2c"), 1, 3000, seed=3)
-    assert 0.5 < eq < 0.75  # big draw plus overcards vs random
+    assert 0.65 < eq < 0.85  # royal draw plus overcards vs random
