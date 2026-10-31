@@ -51,6 +51,7 @@ from .tables import CLASSES, CLASS_INDEX, COMBO_COUNT, TABLES_DIR, TOTAL_COMBOS,
 _FOLD = Action(ActionKind.FOLD)
 _CHECK = Action(ActionKind.CHECK)
 _CALL = Action(ActionKind.CALL)
+_mw = None  # hyperion.strategy.multiway, imported on first use (it imports from this module)
 DEFAULT_DEPTHS = tuple(range(1, 26))
 
 
@@ -71,6 +72,19 @@ class PushFoldParams:
     loose_caller_equity_blend: float = 0.0  # equity moves from "vs Nash calling range" toward "vs random" by this * (max L - 1)+
     push_equity_margin: float = 0.0  # off the equity when pushing
     cheap_push_frac_mult: float = 0.8  # Hero.cheap(): a bit tighter than the rule, no dials
+    # the solved multiway tables (tables/pushfold_multi.json, multiway.py): first-in shoves against k behind, and
+    # re-shoves over one open, from the chip-EV equilibrium; the solve's no-call probability and equity-when-called
+    # feed the ICM gate. Off, or no table for this matrix: the heuristic rule above (tighten_per_player).
+    use_multiway: bool = True
+    use_reshove_table: bool = True
+    # exploitative first-in shoves: instead of the top p_push of hands, shove any hand whose ICM EV beats folding
+    # when each caller calls the top c_j of hands, c_j = its seat type's solved call frequency times its observed
+    # call-vs-shove rate over the prior (smoothed with exploit_prior_n shoves faced, clamped to [exploit_l_min,
+    # exploit_l_max]). Against Nash callers this is the solved set; against seats that over-fold it shoves wider.
+    exploit_push: bool = False
+    exploit_prior_n: float = 4.0
+    exploit_l_min: float = 0.3
+    exploit_l_max: float = 3.0
 
 
 # ---------------------------------------------------------------- offline solver
@@ -310,6 +324,16 @@ class PushFold:
         self.push_disc = {D: self._discount(self.call_set[D], self.eq_vs_push[D]) for D in self.depths}
         self.curve = _Linear()
         self.last = ""  # the sub-decision taken last (diagnostics: the runner's bust tracer reads it)
+        self.pre = None  # Hero's Preflop module (installed by HeroCore): its shover-range read is shared
+        try:
+            global _mw
+            if _mw is None:
+                from . import multiway as _m  # multiway imports this module's solver helpers: import it late
+
+                _mw = _m
+            self.mw = _mw.load_multiway(tables) if (params.use_multiway and tables.scheme == "169") else None
+        except Exception:  # noqa: BLE001 - a broken table file means the heuristic rule, never a crash
+            self.mw = None
 
     def with_tables(self, tables: Tables) -> "PushFold":
         """The same solution and dials, looking hands up in another rank / equity table (a 3- or 4-card
@@ -412,6 +436,9 @@ class PushFold:
             # nobody live can call: any shove takes the pot (dead seats fold to a bet)
             self.last = "push_free"
             return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else free
+        mw = self.mw
+        if mw is not None and i >= 0:
+            return self._push_table(spot, prof, cheap, mw, cls, i, callers, free)
         f = self.p_push[D] / (1.0 + p.tighten_per_player * (k - 1))
         loose_sum = 0.0
         loose_max = 1.0
@@ -451,6 +478,136 @@ class PushFold:
             return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else _CALL
         return free
 
+    def _looseness(self, prof: Profiler | None, seats) -> float:
+        """Mean of the callers' call-vs-shove rate over the prior, clamped (1 = as the solve assumes)."""
+        if prof is None or not seats:
+            return 1.0
+        m = 0.0
+        for s in seats:
+            m += self._clamp(prof.call_vs_shove(s) / Profiler.P_CALL_SHOVE)
+        return m / len(seats)
+
+    def _push_table(self, spot: Spot, prof: Profiler | None, cheap: bool, mw: dict, cls: str, i: int, callers,
+                    free: Action) -> Action:
+        """First-in shove from the solved table: the top p_push[k][S] by the solve's order (stretched by the
+        callers' steal dials), then the ICM gate with the solve's no-call probability and equity when called."""
+        p = self.p
+        obs = spot.obs
+        k = len(callers)
+        if k > mw["k_max"]:
+            k = mw["k_max"]
+        S = _mw.depth(mw, spot.eff_bb)
+        pre = self.pre
+        if p.exploit_push and not cheap and pre is not None and pre.req is not None:
+            return self._push_exploit(spot, prof, mw, cls, k, S, callers, free)
+        f = mw["p_push"][k][S]
+        loose = 1.0
+        if cheap:
+            f *= p.cheap_push_frac_mult
+        elif prof is not None:
+            m = 0.0
+            for s in callers:
+                m += prof.exploit_dials(s)["steal_mult"]
+            f *= self._clamp(m / len(callers))
+            loose = self._looseness(prof, callers)
+        if mw["push_order"][k][i] >= f:
+            return free
+        pc_any = 1.0 - mw["pnc"][k][S][i]
+        if loose != 1.0:
+            pc_any *= loose
+            if pc_any > 0.98:
+                pc_any = 0.98
+        e = mw["eqc"][k][S][i] - p.push_equity_margin
+        if self._push_ev_ok(spot, pc_any, e, spot.cover_frac):
+            return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else _CALL
+        return free
+
+    def caller_width(self, spot: Spot, prof: Profiler | None, mw: dict, seat: int, k: int, S: int) -> float:
+        """Estimated share of hands `seat` calls a shove with: its seat type's solved frequency at (k, S), times
+        how often it has really called shoves against the prior."""
+        t = "bb" if seat == spot.bb_seat else "sb" if seat == spot.sb_seat else "n"
+        pc = mw["p_call"]
+        row = pc[t][k] if pc[t][k] is not None else (pc["n"][k] or pc["bb"][k])
+        q = row[S] if row is not None and row[S] is not None else 0.2
+        if prof is not None:
+            p = self.p
+            n0 = p.exploit_prior_n
+            P = Profiler.P_CALL_SHOVE
+            L = (prof.called_shove[seat] + P * n0) / (prof.faced_shove[seat] + n0) / P
+            q *= p.exploit_l_min if L < p.exploit_l_min else p.exploit_l_max if L > p.exploit_l_max else L
+        return 0.01 if q < 0.01 else 1.0 if q > 1.0 else q
+
+    def _push_exploit(self, spot: Spot, prof: Profiler | None, mw: dict, cls: str, k: int, S: int, callers,
+                      free: Action) -> Action:
+        """Shove when the ICM EV against the callers' estimated ranges beats folding: the first caller j (each
+        calls the top c_j, the ones before it folded) brings equity eq(cls vs top c_j); nobody calling takes the pot."""
+        obs = spot.obs
+        req = self.pre.req
+        v = self.curve.value
+        behind = obs.stacks[spot.me]
+        pot = spot.pot_total + spot.bounty_bonus
+        v_fold = v(behind)
+        reach = 1.0
+        ev = 0.0
+        ko = spot.ko_points if (spot.ko_points and self.curve.points) else 0.0
+        margin = self.p.push_equity_margin
+        my_total = spot.my_total
+        for s in callers:
+            c = self.caller_width(spot, prof, mw, s, k, S)
+            e = req.eq(cls, c)
+            if e is None:
+                return free
+            e -= margin
+            tot = obs.stacks[s] + obs.bets[s]
+            risk = behind if behind < tot else tot
+            v_win = v(behind + pot + risk) + (ko if tot <= my_total else 0.0)
+            ev += reach * c * (e * v_win + (1.0 - e) * v(behind - risk))
+            reach *= 1.0 - c
+        ev += reach * v(behind + pot)
+        if ev > v_fold + self.p.icm_epsilon:
+            self.last = "push_exploit"
+            return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else _CALL
+        return free
+
+    def _reshove_table(self, spot: Spot, prof: Profiler | None, mw: dict, cls: str, i: int, callers):
+        """Re-shove over one open from the solved re-shove family: the opener's range is estimated like the
+        big blind's defence (bb_open_prior by its seat, scaled by its PFR), m = players who could still call
+        behind me. None = this spot is not one the table describes."""
+        rs = mw["reshove"]
+        obs = spot.obs
+        raiser = spot.raiser
+        if raiser < 0 or raiser == spot.me or obs.stacks[raiser] <= 0:
+            return None
+        pre = self.pre
+        pri = pre.p.bb_open_prior if pre is not None else (0.45, 0.45, 0.40, 0.28, 0.22, 0.18, 0.15, 0.13)
+        kb = self.behind_seat(spot, raiser)
+        w = pri[kb] if kb < len(pri) else pri[-1]
+        if prof is not None:
+            r = prof.pfr_rate(raiser) / Profiler.P_PFR
+            w *= 0.5 if r < 0.5 else 2.5 if r > 2.5 else r
+        wi = _mw.nearest_w(mw, w)
+        m = len(callers) - 1  # the opener is one of the callers
+        if m < 0:
+            m = 0
+        if m > rs["m_max"]:
+            m = rs["m_max"]
+        S = _mw.depth(rs, spot.eff_bb)
+        for c in rs["p_bcall"][wi][m][S] or ():
+            if c is not None and c > 0.5:
+                return None  # a short-stack cell on the no-overcall model's gamble branch (see multiway.py): not used
+        f = rs["p_push"][wi][m][S]
+        if prof is not None:
+            f *= self._clamp(prof.fold_to_bet_pre(raiser) / Profiler.P_FTB)
+        if rs["order"][wi][m][i] >= f:
+            return False
+        pc_any = 1.0 - rs["pnc"][wi][m][S][i]
+        if prof is not None:
+            pc_any *= self._looseness(prof, callers)
+            if pc_any > 0.98:
+                pc_any = 0.98
+        e = rs["eqc"][wi][m][S][i] - self.p.push_equity_margin
+        return self._push_ev_ok(spot, pc_any, e, spot.cover_frac)
+
     def _push_ev_ok(self, spot: Spot, pc_any: float, e: float, cover: float = 0.0) -> bool:
         obs = spot.obs
         v = self.curve.value
@@ -475,6 +632,16 @@ class PushFold:
         D = self.depth(spot.eff_bb)
         callers = self._callers(spot, prof)
         k = len(callers)
+        mw = self.mw
+        if mw is not None and i >= 0 and p.use_reshove_table and spot.n_raises == 1 and not cheap:
+            ok = self._reshove_table(spot, prof, mw, cls, i, callers)
+            if ok:
+                return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else _CALL
+            if ok is not None:
+                if spot.behind == 0 and spot.to_call <= p.bb_flat_max_frac * spot.my_total and self.rank[cls] >= p.bb_flat_min_rank:
+                    self.last = "bb_flat"
+                    return _CALL
+                return _CHECK if ActionKind.CHECK in obs.legal else _FOLD
         f = self.p_call[D] / (1.0 + p.tighten_per_player * max(0, k - 1))
         pc_raiser = p.reshove_raiser_call_prob
         if prof is not None and not cheap and spot.raiser >= 0:
@@ -491,6 +658,33 @@ class PushFold:
             return _CALL
         return _CHECK if ActionKind.CHECK in obs.legal else _FOLD
 
+    def nash_push_freq(self, k: int, D: int) -> float:
+        """First-in push frequency with k players behind at depth D: the solved multiway table, else the
+        heuristic multiway rule on the heads-up solution."""
+        if k < 1:
+            k = 1
+        mw = self.mw
+        if mw is not None:
+            return mw["p_push"][k if k <= mw["k_max"] else mw["k_max"]][_mw.depth(mw, D)]
+        return self.p_push[D] / (1.0 + self.p.tighten_per_player * (k - 1))
+
+    @staticmethod
+    def behind_seat(spot: Spot, seat: int) -> int:
+        """Players dealt into this hand who act after `seat` preflop (who were still to act when it shoved)."""
+        obs = spot.obs
+        n = spot.n
+        alive = 0
+        for s in range(n):
+            if obs.stacks[s] + obs.bets[s] > 0 or obs.in_hand[s]:
+                alive += 1
+        mine = Spot._pre_order(seat, obs.button, n, alive)
+        k = 0
+        for s in range(n):
+            if s != seat and (obs.stacks[s] + obs.bets[s] > 0 or obs.in_hand[s]) and \
+                    Spot._pre_order(s, obs.button, n, alive) > mine:
+                k += 1
+        return k
+
     def _call_shove(self, spot: Spot, prof: Profiler | None, cheap: bool) -> Action:
         p = self.p
         obs = spot.obs
@@ -503,6 +697,15 @@ class PushFold:
         for s in spot.opps:
             if obs.bets[s] < spot.cur_bet and obs.stacks[s] > 0:
                 k_behind += 1
+        pre = self.pre
+        if pre is not None and pre.p.shove_range_model and pre.req is not None and not cheap and shover >= 0:
+            # the shover's range from its seat's Nash push frequency, scaled by how often this seat really shoves
+            base = self.nash_push_freq(self.behind_seat(spot, shover), D)
+            x = pre.shover_range(spot, prof, base)
+            margin = p.call_equity_margin + p.multiway_equity_penalty * k_behind
+            ok = pre.range_call_ok(spot, cls, x, margin, max(0, spot.n_in - 1))
+            if ok is not None:
+                return _CALL if ok else _FOLD
         f = self.p_call[D] / (1.0 + p.tighten_per_player * k_behind)
         if spot.n_in >= 2:
             f *= 0.5  # a shove and a call already: need a premium

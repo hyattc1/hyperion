@@ -57,11 +57,24 @@ def test_six_bb_button_shoves_a9o_folds_83o(engine):
 
 def test_multiway_rule_tightens_early_position(engine):
     st = [200] * 8  # everyone 10 bb
-    # K9o: a heads-up push at 10 bb, a fold under the gun eight-handed, a push on the button
-    assert engine.push_set[10][CLASS_INDEX["K9o"]] == 1
-    assert decide(engine, preflop_obs("Kh 9d", 2, stacks=st)) == F
-    assert decide(engine, preflop_obs("Kh 9d", 7, stacks=st, actions=FOLDS(2, 3, 4, 5, 6))).kind is ActionKind.RAISE
+    # KTo: a heads-up push at 10 bb, a fold under the gun eight-handed, a push on the button (solved table)
+    assert engine.push_set[10][CLASS_INDEX["KTo"]] == 1
+    assert decide(engine, preflop_obs("Kh Td", 2, stacks=st)) == F
+    assert decide(engine, preflop_obs("Kh Td", 7, stacks=st, actions=FOLDS(2, 3, 4, 5, 6))).kind is ActionKind.RAISE
     assert decide(engine, preflop_obs("Ah Ad", 2, stacks=st)).kind is ActionKind.RAISE
+
+
+def test_solved_multiway_table_is_in_use_and_the_heuristic_is_the_fallback(tables):
+    eng = PF.PushFold(PF.PushFoldParams(), tables)
+    assert eng.mw is not None, "tables/pushfold_multi.json missing or solved from another matrix"
+    assert 0.28 < eng.nash_push_freq(2, 10) < 0.36  # the button at 10 bb
+    assert eng.nash_push_freq(7, 10) < 0.15 < eng.nash_push_freq(1, 10)
+    old = PF.PushFold(PF.PushFoldParams(use_multiway=False), tables)
+    assert old.mw is None
+    assert old.nash_push_freq(2, 10) == pytest.approx(old.p_push[10] / 1.3)
+    st = [200] * 8
+    obs = preflop_obs("Kh 9d", 7, stacks=st, actions=FOLDS(2, 3, 4, 5, 6))
+    assert decide(old, obs).kind is ActionKind.RAISE  # the heuristic shoved 44% from the button
 
 
 def test_dead_seats_get_shoved_into_with_anything(engine):
@@ -119,7 +132,7 @@ def test_icm_gate_can_turn_a_marginal_push_into_a_fold(tables):
     eng = PF.PushFold(PF.PushFoldParams(), tables)
     st = [2000] * 8
     st[7] = 200
-    obs = preflop_obs("Kh 9d", 7, stacks=st, actions=FOLDS(2, 3, 4, 5, 6))
+    obs = preflop_obs("Kh Td", 7, stacks=st, actions=FOLDS(2, 3, 4, 5, 6))
     assert decide(eng, obs).kind is ActionKind.RAISE
     eng.curve = FlatCurve(obs.stacks[7])
     assert decide(eng, obs) == F

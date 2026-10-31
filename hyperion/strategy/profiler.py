@@ -29,6 +29,7 @@ def _rate(k: int, n: int, prior_mean: float, prior_n: float) -> float:
 class Profiler:
     # prior means for the Beta-smoothed rates
     P_VPIP, P_PFR, P_FTB, P_SHOVE, P_CALL_SHOVE, P_WTSD, P_AGG = 0.25, 0.15, 0.5, 0.05, 0.25, 0.3, 0.4
+    SHOVE_BUCKETS_BB = (12.0, 25.0, 50.0)  # depth buckets (bb at its first preflop action) for shove_counts
 
     def __init__(
         self,
@@ -78,6 +79,11 @@ class Profiler:
         self.faced_shove = z()
         self.called_shove = z()
         self.showdowns = z()
+        # preflop shove frequency by the seat's own depth when it first acted: hands it acted in / hands it shoved,
+        # per bucket of SHOVE_BUCKETS_BB (a short stack's shove range is wide, a deep one's is not)
+        nb = len(self.SHOVE_BUCKETS_BB) + 1
+        self.pre_hands_b = [[0] * nb for _ in range(n)]
+        self.pre_shoves_b = [[0] * nb for _ in range(n)]
         self._dials = [dict(NEUTRAL_DIALS) for _ in range(n)]
         self.last_bb = 20
         self.hand_no = -1
@@ -100,6 +106,9 @@ class Profiler:
         self.pre_raiser = -1
         self.pre_raises = 0
         self.seen_obs = False
+        self.pre_acted_mask = 0
+        self.pre_shoved_mask = 0
+        self.pre_bucket = [0] * n
 
     def _start_hand(self, obs: Observation) -> None:
         self._start_blank()
@@ -223,6 +232,11 @@ class Profiler:
                     self.faced_shove[seat] += 1
             if not pre:
                 self.post_actions[seat] += 1
+            elif not (self.pre_acted_mask & bit):
+                self.pre_acted_mask |= bit
+                b = self._bucket(self.chips[seat])
+                self.pre_bucket[seat] = b
+                self.pre_hands_b[seat][b] += 1
             if kind is _FOLD:
                 self.folds[seat] += 1
                 if facing_raise:
@@ -263,6 +277,9 @@ class Profiler:
                 if ch > 0 and amt >= ch * 0.95:
                     self.shoves[seat] += 1
                     self.shove_pending = True
+                    if pre and not (self.pre_shoved_mask & bit):
+                        self.pre_shoved_mask |= bit
+                        self.pre_shoves_b[seat][self.pre_bucket[seat]] += 1
                 elif amt > self.cur_bet:
                     self.shove_pending = False
                 if amt > self.cur_bet:
@@ -293,6 +310,19 @@ class Profiler:
 
     def shove_rate(self, s: int) -> float:
         return _rate(self.shoves[s], self.shove_opps[s], self.P_SHOVE, self.prior_n)
+
+    def _bucket(self, chips: int) -> int:
+        bb = self.last_bb or 1
+        d = chips / bb
+        for i, top in enumerate(self.SHOVE_BUCKETS_BB):
+            if d <= top:
+                return i
+        return len(self.SHOVE_BUCKETS_BB)
+
+    def shove_counts(self, s: int, chips: int) -> tuple[int, int]:
+        """(preflop shoves, hands acted preflop) for seat s in the depth bucket of `chips` (its stack at the shove)."""
+        b = self._bucket(chips)
+        return self.pre_shoves_b[s][b], self.pre_hands_b[s][b]
 
     def call_vs_shove(self, s: int) -> float:
         return _rate(self.called_shove[s], self.faced_shove[s], self.P_CALL_SHOVE, self.prior_n)

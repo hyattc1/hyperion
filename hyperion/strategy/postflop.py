@@ -99,6 +99,14 @@ class PostflopParams:
     icm_gate_frac: float = 0.5  # 2.0 = never (the gate is off); 0.5 = any commitment of half my stack or more
     icm_margin: float = 0.10  # the single biggest lever found: +0.14/+0.15/+0.07 on mixed/strong/weak fields, busts 54% -> 50%
     river_call_margin: float = 0.0  # extra margin on river calls: a student who bets the river has it
+    # turn and river calls against a tight-aggressive bettor (VPIP under tight_vpip, postflop aggression over
+    # tight_agg): its late bets are value, so the margin grows by tight_aggro_margin (0 = off)
+    tight_aggro_margin: float = 0.0
+    tight_vpip: float = 0.22
+    tight_agg: float = 0.40
+    # an unknown bettor's call-down dial is capped at this on the turn and river (a low aggression stat made the
+    # dial > 1, i.e. lighter calls, against passive bettors whose late bets are value); 9 = off
+    late_calldown_cap: float = 9.0
     river_min_tier: int = 0  # never call a river bet below this tier (0 = off)
     # strength-axis knobs (prompt 05's short-deck patch): a made flush / straight lands this many tiers away from
     # its hold'em tier, and draw outs are scaled (short deck: an open-ender is worth about 1.2x its hold'em outs)
@@ -150,8 +158,9 @@ class Postflop:
         self.flush_over_full = flush_over_full
 
     def _commit_ok(self, spot: Spot, eq: float, risk: int) -> bool:
-        """Risking `risk` chips with equity `eq` (opponent never folds) beats keeping them, in ICM points."""
-        e = eq - self.p.icm_margin
+        """Risking `risk` chips with equity `eq` (opponent never folds) beats keeping them, in ICM points.
+        `spot.ror` (the risk-of-ruin margin while deep and early) adds to the margin."""
+        e = eq - self.p.icm_margin - spot.ror
         if e <= 0.0:
             return False
         v = self.curve.value
@@ -643,7 +652,13 @@ class Postflop:
 
         # ---- facing a bet
         pot_odds = spot.pot_odds
+        if street >= 2 and bettor >= 0 and prof is not None and not cheap:
+            if call_down > p.late_calldown_cap and not (prof.maniac(bettor) or prof.random_like(bettor)):
+                call_down = p.late_calldown_cap
         margin = p.call_margin / call_down if call_down > 0 else p.call_margin
+        if p.tight_aggro_margin > 0.0 and street >= 2 and bettor >= 0 and prof is not None and not cheap \
+                and prof.vpip_rate(bettor) < p.tight_vpip and prof.aggression(bettor) > p.tight_agg:
+            margin += p.tight_aggro_margin
         if street == 3:
             margin += p.river_call_margin
             if tier < p.river_min_tier and tier < p.raise_tier:

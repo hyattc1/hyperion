@@ -25,7 +25,7 @@ class Spot:
         "obs", "cls", "n", "me", "bb", "sb_seat", "bb_seat", "my_total", "my_bb", "cur_bet", "to_call",
         "pot_total", "opps", "n_opps", "behind", "limpers", "n_in", "n_raises", "raiser", "facing_shove",
         "shover", "max_opp_total", "eff", "eff_bb", "i_raised_last", "pot_odds",
-        "bounty_bonus", "ko_points", "cover_frac", "shover_covered", "dead", "exposed",
+        "bounty_bonus", "ko_points", "cover_frac", "shover_covered", "dead", "exposed", "ror",
     )
 
     def __init__(self, obs: Observation, hole: tuple[int, ...], cls: str | None = None, bounty_bonus: float = 0.0,
@@ -36,6 +36,7 @@ class Spot:
         self.ko_points = ko_points
         self.dead = dead
         self.exposed = exposed
+        self.ror = 0.0  # risk-of-ruin margin for stack-offs (Hero sets it from Config per decision)
         n = self.n = len(obs.stacks)
         me = self.me = obs.seat
         stacks, bets, in_hand, button = obs.stacks, obs.bets, obs.in_hand, obs.button

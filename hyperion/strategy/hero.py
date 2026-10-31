@@ -30,6 +30,7 @@ from __future__ import annotations
 import gc
 from dataclasses import dataclass, field, replace
 from functools import lru_cache
+from math import erf, sqrt
 
 from ..core.cards import hole_class, is_identity_order, remap
 from ..core.eval import warm
@@ -112,6 +113,23 @@ def icm_me(stacks, me: int, payouts) -> float:
     return out
 
 
+def _cap_value(stacks, me: int, pays, cap) -> float:
+    """Linear payouts near the hand cap: pay_1 - step * sum_j [lam * s_j / (s + s_j) + (1 - lam) * Phi((s_j - s) / sigma)]."""
+    lam, sigma = cap
+    mine = stacks[me]
+    step = pays[0] - pays[1] if len(pays) > 1 else 0.0
+    acc = 0.0
+    inv = 1.0 / (sigma * 1.4142135623730951) if sigma > 0 else 0.0
+    for i, sj in enumerate(stacks):
+        if i != me and sj > 0:
+            if inv:
+                above = 0.5 * (1.0 + erf((sj - mine) * inv))
+            else:  # the last hand: the cap's ranking is the chip ranking
+                above = 1.0 if sj > mine else 0.5 if sj == mine else 0.0
+            acc += lam * sj / (mine + sj) + (1.0 - lam) * above
+    return pays[0] - step * acc
+
+
 @lru_cache(maxsize=1 << 15)
 def _icm_bucketed(key: tuple, me: int, payouts: tuple) -> float:
     return icm_me(key, me, payouts)
@@ -165,6 +183,20 @@ class Config:
     profiler_random_after: int = 15
     use_profiler: bool = True
     use_icm: bool = True
+    # early-game risk-of-ruin cap: while my stack is deep (linear from ror_from_bb to full at ror_full_bb) and the
+    # hand number is at most ror_hands, any stack-off (a call or commitment of half my stack or more, preflop or
+    # postflop) needs ror_margin more equity. The option to wait for a better spot is worth most early. 0 = off.
+    ror_margin: float = 0.0
+    ror_from_bb: float = 30.0
+    ror_full_bb: float = 80.0
+    ror_hands: int = 75
+    # the hand cap: survivors are ranked by chips at the last hand, so near it chips matter by rank more than by
+    # share. With linear payouts my points are pay_1 - step * sum_j P(j finishes above me); the curve blends
+    # Malmuth-Harville's s_j / (s_me + s_j) with the cap's Phi((s_j - s_me) / sigma), where sigma^2 is twice the sum
+    # over the remaining hands of (cap_vol_bb * big blind)^2 (a pair of stacks' variance to the cap) and the weight
+    # on Malmuth-Harville is sigma^2 / (sigma^2 + average stack^2). Early on it is ~1; it falls in the last levels.
+    # 0 = off (pure Malmuth-Harville).
+    cap_vol_bb: float = 0.0
     # my-stack multiples the ICM curve samples. Dense around 1x: with samples only at 0.5/1/1.5 the piecewise-linear
     # curve had a kink at my stack that priced a +-7% flip at 57% equity where exact ICM says 47%.
     icm_ratios: tuple = (0.0, 0.25, 0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 2.0, 3.0, 4.0, 6.0)
@@ -224,7 +256,9 @@ class IcmCurve:
         self.vs = [0.0, 1.0]
         self.n = 2
 
-    def compute(self, stacks, me: int, payouts, ratios, buckets: int = ICM_BUCKETS, subdiv: int = ICM_ME_SUBDIV) -> None:
+    def compute(self, stacks, me: int, payouts, ratios, buckets: int = ICM_BUCKETS, subdiv: int = ICM_ME_SUBDIV,
+                cap=None) -> None:
+        """`cap` = (weight on Malmuth-Harville, sigma of a stack pair to the hand cap), linear payouts only."""
         total = float(sum(s for s in stacks if s > 0))
         base = float(stacks[me])
         alive = sum(1 for s in stacks if s > 0)
@@ -235,8 +269,17 @@ class IcmCurve:
             return
         others = total - base
         xs, vs = [], []
-        for r in ratios:
-            x = base * r
+        points = [base * r for r in ratios]
+        if cap is not None and others > 0:
+            # near the cap my points step where I pass a stack (others scale pro rata): sample both sides of each step
+            d = max(1.0, 0.25 * cap[1])
+            for s in range(len(stacks)):
+                if s != me and stacks[s] > 0:
+                    t = stacks[s] * total / (others + stacks[s])
+                    points.append(t - d)
+                    points.append(t + d)
+            points = sorted({x for x in points if x >= 0.0})
+        for x in points:
             if x > total:
                 x = total
             if x <= 0:
@@ -247,9 +290,9 @@ class IcmCurve:
                     st = [x if s == me else (stacks[s] * scale if stacks[s] > 0 else 0) for s in range(len(stacks))]
                 else:
                     st = [x if s == me else 0 for s in range(len(stacks))]
-                v = icm_value(st, me, pays, buckets, subdiv)
+                v = icm_value(st, me, pays, buckets, subdiv) if cap is None else _cap_value(st, me, pays, cap)
             if xs and x <= xs[-1]:
-                break
+                continue
             xs.append(x)
             vs.append(v)
         if xs[-1] < total:  # holding every chip is first place exactly: the curve's ceiling
@@ -324,6 +367,7 @@ class HeroCore:
         self.preflop = Preflop(cfg.preflop, self.tables)
         self.pushfold = PushFold(cfg.pushfold, self.tables)
         self.postflop = Postflop(cfg.postflop, cfg.seed)
+        self.pushfold.pre = self.preflop
         self._base = (self.preflop, self.pushfold)
         self._modules: dict = {}  # (tables dir, scheme) -> (Preflop, PushFold) built for a variant set
         self.curve = IcmCurve()
@@ -360,12 +404,19 @@ class HeroCore:
         self.hand_start = None
         self.last_stacks = [rules.starting_stack] * n_players
         self.panic = False
+        self._cap_var = None
+        if self.cfg.cap_vol_bb > 0.0 and rules.max_hands > 0:
+            # suffix sums of big blind^2 over the hands still to play: var[h] = sum_{t >= h} bb_t^2
+            var = [0.0] * (rules.max_hands + 1)
+            for t in range(rules.max_hands - 1, -1, -1):
+                var[t] = var[t + 1] + float(rules.blinds_at(t)[1]) ** 2
+            self._cap_var = var
         warm(8)  # 8-card lookups (three kept hole cards, a bought card) are built here, never inside a timed act()
         self._configure(rules)
         if self.prof is not None:
             self.prof.reset(n_players, seat)
         if self.cfg.use_icm:
-            self._curve(self.last_stacks)
+            self._curve(self.last_stacks, 0)
         gc.freeze()  # tables and evaluator dicts leave the collector's reach: no gen-2 pause mid-decision
 
     def _configure(self, rules: Rules) -> None:
@@ -406,6 +457,7 @@ class HeroCore:
             self._label = t.scheme != "169"
         self.active = t
         self.preflop, self.pushfold = pre, pf
+        pf.pre = pre  # push/fold reads the shover's range through the preflop module
         if cfg.use_icm:
             pre.curve = pf.curve = self.curve
 
@@ -457,7 +509,10 @@ class HeroCore:
                     if rm is not None:
                         board2 = remap(board2, rm)
         spot = Spot(obs, hole, cls, bounty, self._ko, dead, exposed)
-        cheap = self.cfg.cheap or self.panic
+        cfg = self.cfg
+        if cfg.ror_margin > 0.0:
+            spot.ror = self.ror_for(spot.my_bb, obs.hand_no)
+        cheap = cfg.cheap or self.panic
         if obs.street == 0:
             if self.pushfold.applies(spot):
                 self.last_path = "pushfold"
@@ -481,6 +536,14 @@ class HeroCore:
         return self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
                                  value_shift=value_shift)
 
+    def ror_for(self, my_bb: float, hand_no: int) -> float:
+        """The risk-of-ruin margin on stack-offs: Config.ror_margin while deep and early, else 0."""
+        cfg = self.cfg
+        if cfg.ror_margin <= 0.0 or hand_no > cfg.ror_hands:
+            return 0.0
+        t = (my_bb - cfg.ror_from_bb) / (cfg.ror_full_bb - cfg.ror_from_bb)
+        return 0.0 if t <= 0.0 else cfg.ror_margin * (1.0 if t > 1.0 else t)
+
     def hand_end(self, result: HandResult) -> None:
         if self.prof is not None:
             self.prof.hand_end(result)
@@ -489,20 +552,32 @@ class HeroCore:
             after = [max(0, base[s] + result.deltas[s]) for s in range(len(base))]
             self.last_stacks = after
             if self.cfg.use_icm and after[self.seat] > 0:
-                self._curve(after)
+                self._curve(after, result.hand_no + 1)
         self.hand_start = None
 
-    def _curve(self, stacks) -> None:
+    def _curve(self, stacks, next_hand: int) -> None:
         """Recompute the ICM value curve for `stacks` (once per hand, outside the decision budget)."""
         cfg = self.cfg
         ratios = cfg.icm_ratios
         alive = 0
+        total = 0
         for s in stacks:
             if s > 0:
                 alive += 1
-        if alive >= cfg.icm_many_alive and _linear_step([float(x) for x in self.payouts[:alive]]) is None:
+                total += s
+        linear = len(self.payouts) >= alive and _linear_step([float(x) for x in self.payouts[:alive]]) is not None
+        if alive >= cfg.icm_many_alive and not linear:
             ratios = cfg.icm_ratios_many
-        self.curve.compute(stacks, self.seat, self.payouts, ratios, cfg.icm_buckets, cfg.icm_me_subdiv)
+        cap = None
+        var = self._cap_var
+        if var is not None and linear and alive >= 2 and 0 <= next_hand < len(var) - 1:
+            # the variance still to come once the next hand (the one this curve prices) is over
+            s2 = 2.0 * cfg.cap_vol_bb ** 2 * var[next_hand + 1]
+            avg = total / alive
+            lam = s2 / (s2 + avg * avg)
+            if lam < 0.999:
+                cap = (lam, sqrt(s2))
+        self.curve.compute(stacks, self.seat, self.payouts, ratios, cfg.icm_buckets, cfg.icm_me_subdiv, cap)
 
     # ------------------------------------------------------------------ extras
     def _bounty_bonus(self, obs: Observation, extras: dict) -> float:

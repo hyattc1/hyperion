@@ -28,7 +28,7 @@ from typing import Optional, Sequence
 from ..core.cards import hole_class
 from ..core.types import ActionKind, Rules
 from . import bestiary
-from .bestiary import FIELDS, REGISTRY, field_names, make_bot
+from .bestiary import FIELDS, OPTIONAL_FIELDS, REGISTRY, BotUnavailable, field_names, make_bot
 from .engine import BUDGET_NS, BotStats, find_safe, play_table
 
 
@@ -296,8 +296,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--bots", default="hero,tag,nit,station,maniac,naive,random,allin",
                    help="comma-separated names from the registry; fewer than seats fills with copies")
-    p.add_argument("--field", choices=sorted(FIELDS), default=None,
-                   help="a named 8-bot field from the bestiary; replaces --bots")
+    p.add_argument("--field", choices=sorted(set(FIELDS) | set(OPTIONAL_FIELDS)), default=None,
+                   help="a named 8-bot field from the bestiary; replaces --bots (optional fields such as `public` "
+                        "need their bots enabled, e.g. HYPERION_MICROHOLDEM for `micro`)")
     p.add_argument("--rotate", action="store_true", help="play all rotations of each deal (duplicate)")
     p.add_argument("--mode", choices=("strict", "measure"), default="strict")
     p.add_argument("--rules", default="default", help="'default' or a json file of Rules fields")
@@ -323,7 +324,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         variant = _variants.get(a.variant, seed=a.seed)
         if a.rules == "default":
             rules = variant.rules
-    names = field_names(a.field) if a.field else a.bots.split(",")
+    try:
+        names = field_names(a.field) if a.field else a.bots.split(",")
+    except BotUnavailable as e:  # an optional field whose bot is not enabled: say which variable to set
+        p.error(str(e).strip("'\""))
     prof = cProfile.Profile() if a.profile else None
     if prof:
         prof.enable()

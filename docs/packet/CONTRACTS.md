@@ -104,6 +104,22 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 | `preflop.patience_deep_bb` | 60.0 |
 | `preflop.patience_risk_scaled` | True |
 | `preflop.patience_shover` | 0.0 |
+| `preflop.shove_range_model` | True |
+| `preflop.shove_prior` | (0.2, 0.08, 0.035, 0.025) |
+| `preflop.shove_prior_n` | 10.0 |
+| `preflop.shove_range_mult` | 1.5 |
+| `preflop.shove_range_min` | 0.02 |
+| `preflop.shove_eq_margin` | 0.02 |
+| `preflop.bb_defend` | False |
+| `preflop.bb_open_prior` | (0.45, 0.45, 0.4, 0.28, 0.22, 0.18, 0.15, 0.13) |
+| `preflop.bb_realize` | 0.85 |
+| `preflop.bb_defend_margin` | 0.0 |
+| `preflop.bb_defend_max_frac` | 0.15 |
+| `preflop.bb_3bet_bluffs` | ('A5s', 'A4s') |
+| `preflop.bb_3bet_bluff_min_bb` | 15.0 |
+| `preflop.folder_ftr` | 0.75 |
+| `preflop.folder_min_n` | 4 |
+| `preflop.folder_steal_mult` | 1.0 |
 | `preflop.reraise_margin` | 0.15 |
 | `preflop.reraise_tight_pfr` | 0.0 |
 | `preflop.raise_or_fold_bb` | 25.0 |
@@ -134,6 +150,12 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 | `pushfold.loose_caller_equity_blend` | 0.0 |
 | `pushfold.push_equity_margin` | 0.0 |
 | `pushfold.cheap_push_frac_mult` | 0.8 |
+| `pushfold.use_multiway` | True |
+| `pushfold.use_reshove_table` | True |
+| `pushfold.exploit_push` | False |
+| `pushfold.exploit_prior_n` | 4.0 |
+| `pushfold.exploit_l_min` | 0.3 |
+| `pushfold.exploit_l_max` | 3.0 |
 | `postflop.cbet_freq_ip_dry` | 0.6 |
 | `postflop.cbet_oop_mult` | 0.6 |
 | `postflop.cbet_multiway_mult` | 0.5 |
@@ -163,6 +185,10 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 | `postflop.icm_gate_frac` | 0.5 |
 | `postflop.icm_margin` | 0.1 |
 | `postflop.river_call_margin` | 0.0 |
+| `postflop.tight_aggro_margin` | 0.0 |
+| `postflop.tight_vpip` | 0.22 |
+| `postflop.tight_agg` | 0.4 |
+| `postflop.late_calldown_cap` | 9.0 |
 | `postflop.river_min_tier` | 0 |
 | `postflop.flush_tier_shift` | 0 |
 | `postflop.straight_tier_shift` | 0 |
@@ -182,6 +208,11 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 | `profiler_random_after` | 15 |
 | `use_profiler` | True |
 | `use_icm` | True |
+| `ror_margin` | 0.0 |
+| `ror_from_bb` | 30.0 |
+| `ror_full_bb` | 80.0 |
+| `ror_hands` | 75 |
+| `cap_vol_bb` | 0.0 |
 | `icm_ratios` | (0.0, 0.25, 0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 2.0, 3.0... |
 | `icm_many_alive` | 7 |
 | `icm_ratios_many` | (0.0, 0.5, 0.9, 1.0, 1.1, 1.5, 2.0, 3.0, 6.0) |
