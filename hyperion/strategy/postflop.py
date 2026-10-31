@@ -106,7 +106,7 @@ class PostflopParams:
     tight_agg: float = 0.40
     # an unknown bettor's call-down dial is capped at this on the turn and river (a low aggression stat made the
     # dial > 1, i.e. lighter calls, against passive bettors whose late bets are value); 9 = off
-    late_calldown_cap: float = 9.0
+    late_calldown_cap: float = 1.0  # swept: +0.13 vs seven rival1, rival1 among seven Heroes -0.17; neutral on the fields
     river_min_tier: int = 0  # never call a river bet below this tier (0 = off)
     # strength-axis knobs (prompt 05's short-deck patch): a made flush / straight lands this many tiers away from
     # its hold'em tier, and draw outs are scaled (short deck: an open-ender is worth about 1.2x its hold'em outs)

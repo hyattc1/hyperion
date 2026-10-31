@@ -192,7 +192,7 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 | `postflop.tight_aggro_margin` | 0.0 |
 | `postflop.tight_vpip` | 0.22 |
 | `postflop.tight_agg` | 0.4 |
-| `postflop.late_calldown_cap` | 9.0 |
+| `postflop.late_calldown_cap` | 1.0 |
 | `postflop.river_min_tier` | 0 |
 | `postflop.flush_tier_shift` | 0 |
 | `postflop.straight_tier_shift` | 0 |
