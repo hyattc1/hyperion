@@ -17,9 +17,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable
 
-from hyperion.core.cards import deck_for
-from hyperion.core.eval import evaluate
-from hyperion.core.types import Rules
+from ._eval import FULL_DECK, evaluate  # the kits' own cards: no hyperion import anywhere in fakekits/
 
 Policy = Callable[[dict], tuple[str, int]]
 BOARD_SIZES = (0, 3, 4, 5)
@@ -72,7 +70,7 @@ class Table:
         self.hands_per_level = hands_per_level
         self.button = n_players - 1
         self.hand_no = 0
-        self.deck_template = list(deck_for(Rules()))
+        self.deck_template = list(FULL_DECK)
 
     # -- helpers
     def alive(self) -> list[int]:

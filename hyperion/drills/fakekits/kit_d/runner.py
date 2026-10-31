@@ -24,9 +24,8 @@ import time
 from pathlib import Path
 from typing import Callable
 
-from hyperion.core.types import card_str
-
 from .. import _table
+from .._eval import card_str
 
 N_PLAYERS = 8
 STACK = 2000
