@@ -37,11 +37,13 @@ shover's observed shove frequency; big-blind defence at pot-odds-correct frequen
 key; steal dials driven by the folder read within 20 hands; (5) sweep on realistic and top, confirm on
 base and strong, both mirror tests, readiness matrix; (6) add `rival2` to fields when it lands.
 
-### 2. Red-team rival 2: DONE (bot and report committed under docs/drills/redteam/). About as strong as rival 1:
-stronger preflop, all-in and heads-up; weaker postflop against tight players. Integration into the pool
-(hyperion/sim/rivals/rival2.py, `rival2` in bestiary, a `top2` field, four measurement tables) is RUNNING on
-Opus. If `docs/decisions.md` has no "Rival 2 in the pool" section, relaunch that integration the same way
-rival 1 was done.
+### 2. Red-team rival 2: DONE and integrated (`rival2`, fields `top`, `top2`; decisions entry "Rival 2 in the
+pool"). It is the strongest opponent: top2 Hero 4.36 vs rival2 4.98; one rival2 among 7 Heroes +0.69 over
+uniform; it beats rival1 in our engine. Its leak on Hero is the opposite of rival1's: Hero folds 93% to its
+13-25 bb shoves while the calls Hero makes win 63%. The deep pass has this as targets T7 and T8.
+A competitor's public bot, MicroAgent (microholdem, MIT), is registered as `micro` with a `public` field when
+HYPERION_MICROHOLDEM is set; it is an opponent and cross-check only, never copied into Hero (rules §6.1).
+Report: docs/drills/public-repos-sparring.md. Target T6: one micro among 7 Heroes ≤ uniform + 0.1.
 
 ### 3. Drill 5: DONE (report committed). Numbers: legal bot minute 7, spec exhausted minute 24, level with rival1.
 Operator protocol as in drill 3; kit B copied self-contained; hidden variant permuted_ranks (seed 0);
@@ -49,7 +51,7 @@ agent role sees only the prompts and spec, never the repo; score minutes per che
 4/9/17/19, the rank-remap correctness (permuted AA raises, permuted 72o folds), and a 300-table comparison
 vs Hero on `--variant permuted_ranks --field realistic`.
 
-### 4. Public-repo sparring: RELAUNCHED on Opus; it writes docs/drills/public-repos-sparring.md as it goes. If absent, relaunch:
+### 4. Public-repo sparring: DONE (report committed). Original brief, kept for reference:
 Clone the competitor prep repos named in `docs/research/notes/presolved_resources.md` §4 into isolated
 scratch dirs, read every file for network/subprocess/exec before running, adapt any playable bot to our
 Bot protocol in scratch, run 300 strict tables vs Hero and tag, report strength and what each assumes the
