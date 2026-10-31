@@ -715,3 +715,176 @@ matter if the real kit times `hand_end` or if that curve ever moves into `act()`
 
 **Not done here.** No Hero tuning; no rival tuning (its knobs OPEN_SCALE / PUSH_SCALE / CAP_MODE / ROR_DEEP stay at
 the frozen values, and a tuned rival would be a second file). The `strong` and `chaos` fields are unchanged.
+
+## Variant readiness pass (2026-10-31, builder: strategy/variants)
+
+Scope: `hyperion/strategy/*`, `hyperion/tablegen.py`, `tools/gen_tables.py`, `tools/gen_catalog.py`,
+`tables/`, tests, and the new `tools/variant_matrix.py`. The tuner's defaults are untouched; everything
+below is gated on `Rules` / `Observation.extras` and is the plain game when they are default.
+
+### Information axis: Hero plays three and four hole cards
+
+- **Table resolution (`strategy/tables.py: tables_for`).** `tables/variants/<extras["variant"]>/` is used
+  when its `meta.json` card rules match and the game differs from hold'em in a way a rank remap cannot fix
+  (hole-card count, removed ranks, must-use); permuted ranks keep `tables/` and Hero's remap, which was
+  already its best result. A 3- or 4-card game with no matching directory plays from a `LabelView`: the
+  best-two class's rank and equity plus `label_bonus_pair` / `label_bonus_suited` per extra card, and
+  `label_open_step` positions tighter on opens (Config keys). The modules for a variant set are built
+  once per table set and cached; a table under default rules is exactly the tuner's bot.
+- **Hand class.** Two cards: the 169 label. Three or four: `tablegen.hole_label` ('AKs+l'), the key of the
+  catalog tables, computed on the displayed cards. `hole_label` now sorts the hand first: `max()` over
+  Chen-tied pairs picked different pairs for a dealt hand than for `class_table`'s sorted combos, so one
+  hand in ~25 got a label no table has (`KeyError` inside act(), eaten by SafeBot: the engine's `exc`
+  column stayed 0 while `hero.safe.errors` climbed). `tools/variant_matrix.py` counts both.
+- **Push/fold with labels.** `PushFold` keeps the 169 heads-up solution and its multiway rule; a label's
+  percentile is `1 - rank` from the variant table, and its equity against the opposing range is its equity
+  vs one random hand minus the gap between "vs random" and "vs the Nash range" measured on the 169 solution
+  at that depth (`call_disc` / `push_disc`, ~0.03-0.06 bb-depth dependent). `with_tables()` shares the solved
+  arrays, so the swap costs nothing per decision.
+- **Postflop (`read_multi`).** The same board-relative tiers as `read`, over any number of hole cards, kept
+  whole (8 cards at the river: `warm(8)` now runs in `new_table`, 0.55 s once per process, never inside a
+  timed call) or must-use-two (Omaha: best of C(4,2) x C(board,3) evaluations, 18 us on the river; an Omaha
+  flush draw needs two in hand and two on board). Made pairs and two pairs drop `multi_tier_penalty` (1)
+  because every hand at the table is stronger; draws keep their outs.
+- **`variant_decide`** on `HeroCore` (and guarded on `Hero`, so the engine finds it on `bot.impl`): discard
+  keeps the two cards with the best flop read (tier equity, then outs, then preflop rank) or, before the
+  flop, the best two-card class; swap keeps made hands and draws and replaces the lowest card that pairs
+  nothing and is not part of a flush draw; buy_card buys when the price is at most a tenth of the stack.
+
+### Extras-driven variants
+
+- `Spot.bounty_bonus`: with `extras["bounties"]`, the expected extra chips if we win this pot (P(bounty rank
+  in hand or still to come on the board) x ((ratio - 1) x net win + constant)); it sits in the pot for
+  pot odds and in the winning branch of every shove / call / commit EV (prompt 05's promise).
+- `Spot.ko_points` (knockout bounty): the house's points per bust are added to the winning branch of a
+  push (times the share of live opponents we cover), a shove call (when we cover the shover) and a
+  postflop commitment, only when the value curve is in points (`IcmCurve.points`; the chip-linear fallback
+  ignores them).
+- exposed_card: other seats' face-up cards are dead for flush and straight outs, a high card (Q+) showing
+  behind us shrinks steals by `exposed_steal_mult` each, and a shover's exposed card moves the calling
+  margin by `exposed_shove_margin` (both PreflopParams).
+- two_boards: both boards are read; value needs the weaker board's tier, the equity proxy is the mean (a
+  split is half a pot), every size is halved (`two_boards_size_mult`).
+- swap_one_turn: value and big-value tiers are one higher on streets before the swap street.
+
+### Ranking axis
+
+- lowball: a mirror map over the 169 (the class at the mirrored position of the hold'em order; 72o reads as
+  AA) feeds preflop and push/fold unchanged; postflop `read_low` scores the weakest five of my cards by
+  the top card of a pairless, non-straight, non-flush low, with outs to a better low while cards are to come.
+- wild_deuces: a wild with x reads as the pair of x preflop (22 as AA); postflop each wild becomes, greedily,
+  the card that makes my best hand (48 evaluations per wild) and the normal read runs on the result, one
+  tier lower when the wild sits on the shared board.
+- flush_over_full_house (and short deck, which carries the same `category_order`): a full house on a
+  three-flush board is tier 6, not 7. Prompt 05's short-deck bullets now have keys:
+  `postflop.flush_tier_shift`, `postflop.straight_tier_shift`, `postflop.draw_outs_mult` (defaults 0, 0, 1.0).
+- short_deck plays from `tables/variants/short_deck/` (81 classes, its own matrix and push/fold solve).
+
+### Loader (drill 4 repo finding 1)
+
+`tables.load()` accepts the class scheme the files declare: the 169 labels a `meta.json`'s rules imply
+(or the equity file's own keys when there is no meta yet), filling absent classes with zero equity and
+rank 0 so 169-indexed code still works, embedding a smaller matrix in the 169 order, and `hole_classes.json`
+labels for 3 or 4 cards. `Tables.classes / combo_count / total_combos / live` carry the scheme; the push/fold
+solver and `PushFold`'s percentiles use them (630 combos under a short deck, not 1,326). A fallback to built
+tables is logged and warned, `strict=True` raises (`TablesError`), and the generator loads the set it just
+wrote strictly, so a solve from a built fallback cannot happen again. `tests/test_strategy_variants.py`
+regenerates a tiny short-deck set and asserts `source == "disk"` and 81 classes. The committed short-deck
+set was regenerated: its old `pushfold_hu.json` had been solved from a built standard matrix.
+`preflop.open_frac_default` (finding 3) is read only for more than 7 players behind, which an 8-max table
+never has, so it is inert there by construction; `preflop.open_frac_mult` and `preflop.open_step` are the
+levers for "a step wider / tighter", and the catalog's `config_patch` entries that lean on
+`open_frac_default` should move to them (drills owner).
+
+### Push/fold corrections (HRC cross-check)
+
+- **Solver.** `solve_hu_pushfold` is fictitious play: each side best-responds to the other's average
+  strategy, a depth warm-starts from the previous depth, and it stops when both best-response gains are
+  under `tol` (1e-4 bb per hand; a cold start gets 40 damped iterations first). The old 40-iteration damped
+  loop ended on alternate sides of the boundary at successive depths, which was the 21-25 bb zig-zag.
+  Output is the mixed strategy thresholded at 0.5, the mixed frequencies, equities against the mixed range,
+  and `converged` {depth: [iterations, gain]}. Default solve 17.8 s (worst gain 1.0e-4 bb).
+- **Matrix.** 1,000 -> 5,000 samples per class pair (`tools/gen_tables.py --matrix-samples`, default
+  `MATRIX_SAMPLES`); the catalog's 2-card entries get 1,000 (was 200). Default generation: preflop 35.0 s,
+  matrix 46.3 s, push/fold 17.8 s, flops 0.6 s, **99.8 s total** on 7 workers (budget 3 min). The preflop
+  and flop tables came out byte-identical (same seeds); `hu_matrix.json` and `pushfold_hu.json` changed.
+- **HRC after** (`python tools/hrc_check.py`, matrix `24ca05de27f4111b`): push 28 disagreements over 24
+  depths (**1.2 per depth**, was 73 / 3.0; target under 2), call 13 (0.5, was 17 / 0.7); mean MAD push 0.007
+  (was 0.018), call 0.003 (0.004). Push frequency at 20-25 bb: 0.400, 0.388, 0.385, 0.382, 0.367, 0.360 against
+  HRC's 0.402, 0.382, 0.382, 0.380, 0.380, 0.363: monotone, no oscillation. The 5-10 bb suited-junk pushes are
+  down to one or two classes per depth (94s at 6-7, 43s/84s at 8-9). Per depth, push disagreements:
+  2:1 3:0 4:0 5:1 6:2 7:2 8:2 9:2 10:1 11:1 12:2 13:1 14:0 15:2 16:0 17:1 18:1 19:0 20:1 21:2 22:1 23:1 24:3 25:1;
+  calls: 2:0 3:0 4:0 5:1 6:0 7:1 8:0 9:0 10:1 11:1 12:0 13:1 14:0 15:1 16:2 17:0 18:1 19:0 20:0 21:0 22:1 23:2 24:1 25:0.
+
+### Config keys added (CONTRACTS.md regenerated)
+
+`profiler_dead_after / station_after / nit_after / maniac_after / random_after`, `icm_buckets`,
+`icm_me_subdiv`, `label_bonus_pair`, `label_bonus_suited`, `label_open_step`, `preflop.open_frac_mult`,
+`preflop.open_step`, `preflop.exposed_high_rank / exposed_steal_mult / exposed_shove_margin`,
+`postflop.flush_tier_shift / straight_tier_shift / draw_outs_mult / multi_tier_penalty /
+two_boards_size_mult / wild_board_penalty / low_draw_outs_cap`.
+
+### Baseline protected (400 duplicate seeds x 8 rotations, seed 7, strict, same box, four runs in parallel)
+
+"HEAD" is commit c28934a's code and tables in a separate worktree, i.e. the tuner's bot on today's fields;
+"new" is this pass. The realistic field changed under the tuner's numbers: `rival1` took `naive`'s seat
+(c28934a), and it is now the strongest bot in the room, which is why HEAD's realistic line is 5.52 and not
+the 5.943 recorded above; the strong field is unchanged, so that line compares directly.
+
+| field | hero HEAD | hero new | tag HEAD / new | leader | hero exc / ill | hero p50 / p99 us |
+|---|---|---|---|---|---|---|
+| realistic (rival1 seat) | 5.520 ± 0.070 | **5.554 ± 0.071** | 5.303 / 5.263 | rival1 5.660 / 5.654 | 0 / 0 | 21 / 74 |
+| strong | 5.088 ± 0.077 | **5.075 ± 0.077** | 4.672 / 4.672 | hero both | 0 / 0 | 18 / 60 |
+
+Both within the interval of the HEAD run (and strong is above the tuner's 5.011 ± 0.048); the new
+push/fold tables and the variant plumbing cost nothing on the default game. The pytest latency gate
+(`test_latency_two_thousand_random_decisions`, mean < 0.15 ms, p99 < 0.5 ms) passed inside the full suite
+while four sims were running.
+
+### Variant readiness (2026-10-31)
+
+`python tools/variant_matrix.py --tables 300 --seed 7 --field realistic --workers 4` (427 s): one strict
+`python -m hyperion.sim --variant NAME --field realistic --tables 300 --seed 7` per entry, Hero's rank among the
+eight bot names by points. "before" is the catalog baseline above (hero points / rank; `*` = Hero folded every
+hand, first place was the artifact described there), measured when `naive` held the seat `rival1` has now, so
+the before column is the old field and the rest is today's. exc = engine exceptions + SafeBot inner errors (0
+everywhere; the matrix counts both because SafeBot hides the latter from the engine). Verdicts: READY = plays
+(VPIP >= 10%) and ranks top 2; PLAYS = 3-4; WEAK = 5+ or VPIP < 10%; BROKEN = any exception.
+
+| variant | axis | before: pts / rank | hero pts (±95%) | rank | exc | ill | VPIP % | bust % | p99 us | verdict | reason |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| permuted_ranks | ranking | 6.33 / 1 | 6.34 ± 0.22 | 1 / 8 | 0 | 0 | 40 | 44 | 87 | **READY** | next rival1 5.66 |
+| short_deck | ranking | 5.25 / 3 | 5.89 ± 0.21 | 1 / 8 | 0 | 0 | 43 | 69 | 84 | **READY** | next tag 5.60 |
+| lowball | ranking | 4.99 / 1 | 7.74 ± 0.13 | 1 / 8 | 0 | 0 | 50 | 5 | 91 | **READY** | next tag 4.77 |
+| wild_deuces | ranking | 5.19 / 4 | 7.04 ± 0.22 | 1 / 8 | 0 | 0 | 56 | 22 | 120 | **READY** | next tag 5.16 |
+| flush_over_full_house | ranking | 5.31 / 2 | 5.42 ± 0.25 | 2 / 8 | 0 | 0 | 39 | 64 | 80 | **READY** | second to rival1 5.62 |
+| toss_or_holdem | information | 6.49* / 1 | 6.07 ± 0.20 | 1 / 8 | 0 | 0 | 42 | 66 | 85 | **READY** | next rival1 5.63 |
+| three_card_blind_discard | information | 6.49* / 1 | 5.97 ± 0.18 | 1 / 8 | 0 | 0 | 42 | 74 | 78 | **READY** | next rival1 5.65 |
+| three_card_keep | information | 6.60* / 1 | 6.05 ± 0.19 | 1 / 8 | 0 | 0 | 42 | 70 | 104 | **READY** | next rival1 5.82 |
+| omaha_four | information | 6.96* / 1 | 6.73 ± 0.16 | 1 / 8 | 0 | 0 | 43 | 55 | 127 | **READY** | next rival1 6.15 |
+| swap_holdem | information | 5.33 / 3 | 5.55 ± 0.23 | 2 / 8 | 0 | 0 | 39 | 64 | 74 | **READY** | second to rival1 5.72 |
+| swap_one_turn | information | 5.30 / 4 | 5.74 ± 0.24 | 1 / 8 | 0 | 0 | 40 | 58 | 69 | **READY** | next rival1 5.46 |
+| exposed_card | information | 5.37 / 2 | 5.49 ± 0.22 | 2 / 8 | 0 | 0 | 37 | 69 | 71 | **READY** | second to rival1 5.58 |
+| two_boards | information | 5.43 / 2 | 5.22 ± 0.22 | 3 / 8 | 0 | 0 | 34 | 65 | 75 | **PLAYS** | rank 3; rival1 6.03, tag 5.41 |
+| bonus_card | information | 5.78 / 1 | 5.49 ± 0.24 | 1 / 8 | 0 | 0 | 42 | 68 | 66 | **READY** | next tag 5.24 |
+| bounty | payoff | 5.30 / 4 | 5.37 ± 0.24 | 2 / 8 | 0 | 0 | 40 | 60 | 68 | **READY** | second to rival1 5.58 |
+| knockout_bounty | payoff | 6.34 / 2 | 6.87 ± 0.39 | 1 / 8 | 0 | 0 | 40 | 64 | 66 | **READY** | next rival1 6.85 |
+| top_heavy | payoff | 17.36 / 4 | 19.63 ± 2.15 | 2 / 8 | 0 | 0 | 40 | 64 | 62 | **READY** | second to rival1 22.17 |
+| hi_lo | payoff | 5.32 / 2 | 5.55 ± 0.24 | 2 / 8 | 0 | 0 | 38 | 63 | 66 | **READY** | second to rival1 5.55 |
+| pot_limit | betting | 5.21 / 4 | 5.45 ± 0.24 | 2 / 8 | 0 | 0 | 39 | 62 | 62 | **READY** | second to rival1 5.74 |
+| antes_from_level_3 | betting | 5.20 / 4 | 5.53 ± 0.24 | 2 / 8 | 0 | 0 | 39 | 64 | 61 | **READY** | second to rival1 5.60 |
+| fixed_raise | betting | 5.72 / 1 | 5.65 ± 0.24 | 2 / 8 | 0 | 0 | 36 | 53 | 58 | **READY** | second to rival1 6.15 |
+| fast_schedule | betting | 5.18 / 4 | 5.49 ± 0.24 | 2 / 8 | 0 | 0 | 36 | 70 | 56 | **READY** | second to rival1 5.69 |
+| straddle | betting | 5.32 / 2 | 5.62 ± 0.26 | 2 / 8 | 0 | 0 | 45 | 61 | 57 | **READY** | second to rival1 5.72 |
+
+Verdicts: READY 22, PLAYS 1, WEAK 0, BROKEN 0. The one PLAYS: two_boards, third at 5.22 ± 0.22 behind rival1
+6.03 and tag 5.41 (the baseline had Hero second at 5.43 with `naive` in the field); the min-tier value rule and
+halved sizes keep Hero out of trouble but rival1 scoops more, and nothing here reads which board an opponent
+is drawing to. rival1 is the leader on 15 of the 23 entries; Hero is first on the eight where the variant
+changes what a hand is worth (permuted ranks, short deck, lowball, wild deuces, the four extra-card games),
+plus swap_one_turn, bonus_card and knockout_bounty.
+
+Not done, for the record: hi_lo still plays high only (second anyway); bounty uses the posted bounty rank and
+pot size, not opponents' bounties; the discard decision does not read opponents' face-up discards as dead
+cards; the Omaha straight-draw count is the two-card mask (it can count a wrap that needs three hole cards);
+the label fallback's bonuses (0.04 / 0.02) and the multi-card tier penalty were not swept.
