@@ -2,7 +2,7 @@
 """Decision latency of a bot, and of the adapter round trip, on random self-consistent Observations.
 
     python tools/latency.py --bot hero|cheap|module:attr --n 2000
-                            [--adapter module:Class --native kit_a|kit_b|kit_c|module:func]
+                            [--adapter module:Class --native kit_a|kit_b|kit_c|kit_d|module:func]
                             [--rules rules_tonight.json] [--seed 2026] [--p99-us 500]
 
 Prints mean, p50, p99 and max in µs, the count over 1 ms, wall versus process CPU time for the run,
@@ -10,8 +10,9 @@ garbage collections during it, and the timer floor. Exit 1 if p99 exceeds --p99-
 the bot or for the round trip. The observations (and the kit-native states for the round trip) are
 built before the clock starts and every call is timed alone into a preallocated list, so the harness
 adds only the timer read, which is printed as the floor. `--native` is what turns an Observation back
-into the kit's state: the three fake kits are built in; for the real kit write a 10-line
-`build(obs) -> native` and pass `module:build`. Stdlib only, plus tests/strategy_helpers.py's generator.
+into the kit's state: the four fake kits are built in (`kit_d_native` is the template for a kit with
+namedtuple states); for the real kit write a 10-line `build(obs) -> native` and pass `module:build`.
+Stdlib only, plus tests/strategy_helpers.py's generator.
 """
 from __future__ import annotations
 
@@ -82,6 +83,26 @@ def obs_to_state(obs: Observation) -> dict:
     }
 
 
+def kit_d_native(obs: Observation) -> tuple:
+    """(game_state, round_state, active) as KitDAdapter expects. A lone RoundState carries no pot, so the
+    state hangs off a round-start state holding the pot's chips: the adapter's previous_state walk then
+    recovers obs.pot. last_raise is chosen so raise_bounds() reproduces obs.min_raise."""
+    from hyperion.core.types import card_str
+    from hyperion.drills.fakekits.kit_d.kit import GameState, RoundState
+
+    hands = [[] for _ in obs.stacks]
+    hands[obs.seat] = [card_str(c) for c in obs.hole]
+    pips, stacks, blinds = list(obs.bets), list(obs.stacks), tuple(obs.blinds)
+    root_stacks = list(stacks)
+    root_stacks[obs.seat] += obs.pot  # the pot's chips were in somebody's stack at round start; whose is moot
+    root = RoundState(obs.button, 0, list(pips), root_stacks, hands, [], obs.seat, list(obs.in_hand), blinds,
+                      blinds[1], None)
+    last_raise = max(blinds[1], obs.min_raise - max(pips))
+    rs = RoundState(obs.button, len(obs.board), pips, stacks, hands, [card_str(c) for c in obs.board], obs.seat,
+                    list(obs.in_hand), blinds, last_raise, root)
+    return GameState(0, 0.5, obs.hand_no + 1), rs, obs.seat
+
+
 def native_builder(spec: str):
     if spec == "kit_a":
         from hyperion.drills.fakekits.kit_a.kit import to_state
@@ -92,6 +113,8 @@ def native_builder(spec: str):
     if spec == "kit_c":
         from hyperion.drills.fakekits.kit_c.kit import encode_decision
         return lambda obs: encode_decision(obs_to_state(obs), 100.0)
+    if spec == "kit_d":
+        return kit_d_native
     return load_attr(spec)
 
 
@@ -145,7 +168,7 @@ def main(argv=None) -> int:
     p.add_argument("--n", type=int, default=2000)
     p.add_argument("--warm", type=int, default=200, help="untimed calls before the run (default 200)")
     p.add_argument("--adapter", help="module:Class, an Adapter subclass to time the round trip through")
-    p.add_argument("--native", default="kit_b", help="kit_a | kit_b | kit_c | module:func building the kit state")
+    p.add_argument("--native", default="kit_b", help="kit_a | kit_b | kit_c | kit_d | module:func building the kit state")
     p.add_argument("--rules", help="Rules JSON (default Rules())")
     p.add_argument("--seed", type=int, default=2026)
     p.add_argument("--seat", type=int, default=0, help="our seat in every observation (default 0)")

@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from hyperion.core.types import ActionKind
-from hyperion.drills.adapter import KitBAdapter, KitCAdapter
+from hyperion.drills.adapter import KitBAdapter, KitCAdapter, KitDAdapter
 from hyperion.drills.cheapbot import CheapBot
 from hyperion.drills.conformance import check_observation
 
@@ -39,6 +39,13 @@ def test_cheap_bot_round_trip_through_kit_b_and_kit_c_passes():
     assert r.returncode == 0, r.stdout + r.stderr
 
 
+def test_cheap_bot_round_trip_through_kit_d_passes():
+    r = run_latency("--bot", "cheap", "--n", "100", "--warm", "10",
+                    "--adapter", "hyperion.drills.adapter:KitDAdapter", "--native", "kit_d")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "adapter.decide" in r.stdout and "OK p99" in r.stdout
+
+
 def test_slow_bot_fails_the_gate(tmp_path):
     (tmp_path / "slowmod.py").write_text(
         "from hyperion.drills.cheapbot import SlowBot\n\ndef make_bot():\n    return SlowBot(0.002)\n")
@@ -69,3 +76,37 @@ def test_generator_is_seat_fixed_and_conformant_and_builders_round_trip():
                     continue  # undefined when raising is not legal; kit C encodes none
                 assert getattr(back, f) == getattr(o, f), (f, o, back)
     lat.measure(lambda x: None, obs)  # the timing loop runs on anything callable
+
+
+def kit_d_legal(o) -> frozenset:
+    """What kit D's legal_actions() offers for an Observation: no FoldAction when a check is free, and no
+    RaiseAction into a hand where nobody left in it can call (the sim offers RAISE whenever any seat has chips)."""
+    legal = set(o.legal)
+    if ActionKind.CHECK in legal:
+        legal.discard(ActionKind.FOLD)
+    if o.to_call > 0 and not any(o.in_hand[s] and o.stacks[s] > 0 for s in range(o.n_players) if s != o.seat):
+        legal.discard(ActionKind.RAISE)
+    return frozenset(legal)
+
+
+def test_kit_d_builder_round_trips_through_the_reference_adapter():
+    """kit_d_native gives KitDAdapter a state whose every field comes back, the pot included (a lone
+    RoundState has none; the builder hangs it off a round-start state). The legal set comes back as kit D
+    derives it from the state (kit_d_legal), which differs from the sim's rule in two documented places."""
+    lat = load_latency()
+    obs = lat.observations(60, 7, 8, 0)
+    assert any(o.pot > 0 for o in obs)
+    adapter = KitDAdapter(CheapBot())
+    build = lat.native_builder("kit_d")
+    for o in obs:
+        native = build(o)
+        assert native[2] == o.seat and native[1].previous_state is not None and native[1].acting == o.seat
+        back = adapter.to_observation(native)
+        want_legal = kit_d_legal(o)
+        for f in FIELDS:
+            if f in ("min_raise", "max_raise") and ActionKind.RAISE not in want_legal:
+                continue
+            want = want_legal if f == "legal" else getattr(o, f)
+            assert getattr(back, f) == want, (f, o, back)
+        reply = adapter.decide(native)
+        assert type(reply).__name__ in {c.__name__ for c in native[1].legal_actions()}, reply
