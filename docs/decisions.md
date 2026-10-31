@@ -224,3 +224,73 @@ exploit matters.
   matters. Hero still loads `tables/` only; pointing it at a variant directory is a strategy knob
   (`tables_dir`) that does not exist yet, so the baseline below measures Hero with default tables on
   every entry, which is the honest event-night picture unless that knob is added.
+
+## Variant catalog baseline (2026-10-31)
+
+Hero against `--field realistic` for 300 tables on every catalog entry: `python -m hyperion.sim --variant
+NAME --field realistic --tables 300 --seed 7` (strict mode, three runs at a time on the WSL2 box, so `tmo`
+is the usual scheduling noise). Hero plays with the default tables and no `variant_decide` on every entry;
+rank is Hero's place among the 8 bot names by points. Reference: the default game on this field is Hero
+5.30 ± 0.13, third behind tag 5.77 and pushfold 5.55 (1000 tables, above).
+
+| variant | axis | hero pts (±95%) | rank / 8 | bust% | exc | ill | tmo | p99 us | leader (if not hero) |
+|---|---|---|---|---|---|---|---|---|---|
+| permuted_ranks | ranking | 6.33 ± 0.24 | 1 | 39.7 | 0 | 0 | 12 | 63 | next tag 5.22 |
+| short_deck | ranking | 5.25 ± 0.24 | 3 | 77.3 | 0 | 0 | 9 | 54 | tag 5.79 |
+| lowball | ranking | 4.99 ± 0.25 | 1 | 72.7 | 0 | 0 | 13 | 57 | next pushfold 4.76 |
+| wild_deuces | ranking | 5.19 ± 0.25 | 4 | 68.3 | 0 | 0 | 6 | 61 | tag 5.64 |
+| flush_over_full_house | ranking | 5.31 ± 0.24 | 2 | 66.7 | 0 | 0 | 30 | 64 | tag 5.74 |
+| toss_or_holdem | information | 6.49 ± 0.08 | 1 | 94.0 | 0 | 0 | 17 | 49 | next tag 5.75 |
+| three_card_blind_discard | information | 6.49 ± 0.08 | 1 | 94.0 | 0 | 0 | 15 | 47 | next tag 5.78 |
+| three_card_keep | information | 6.60 ± 0.06 | 1 | 95.7 | 0 | 0 | 13 | 43 | next tag 5.35 |
+| omaha_four | information | 6.96 ± 0.02 | 1 | 92.7 | 0 | 0 | 9 | 44 | next tag 5.19 |
+| swap_holdem | information | 5.33 ± 0.24 | 3 | 67.3 | 0 | 0 | 17 | 66 | tag 5.61 |
+| swap_one_turn | information | 5.30 ± 0.24 | 4 | 67.0 | 0 | 0 | 9 | 64 | tag 5.62 |
+| exposed_card | information | 5.37 ± 0.24 | 2 | 62.7 | 0 | 0 | 14 | 61 | tag 5.67 |
+| two_boards | information | 5.43 ± 0.24 | 2 | 58.0 | 0 | 0 | 30 | 90 | tag 5.84 |
+| bonus_card | information | 5.78 ± 0.16 | 1 | 81.7 | 0 | 0 | 58 | 81 | next tag 5.35 |
+| bounty | payoff | 5.30 ± 0.24 | 4 | 60.7 | 0 | 0 | 50 | 94 | tag 5.54 |
+| knockout_bounty | payoff | 6.34 ± 0.36 | 2 | 68.3 | 0 | 0 | 9 | 61 | loose_aggro 6.69 |
+| top_heavy | payoff | 17.36 ± 2.00 | 4 | 68.0 | 0 | 0 | 10 | 61 | loose_aggro 20.74 |
+| hi_lo | payoff | 5.32 ± 0.24 | 2 | 66.0 | 0 | 0 | 19 | 67 | tag 5.72 |
+| pot_limit | betting | 5.21 ± 0.24 | 4 | 67.3 | 0 | 0 | 19 | 65 | tag 5.66 |
+| antes_from_level_3 | betting | 5.20 ± 0.24 | 4 | 70.7 | 0 | 0 | 11 | 56 | tag 5.68 |
+| fixed_raise | betting | 5.72 ± 0.23 | 1 | 57.7 | 0 | 0 | 11 | 55 | next tag 5.52 |
+| fast_schedule | betting | 5.18 ± 0.25 | 4 | 70.0 | 0 | 0 | 7 | 54 | tag 5.60 |
+| straddle | betting | 5.32 ± 0.28 | 2 | 62.0 | 0 | 0 | 13 | 67 | tag 5.36 |
+
+**Reading it.** Hero throws no exceptions and makes no illegal action on any entry (SafeBot clamps the
+one legal size under fixed_raise; so do the bestiary's helpers), and it never ranks last. The table is
+still mostly bad news for the strategy owner, in three groups:
+
+1. **Entries Hero does not play at all (first place is an artifact).** toss_or_holdem,
+   three_card_blind_discard, three_card_keep and omaha_four: Hero has no preflop path for three or four
+   hole cards, so it check/folds every hand (0% first places, 62-95% second). It "wins" because the
+   bestiary's two-card helpers overvalue eight- and nine-card hands and the other seven bust each other
+   first; against any field that can fold, a bot that never plays a hand finishes 7th. Cause: `HeroCore.act`
+   falls through to check/fold when `len(hole) != 2` (preflop) and to `safe_action` postflop. Fix: preflop
+   by `tablegen.hole_label` + `tables/variants/NAME/preflop_rank.json`, a `variant_decide('discard')`, and
+   a two-of-four path for Omaha (`engine.evaluate_must_use`).
+2. **Entries Hero plays blind to the twist (within noise of the default game).** lowball 4.99 (first, but
+   only because every bot values the wrong hands; absolute points are Hero's lowest), wild_deuces 5.19
+   (4th), bounty 5.30 (4th), hi_lo 5.32, exposed_card 5.37, two_boards 5.43, swap_one_turn 5.30: Hero reads
+   none of `obs.extras` (bounties, boards, exposed, discards, swapped) and uses the hold'em evaluator for
+   showdown value. Cause: no hook from Rules.extras or Observation.extras into the strategy; the
+   `config_patch` on each entry is the first lever, a `score_hand`-aware HS estimate the second.
+3. **Betting-structure entries where the gap to tag is the usual one.** pot_limit 5.21, antes_from_level_3
+   5.20, fast_schedule 5.18 (all 4th, tag 5.6-5.7): the same tail problem as the default baseline, now with
+   a sim that actually posts antes and caps raises. The ante entry is the one drill 2 could not price; the
+   `pushfold.threshold_bb` +2 patch can now be measured honestly. knockout_bounty and top_heavy reward
+   the loose-aggressive student most (20.74 vs Hero 17.36 on top_heavy; drill 2 had Hero first against a
+   tag+nit field, so the ordering is field-dependent), and permuted_ranks is Hero's best result (6.33,
+   first, 40% bust) because Hero remaps through `rank_order` and the bestiary evaluates displayed cards.
+   fixed_raise and bonus_card put Hero first; bonus_card because the default (buy) gives the other bots a
+   third card they misplay more than Hero's safe action misplays it.
+
+Broken-entry list for the strategy owner, one line each: toss_or_holdem / three_card_blind_discard /
+three_card_keep (no 3-card preflop path, folds every hand); omaha_four (no 4-card path, folds every hand);
+lowball (evaluator sign is wrong for the variant: values the hands it should fold); wild_deuces (deuces
+ranked as the worst cards); hi_lo (plays high only, loses the low half); bounty / knockout_bounty / two_boards
+/ exposed_card / swap_one_turn (ignores `obs.extras`); bonus_card (buys the card by default, then takes the
+safe action with three hole cards); pot_limit / antes_from_level_3 / fast_schedule / straddle (no structural
+break, the default-game gap to tag; `stack_bb` ignores antes and the straddle). None throws.
