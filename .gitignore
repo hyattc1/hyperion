@@ -6,3 +6,5 @@ __pycache__/
 dist/
 tables/*.bin
 .benchmarks/
+drills/log/
+drills/scratch/
