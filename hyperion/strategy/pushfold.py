@@ -85,6 +85,7 @@ class PushFoldParams:
     exploit_prior_n: float = 4.0
     exploit_l_min: float = 0.3
     exploit_l_max: float = 3.0
+    exploit_expected_norm: bool = True  # looseness = calls / a solved caller's calls in the same spots (profiler.call_prior)
 
 
 # ---------------------------------------------------------------- offline solver
@@ -522,6 +523,47 @@ class PushFold:
             return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else _CALL
         return free
 
+    def call_prior(self, depth_bb: float) -> float:
+        """A solved caller's probability of calling a shove `depth_bb` deep (types and seats averaged at k = 3;
+        beyond the table's 25 bb it falls as 25 / depth)."""
+        mw = self.mw
+        if mw is None:
+            return 0.12
+        D = _mw.depth(mw, depth_bb)
+        q = 0.0
+        n = 0
+        for t in ("n", "sb", "bb"):
+            row = mw["p_call"][t][3]
+            if row is not None and row[D] is not None:
+                q += row[D]
+                n += 1
+        q = q / n if n else 0.12
+        if depth_bb > mw["S_max"]:
+            q *= mw["S_max"] / depth_bb
+        return q
+
+    def reshove_freq(self, spot: Spot, opener: int, shover: int):
+        """The solved re-shove frequency for `shover` over `opener`'s open (None without the table): the opener's
+        range is my own open fraction when I opened, else bb_open_prior by its seat; m = players behind the shover."""
+        mw = self.mw
+        if mw is None or opener < 0:
+            return None
+        rs = mw["reshove"]
+        pre = self.pre
+        kb = self.behind_seat(spot, opener)
+        if opener == spot.me and pre is not None:
+            pp = pre.p
+            w = pp.open_frac.get(kb + pp.open_step, pp.open_frac_default) * pp.open_frac_mult
+        else:
+            pri = pre.p.bb_open_prior if pre is not None else (0.45, 0.45, 0.40, 0.28, 0.22, 0.18, 0.15, 0.13)
+            w = pri[kb] if kb < len(pri) else pri[-1]
+        m = self.behind_seat(spot, shover)
+        if m > rs["m_max"]:
+            m = rs["m_max"]
+        obs = spot.obs
+        S = _mw.depth(rs, min(spot.my_total, obs.stacks[shover] + obs.bets[shover]) / spot.bb)
+        return rs["p_push"][_mw.nearest_w(mw, w if w > 0 else 0.1)][m][S]
+
     def caller_width(self, spot: Spot, prof: Profiler | None, mw: dict, seat: int, k: int, S: int) -> float:
         """Estimated share of hands `seat` calls a shove with: its seat type's solved frequency at (k, S), times
         how often it has really called shoves against the prior."""
@@ -532,8 +574,11 @@ class PushFold:
         if prof is not None:
             p = self.p
             n0 = p.exploit_prior_n
-            P = Profiler.P_CALL_SHOVE
-            L = (prof.called_shove[seat] + P * n0) / (prof.faced_shove[seat] + n0) / P
+            if p.exploit_expected_norm and prof.call_prior is not None:
+                L = prof.call_looseness(seat, n0)
+            else:
+                P = Profiler.P_CALL_SHOVE
+                L = (prof.called_shove[seat] + P * n0) / (prof.faced_shove[seat] + n0) / P
             q *= p.exploit_l_min if L < p.exploit_l_min else p.exploit_l_max if L > p.exploit_l_max else L
         return 0.01 if q < 0.01 else 1.0 if q > 1.0 else q
 

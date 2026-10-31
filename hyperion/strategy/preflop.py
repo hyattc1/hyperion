@@ -67,6 +67,14 @@ class PreflopParams:
     shove_range_mult: float = 1.5  # per-hand rate -> range width (a seat is first in, or facing a raise, only part of the time)
     shove_range_min: float = 0.02
     shove_eq_margin: float = 0.02  # equity margin against the estimated range
+    # ... read per opportunity rather than per hand: a first-in shove against the seat's first-in shove rate, a
+    # re-shove over one open against its rate of re-shoving when facing an open (profiler.shove_counts_ctx), each
+    # smoothed toward its prior by depth bucket. With a solved base (push/fold's Nash frequency for the seat, or the
+    # solved re-shove frequency against the opener's range) the width is base x observed / prior; without one it is
+    # the smoothed rate. 4-bet and later shoves keep the per-hand rule above.
+    shove_ctx_model: bool = True
+    shove_fi_prior: tuple = (0.25, 0.06, 0.02, 0.01)  # first-in shoves per first-in opportunity, by depth bucket
+    shove_vo_prior: tuple = (0.18, 0.15, 0.04, 0.02)  # re-shoves per "facing one open" opportunity
     # big-blind defence against a single open (no callers): call when my equity against the opener's estimated range,
     # times what I realise out of position, beats the pot odds; 3-bet the value slice plus a small polarised set.
     # The opener's range is bb_open_prior[players behind it] scaled by its PFR against the prior, clamped.
@@ -120,6 +128,7 @@ class Preflop:
         self.equity = tables.equity
         self.curve = _Linear()  # Hero installs its ICM curve; chip EV otherwise
         self.last = ""  # the sub-decision that put chips in last (diagnostics: the runner's bust tracer reads it)
+        self.pf = None  # Hero's PushFold module (installed by HeroCore): solved re-shove frequencies
         try:
             self.req = range_equity(tables) if tables.hu else None
         except Exception:  # noqa: BLE001 - a table set without a usable matrix keeps the older shove-call rule
@@ -319,8 +328,19 @@ class Preflop:
         sh = spot.shover
         chips = obs.stacks[sh] + obs.bets[sh] if sh >= 0 else spot.max_opp_total
         d = chips / spot.bb
-        pri = p.shove_prior
         b = 0 if d <= 12 else 1 if d <= 25 else 2 if d <= 50 else 3
+        if p.shove_ctx_model and prof is not None and sh >= 0:
+            ctx, opener = self._shove_ctx(spot)
+            if ctx:
+                pri = p.shove_fi_prior if ctx == 1 else p.shove_vo_prior
+                prior = pri[b] if b < len(pri) else pri[-1]
+                k, n = prof.shove_counts_ctx(sh, chips, ctx)
+                post = (k + prior * p.shove_prior_n) / (n + p.shove_prior_n)
+                if ctx == 2 and self.pf is not None:
+                    base = self.pf.reshove_freq(spot, opener, sh)
+                x = base * post / prior if base is not None else post
+                return p.shove_range_min if x < p.shove_range_min else 1.0 if x > 1.0 else x
+        pri = p.shove_prior
         prior = pri[b] if b < len(pri) else pri[-1]
         k = n = 0
         if prof is not None and sh >= 0:
@@ -328,6 +348,25 @@ class Preflop:
         rate = (k + prior * p.shove_prior_n) / (n + p.shove_prior_n)
         x = base * rate / prior if base is not None else p.shove_range_mult * rate
         return p.shove_range_min if x < p.shove_range_min else 1.0 if x > 1.0 else x
+
+    @staticmethod
+    def _shove_ctx(spot: Spot) -> tuple[int, int]:
+        """(1, -1) when the shove was the first raise, (2, opener) when it re-raised exactly one open, else (0, -1)."""
+        sh = spot.shover
+        raises = 0
+        opener = -1
+        for seat, act in spot.obs.history:
+            if act.kind is ActionKind.RAISE:
+                if seat == sh:
+                    if raises == 0:
+                        return 1, -1
+                    if raises == 1:
+                        return 2, opener
+                    return 0, -1
+                raises += 1
+                if opener < 0:
+                    opener = seat
+        return 0, -1
 
     def range_call_ok(self, spot: Spot, cls: str, x: float, margin: float, n_callers: int = 0):
         """ICM-weighted EV of calling a shove against the top x of hands beats folding (None: class not covered).

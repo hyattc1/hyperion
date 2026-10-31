@@ -368,6 +368,9 @@ class HeroCore:
         self.pushfold = PushFold(cfg.pushfold, self.tables)
         self.postflop = Postflop(cfg.postflop, cfg.seed)
         self.pushfold.pre = self.preflop
+        self.preflop.pf = self.pushfold
+        if self.prof is not None and self.pushfold.mw is not None:
+            self.prof.call_prior = self.pushfold.call_prior  # shove calls are read against a solved caller's
         self._base = (self.preflop, self.pushfold)
         self._modules: dict = {}  # (tables dir, scheme) -> (Preflop, PushFold) built for a variant set
         self.curve = IcmCurve()
@@ -458,6 +461,7 @@ class HeroCore:
         self.active = t
         self.preflop, self.pushfold = pre, pf
         pf.pre = pre  # push/fold reads the shover's range through the preflop module
+        pre.pf = pf
         if cfg.use_icm:
             pre.curve = pf.curve = self.curve
 

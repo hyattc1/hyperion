@@ -53,6 +53,9 @@ class Profiler:
         self.maniac_after = maniac_after
         self.random_after = random_after
         self.blend_n = blend_n
+        # optional f(depth in bb) -> a solved caller's probability of calling a shove that deep (Hero installs it
+        # from the multiway table); with it, call_looseness compares a seat's calls with what Nash would have called
+        self.call_prior = None
         self.reset(n_players)
 
     # ------------------------------------------------------------------ lifecycle
@@ -78,12 +81,19 @@ class Profiler:
         self.shove_opps = z()  # actions where a shove was possible (any action counts)
         self.faced_shove = z()
         self.called_shove = z()
+        self.faced_shove_exp = [0.0] * n  # sum over the shoves faced of a solved caller's call probability (call_prior)
         self.showdowns = z()
         # preflop shove frequency by the seat's own depth when it first acted: hands it acted in / hands it shoved,
         # per bucket of SHOVE_BUCKETS_BB (a short stack's shove range is wide, a deep one's is not)
         nb = len(self.SHOVE_BUCKETS_BB) + 1
         self.pre_hands_b = [[0] * nb for _ in range(n)]
         self.pre_shoves_b = [[0] * nb for _ in range(n)]
+        # ... and per opportunity: first in (nobody has raised) and facing exactly one open (a raise, not all-in),
+        # counted at the seat's first preflop action; a re-shove range is read from the second, not per hand
+        self.fi_opp_b = [[0] * nb for _ in range(n)]
+        self.fi_shove_b = [[0] * nb for _ in range(n)]
+        self.vo_opp_b = [[0] * nb for _ in range(n)]
+        self.vo_shove_b = [[0] * nb for _ in range(n)]
         self._dials = [dict(NEUTRAL_DIALS) for _ in range(n)]
         self.last_bb = 20
         self.hand_no = -1
@@ -230,6 +240,12 @@ class Profiler:
                     self.post_faced[seat] += 1
                 if self.shove_pending:
                     self.faced_shove[seat] += 1
+                    cp = self.call_prior
+                    if cp is not None:
+                        ch = self.chips[seat]
+                        depth = (self.cur_bet if self.cur_bet < ch else ch) / (self.last_bb or 1)
+                        self.faced_shove_exp[seat] += cp(depth)
+            first_ctx = 0
             if not pre:
                 self.post_actions[seat] += 1
             elif not (self.pre_acted_mask & bit):
@@ -237,6 +253,12 @@ class Profiler:
                 b = self._bucket(self.chips[seat])
                 self.pre_bucket[seat] = b
                 self.pre_hands_b[seat][b] += 1
+                ctx = 1 if self.pre_raises == 0 else 2 if (self.pre_raises == 1 and not self.shove_pending) else 0
+                first_ctx = ctx
+                if ctx == 1:
+                    self.fi_opp_b[seat][b] += 1
+                elif ctx == 2:
+                    self.vo_opp_b[seat][b] += 1
             if kind is _FOLD:
                 self.folds[seat] += 1
                 if facing_raise:
@@ -279,7 +301,12 @@ class Profiler:
                     self.shove_pending = True
                     if pre and not (self.pre_shoved_mask & bit):
                         self.pre_shoved_mask |= bit
-                        self.pre_shoves_b[seat][self.pre_bucket[seat]] += 1
+                        b = self.pre_bucket[seat]
+                        self.pre_shoves_b[seat][b] += 1
+                        if first_ctx == 1:  # the shove was the seat's first preflop action: first in
+                            self.fi_shove_b[seat][b] += 1
+                        elif first_ctx == 2:  # ... facing exactly one open
+                            self.vo_shove_b[seat][b] += 1
                 elif amt > self.cur_bet:
                     self.shove_pending = False
                 if amt > self.cur_bet:
@@ -323,6 +350,21 @@ class Profiler:
         """(preflop shoves, hands acted preflop) for seat s in the depth bucket of `chips` (its stack at the shove)."""
         b = self._bucket(chips)
         return self.pre_shoves_b[s][b], self.pre_hands_b[s][b]
+
+    def shove_counts_ctx(self, s: int, chips: int, ctx: int) -> tuple[int, int]:
+        """(shoves, opportunities) for seat s in the depth bucket of `chips`: ctx 1 = first in, 2 = facing one open."""
+        b = self._bucket(chips)
+        if ctx == 1:
+            return self.fi_shove_b[s][b], self.fi_opp_b[s][b]
+        return self.vo_shove_b[s][b], self.vo_opp_b[s][b]
+
+    def call_looseness(self, s: int, n0: float = 4.0) -> float:
+        """Calls of shoves over the calls a solved caller would have made in the same spots (1 = Nash-like),
+        smoothed with n0 pseudo-shoves at the seat's own average expected rate. Needs call_prior."""
+        faced = self.faced_shove[s]
+        exp = self.faced_shove_exp[s]
+        q = exp / faced if faced else 0.12
+        return (self.called_shove[s] + n0 * q) / (exp + n0 * q)
 
     def call_vs_shove(self, s: int) -> float:
         return _rate(self.called_shove[s], self.faced_shove[s], self.P_CALL_SHOVE, self.prior_n)
