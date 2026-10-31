@@ -16,26 +16,17 @@ fake kits, tooling, five drills) is in good shape; Track A (bring the repo) is t
 
 Agents commit as they finish tasks. If one was killed, `git log` shows what landed; the rest is below.
 
-### 1. Deep Hero pass: RELAUNCHED on Opus after the budget stop (it handles the stash itself). If it is not
-running when you read this, check `git log` for its per-task commits; history of the stop: stopped at 96% usage during task 1 (observability). Its uncommitted edits to
-engine.py, runner.py, hero/postflop/preflop/pushfold.py, tools/sweep.py and a new tests/test_sim_observability.py
-are in `git stash list` as "deep-pass WIP"; inspect with `git stash show -p stash@{0}` and either apply or
-drop before relaunching. Relaunch with this brief:
-Owns hyperion/strategy/*, sim/runner.py and sim/engine.py (observability only), tools/sweep.py, tables/,
-tests, decisions.md (append), CONTRACTS.md via `python tools/apicard.py`. Targets: (T1) Hero ≥ rival1 + 0.15
-on `--field realistic` and `--field top` with disjoint 95% CIs at ≥ 400 duplicate seeds; (T2) Hero among 7
-rival1 ≥ uniform, rival1 among 7 Heroes ≤ uniform + 0.1; (T3) no regression on mixed base and strong
-fields; (T4) latency gate plus hand_end/new_table p99 < 1 ms; (T5) `tools/variant_matrix.py` not worse.
-Tasks: (1) surface SafeBot-swallowed errors and overruns as runner columns (`safe_err`, `safe_over`), bust
-tracer attributes to the acting module; (2) hand_end cost: exact 8-player ICM in the per-hand curve was
-6.4 ms, bring p99 under 1 ms; (3) solved multiway all-in-or-fold push/fold with ICM: first-in shove per
-seat vs k behind at 2..25 bb, plus re-shove and call-vs-shove, fictitious play or CFR+, chip-EV tables
-offline, ICM via the value curve, cross-check vs RangeMyHand 9-max frequencies (CC BY 4.0, download only),
-replace `tighten_per_player` with the table; (4) exploit-resistance: shove-calling conditioned on the
-shover's observed shove frequency; big-blind defence at pot-odds-correct frequency with a small polarised
-3-bet set; call-down tightening vs low-VPIP high-aggression seats; early-game risk-of-ruin cap as a Config
-key; steal dials driven by the folder read within 20 hands; (5) sweep on realistic and top, confirm on
-base and strong, both mirror tests, readiness matrix; (6) add `rival2` to fields when it lands.
+### 1. Deep Hero pass: DONE in substance, cut off by the Opus 5-hour limit (resets 1:30 PM ET) while writing its
+report. All code is committed (ce5a137, c5cb3db, 745bf82, d917c45, 5257118, f955955); its full entry is in
+docs/decisions.md, "Deep Hero pass". Shipped: solved multiway push/fold and re-shove tables (36 s to generate),
+shove calls read against the shover's observed range, a late call-down cap, hand_end 6.4 ms to 49 µs p99,
+safe_err / safe_over columns. Readiness still 22 READY / 1 PLAYS, Hero first on 15 of 23 variants.
+Targets: met T2b, T3, T4, T5, T6 (MicroAgent pushed below uniform). NOT met: T1 (Hero − rival1 −0.14 realistic,
+−0.13 top, was −0.30), T2a, T7 (Hero − rival2 −0.56 on top2), T8. Its diagnosis: the rivals win on the VOLUME of
+uncontested preflop pots they take at 10–25 bb (wide opens scaled by the blinds' fold rate, light 3-bets from
+the blinds, frequent re-shoves). No single gate fixes that; it is Hero's own preflop aggression in the middle
+phase. Next pass: build and sweep exactly that, with rival 2 as the target. The fallback in item 2 below
+(rival decision core behind Hero's shell) is the owner's call and has not been taken.
 
 ### 2. Red-team rival 2: DONE and integrated (`rival2`, fields `top`, `top2`; decisions entry "Rival 2 in the
 pool"). It is the strongest opponent: top2 Hero 4.36 vs rival2 4.98; one rival2 among 7 Heroes +0.69 over
