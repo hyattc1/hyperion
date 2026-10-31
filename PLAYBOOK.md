@@ -79,8 +79,8 @@ Done at home. Not optional; each item has sunk a drill or will.
 **Rehearsed**
 - [ ] One full drill per fake kit (A, B, C, D) with the tool you will use, on the laptop you will bring.
       Targets from drills 1 and 2: legal submission by minute 3, Hero wired by minute 10.
-- [ ] One Track B drill from a blank directory. **Unverified:** no Track B drill has run yet; the
-      15-minute target for the cheap bot is a design estimate.
+- [ ] One Track B drill from a blank directory with spec v2. Drill 3 (spec v1) measured: legal bot minute 4,
+      full spec minute 19, final bot 0.5 to 1.0 points below Hero. Re-drill once to confirm v2 closes part of that.
 - [ ] You can type the crash-proof wrapper from memory in five minutes.
 
 **Prepared**
