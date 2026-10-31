@@ -89,6 +89,10 @@ Done at home. Not optional; each item has sunk a drill or will.
 - [ ] Timer alarms: :12, :28, :40, :50, :55.
 - [ ] Printed: this playbook's section 0 and the stage table in section 3, the four kit rubrics
       (`hyperion/drills/fakekits/*/RUBRIC.md`), the organizers' email reply if any.
+- [ ] Offline install verified: `uv pip install -e .` with the network off (or from a wheel cache),
+      then `pytest -q` green.
+- [ ] A second machine or a USB stick with the repo and a working venv.
+- [ ] Commit or stash before every `git pull`; never `git add -A`.
 
 ---
 
@@ -260,6 +264,7 @@ The track is decided in Stage 0, never on the night.
 | Date | Change | Source |
 |---|---|---|
 | 2026-10-31 | v1, consolidating `docs/night-of.md`, `docs/prompts/README.md`, drills 1 and 2 | this session |
+| 2026-10-31 | Stage 0 Prepared: offline install, second machine, pull discipline. Prompts 01/02/04/05 now use `hyperion/drills/conformance.py` (`HYPERION_CHECK=1`), `tools/pack.py`, `tools/latency.py`, `hyperion/drills/adapter_template.py` and `docs/packet/NIGHT-template.md`; 01 gained the FIT VERDICT; drill-2 and review-1 prompt defects applied (D1, D2, D3, D5, D7 in the prompts only) | night-of tooling pass |
 
 ---
 

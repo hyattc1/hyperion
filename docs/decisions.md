@@ -422,3 +422,35 @@ exits non-zero listing `file:line` on any hit; `--init-git` makes a single squas
 unnoticed. Any public release must be a fresh-history export made by that tool: commit messages and the
 excluded docs are event material and never ship. GitHub metadata checked: description generic, no homepage,
 no topics.
+
+## Night-of tooling: conformance, pack, latency, templates (2026-10-31)
+
+Drills 1 and 2 and playbook review 1 kept finding the same three holes: an adapter bug the kit simulator
+cannot see (both deliberately wrong adapters in `python -m hyperion.drills.conformance` PASS the kit B runner
+with 0 illegal, because `Action.clamp` hides wrong raise bounds and a wrong pot is just a wrong number), a
+packaging step done by hand under the clock, and a latency check read off a sim table that prints hands, not
+decisions. Each is now one command, stdlib only:
+
+- `hyperion/drills/conformance.py`: `check_observation(obs, rules)` returns named invariant violations;
+  `checked(adapter)` wraps one instance's `to_observation` / `from_action` (adapter.py untouched) and keeps
+  counts, five examples per rule, translation errors that `Adapter.decide` would otherwise swallow, and the
+  action mix; `maybe_checked` turns it on under `HYPERION_CHECK=1` and prints at exit. Cross-call rules (chip
+  total constant within a hand, button and seat constant) catch the pot-includes-bets bug; `raise_total`
+  (min_raise must exceed the current bet) catches increments passed as totals. Reference kit B and C
+  adapters: 0 violations.
+- `tools/pack.py`: vendors `hyperion/` and `tables/` (default tables only; `--slim` drops fakekits and the
+  bestiary), imports the entry from a fresh interpreter in another directory with `-I -B` and PYTHON* unset,
+  checks that `hyperion` resolved from the package, times it (5 s), zips (no bytecode), prints sha256 and
+  appends the Submissions row to `NIGHT.md`, minute computed from the template's `T0:` line.
+- `tools/latency.py`: 2,000 random self-consistent Observations from `tests/strategy_helpers.random_obs`
+  (seat fixed so an adapter round trip is consistent), each call timed alone into a preallocated list, GC
+  collections and wall vs CPU reported, exit 1 above p99 500 µs. `--adapter module:Class --native kit_b`
+  times `adapter.decide`; the fake kits' state builders are built in, the real kit needs a 10-line one.
+  Hero alone: p99 65 µs; through `KitCAdapter`: p99 83 µs on this box.
+- `hyperion/drills/adapter_template.py` (nine TODOs in the order the gotchas bit, each with the field it
+  feeds and a one-line test), `docs/packet/NIGHT-template.md`, `docs/packet/EXAMPLE-rule-sheet.md` (drill 2's
+  sheet, labelled as a rehearsal). Prompt 01 gained the FIT VERDICT block (KEEP / REGENERATE / DROP per
+  prepared layer with a mechanical path rule) at the coordinator's request; it is the only prompt that grew.
+
+Not done: the sim runner still prints `tmo` per hands, not decisions (prompt 04 says "per hands as printed");
+`Config` still has no `profiler_dead_after`; the windows prompt (06) was not touched.

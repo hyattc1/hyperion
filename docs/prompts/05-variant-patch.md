@@ -34,16 +34,16 @@ Tables were regenerated in prompt 03; the evaluator remaps ranks through `Rules.
   with hands below the normal threshold by more than one rank step.
 - Auctions for a card: bid the chip EV of the card discounted by 30 percent, capped at 10 percent of
   the effective stack; never bid when under 15 big blinds.
-- Point tables: paste the real payouts into `Rules.payouts`. Top-heavy tables (first place worth
-  more than 40 percent of the pool) lower the ICM risk premium; flat tables raise it. Hero reads the
-  payouts; no other change.
+- Point tables: `Rules.payouts` in `rules_tonight.json` is the whole patch; the ICM curve is built from
+  it (print the payouts of the `Rules` passed to `new_table` to confirm). No ICM-premium key exists;
+  `preflop.shove_call_margin` is a window dial, not this patch. Override `{}`.
 
 ## Betting structure moved (pot limit, fixed sizes, antes, different schedule)
 - Pot limit: the adapter clamps to `max_raise`; set `Config.postflop` all-in sizes to pot. Push/fold
   below 12 bb becomes bet-pot-or-fold.
 - Fixed sizes: map our pot fractions to the nearest legal size in the adapter; Hero does not change.
 - Antes: effective pot is bigger preflop; loosen opens by one step and the push/fold depth by 2 bb.
-- Schedule: already in `Rules.blind_levels`. Push/fold depths are solved per big-blind count, so a
-  new schedule needs no re-solve; a new matrix does, and the cache fingerprint forces it.
+- Schedule: already in `Rules.blind_levels`; push/fold is solved per big blind, so no re-solve (a new
+  matrix re-solves; the cache fingerprint forces it).
 
 Report the override dict you applied and the before and after sim lines.
