@@ -8,14 +8,18 @@ the default Config, behind the same adapter. Then verify, in this order, and pas
 2. Our simulator through the adapter in strict mode:
    `python -m hyperion.sim --tables 300 --seed 11 --mode strict --rules rules_tonight.json
     --bots hero,tag,nit,naive,station,maniac,random,allin`
-   (omit `--rules` if no rules file was needed). Required: hero exceptions 0, illegal 0, p99 under
-   300 µs, timeouts not more than double the tag bot's, hero points at least equal to tag's minus the
-   confidence interval. If the engine cannot represent the variant, run the standard game and say so.
+   (omit `--rules` if no rules file was needed). Before reading the table, print one Hero decision
+   on a remapped flop through the adapter to prove strategy sees canonical cards. Required: hero
+   exceptions 0, illegal 0, p99 under 300 µs, strict-mode timeouts under 0.3% of hero decisions
+   (timeouts are OS jitter proportional to time spent in act(); compare rates, never counts against
+   a 1 µs bot), hero points at least equal to tag's minus the confidence interval. If the engine
+   cannot represent the variant, run the standard game and say so.
 3. The same with `--rotate --tables 40` so seating luck cancels. Hero must not be last among tag, nit,
    hero.
 4. Latency under load: run the strict sim while a second process runs the table generator, and
-   report hero's p99 and max. If max exceeds 1 ms more than a handful of times per 50,000 decisions,
-   set `Config.cheap=True` for postflop only and re-measure.
+   report hero's p99 and max. If timeouts exceed 0.3% of decisions, first check the load (another
+   sim or the generator running), then try `Config.use_profiler=False`; `Config.cheap=True` is a last
+   resort because it costs about a point.
 5. Start a fresh Python process in a different directory, import the submission entry point, and
    time the import. If it exceeds 5 seconds, move table loading from import time to the table-start
    callback and re-measure. Importing must never do Monte Carlo.

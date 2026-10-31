@@ -43,6 +43,7 @@ Tables were regenerated in prompt 03; the evaluator remaps ranks through `Rules.
   below 12 bb becomes bet-pot-or-fold.
 - Fixed sizes: map our pot fractions to the nearest legal size in the adapter; Hero does not change.
 - Antes: effective pot is bigger preflop; loosen opens by one step and the push/fold depth by 2 bb.
-- Schedule: already in `Rules.blind_levels`; push/fold re-solves at startup from the matrix.
+- Schedule: already in `Rules.blind_levels`. Push/fold depths are solved per big-blind count, so a
+  new schedule needs no re-solve; a new matrix does, and the cache fingerprint forces it.
 
 Report the override dict you applied and the before and after sim lines.

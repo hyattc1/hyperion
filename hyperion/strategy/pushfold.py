@@ -151,9 +151,19 @@ def solve_hu_pushfold(matrix: list[list[float]], depths=DEFAULT_DEPTHS, iters: i
     return out
 
 
+def matrix_fingerprint(hu) -> str:
+    """Cheap identity of a heads-up matrix, so a push/fold cache solved from an older matrix is detected."""
+    import hashlib
+    h = hashlib.sha1()
+    for row in hu:
+        h.update(("%.4f," * len(row) % tuple(row)).encode())
+    return h.hexdigest()[:16]
+
+
 def build_pushfold_tables(tables: Tables, tables_dir: str = TABLES_DIR, depths=DEFAULT_DEPTHS, write: bool = True) -> dict:
     """Solve from tables.hu and (optionally) write tables/pushfold_hu.json. For tools/gen_tables.py."""
     sol = solve_hu_pushfold(tables.hu, depths)
+    sol["matrix_fp"] = matrix_fingerprint(tables.hu)
     if write:
         write_json("pushfold_hu.json", sol, tables_dir)
     return sol
@@ -162,7 +172,9 @@ def build_pushfold_tables(tables: Tables, tables_dir: str = TABLES_DIR, depths=D
 def load_pushfold(tables: Tables, tables_dir: str = TABLES_DIR) -> dict:
     raw = read_json("pushfold_hu.json", tables_dir)
     if raw and raw.get("classes") == list(CLASSES) and raw.get("depths"):
-        return raw
+        if raw.get("matrix_fp") == matrix_fingerprint(tables.hu):
+            return raw
+        # stale: solved from a different matrix (tables were regenerated for a variant). Re-solve.
     return build_pushfold_tables(tables, tables_dir, write=os.access(tables_dir, os.W_OK) if os.path.isdir(tables_dir) else False)
 
 

@@ -17,7 +17,13 @@ displayed 2 is strongest" or "three hole cards, one discarded face up before the
    chose. Confirm `hyperion/strategy/preflop.py` reads it; if it does not, make preflop fall back to
    ranking a holding by the best two-card class plus a one-step bonus for a third card that pairs or
    suits, and say so in `NIGHT.md`. Do not build a new preflop model.
-5. Copy the new `tables/` into `submission/`. Re-run the kit simulator for 50 hands. Zero errors.
+5. The generator re-solves `tables/pushfold_hu.json` from the new matrix and Hero checks its
+   fingerprint, but verify anyway: print `load_pushfold(tables)["matrix_fp"]` and confirm it matches
+   `matrix_fingerprint(tables.hu)`. Then construct `make_bot()` once in a fresh process (it caches
+   tables at import) and print one preflop and one flop decision on remapped cards, e.g. the
+   permuted equivalent of AA on a dry flop, to see that the strongest displayed class is treated as
+   the strongest.
+6. Copy the new `tables/` into `submission/`. Re-run the kit simulator for 50 hands. Zero errors.
 
 If anything here takes longer than its box, stop, keep the old tables, and tell me which axis fix
 in prompt 05 compensates.

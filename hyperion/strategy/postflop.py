@@ -251,10 +251,13 @@ class Postflop:
         return Action(ActionKind.RAISE, amount)
 
     # ------------------------------------------------------------------ decision
-    def act(self, spot: Spot, hole, prof: Profiler | None, i_was_aggressor: bool, cheap: bool = False) -> Action:
+    def act(self, spot: Spot, hole, prof: Profiler | None, i_was_aggressor: bool, cheap: bool = False,
+            board=None) -> Action:
+        """`hole` and `board` are canonical cards (Hero remaps under a permuted rank order); the
+        displayed obs.board is only the fallback when no board is passed."""
         p = self.p
         obs = spot.obs
-        tier, outs, wet = self.read(hole, obs.board)
+        tier, outs, wet = self.read(hole, obs.board if board is None else board)
         street = obs.street
         cards_to_come = 2 if street == 1 else 1 if street == 2 else 0
         n_opp = spot.n_opps

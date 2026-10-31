@@ -21,9 +21,10 @@ Track A (repo present):
 5. Run the kit's local simulator for at least 50 hands against its built-in opponents. Show me the
    output. Required: zero exceptions, zero illegal actions, max decision time under 0.5 ms after the
    first call, and the bot folds, calls and raises at least once each.
-6. Run `python -m hyperion.drills.run --check-adapter submission/` if present, else our test suite.
-7. Package exactly what the rules say to submit, record its sha256 and the time in `NIGHT.md`, and
-   tell me to submit.
+6. Run our test suite (`python -m pytest -q`) from the repo root; it must stay green.
+7. Package what the rules say to submit. If the rules and kit are silent on layout, zip `submission/`
+   with the entry point at the top level and say so. Record the sha256 and the time in `NIGHT.md`,
+   and tell me to submit.
 
 Track B (blank directory): do steps 1 to 7 but with the cheap bot from the from-scratch spec I
 pasted: a tight hand list preflop, push or fold under 12 big blinds, check-call with top pair or

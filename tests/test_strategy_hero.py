@@ -190,3 +190,23 @@ def test_core_routes_streets_and_remaps_variants():
     assert core.act(preflop_obs("Ah Ad", 2)).kind is ActionKind.RAISE
     core.new_table(Rules(), 2, 8)
     assert core.act(preflop_obs("2h 2d", 2)) == F
+
+
+def test_permuted_ranks_fifty_strict_tables_no_exceptions():
+    """Under a permuted rank order hero remaps hole and board; every module must see canonical cards
+    (postflop once read the displayed board next to the canonical hole: duplicate cards, KeyError in
+    the evaluator). SafeBot hides such errors from the engine, so the check is on hero.safe.errors."""
+    from hyperion.sim.bestiary import make_bot as make_opp
+    from hyperion.sim.engine import play_table
+
+    order = (12, 0, 11, 1, 10, 2, 9, 3, 8, 4, 7, 5, 6)  # deuces on top, threes at the bottom, ...
+    rules = Rules(rank_order=order)
+    heroes = []
+    for t in range(50):
+        h = Hero(Config(seed=t))
+        heroes.append(h)
+        bots = [h] + [make_opp(nm, seed=t * 8 + i) for i, nm in enumerate(("tag", "naive", "station", "random", "maniac", "nit", "allin"))]
+        res = play_table(bots, rules, seed=1000 + t, mode="strict")
+        assert res.stats[0].exceptions == 0 and res.stats[0].illegal == 0
+    errors = sum(h.safe.errors for h in heroes)
+    assert errors == 0, f"{errors} inner exceptions under a permuted rank order"

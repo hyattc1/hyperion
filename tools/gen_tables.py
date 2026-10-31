@@ -127,6 +127,17 @@ def run(rules: Rules, samples: int, out: Path, seed: int, workers: int, skip_mat
             gen_matrix(pool, classes, _matrix_samples(samples), seed, out)
             times["hu_matrix"] = time.perf_counter() - t
             log(f"hu_matrix.json  {len(classes)}x{len(classes)} @ {_matrix_samples(samples)} samples  {times['hu_matrix']:.1f}s")
+            # the push/fold solution depends on the matrix; rebuild it now so no stale cache survives
+            t = time.perf_counter()
+            stale = out / "pushfold_hu.json"
+            if stale.exists():
+                stale.unlink()
+            from hyperion.strategy import tables as _tables
+            from hyperion.strategy.pushfold import build_pushfold_tables
+            _tables._CACHE.clear()
+            build_pushfold_tables(_tables.load(str(out), need_hu=True), str(out))
+            times["pushfold_hu"] = time.perf_counter() - t
+            log(f"pushfold_hu.json  re-solved from the new matrix  {times['pushfold_hu']:.1f}s")
 
         t = time.perf_counter()
         doc = gen_flops(pool, rules, seed, out, flops_per_bucket, max_holdings)

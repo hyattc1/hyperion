@@ -248,7 +248,7 @@ class HeroCore:
             return safe_action(obs)
         aggressor = prof is not None and prof.pre_raiser == obs.seat
         self.last_path = "postflop"
-        return self.postflop.act(spot, hole, prof, aggressor, cheap)
+        return self.postflop.act(spot, hole, prof, aggressor, cheap, board)
 
     def hand_end(self, result: HandResult) -> None:
         if self.prof is not None:

@@ -55,6 +55,9 @@ from `hyperion/drills/variants.py`, the prompts fired in order with a wall clock
 4. Count of agent questions that needed a human answer (target 0 after the rule sheet).
 5. Anything the agent did that we had to undo.
 
-Run it at least once per kit and once per axis. Every failure becomes a sentence in the prompt
+Run it at least once per kit and once per axis. Results live in `docs/drills/`. Drill 1 (kit B,
+permuted ranks): legal submission at minute 2, Hero clean at minute 10, Hero first at the end; it
+found two repo bugs (board remap under permuted ranks, stale push/fold cache) and 15 prompt defects,
+all folded back into the prompts above. Every failure becomes a sentence in the prompt
 that caused it, never a new prompt. `hyperion/drills/run.py` keeps the clock and the scratch dir;
 the log goes to `drills/log/`.
