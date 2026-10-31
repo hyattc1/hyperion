@@ -16,7 +16,10 @@ fake kits, tooling, five drills) is in good shape; Track A (bring the repo) is t
 
 Agents commit as they finish tasks. If one was killed, `git log` shows what landed; the rest is below.
 
-### 1. Deep Hero pass (long, commits per task). Relaunch with this brief if unfinished:
+### 1. Deep Hero pass: STOPPED at 96% usage during task 1 (observability). Its uncommitted edits to
+engine.py, runner.py, hero/postflop/preflop/pushfold.py, tools/sweep.py and a new tests/test_sim_observability.py
+are in `git stash list` as "deep-pass WIP"; inspect with `git stash show -p stash@{0}` and either apply or
+drop before relaunching. Relaunch with this brief:
 Owns hyperion/strategy/*, sim/runner.py and sim/engine.py (observability only), tools/sweep.py, tables/,
 tests, decisions.md (append), CONTRACTS.md via `python tools/apicard.py`. Targets: (T1) Hero ≥ rival1 + 0.15
 on `--field realistic` and `--field top` with disjoint 95% CIs at ≥ 400 duplicate seeds; (T2) Hero among 7
@@ -48,7 +51,7 @@ agent role sees only the prompts and spec, never the repo; score minutes per che
 4/9/17/19, the rank-remap correctness (permuted AA raises, permuted 72o folds), and a 300-table comparison
 vs Hero on `--variant permuted_ranks --field realistic`.
 
-### 4. Public-repo sparring (bounded, writes only at the end). If `docs/drills/public-repos-sparring.md` is absent:
+### 4. Public-repo sparring: STOPPED at 96% usage before it ran anything; nothing to recover. Relaunch:
 Clone the competitor prep repos named in `docs/research/notes/presolved_resources.md` §4 into isolated
 scratch dirs, read every file for network/subprocess/exec before running, adapt any playable bot to our
 Bot protocol in scratch, run 300 strict tables vs Hero and tag, report strength and what each assumes the
