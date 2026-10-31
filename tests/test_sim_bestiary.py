@@ -46,11 +46,13 @@ def test_each_bot_in_a_mixed_field_stays_under_budget(name):
 def test_bots_survive_a_three_card_variant_with_permuted_ranks():
     order = (12,) + tuple(range(12))
     rules = Rules(hole_cards=3, rank_order=order)
-    bots = [B.make_bot(n, seed=s) for s, n in enumerate(NAMES)]
-    res = play_table(bots, rules, seed=5)
-    for st in res.stats:
-        assert st.exceptions == 0, st.last_error
-        assert st.illegal == 0
+    half = (len(NAMES) + 1) // 2  # two tables: 16+ bots x 3 hole cards no longer fit one 52-card deck
+    for names in (NAMES[:half], NAMES[half:]):
+        bots = [B.make_bot(n, seed=s) for s, n in enumerate(names)]
+        res = play_table(bots, rules, seed=5)
+        for st in res.stats:
+            assert st.exceptions == 0, st.last_error
+            assert st.illegal == 0
 
 
 def test_crasher_and_timeout_are_handled():

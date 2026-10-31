@@ -680,6 +680,89 @@ class HeroLoose(HeroClone):
     }
 
 
+# ----- rivals: other teams' bots behind an adapter to the interface they were built against ------
+
+
+class _KitObs:
+    """The observation shape the red-team brief promised (docs/drills/redteam/redteam-1.md, kit.py):
+    the same fields as our Observation, with `legal` a set of strings, `history` a list of
+    (seat, (kind, amount)) tuples and `hand_no` 1-based."""
+
+    __slots__ = ("hole", "board", "street", "seat", "button", "stacks", "bets", "in_hand", "pot",
+                 "to_call", "min_raise", "max_raise", "legal", "hand_no", "blinds", "history")
+
+
+_KIT_ACTIONS = {"fold": Action.fold(), "check": Action.check(), "call": Action.call()}
+_KIT_LEGAL: dict[frozenset, set] = {}  # our frozenset[ActionKind] -> the kit's set of strings, memoized
+
+
+class RivalBot(_Base):
+    """Red-team rival 1 (hyperion.sim.rivals.rival1), unchanged, behind the kit interface it was built
+    against: `legal` as strings, history as (seat, (kind, amount)), 1-based hand_no, rules as a dict.
+    The rival's answer ('kind', amount_total) becomes an Action clamped to the observation, and the
+    engine times the adapter and the rival together. The rival seeds itself per table; `seed` is unused."""
+
+    MODULE = "rival1"
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        import importlib
+
+        self.impl = importlib.import_module(f".rivals.{self.MODULE}", __package__).Bot()
+        self._hist: list = []  # converted history for the current hand, extended as it grows
+        self._hist_n = 0
+        self._hist_hand = -1
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self._hist, self._hist_n, self._hist_hand = [], 0, -1
+        self.impl.new_table({"starting_stack": rules.starting_stack, "hand_cap": rules.max_hands,
+                             "n_players": n_players, "blinds": rules.blind_levels}, seat, n_players)
+
+    def to_kit(self, obs: Observation) -> _KitObs:
+        """Our Observation as the kit's. History is converted incrementally: the engine hands out a
+        fresh copy each decision but the prefix never changes within a hand."""
+        k = _KitObs()
+        k.hole, k.board, k.street, k.seat, k.button = obs.hole, obs.board, obs.street, obs.seat, obs.button
+        k.stacks, k.bets, k.in_hand, k.pot = obs.stacks, obs.bets, obs.in_hand, obs.pot
+        k.to_call, k.min_raise, k.max_raise = obs.to_call, obs.min_raise, obs.max_raise
+        k.hand_no, k.blinds = obs.hand_no + 1, obs.blinds
+        legal = _KIT_LEGAL.get(obs.legal)
+        if legal is None:
+            legal = _KIT_LEGAL[obs.legal] = {kind.value for kind in obs.legal}
+        k.legal = legal
+        src = obs.history
+        n = len(src)
+        if obs.hand_no != self._hist_hand or n < self._hist_n:
+            self._hist, self._hist_n, self._hist_hand = [], 0, obs.hand_no
+        if n > self._hist_n:
+            self._hist.extend((s, (a.kind.value, a.amount)) for s, a in src[self._hist_n:])
+            self._hist_n = n
+        k.history = self._hist
+        return k
+
+    @staticmethod
+    def from_kit(answer, obs: Observation) -> Action:
+        """('kind', amount_total) -> Action, clamped to what is legal. Anything unreadable is a check or fold."""
+        try:
+            kind, amount = answer
+        except (TypeError, ValueError):
+            return _check_or_fold(obs)
+        if kind == "raise":
+            try:
+                return Action.raise_to(int(amount)).clamp(obs)
+            except (TypeError, ValueError):
+                return _check_or_fold(obs)
+        a = _KIT_ACTIONS.get(kind)
+        return a.clamp(obs) if a is not None else _check_or_fold(obs)
+
+    def act(self, obs: Observation) -> Action:
+        return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
+
+    def hand_end(self, result: HandResult) -> None:
+        self.impl.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas})
+
+
 REGISTRY: dict[str, type] = {
     "crasher": Crasher,
     "timeout": TimeoutBot,
@@ -698,17 +781,22 @@ REGISTRY: dict[str, type] = {
     "timeout_then_recover": TimeoutThenRecover,
     "hero_tight": HeroTight,
     "hero_loose": HeroLoose,
+    "rival1": RivalBot,  # red-team drill 1's bot through the kit adapter; `naive` stays available by name
 }
 _BY_CLASS = {cls.__name__.lower(): cls for cls in REGISTRY.values()}
 
 # Named 8-bot fields for the runner (`--field`). Duplicated names take two seats.
 FIELDS: dict[str, tuple[str, ...]] = {
     # the room as we expect it: one competent short-stacker, Monte Carlo bots in both flavours,
-    # a loose-aggressive student, the 40-minute bot, a TAG, and one bot that breaks mid-table
-    "realistic": ("hero", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "naive", "tag",
+    # a loose-aggressive student, the red-team rival (in the seat the 40-minute bot `naive` had
+    # until 2026-10-31), a TAG, and one bot that breaks mid-table
+    "realistic": ("hero", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "rival1", "tag",
                   "timeout_then_recover"),
     # the table where everybody did their homework, plus two Hero copies with other settings
     "strong": ("hero", "pushfold", "pushfold", "tag", "hero_tight", "hero_loose", "nit", "loose_aggro"),
+    # the strong room with the rival twice: two rivals, the short-stacker, a TAG, a tight Hero,
+    # the loose student and one partially broken Monte Carlo bot
+    "top": ("hero", "rival1", "rival1", "pushfold", "tag", "hero_tight", "loose_aggro", "montecarlo30"),
     # the table that busts itself: Hero's job is to survive it and be there at the end
     "chaos": ("hero", "crasher", "random", "allin", "station", "montecarlo", "maniac", "timeout_then_recover"),
 }

@@ -1,0 +1,140 @@
+"""Rival bots behind the bestiary adapter: red-team drill 1's `rival1` and the fields it sits in."""
+import pytest
+
+from hyperion.core.types import Action, ActionKind, Observation, Rules, parse_cards
+from hyperion.sim import bestiary as B
+from hyperion.sim.engine import Table, play_table
+from hyperion.sim.runner import run_tournament
+from tests.sim_helpers import Auditor
+
+
+@pytest.fixture
+def rival_debug():
+    """Make the rival re-raise what its own act() would swallow, so an exception inside it reaches
+    the engine's counters instead of becoming a quiet check/fold. Restored afterwards."""
+    from hyperion.sim.rivals import rival1
+
+    old = rival1.Bot.debug
+    rival1.Bot.debug = True
+    try:
+        yield
+    finally:
+        rival1.Bot.debug = old
+
+
+def test_rival1_plays_300_hands_in_measure_mode_with_zero_exceptions(rival_debug):
+    rules = Rules(max_hands=300, starting_stack=16000)  # deep enough that busts do not end it early
+    hands = decisions = 0
+    seed = 0
+    while hands < 300:
+        bots = [Auditor(B.make_bot("rival1", seed=seed * 8 + s), 8 * 16000) for s in range(8)]
+        t = Table(bots, rules, seed=seed, mode="measure")
+        while not t.done:
+            t.play_hand()
+            hands += 1
+        for s in range(8):
+            st = t.stats[s]
+            assert st.exceptions == 0, st.last_error
+            assert st.illegal == 0
+        decisions += sum(len(b.decisions) for b in bots)
+        seed += 1
+    assert hands >= 300 and decisions > 300
+
+
+def test_rival1_timeout_rate_in_strict_mode_is_under_one_percent():
+    names = ["rival1", "hero", "tag", "pushfold", "loose_aggro", "nit", "station", "random"]
+    calls = over = 0
+    for seed in range(6):
+        bots = [B.make_bot(n, seed=seed * 8 + s) for s, n in enumerate(names)]
+        res = play_table(bots, Rules(), seed=seed, mode="strict")
+        st = res.stats[0]
+        assert st.exceptions == 0, st.last_error
+        assert st.illegal == 0
+        calls += st.calls + st.first_calls
+        over += st.over_budget
+    assert calls >= 300
+    assert over / calls < 0.01, (over, calls)
+
+
+def _obs(hole, legal, to_call=0, bets=None, history=()):
+    n = 8
+    stacks = [2000] * n
+    bets = list(bets) if bets else [0] * n
+    return Observation(hole=hole, board=(), street=0, seat=2, button=7, stacks=stacks, bets=bets,
+                       in_hand=[True] * n, pot=0, to_call=to_call, min_raise=40, max_raise=2000,
+                       legal=frozenset(legal), hand_no=4, blinds=(10, 20), history=list(history))
+
+
+def test_adapter_presents_the_kit_interface_and_converts_history_incrementally():
+    bot = B.make_bot("rival1", seed=1)
+    bot.new_table(Rules(), 2, 8)
+    assert bot.impl.cap == 200  # hand_cap reached the rival through the rules dict
+    hist = [(0, Action.raise_to(60)), (1, Action.call())]
+    o = _obs(parse_cards("AsKs"), {ActionKind.FOLD, ActionKind.CALL, ActionKind.RAISE}, to_call=60, history=hist)
+    k = bot.to_kit(o)
+    assert k.legal == {"fold", "call", "raise"} and isinstance(k.legal, set)
+    assert k.history == [(0, ("raise", 60)), (1, ("call", 0))]
+    assert k.hand_no == 5 and k.blinds == (10, 20) and k.stacks is o.stacks
+    first = k.history
+    hist.append((3, Action.fold()))
+    k2 = bot.to_kit(_obs(parse_cards("AsKs"), {ActionKind.FOLD, ActionKind.CALL}, to_call=60, history=hist))
+    assert k2.history is first and k2.history[-1] == (3, ("fold", 0))  # extended, not rebuilt
+    o3 = _obs(parse_cards("7c2d"), {ActionKind.FOLD, ActionKind.CHECK}, history=[(5, Action.check())])
+    o3.hand_no = 5
+    k3 = bot.to_kit(o3)
+    assert k3.history == [(5, ("check", 0))] and k3.history is not first  # a new hand starts the list over
+
+
+def test_adapter_clamps_the_rivals_answer():
+    o = _obs(parse_cards("AsKs"), {ActionKind.FOLD, ActionKind.CALL, ActionKind.RAISE}, to_call=20)
+    assert B.RivalBot.from_kit(("raise", 10 ** 6), o) == Action.raise_to(2000)
+    assert B.RivalBot.from_kit(("raise", 1), o) == Action.raise_to(40)
+    assert B.RivalBot.from_kit(("call", 0), o) == Action.call()
+    assert B.RivalBot.from_kit(("check", 0), o) == Action.call()  # check is not legal facing a bet
+    no_raise = _obs(parse_cards("AsKs"), {ActionKind.FOLD, ActionKind.CALL}, to_call=20)
+    assert B.RivalBot.from_kit(("raise", 500), no_raise) == Action.call()
+    free = _obs(parse_cards("7c2d"), {ActionKind.FOLD, ActionKind.CHECK})
+    assert B.RivalBot.from_kit(None, free) == Action.check()
+    assert B.RivalBot.from_kit(("jump", 0), free) == Action.check()
+    assert B.RivalBot.from_kit(("raise", "x"), free) == Action.check()
+
+
+def test_rival1_shoves_premiums_short_and_folds_junk_through_the_adapter():
+    bot = B.make_bot("rival1", seed=1)
+    bot.new_table(Rules(), 2, 8)
+    n = 8
+    stacks, bets = [2000] * n, [0] * n
+    bets[0], bets[1] = 10, 20
+    stacks[0], stacks[1] = 1990, 1980
+    stacks[2] = 140  # 8 bb UTG
+    legal = frozenset({ActionKind.FOLD, ActionKind.CALL, ActionKind.RAISE})
+    mk = lambda hole: Observation(hole=hole, board=(), street=0, seat=2, button=7, stacks=stacks, bets=bets,  # noqa: E731
+                                  in_hand=[True] * n, pot=0, to_call=20, min_raise=40, max_raise=140,
+                                  legal=legal, hand_no=0, blinds=(10, 20))
+    a = bot.act(mk(parse_cards("AsAd")))
+    assert a.kind is ActionKind.RAISE and a.amount == 140
+    assert bot.act(mk(parse_cards("7c2d"))).kind is ActionKind.FOLD
+
+
+def test_rival_fields_resolve_to_eight_bots_and_naive_stays_registered():
+    for name in ("realistic", "top"):
+        members = B.field_names(name)
+        assert len(members) == 8, name
+        for nm in members:
+            assert isinstance(B.make_bot(nm, seed=1), object)
+    assert "rival1" in B.FIELDS["realistic"] and "naive" not in B.FIELDS["realistic"]
+    assert B.FIELDS["top"].count("rival1") == 2 and B.FIELDS["top"][0] == "hero"
+    assert isinstance(B.make_bot("naive"), B.NaiveEquityBot)
+    assert isinstance(B.make_bot("rival1"), B.RivalBot)
+
+
+def test_top_field_runs_twenty_tables_end_to_end():
+    rep = run_tournament(B.field_names("top"), tables=20, seed=1, mode="strict")
+    assert rep.tables == 20 and rep.hands >= 20
+    assert set(rep.bots) == set(B.FIELDS["top"])
+    assert rep.bots["rival1"].seats == 40 and rep.bots["hero"].seats == 20
+    for name, b in rep.bots.items():
+        assert len(b.samples) == 20, name
+        assert b.stats.exceptions == 0, (name, b.stats.last_error)
+        assert b.stats.illegal == 0, name
+    assert abs(sum(b.mean * b.seats for b in rep.bots.values()) / 20 - sum(Rules().payouts)) < 1e-6
