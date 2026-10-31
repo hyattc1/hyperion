@@ -1065,3 +1065,222 @@ the frozen values; a tuned copy would be a new file). `realistic`, `strong` and 
 `top` composition was not measured. The repeat on a quiet host was not possible: the deep pass's sweeps kept the
 box at 8-12 CPU-bound processes throughout. The strict tables above therefore overstate rival 2's timeouts against
 a dedicated host. The measure-mode companions bound the effect on points.
+
+## Deep Hero pass (2026-10-31, builder: deep pass)
+
+Scope: `hyperion/strategy/*`, `hyperion/sim/runner.py` and `engine.py` (observability only), `tools/sweep.py`,
+`tools/gen_multiway.py`, `tools/rmh_check.py`, `tables/pushfold_multi.json`, tests. Targets as briefed: T1 Hero >=
+rival1 + 0.15 on realistic and top with disjoint intervals; T2 Hero among 7 rival1 >= uniform and rival1 among 7
+Heroes <= uniform + 0.1; T3 no regression on base and strong; T4 latency gate plus hand_end / new_table p99 < 1 ms;
+T5 readiness not worse; added mid-pass: T6 MicroAgent among 7 Heroes <= uniform + 0.1, T7 Hero >= rival2 - 0.1 on
+top2, T8 rival2 among 7 Heroes <= uniform + 0.2.
+
+### Observability (commit f955955)
+
+`BotStats.safe_err` / `safe_over`: once per table the engine reads the SafeBot inside each bot (`find_safe` walks
+`.safe`, `.impl`, `.inner`) and adds the exceptions it swallowed and the calls that ran past its own deadline. The
+runner prints both columns and a WARNING line when any error was swallowed; `tools/sweep.py` carries them
+(`serr`). `--trace-busts` names `module.sub_decision` (each module exposes `last`, e.g. `pushfold.reshove`,
+`preflop.call_shove`) and flags `inner_error` (SafeBot's fallback acted) and `overran`. safe_err was 0 on every
+run of this pass.
+
+### hand_end and new_table (commit 5257118)
+
+Under Malmuth-Harville (a Plackett-Luce ranking) the chance that j finishes above me is s_j / (s_me + s_j). With
+linear payouts (8..1) my points are therefore pay_1 - step * sum_j s_j / (s_me + s_j): exact, O(n), ~1 us at
+eight seats. `icm_me` uses that, and a forward pass over the 2^(n-1) opponent subsets for other payouts (~50 us
+at eight seats against ~350 us for the full recursion, which computed every seat). With non-linear payouts and 7+
+alive the curve samples a thinner ratio set (`icm_ratios_many`). Replayed table of eight Heroes, min of three cold
+replays (`tests/test_hand_end_timing.py`): hand_end mean 34 us / p99 42 us on the default payouts, mean 228 /
+p99 433 us on top-heavy ones; new_table p99 46 / 425 us. It was 6.4 ms mean per hand_end.
+
+### Solved multiway push/fold (commit ce5a137)
+
+`hyperion/strategy/multiway.py`, `tools/gen_multiway.py`, `tables/pushfold_multi.json` (2.5 MB, 433 KB compressed).
+Chip-EV all-in-or-fold in big blinds, every stack S at hand start, SB 0.5 / BB 1, no antes, pairwise card removal
+(shover vs each responder). (a) First-in shove against k = 1..7 behind at 2..25 bb: k = 1 is the SB against the
+BB (the heads-up game); for k >= 2 the shover posted nothing and k-2 non-blinds, the SB and the BB act behind it.
+No-overcall model: the first call ends the action, so a caller's best response depends only on the shover's range
+and its own blind, and callers come in three types (n / sb / bb). (b) Re-shove over a 2.3 bb open from the top w
+of hands (w = 0.10, 0.17, 0.25, 0.40, 0.60) with m = 0..4+ behind at 4..25 bb; if nobody behind calls, the opener
+calls or folds. Solver: alternating fictitious play with linearly weighted averages and a few damped warm-start
+steps per depth (plain 1/t FP needed 3,743 iterations at k = 7, 22 bb for what this does in 123). 718 solves, tol
+1e-4 bb per hand; first-in mean 19 iterations, worst gain 9.99e-5; one re-shove cell (w 0.25, m 4, 7 bb) stopped at
+the 4,000 cap with 5.0e-4 bb. **36.5 s wall on 7 workers** (budget 10 minutes). Outputs per solve: the set, its
+combo frequency, per class P(nobody calls) and equity when called, each caller type's call set and frequency, a
+caller's equity against the shoving range, and a combo-weighted order.
+
+Checks: k = 1 reproduces `pushfold_hu.json` within 0-2 classes per depth (push 1 class at 5, 9, 13, 22 bb, 2 at
+10; calls 1 class at six depths), frequencies within 0.01. Two model facts worth knowing: P(nobody calls) does not
+fall with k at equilibrium (the shover tightens, so the callers do: 0.63..0.65 at 10 bb for k = 1..7), and the
+re-shove family has a second, gambling equilibrium at short stacks (with no overcalls the opener's 2.3 bb is dead
+money for everyone behind); the re-shove solves run from 25 bb down to stay on the realistic branch, and the 63 of
+550 cells still on the other branch (m >= 1, 4-7 bb, detectable by any caller type calling > 0.5) are not used.
+
+**RangeMyHand cross-check** (`tools/rmh_check.py`; `hasuwini77/push-fold-ranges` commit c913a16, CC BY 4.0,
+downloaded to `~/.cache/hyperion/rmh/`, never committed; their seats key on players behind):
+
+| their seat -> ours | disagreements (we shove / they shove) | per depth | mean MAD | shove % ours / theirs at 5, 10, 15, 20 bb |
+|---|---|---|---|---|
+| SB (1 behind) -> k1 | 101 (39 / 62) | 4.2 | 0.034 | 72.4/72.2, 58.4/58.2, 45.2/45.4, 40.0/40.4 |
+| BTN (2) -> k2 | 140 (64 / 76) | 5.8 | 0.045 | 40.5/40.3, 32.3/33.0, 26.5/26.0, 22.0/19.8 |
+| CO (3) -> k3 | 145 (111 / 34) | 6.0 | 0.047 | 32.6/32.6, 25.2/23.7, 18.3/16.9, 14.0/11.9 |
+| 6-max UTG (5) -> k5 | 198 (170 / 28) | 8.2 | 0.055 | 24.3/23.1, 15.4/13.1, 10.9/8.9, 8.2/7.1 |
+| MP (6) -> k6 | 180 (146 / 34) | 7.5 | 0.052 | 21.1/21.3, 12.9/10.8, 8.9/7.8, 6.8/6.4 |
+| UTG (8) -> k7 (8 vs 7 behind) | 177 (139 / 38) | 7.4 | 0.053 | 18.4/18.5, 10.9/8.9, 7.2/6.9, 4.9/5.5 |
+
+With three or more behind we shove blocker hands they fold (A4s-A8s, QTs, JTs, QJs, KTs, KJs, K9s, KQo, KJo; they
+have 0.01-0.10) and they shove 66-99 where we fold; we are 1.5-2.5 points wider at 10-20 bb. Two checks say our side
+holds: a Monte Carlo deal of all eight hands with full card removal agrees with our shove EVs (k = 7, 15 bb: the
+callers take TT+, AQs+, AK, so 88 is -0.08 bb and A5s +0.06 bb), and rebuilding their stated recipe (no card removal,
+220 rounds of plain FP) from our matrix reproduces their tables within 1.5-2.8 classes per depth; that 220-round
+profile still has best-response gains of 3-6e-3 bb for the shover and 0.03-0.06 bb per shove faced for the callers,
+30-600x our tolerance. Switching card removal off halves the disagreement, which is why their SB seat (heads-up) is
+close to ours and to HoldemResources. The sparring pass's MicroAgent cross-check (Hero's old rule shoved 44% on
+the button at 10 bb, the solve 32%) agrees: the table puts the button at 32.3% and UTG at 10.9% (the heuristic said
+21%). microholdem was used as an opponent and a cross-check only; nothing of it is in Hero.
+
+Wiring (`PushFold`): first-in shoves take the top `p_push[k][S]` by the solve's order, stretched by the callers'
+steal dials, then the ICM gate with the solve's P(nobody calls) (scaled by the callers' observed looseness) and
+equity when called; re-shoves read the re-shove family with the opener's range from its seat (`bb_open_prior`)
+and PFR and m = live players behind; `nash_push_freq(k, S)` feeds the shove-call read below. `use_multiway` /
+`use_reshove_table` switch it off; `tighten_per_player` is the fallback when the table is missing or was solved from
+another matrix (and for 3/4-card label variants).
+
+### Exploit-resistance levers (commits ce5a137, c5cb3db, 745bf82)
+
+Every lever is a Config key; what is on by default is marked.
+- **(a) Shove calls against the shover's observed range** (on: `preflop.shove_range_model`, `shove_ctx_model`).
+  `ranges.RangeEquity` gives each class's all-in equity against the top x of hands (heads-up matrix, card removal,
+  18-point grid; 47 ms once per table set). The profiler counts each seat's preflop shoves by its own depth bucket
+  (<= 12, <= 25, <= 50, > 50 bb) per *opportunity*: first-in shoves per first-in spot and re-shoves per "facing one
+  open" spot (`shove_counts_ctx`), plus a per-hand count for 4-bet and later shoves. A first-in shove is read as the
+  Nash frequency for the shover's seat and depth (multiway table) times its observed first-in rate over the prior; a
+  re-shove as the solved re-shove frequency against the opener's range (Hero's own open fraction when Hero opened)
+  times its observed re-shove rate over the prior; without a solved base (deep), the smoothed rate is the width.
+  Calls go through the ICM gate against that range (`range_call_ok`; with a caller already in, the normalised
+  product of pairwise equities). The deep path keeps `patience_deep`. Per opportunity matters: rival 2 re-shoves
+  13-25 bb over opens far more often than its per-hand rate shows (Hero faced 207 such re-shoves in 96 top2 tables,
+  called 8% with the per-hand read and won 11 of 17; with the per-opportunity read it calls 26% and won 21 of 44,
+  and calls 51% of rival 2's <= 12 bb re-shoves, winning 19 of 34). Against rival 1's rare deep shoves the read
+  tightens toward QQ+/AK (`tests/test_strategy_exploit.py` pins both directions).
+- **(b) Big-blind defence by pot odds** (`preflop.bb_defend`, off): call when equity against the opener's estimated
+  range (seat prior x PFR) times `bb_realize` beats the pot odds, 3-bet the value slice plus `bb_3bet_bluffs`
+  (A5s, A4s). Swept and not kept (below).
+- **(c) Late-street call-downs** (on: `postflop.late_calldown_cap` 1.0; off: `tight_aggro_margin`). The unknown-
+  archetype call-down dial is 1.4 - 0.8 x aggression, i.e. above 1 (lighter calls) against passive bettors; rival 1
+  reads as postflop aggression 0.24-0.29, and its late bets are value. Capping the dial at 1 on the turn and river
+  (maniacs and random seats keep theirs) is the lever that helped against rival 1 copies. The tight-aggressive margin
+  (VPIP < 0.22 and aggression > 0.40) was neutral: neither rival is low-VPIP (rival 1 0.26, rival 2 0.25).
+- **(d) Early-game risk-of-ruin margin** (`ror_margin`, `ror_from_bb` / `ror_full_bb` / `ror_hands`, off): extra
+  equity needed for any stack-off (half the stack or more, preflop or postflop) while deep and early, carried on
+  `Spot.ror`. Swept 0.05 / 0.10: within noise, sign flipping between fields.
+- **(e) Steals from the folder read** (`preflop.folder_steal_mult`, `folder_ftr` / `folder_min_n`, off): steals widen
+  when every player to act folded >= 75% of the >= 4 raises it faced. 1.4 was -0.02 / -0.05.
+- Two more built on the way, both off: a **hand-cap-aware value curve** (`cap_vol_bb`: survivors are ranked by chips
+  at hand 200, so near the cap my points blend Malmuth-Harville's s_j / (s_me + s_j) with Phi((s_j - s_me) / sigma)
+  over the variance still to come, with samples on both sides of every rank step; not swept after rival 1's own
+  cap mode measured as worth nothing to it: 5.698 with, 5.759 without, 60 seeds) and **exploitative first-in shoves**
+  (`pushfold.exploit_push`: shove any hand whose ICM EV beats folding when each caller calls the top c_j, c_j = its
+  seat type's solved call frequency times its calls over a solved caller's calls in the shoves it faced;
+  `profiler.call_looseness` reads rival 2 0.94, rival 1 0.5-0.8, tag 0.4-0.5, montecarlo 5.2). With neutral reads it
+  reproduces the solved set (150-167 of 169 classes agree); with reads it lost 0.05-0.10 on top and top2.
+
+### Where the points go (diagnostics that drove the second half)
+
+The first screen (every lever above, 160 seeds, realistic and top) found nothing outside +-0.10, so the second half
+looked for where the points are lost rather than for more levers. Scratch scripts (not committed) on duplicate deals:
+- **Who reaches the final two** (200 realistic tables): rival 1 is in the final pair in ~52% of tables, Hero in ~28%;
+  when the two meet in the final, rival 1 wins 25 to Hero's 16 (realistic) and Hero 27 to rival 1's 24 (top). About
+  half of all tables end at the 200-hand cap with two or three survivors. Hero's deficit is getting there.
+- **Chip flow per table** (realistic, 160 tables, chips): rival 1 nets +2,802 in hands that end preflop without a
+  showdown, Hero +898; postflop without showdown rival 1 -775, Hero -1,340; at showdown Hero +1,699, rival 1 +1,465.
+  By level Hero is ahead at level 1 (+15.3 bb vs +10.7) and behind from level 4 on.
+- **Preflop uncontested, levels 4-8** (hands 75-200, 336 tables): rival 1 raises and takes it down 13.0 times per table
+  (+17.2 bb), Hero 9.2 (+12.2 bb); Hero gives up more blinds (-10.2 vs -8.2 bb); net rival 1 +12.1 bb, Hero +3.8.
+  On top2, rival 2 takes 11.1 raised pots per table (+20.9 bb) to Hero's 7.3 (+11.5); Hero's lost opens (-5.2 bb) are
+  mostly folds to rival 2's re-shoves, which is what lever (a)'s per-opportunity read was built for.
+- **What the room calls** (Hero's profiler, call-vs-shove against a solved caller in the same spots): tags and the
+  short-stack bot call 0.4-0.5x Nash, rival 1 0.5-0.8x, rival 2 0.94x, the Monte Carlo bots 1.6-5x. Per-hand preflop
+  shove rates at <= 12 bb are 0.05-0.16 for every bot (the 0.20 prior first used was too high and is not what the
+  per-opportunity read uses).
+
+### Results (400 duplicate seeds x 8 rotations, seed 7, strict, one sweep from a clean worktree of 745bf82)
+
+"before" is the same code with every lever of this pass off (`pushfold.use_multiway`, `preflop.shove_range_model`,
+`shove_ctx_model` false, `postflop.late_calldown_cap` 9): the tuner's bot plus exact ICM. "after" is the shipped
+default (d917c45: solved tables, per-hand shove read, call-down cap; the per-opportunity read off). Paired deltas
+are means of per-seed differences. Uniform is 4.50. The same sweep ran the per-opportunity read on (745bf82's
+default) as a third column; it is quoted where it differs.
+
+| target | field | before | after | paired after - before | met? |
+|---|---|---|---|---|---|
+| T1 | realistic: Hero / rival1 | 5.513 / 5.613 (paired -0.101) | 5.564 +- 0.068 / 5.701 +- 0.075 | Hero +0.051 +- 0.068; Hero - rival1 **-0.137 +- 0.115** | no |
+| T1 | top: Hero / rival1 / rival2 | 4.479 / 4.775 / 5.000 | 4.620 +- 0.072 / 4.752 / 4.991 | Hero **+0.141 +- 0.070**; Hero - rival1 **-0.131 +- 0.102** (was -0.295) | no |
+| T2 | Hero + 7 rival1 | 4.310 | 4.430 +- 0.065 | +0.119 +- 0.056 | no (< 4.50) |
+| T2 | rival1 + 7 Heroes (rival1) | 4.664 | **4.496 +- 0.082** | rival1 -0.168 +- 0.087 | yes (<= 4.60) |
+| T3 | base (hero,tag,nit,naive,station,maniac,random,allin) | 6.835 | 6.812 +- 0.045 | -0.022 +- 0.025 | yes (within CI) |
+| T3 | strong | 5.075 | 5.150 +- 0.073 | +0.075 +- 0.067 | yes |
+| T6 | MicroAgent + 7 Heroes (micro; microholdem venv, from the d917c45 worktree) | 4.646 +- 0.068 | **4.453 +- 0.065** | micro -0.194 +- 0.073 | yes (<= 4.60) |
+| T7 | top2: Hero - rival2 | -0.642 | **-0.557 +- 0.098** (Hero 4.435, rival2 4.992) | Hero +0.070 +- 0.077 | no (needs >= -0.10) |
+| T8 | rival2 + 7 Heroes (rival2) | 5.231 | 5.105 +- 0.075 (4.967 with the per-opportunity read) | rival2 -0.127 +- 0.085 | no (<= 4.70) |
+| - | Hero + 7 rival2 | 3.542 | 3.514 +- 0.065 | -0.028 +- 0.080 | - |
+
+T4: `act()` min-of-3 mean 17.4 us, p99 29.7 us (the tuning pass: 14.1 / 21.4; the range read and the seat-order
+walk cost ~3 us); hand_end p99 49 us, new_table p99 58 us on the default payouts (top-heavy: 487 / 476 us). safe_err
+0 and exc 0 in every cell above. T5 (`tools/variant_matrix.py --tables 300 --seed 7 --field realistic --workers 6`, d917c45 worktree, 183 s):
+**READY 22, PLAYS 1, WEAK 0, BROKEN 0**, the same count as the variant pass. two_boards rose to READY (second, 5.32);
+hi_lo is the PLAYS (third at 5.42 +- 0.23 behind rival1 5.46 and tag 5.44, all inside each other's intervals).
+Hero is first on 15 of 23 entries (was 11); exc and ill are 0 everywhere; p99 48-78 us.
+
+**The per-opportunity read, on vs off (same sweep):** top -0.112 +- 0.067, realistic -0.051, top2 -0.006, base and
+strong +-0.01, Hero + 7 rival1 -0.006; rival1 + 7 Heroes -0.040 and rival2 + 7 Heroes -0.137 +- 0.081 for the rival.
+It does what it was built for (rival 2's re-shoves) and costs the mixed rooms more than it gains there, so it ships
+off; turn it on (`preflop.shove_ctx_model`) for a room of frequent re-shovers.
+
+**Where that leaves Hero.** Hero closed half the gap to rival 1 on `top` (paired -0.295 -> -0.131) and pushed both
+rivals down in the Hero rooms (rival1 +0.16 -> 0.00 over uniform, rival2 +0.73 -> +0.61, MicroAgent +0.15 -> -0.05),
+but T1, T2's first half, T7 and T8 are not met. Rival 2 is the strongest bot here by a wide margin: it out-scores
+rival 1 on top and top2, and in a room of seven rival 2s Hero scores 3.51. The diagnostics above say where its
+edge is: the volume of uncontested preflop pots it takes in the 10-25 bb phase (wide opens scaled by the blinds'
+fold-to-aggression, light 3-bets from the blinds, frequent re-shoves) and Monte Carlo postflop equity against
+VPIP-shaped ranges. None of the gates added here change Hero's own preflop volume; that is the next lever, not
+another threshold. Per HANDOFF "After those land" item 2, the agreed fallback (the rival's decision core behind
+Hero's adapter) is now on the table for the owner; it was not taken here.
+
+### Screens and what did not help
+
+`tools/sweep.py`, duplicate deals, seed 7, strict, paired deltas against each screen's base (+- is the 95% interval of
+the paired delta; at 160 seeds it is ~0.10, at 240 ~0.08-0.09). The box ran 7 sweep workers plus 2-4 processes of
+other agents throughout, so rival 2 (the slowest bot, 5-8x rival 1 per decision) times out more here than on a
+quiet host; that handicaps it equally in every setting of a screen.
+
+| lever (screen) | realistic | top | top2 | Hero + 7 rival1 | rival1 among 7 Heroes (rival1 pts) | kept? |
+|---|---|---|---|---|---|---|
+| shove range model, per hand (S1, 160) | -0.012 +- 0.106 | +0.001 +- 0.102 | | | | yes (became per opportunity) |
+| ... range width x1.0 / x2.5 (S1) | +0.048 / +0.020 | -0.051 / -0.096 | | | | no |
+| BB defence, realise 0.85 (S1) | -0.144 +- 0.113 | -0.155 +- 0.119 | | | | **no** |
+| BB defence, realise 0.75 (S1) | -0.000 | -0.048 | | | | no |
+| tight-aggressive margin 0.06 (S1) | +0.015 | -0.028 | | | | no |
+| risk-of-ruin margin 0.05 / 0.10 (S1) | +0.075 / -0.037 | -0.109 / +0.050 | | | | no (noise) |
+| ... 0.10 (S2, 160) | +0.080 | +0.068 | | +0.036 | 4.730 | no (noise) |
+| folder steal x1.4 (S1) | -0.017 | -0.052 | | | | no |
+| profiler_dead_after 10 (S1) | -0.049 | -0.010 | | | | no |
+| solved table off (S2) | +0.077 | +0.033 | | -0.016 | 4.802 (+0.04) | table kept: neutral on fields, helps mirrors |
+| re-shove table off (S2) | +0.074 | +0.035 | | -0.019 | 4.753 | kept |
+| threshold_bb 12 / 15 / 18 / 20 (S2) | -0.001 / -0.054 / -0.037 / -0.058 | +0.035 / -0.025 / +0.099 / +0.042 | | +0.024 / +0.060 / +0.089 / +0.148 | 4.685 / 4.598 / 4.601 / 4.711 | no: 10 stays |
+| late call-down cap 1.0 (S2 / S3) | +0.133 / -0.018 | +0.038 / -0.012 | +0.005 (S3) | +0.130 / +0.133 | 4.598 / 4.548 | **yes** |
+| exploit push, crude normalisation (S3, 240) | -0.029 | -0.100 +- 0.072 | -0.100 | -0.006 | 4.725 | no |
+| ... with threshold 15 / 20 (S3) | -0.159 / -0.124 | +0.005 / -0.008 | +0.071 / +0.022 | +0.063 / +0.113 | 4.613 / 4.655 | no |
+| exploit + cap + threshold 15 (S3) | -0.076 | +0.021 | +0.035 | +0.195 +- 0.085 | 4.496 | no: realistic -0.08 |
+| shove priors recalibrated (S4, 240, base = cap on) | +0.002 | +0.005 | -0.022 | -0.041 | 4.605 | no |
+| exploit push, expected-call normalisation (S4) | -0.009 | -0.051 | -0.046 | +0.019 | 4.587 | no |
+| ... with threshold 15 / 12 and priors (S4) | -0.093 / -0.091 | -0.009 / +0.011 | +0.005 / -0.034 | +0.050 / +0.023 | 4.501 / 4.582 | no |
+
+Readings. (1) Nothing in this list is worth more than ~0.1 on the realistic or top fields; the mirrors move more
+because there the same lever acts at seven seats. (2) Shoving more (higher threshold, exploitative shoves) helps
+against rival copies and costs the realistic field, where two Monte Carlo bots call shoves at 1.6-5x Nash. (3) The
+rivals' edge is the volume of uncontested preflop pots they take in the 10-25 bb phase, which no single gate fixes;
+what moved it was reading re-shoves per opportunity (calling rival 2's re-shoves at the right width) and the
+call-down cap (not paying off rival 1's value bets). (4) The hand cap is not an edge here: rival 1's cap mode is
+worth nothing to it.
