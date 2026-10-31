@@ -224,8 +224,11 @@ probability: a few percent; the MIT archive never did it in seven years.
   the end. Found the board-remap bug and the stale push/fold cache. 15 prompt defects fixed.
 - Drill 2 (kit C, top-heavy payouts + fast schedule + unsupported ante): legal submission minute 3,
   Hero clean minute 4, Hero first. Correctly skipped Stage 3. Correctly reverted an unverifiable patch.
-- Hero vs the realistic student field before tuning: third behind the tight chart bot and the
-  push/fold bot; busts from short shoves into loose callers. Tuning in progress; see `docs/decisions.md`.
+- Hero vs the realistic student field: third before tuning (5.30 vs tight bot 5.77); after tuning,
+  first on every field with disjoint intervals at 1,000 duplicate seeds: realistic 5.94 ± 0.04 vs 5.57,
+  strong 5.01 vs 4.66, mixed 6.83 vs 6.27. Bust rate on realistic 66.8% to 52.3%. Zero exceptions and
+  zero illegal actions over 40,000 seats; latency mean 14 µs, p99 21 µs. Two ICM-curve bugs found and
+  fixed on the way. Full write-up and the levers that did not help: `docs/decisions.md`.
 - Drill 3 (Track B from a blank directory, no repo, kit A, bounty payoff): legal cheap bot at
   minute 4, evaluator and profiler at 9, equity table and ICM gate at 17, payoff patch at 19, spec
   exhausted at 20; zero human questions, 34 recorded guesses. Its final bot in the real sim (300
@@ -293,6 +296,7 @@ The track is decided in Stage 0, never on the night.
 | Date | Change | Source |
 |---|---|---|
 | 2026-10-31 | v1, consolidating `docs/night-of.md`, `docs/prompts/README.md`, drills 1 and 2 | this session |
+| 2026-10-31 | Evidence: final tuning numbers (Hero first on every field) | tuner report |
 | 2026-10-31 | Review 1 applied: Track A default; Stage 4 gate is errors, latency rate and Hero vs its own Stage 0 number, never vs tag; fallback is the Stage 2 cheap package; §3.5 upload cadence in Stages 2 and 6; Stage 3 timing under load; signal table names real Config keys; agent reads sections 3, 4, 7 only | playbook pass after review 1 |
 | 2026-10-31 | Drill 3 (Track B, kit A, bounty): section 6 carries its timings and sim placings, section 8 says what Track B can and cannot produce; spec v2 (drill-3 defect edits, step 0 rank map, steps 2b and 3b, value-curve ICM off the decision path, p99 gate, under 1,600 words); prompt 02's Track B paragraph matches; fake kits self-contained (`fakekits/_eval.py`) | drill 3 pass |
 | 2026-10-31 | Stage 0 Prepared: offline install, second machine, pull discipline. Prompts 01/02/04/05 now use `hyperion/drills/conformance.py` (`HYPERION_CHECK=1`), `tools/pack.py`, `tools/latency.py`, `hyperion/drills/adapter_template.py` and `docs/packet/NIGHT-template.md`; 01 gained the FIT VERDICT; drill-2 and review-1 prompt defects applied (D1, D2, D3, D5, D7 in the prompts only) | night-of tooling pass |
