@@ -3,19 +3,19 @@ from pathlib import Path
 
 import pytest
 
-from snapcall.core.types import Action, ActionKind
-from snapcall.drills.adapter import KitAAdapter, KitBAdapter, KitCAdapter
-from snapcall.drills.cheapbot import CheapBot
-from snapcall.drills.fakekits.kit_a import kit as kit_a, runner as run_a
-from snapcall.drills.fakekits.kit_b import kit as kit_b, runner as run_b
-from snapcall.drills.fakekits.kit_c import runner as run_c
+from hyperion.core.types import Action, ActionKind
+from hyperion.drills.adapter import KitAAdapter, KitBAdapter, KitCAdapter
+from hyperion.drills.cheapbot import CheapBot
+from hyperion.drills.fakekits.kit_a import kit as kit_a, runner as run_a
+from hyperion.drills.fakekits.kit_b import kit as kit_b, runner as run_b
+from hyperion.drills.fakekits.kit_c import runner as run_c
 
-REF = Path(__file__).resolve().parents[1] / "snapcall" / "drills" / "reference"
+REF = Path(__file__).resolve().parents[1] / "hyperion" / "drills" / "reference"
 
 
 @pytest.fixture(autouse=True)
 def cheap_bot(monkeypatch):
-    monkeypatch.setenv("SNAPCALL_DRILL_BOT", "cheap")  # these tests measure adapters, not hero
+    monkeypatch.setenv("HYPERION_DRILL_BOT", "cheap")  # these tests measure adapters, not hero
 
 
 def run_kit(kit: str, submission: str, hands: int = 30, hole_cards: int = 2):

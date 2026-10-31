@@ -2,10 +2,10 @@ import random
 
 import pytest
 
-from snapcall.core.types import ActionKind, Observation, Rules
-from snapcall.core.types import parse_cards as P
-from snapcall.drills import variants as V
-from snapcall.tablegen import rules_from_dict
+from hyperion.core.types import ActionKind, Observation, Rules
+from hyperion.core.types import parse_cards as P
+from hyperion.drills import variants as V
+from hyperion.tablegen import rules_from_dict
 
 
 @pytest.mark.parametrize("name", V.names())

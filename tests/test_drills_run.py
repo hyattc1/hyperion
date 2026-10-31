@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def drill(tmp_path: Path, *args: str) -> tuple[int, dict, str]:
-    cmd = [sys.executable, "-m", "snapcall.drills.run", "--auto", "--scratch", str(tmp_path / "scratch"),
+    cmd = [sys.executable, "-m", "hyperion.drills.run", "--auto", "--scratch", str(tmp_path / "scratch"),
            "--log-dir", str(tmp_path / "log"), "--hands", "8", "--auto-samples", "50", *args]
     proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=300)
     logs = list((tmp_path / "log").glob("*.json"))

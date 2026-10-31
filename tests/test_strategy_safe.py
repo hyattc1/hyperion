@@ -1,7 +1,7 @@
 import time
 
-from snapcall.core.types import Action, ActionKind, HandResult, Rules
-from snapcall.strategy.safe import SafeBot, safe_action
+from hyperion.core.types import Action, ActionKind, HandResult, Rules
+from hyperion.strategy.safe import SafeBot, safe_action
 
 from .strategy_helpers import make_obs
 

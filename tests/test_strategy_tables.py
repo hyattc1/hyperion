@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from snapcall.strategy import tables as T
+from hyperion.strategy import tables as T
 
 
 def test_disk_tables_cover_all_classes():

@@ -4,7 +4,7 @@ Append only. Newest at the bottom. One paragraph each: what was decided, why, wh
 
 ## 2026-10-31 tooling and drills (builder: tools/drills)
 
-- **Generation library lives in `snapcall/tablegen.py`, the CLI in `tools/gen_tables.py`.** The strategy
+- **Generation library lives in `hyperion/tablegen.py`, the CLI in `tools/gen_tables.py`.** The strategy
   needs the same class labeler at runtime for 3-card variants (`hole_label`) and the same texture key
   (`texture_key`); `tools/` is not a package, so the shared functions sit in the package and the CLI is thin.
 - **Hole classes for `hole_cards != 2` are `best2+tags`** (Chen-best pair of cards + one tag per extra card:
@@ -33,14 +33,14 @@ Append only. Newest at the bottom. One paragraph each: what was decided, why, wh
   fail a correct bot. A `T` handshake with a 10 s build timeout keeps imports and warm-up off the clock.
 - **Pass criterion for a kit runner**: zero exceptions, zero illegal actions, timeouts within 1% of decisions
   (at least one allowed). One stray OS stall should not fail a drill; a slow bot still fails every time.
-- **Reference submissions use hero when present, the cheap bot otherwise**; `SNAPCALL_DRILL_BOT=cheap` pins the
+- **Reference submissions use hero when present, the cheap bot otherwise**; `HYPERION_DRILL_BOT=cheap` pins the
   cheap bot. Adapter tests set it so they measure translation, not hero's latency.
 - **`hu_matrix.json` diagonal is set to 0.5 exactly and classes follow `all_hole_classes()` order**, matching
   what `strategy/tables.py` asserts. 1000 samples per cell (SE 1.6%), 160 KB.
 - **Default samples raised from 10000 to 20000** after measuring 35 s for the whole default run on 7 workers;
   90 s buys half the standard error and still leaves three minutes of the five-minute budget on a 4-core laptop.
 
-## Strategy layer (snapcall/strategy/, 2026-10-31)
+## Strategy layer (hyperion/strategy/, 2026-10-31)
 
 - **Hero is always behind SafeBot.** `Hero()` builds `HeroCore` and wraps it in `SafeBot` itself, so the
   bestiary's `strategy.hero.Hero()` and `make_bot()` both get the guard. Telemetry: `hero.safe.stats()`.
@@ -65,12 +65,12 @@ Append only. Newest at the bottom. One paragraph each: what was decided, why, wh
   depth, HU equity); k = live, non-dead opponents who can call. c = 0.3 puts the 10 bb button near
   39% and UTG eight-handed near 18%. Calls use the same shape with the call order.
   `tools/gen_tables.py` does not yet write this file; call
-  `snapcall.strategy.pushfold.build_pushfold_tables(tables)` after regenerating the matrix, or the
+  `hyperion.strategy.pushfold.build_pushfold_tables(tables)` after regenerating the matrix, or the
   hero solves it at load (~4 s) and writes it if the directory is writable.
 - **Position = players still to act.** Preflop ranges are keyed by `behind` (7 = UTG eight-handed,
   2 = button, 1 = SB, 0 = BB), which stays meaningful as seats bust. All open/3-bet/call fractions
   are in `PreflopParams`; "top X" means `preflop_rank >= 1 - X` (combo-weighted midpoint percentile,
-  same definition as `snapcall.tablegen`). Flat-calling an open counts the raiser plus one extra
+  same definition as `hyperion.tablegen`). Flat-calling an open counts the raiser plus one extra
   opponent only when three or more players are still behind.
 - **Profiler streets.** `Observation.history` has no street markers, so the profiler replays it with
   a betting-round tracker (round closes when nobody owes an action; a seat acting while owing none

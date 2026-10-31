@@ -3,9 +3,9 @@ import time
 
 import pytest
 
-from snapcall.core.types import Action, ActionKind, HandResult, Observation, Rules
-from snapcall.strategy.hero import Config, Hero, HeroCore, IcmCurve, make_bot
-from snapcall.strategy.profiler import Profiler
+from hyperion.core.types import Action, ActionKind, HandResult, Observation, Rules
+from hyperion.strategy.hero import Config, Hero, HeroCore, IcmCurve, make_bot
+from hyperion.strategy.profiler import Profiler
 
 from .strategy_helpers import make_obs, preflop_obs, random_obs, street_obs
 

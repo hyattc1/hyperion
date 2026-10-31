@@ -3,9 +3,9 @@ import time
 
 import pytest
 
-from snapcall.core import eval as ev
-from snapcall.core.cards import remap
-from snapcall.core.types import Rules, parse_cards
+from hyperion.core import eval as ev
+from hyperion.core.cards import remap
+from hyperion.core.types import Rules, parse_cards
 
 
 def S(s):

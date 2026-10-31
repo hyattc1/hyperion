@@ -10,19 +10,19 @@ submitted every window. Everything below serves that.
 - Repo: `git pull`, `.venv/bin/python -m pytest -q` green, `git status` clean. Note the commit hash.
 - Tables warmed: `ls -la tables/` shows today's `meta.json`; `python tools/gen_tables.py --rules default
   --variant-check` reports under 3 minutes projected. If the laptop has 4 cores, note the number.
-- Drills passed: at least one full `python -m snapcall.drills.run --variant random --kit random` this week
+- Drills passed: at least one full `python -m hyperion.drills.run --variant random --kit random` this week
   with all four checkpoints on time, and `drills/log/` has the JSON to prove it. Read the last log.
-- Hero known-good: `python -m snapcall.sim` (or the runner's strict mode) vs the bestiary, result written
+- Hero known-good: `python -m hyperion.sim` (or the runner's strict mode) vs the bestiary, result written
   down: mean points, CI, max decision latency. This is the number to beat tonight.
 - A timer app on the phone with alarms at T+12, T+28, T+40, T+55 (the "stop improving, submit" alarms).
-- Paper: this checklist printed, the kit rubrics (`snapcall/drills/fakekits/*/RUBRIC.md`) as a reminder
+- Paper: this checklist printed, the kit rubrics (`hyperion/drills/fakekits/*/RUBRIC.md`) as a reminder
   of the gotcha classes, and the email answer from the organizers if we got one (see bottom).
 
 ## T+0 to T+15: read, diff, adapt, submit the cheap bot
 
 1. Read the rules sheet once, slowly. Write the variant into `variant.json` as Rules fields before writing
    any code: `hole_cards`, `board_sizes`, `rank_order`, blinds, hands per level, payouts, and anything odd
-   into `extras`. If it matches a preset in `snapcall/drills/variants.py`, start from that file's checklist.
+   into `extras`. If it matches a preset in `hyperion/drills/variants.py`, start from that file's checklist.
 2. Diff the kit against our assumptions, in this order, because each one has sunk a drill: card encoding
    (is ten `T` or `10`? suits upper or lower? dicts? ints?), street encoding (index or board count?),
    whether pot includes the current street's bets, whether raise amounts are totals or increments,

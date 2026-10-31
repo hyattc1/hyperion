@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 
-from snapcall.core.types import Action, ActionKind, Observation, parse_cards
+from hyperion.core.types import Action, ActionKind, Observation, parse_cards
 
 FOLD, CHECK, CALL, RAISE = ActionKind.FOLD, ActionKind.CHECK, ActionKind.CALL, ActionKind.RAISE
 

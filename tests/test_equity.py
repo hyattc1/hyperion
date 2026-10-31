@@ -1,5 +1,5 @@
-from snapcall.core.equity import hand_strength, monte_carlo_equity, preflop_equity
-from snapcall.core.types import parse_cards as P
+from hyperion.core.equity import hand_strength, monte_carlo_equity, preflop_equity
+from hyperion.core.types import parse_cards as P
 
 
 def test_aces_dominate_heads_up():

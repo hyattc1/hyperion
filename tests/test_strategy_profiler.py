@@ -1,5 +1,5 @@
-from snapcall.core.types import Action, HandResult
-from snapcall.strategy.profiler import NEUTRAL_DIALS, Profiler
+from hyperion.core.types import Action, HandResult
+from hyperion.strategy.profiler import NEUTRAL_DIALS, Profiler
 
 from .strategy_helpers import make_obs, preflop_obs, street_obs
 

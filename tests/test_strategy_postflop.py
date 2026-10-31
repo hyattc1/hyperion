@@ -1,9 +1,9 @@
 import pytest
 
-from snapcall.core.types import Action, ActionKind, parse_cards as P
-from snapcall.strategy.postflop import Postflop, PostflopParams
-from snapcall.strategy.profiler import Profiler
-from snapcall.strategy.spot import Spot
+from hyperion.core.types import Action, ActionKind, parse_cards as P
+from hyperion.strategy.postflop import Postflop, PostflopParams
+from hyperion.strategy.profiler import Profiler
+from hyperion.strategy.spot import Spot
 
 from .strategy_helpers import street_obs
 

@@ -22,8 +22,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from snapcall import tablegen as tg  # noqa: E402
-from snapcall.core.types import Rules  # noqa: E402
+from hyperion import tablegen as tg  # noqa: E402
+from hyperion.core.types import Rules  # noqa: E402
 
 MAX_OPP = 7
 
@@ -94,7 +94,7 @@ def gen_flops(pool: Pool, rules: Rules, seed: int, out: Path, flops_per_bucket: 
             "connect": "span of distinct ranks: connected <=2, gapped <=4, dry >4, none for trips",
             "high": "displayed rank of the top card",
             "hs": "hand strength = share of opposing holdings beaten on the flop (ties half), vs one opponent",
-            "function": "snapcall.tablegen.texture_key(flop)",
+            "function": "hyperion.tablegen.texture_key(flop)",
         },
         "buckets": merged,
     }

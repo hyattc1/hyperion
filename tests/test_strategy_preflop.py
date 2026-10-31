@@ -1,10 +1,10 @@
 import pytest
 
-from snapcall.core.types import Action, ActionKind
-from snapcall.strategy.preflop import Preflop, PreflopParams
-from snapcall.strategy.profiler import Profiler
-from snapcall.strategy.spot import Spot
-from snapcall.strategy.tables import load
+from hyperion.core.types import Action, ActionKind
+from hyperion.strategy.preflop import Preflop, PreflopParams
+from hyperion.strategy.profiler import Profiler
+from hyperion.strategy.spot import Spot
+from hyperion.strategy.tables import load
 
 from .strategy_helpers import preflop_obs
 

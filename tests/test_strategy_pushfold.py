@@ -1,10 +1,10 @@
 import pytest
 
-from snapcall.core.types import Action, ActionKind
-from snapcall.strategy import pushfold as PF
-from snapcall.strategy.profiler import Profiler
-from snapcall.strategy.spot import Spot
-from snapcall.strategy.tables import CLASS_INDEX, load
+from hyperion.core.types import Action, ActionKind
+from hyperion.strategy import pushfold as PF
+from hyperion.strategy.profiler import Profiler
+from hyperion.strategy.spot import Spot
+from hyperion.strategy.tables import CLASS_INDEX, load
 
 from .strategy_helpers import preflop_obs
 

@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from snapcall import tablegen as tg
-from snapcall.core.cards import all_hole_classes, hole_class
-from snapcall.core.types import Rules, parse_cards as P
+from hyperion import tablegen as tg
+from hyperion.core.cards import all_hole_classes, hole_class
+from hyperion.core.types import Rules, parse_cards as P
 
 ROOT = Path(__file__).resolve().parents[1]
 GEN = ROOT / "tools" / "gen_tables.py"
