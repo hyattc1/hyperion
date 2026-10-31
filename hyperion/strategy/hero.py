@@ -6,7 +6,8 @@
 
 Every tunable number lives in Config (and the per-module *Params it holds). Decision-time work is
 one Spot, one profiler update, and one module call. ICM is a per-hand value curve computed in
-hand_end / new_table where exact ICM's ~0.5 ms does not count against the decision budget.
+hand_end / new_table from `icm_me` (my Malmuth-Harville points only: O(n) and exact for linear payouts,
+a 2^(n-1) forward pass otherwise), ~30 us per curve on the default payouts.
 
 Variants are configured once per table from Rules (new_table) and read per decision from
 Observation.extras; every default is the plain game:
@@ -45,24 +46,88 @@ from .tables import CLASSES, Tables, load as load_tables, tables_for
 _CHECK = Action(ActionKind.CHECK)
 _FOLD = Action(ActionKind.FOLD)
 
-try:  # the ICM module is another builder's; chip-proportional if it is missing or broken
-    from ..core.icm import icm_equity as _icm_equity
-except Exception:  # noqa: BLE001
-    _icm_equity = None
-
 ICM_BUCKETS = 100  # default Config.icm_buckets: opponents' stacks are rounded to 1/100 of the chips in play before the (memoised) exact ICM call
 ICM_ME_SUBDIV = 4  # default Config.icm_me_subdiv: my own units are chosen so my *share* of the chips is kept, to 1/4 of an opponent unit
 
 
+def _linear_step(pays) -> float | None:
+    """The constant drop per place when the payouts in play are linear (8, 7, ..., 1 is), else None."""
+    if len(pays) < 2:
+        return 0.0
+    d = pays[0] - pays[1]
+    for p in range(1, len(pays) - 1):
+        if abs(pays[p] - pays[p + 1] - d) > 1e-9:
+            return None
+    return d
+
+
+def icm_me(stacks, me: int, payouts) -> float:
+    """My Malmuth-Harville points, exact, without computing anyone else's.
+
+    Linear payouts (the default 8..1): under Malmuth-Harville (a Plackett-Luce ranking) the chance that j
+    finishes above me is s_j / (s_me + s_j), so E[place] = 1 + sum_j s_j / (s_me + s_j) and my points are
+    pay_1 - step * sum_j s_j / (s_me + s_j): O(n), about 2 us for eight seats.
+    Other payouts: a forward pass over the sets of opponents who can finish above me (2^(n-1) sets, each
+    reached with the probability that exactly those players took the top places), adding my chance to take
+    the next place times its payout: ~900 steps for eight seats instead of the full recursion's ~16,000."""
+    mine = stacks[me]
+    if mine <= 0:
+        return 0.0
+    opp = [s for i, s in enumerate(stacks) if i != me and s > 0]
+    k = len(opp) + 1
+    pays = [float(x) for x in payouts[:k]] + [0.0] * max(0, k - len(payouts))
+    if k == 1:
+        return pays[0]
+    step = _linear_step(pays)
+    if step is not None:
+        acc = 0.0
+        for s in opp:
+            acc += s / (mine + s)
+        return pays[0] - step * acc
+    m = len(opp)
+    total = float(mine + sum(opp))
+    size = 1 << m
+    dp = [0.0] * size
+    held = [0.0] * size
+    cnt = [0] * size
+    dp[0] = 1.0
+    out = 0.0
+    for mask in range(size):
+        if mask:
+            low = mask & -mask
+            j = low.bit_length() - 1
+            prev = mask ^ low
+            held[mask] = held[prev] + opp[j]
+            cnt[mask] = cnt[prev] + 1
+        pr = dp[mask]
+        if pr == 0.0:
+            continue
+        rem = total - held[mask]
+        out += pr * mine / rem * pays[cnt[mask]]
+        q = pr / rem
+        for j in range(m):
+            b = 1 << j
+            if not mask & b:
+                dp[mask | b] += q * opp[j]
+    return out
+
+
 @lru_cache(maxsize=1 << 15)
 def _icm_bucketed(key: tuple, me: int, payouts: tuple) -> float:
-    return _icm_equity(list(key), payouts)[me]
+    return icm_me(key, me, payouts)
 
 
 def icm_value(stacks, me: int, payouts, buckets: int = ICM_BUCKETS, subdiv: int = ICM_ME_SUBDIV) -> float:
-    """My exact ICM points for `stacks`, memoised on a rounded key. Opponents are rounded to 1/buckets of the
-    chips in play (their mutual proportions barely move my equity); my own entry is then set so that
-    my share of the rounded total equals my true share, because that share is what the curve reads."""
+    """My exact ICM points for `stacks`. Linear payouts are exact and O(n) (icm_me), so no rounding; otherwise
+    memoised on a rounded key: opponents are rounded to 1/buckets of the chips in play (their mutual proportions
+    barely move my equity), and my own entry is set so that my share of the rounded total equals my true share,
+    because that share is what the curve reads."""
+    k = 0
+    for s in stacks:
+        if s > 0:
+            k += 1
+    if _linear_step([float(x) for x in payouts[:k]]) is not None and len(payouts) >= k:
+        return icm_me(stacks, me, payouts)
     total = 0.0
     for s in stacks:
         if s > 0:
@@ -103,6 +168,10 @@ class Config:
     # my-stack multiples the ICM curve samples. Dense around 1x: with samples only at 0.5/1/1.5 the piecewise-linear
     # curve had a kink at my stack that priced a +-7% flip at 57% equity where exact ICM says 47%.
     icm_ratios: tuple = (0.0, 0.25, 0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 2.0, 3.0, 4.0, 6.0)
+    # non-linear payouts with this many players alive: the exact forward pass costs ~50 us per point at eight seats,
+    # so the curve samples the thinner set below (linear payouts, the default, are O(n) and always use icm_ratios)
+    icm_many_alive: int = 7
+    icm_ratios_many: tuple = (0.0, 0.5, 0.9, 1.0, 1.1, 1.5, 2.0, 3.0, 6.0)
     icm_buckets: int = ICM_BUCKETS  # opponents' stacks rounded to 1/this of the chips in play before exact ICM
     icm_me_subdiv: int = ICM_ME_SUBDIV  # my own rounding, in fractions of an opponent unit
     # 3/4-card games without a variant table set: best-two class plus these bonuses per pairing / suited extra card
@@ -172,8 +241,6 @@ class IcmCurve:
                 x = total
             if x <= 0:
                 v = bust_value
-            elif _icm_equity is None:
-                v = bust_value + (float(pays[0]) - bust_value) * x / total
             else:
                 if others > 0:
                     scale = (total - x) / others
@@ -298,8 +365,7 @@ class HeroCore:
         if self.prof is not None:
             self.prof.reset(n_players, seat)
         if self.cfg.use_icm:
-            self.curve.compute(self.last_stacks, seat, self.payouts, self.cfg.icm_ratios, self.cfg.icm_buckets,
-                               self.cfg.icm_me_subdiv)
+            self._curve(self.last_stacks)
         gc.freeze()  # tables and evaluator dicts leave the collector's reach: no gen-2 pause mid-decision
 
     def _configure(self, rules: Rules) -> None:
@@ -423,9 +489,20 @@ class HeroCore:
             after = [max(0, base[s] + result.deltas[s]) for s in range(len(base))]
             self.last_stacks = after
             if self.cfg.use_icm and after[self.seat] > 0:
-                self.curve.compute(after, self.seat, self.payouts, self.cfg.icm_ratios, self.cfg.icm_buckets,
-                                   self.cfg.icm_me_subdiv)
+                self._curve(after)
         self.hand_start = None
+
+    def _curve(self, stacks) -> None:
+        """Recompute the ICM value curve for `stacks` (once per hand, outside the decision budget)."""
+        cfg = self.cfg
+        ratios = cfg.icm_ratios
+        alive = 0
+        for s in stacks:
+            if s > 0:
+                alive += 1
+        if alive >= cfg.icm_many_alive and _linear_step([float(x) for x in self.payouts[:alive]]) is None:
+            ratios = cfg.icm_ratios_many
+        self.curve.compute(stacks, self.seat, self.payouts, ratios, cfg.icm_buckets, cfg.icm_me_subdiv)
 
     # ------------------------------------------------------------------ extras
     def _bounty_bonus(self, obs: Observation, extras: dict) -> float:

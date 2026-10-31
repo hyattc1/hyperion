@@ -183,6 +183,8 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 | `use_profiler` | True |
 | `use_icm` | True |
 | `icm_ratios` | (0.0, 0.25, 0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 2.0, 3.0... |
+| `icm_many_alive` | 7 |
+| `icm_ratios_many` | (0.0, 0.5, 0.9, 1.0, 1.1, 1.5, 2.0, 3.0, 6.0) |
 | `icm_buckets` | 100 |
 | `icm_me_subdiv` | 4 |
 | `label_bonus_pair` | 0.04 |
