@@ -15,7 +15,7 @@ entries gen_tables writes hole_classes.json instead and the manifest says so.
 Per-entry sample counts (preflop samples per class per opponent count; the matrix uses 1/20):
   2 hole cards          4000   (default tables use 20000)
   3 hole cards          1500   (676 best2+tags classes)
-  4 hole cards (Omaha)   300   (about 1700 classes, 60 evaluations per showdown)
+  4 hole cards (Omaha)   300   (550 classes, 60 evaluations per showdown)
 """
 from __future__ import annotations
 
