@@ -36,7 +36,9 @@ shover's observed shove frequency; big-blind defence at pot-odds-correct frequen
 key; steal dials driven by the folder read within 20 hands; (5) sweep on realistic and top, confirm on
 base and strong, both mirror tests, readiness matrix; (6) add `rival2` to fields when it lands.
 
-### 2. Red-team rival 2 (writes only at the end). If `docs/drills/redteam/rival2_bot.py` is absent, relaunch:
+### 2. Red-team rival 2: told to checkpoint to disk after every step. If `docs/drills/redteam/redteam-2.md`
+says COMPLETE, integrate it. If it says IN PROGRESS, the bot file is a usable partial: either integrate it as
+is or relaunch with this brief and point the new run at the partial. If both files are absent, relaunch:
 A computation-first team, seed 20262, no access to this repo and must not read rival1: builds its own
 169-class equity table by Monte Carlo at import (≤ 5 s), ranges from equity percentiles by position and
 players behind, heads-up push/fold by iterated best response tightened multiway, exact ICM once per hand
