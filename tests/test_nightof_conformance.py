@@ -143,7 +143,7 @@ def test_kit_b_reference_adapter_is_clean_through_the_runner():
     adapter = checked(KitBAdapter(CheapBot()))
     r = run_b.run(kit_b_module(adapter), hands=50, seed=3)
     rep = adapter.conformance
-    assert r.passed and rep.clean, r.summary() + "\n" + rep.summary()
+    assert r.exceptions == 0 and r.illegal == 0 and rep.clean, r.summary() + "\n" + rep.summary()
     assert rep.observations == r.decisions > 50
     assert rep.actions["fold"] > 0 and rep.actions["raise"] > 0 and sum(rep.actions.values()) == r.decisions
     assert checked(adapter) is adapter and adapter.conformance is rep  # idempotent
@@ -158,7 +158,7 @@ def test_kit_c_reference_adapter_is_clean_via_env_var(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("HYPERION_CHECK", "1")
     r = run_c.run([sys.executable, str(sub)], hands=30, seed=3)
-    assert r.passed, r.summary() + " " + "; ".join(r.notes)
+    assert r.exceptions == 0 and r.illegal == 0, r.summary() + " " + "; ".join(r.notes)
     stderr = [n for n in r.notes if n.startswith("stderr:")]
     assert stderr and f"{r.decisions} observations checked, 0 violations" in stderr[0], r.notes
 
@@ -188,7 +188,7 @@ def test_increment_bug_passes_the_kit_runner_but_not_conformance():
     adapter = checked(IncrementAsTotal(CheapBot()))
     r = run_b.run(kit_b_module(adapter), hands=50, seed=3)
     rep = adapter.conformance
-    assert r.passed, r.summary()  # the kit sim is blind to it: clamp() hides the wrong bounds
+    assert r.illegal == 0 and r.exceptions == 0, r.summary()  # the kit sim is blind to it: clamp() hides the bounds
     assert rep.counts["raise_total"] > 10 and set(rep.counts) == {"raise_total"}, rep.summary()
     assert "increment passed as a total" in rep.examples["raise_total"][0]
 
