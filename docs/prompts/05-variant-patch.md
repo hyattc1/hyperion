@@ -1,17 +1,16 @@
 # Prompt 05: the one strategy change the variant forces (minute 40; box 10 minutes)
 
 The rule sheet classified tonight's twist on the <axis> axis. Apply ONLY the matching patch below,
-through `Config` overrides or a single small function, never a rewrite. Then re-run the 300-table
-strict sim from prompt 04 and show that hero's points did not drop and errors stayed at zero. If
-the patch makes it worse, revert it and say so.
+through `Config` overrides or a single small function, never a rewrite. Measure it with prompt 04's
+300-table sim in `--mode measure` on the same seed, before and after: keep the patch only if hero's
+points rise by more than half their CI, else revert it and say so. Then one strict run: errors zero.
 
 ## Strength ordering moved (permuted ranks, short deck, new categories)
-Tables were regenerated in prompt 03; the evaluator remaps ranks through `Rules.rank_order`. Patch:
+The evaluator remaps ranks through `Rules.rank_order`. If prompt 03 ended on its restore branch,
+caption every line "Hero on hold'em tables" and expect the patch to do nothing. Patch:
 - Confirm the adapter passes DISPLAYED cards and that `Rules` carries the permutation; nothing in
   strategy should know the ranks changed.
-- Short deck: straights and flushes rank differently and hit more often. Lower the value threshold
-  for flushes by one tier and raise it for straights; drop the open-ended draw equity to the short
-  deck value (about 2.4x outs instead of 2x). Set via `Config.postflop`.
+- Short deck: set the short-deck keys listed in CONTRACTS.md under postflop, else no change.
 - New categories (e.g. a five-of-a-kind, a new wild rule): if `hyperion/drills/variants.py` has a
   `score_hand` for it, pass it to the engine; otherwise treat the new category as the nuts when held
   and ignore it when not.

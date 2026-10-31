@@ -1,14 +1,15 @@
 # Prompt 01: rule sheet (minute 2; paste the rules text and attach or path the kit)
 
-Here are the official rules for tonight's variant and the starter kit files. Fill the RULE SHEET in
-`NIGHT.md` (copied from `docs/packet/NIGHT-template.md`) and write `rules_tonight.json`. No bot code yet.
+Tonight's rules and starter kit. Fill the RULE SHEET in `NIGHT.md` (from `docs/packet/NIGHT-template.md`)
+and write `rules_tonight.json`. No bot code yet. The header's Stage 0 line is the Verifier's, re-measured
+with `--rules` (and `--variant` if the catalog has hooks) while Stage 2 runs.
 
 <paste the variant rules verbatim here>
 
 Kit location: <path>
 
-Fill every line; where the rules are silent write UNSPECIFIED and your conservative assumption; quote
-the rule text for anything non-standard.
+Fill every line; silent rules get UNSPECIFIED and the conservative assumption; quote the rule text for
+anything non-standard.
 
 RULE SHEET
 - Hole cards dealt per player: N. Any discards, swaps, exposures, auctions? When, and who chooses?
@@ -25,26 +26,27 @@ RULE SHEET
 - Tooling: how the local simulator runs, how to submit, what the submission file layout must be,
   allowed imports the kit itself uses.
 
-AXIS CLASSIFICATION (every axis that moved; most variants move one)
+AXIS CLASSIFICATION (every axis that moved; usually one)
 - Hand strength ordering moved? (permuted ranks, short deck, new categories) -> Y/N, how.
 - Information moved? (extra/fewer hole cards, swaps, exposed cards, extra boards) -> Y/N, how.
-- Payoff moved? (bounties, auctions, non-standard points) -> Y/N, how.
+- Payoff moved? (bounties, auctions) -> Y/N, how. A point table unlike ours is not a moved axis:
+  ASSUMPTION DIFF and `Rules.payouts`.
 - Betting structure moved? (limits, sizes, schedule, antes) -> Y/N, how.
 
-FIT VERDICT (one line each: KEEP / REGENERATE / DROP and the reason; the Verifier holds this for the rest
-of the hour and you may not reopen it without a rule you missed)
+FIT VERDICT (one line each: KEEP / REGENERATE / DROP and why; the Verifier holds it all hour unless you
+missed a rule)
 - evaluator (best hand from 5 to 8 cards, rank remap through `Rules.rank_order`):
-- preflop tables (169-class equity and ranks):
+- preflop tables (169-class equity and ranks; fewer ranks = REGENERATE; prompt 03 then checks
+  `tables.load().source`):
 - push/fold solution:
 - postflop rule layer:
 - opponent profiler:
 - ICM curve (reads `Rules.payouts`):
-Path, mechanically: evaluator AND preflop tables both DROP -> not hold'em underneath: skip Stages 3 to 5,
-Track B cheap bot (tight hand-written rules, push/fold by stack depth, no bluffs) behind the adapter, plus
-the profiler if it is KEEP. Any REGENERATE -> Stage 3 runs. Otherwise Stage 4 as normal.
+Path: evaluator AND preflop tables both DROP -> skip Stages 3 to 5, Track B cheap bot behind the adapter
+(plus the profiler if KEEP). Any REGENERATE -> Stage 3. Otherwise Stage 4.
 
-ASSUMPTION DIFF against our defaults (the `Rules` table in CONTRACTS.md): each default now wrong and
-what it invalidates. Then write `rules_tonight.json` with every `Rules` field that differs; it exists
+ASSUMPTION DIFF against the `Rules` table in CONTRACTS.md: each default now wrong and what it
+invalidates. Then `rules_tonight.json` with every `Rules` field that differs; it exists
 even when nothing moved, and prompts 02 to 06 pass it as `--rules rules_tonight.json`.
 
-End with: the single most dangerous thing in these rules for a bot that must answer in 1 ms.
+End with the single most dangerous thing in these rules for a bot that must answer in 1 ms.
