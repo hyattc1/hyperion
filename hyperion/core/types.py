@@ -33,12 +33,31 @@ class Rules:
     n_players: int = 8
     # points by finishing position, index 0 = winner. Unknown until build; this is a placeholder.
     payouts: tuple[float, ...] = (8, 7, 6, 5, 4, 3, 2, 1)
+    # --- betting structure (2026-10-31, variant catalog). Defaults are the standard game. ---
+    ante: int = 0  # chips every seated player posts into the pot before the deal, 0 = none
+    ante_from_level: int = 0  # antes start at this 0-based blind level (2 = "from level 3")
+    ante_per_level: tuple[int, ...] = ()  # optional per-level ante schedule; overrides `ante` when set
+    betting: str = "nolimit"  # "nolimit" | "potlimit" | "fixedlimit" (raise = 1 bb pre/flop, 2 bb after)
+    straddle: int = 0  # live straddle in big blinds posted by the seat after the big blind (0 = off)
+    # --- showdown ---
+    must_use_hole: int = 0  # 0 = any combination; 2 = Omaha-style exactly two hole + three board
     # extra hooks for variants; strategy code may read these, core code ignores unknown keys
     extras: dict = field(default_factory=dict, hash=False, compare=False)
 
+    def level_at(self, hand_no: int) -> int:
+        return min(hand_no // self.hands_per_level, len(self.blind_levels) - 1)
+
     def blinds_at(self, hand_no: int) -> tuple[int, int]:
-        level = min(hand_no // self.hands_per_level, len(self.blind_levels) - 1)
-        return self.blind_levels[level]
+        return self.blind_levels[self.level_at(hand_no)]
+
+    def ante_at(self, hand_no: int) -> int:
+        """Chips each player antes on this hand: 0 before ante_from_level, then the schedule or `ante`."""
+        level = self.level_at(hand_no)
+        if level < self.ante_from_level:
+            return 0
+        if self.ante_per_level:
+            return int(self.ante_per_level[min(level, len(self.ante_per_level) - 1)])
+        return int(self.ante)
 
     def canonical_rank(self, displayed_rank: int) -> int:
         return self.rank_order[displayed_rank]

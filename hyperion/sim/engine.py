@@ -1,9 +1,20 @@
 """No-limit hold'em sit-and-go engine for 2..8 fixed seats, driven by Rules.
 
 What it does: moving button, blinds from Rules.blinds_at (hand_no is 0-based, so hand 25 is
-level 1), no antes, min-raise and short-all-in rules, side pots, ties with odd chips, bust-outs,
-finishing points with ICM at the hand cap, reproducible and duplicate dealing, and enforcement
-around every bot call (exceptions, time budget, illegal actions).
+level 1), antes from Rules.ante_at, an optional straddle, no-limit / pot-limit / fixed-limit
+raise caps from Rules.betting, min-raise and short-all-in rules, side pots (split per board or
+hi/lo when a variant asks), ties with odd chips, bust-outs, finishing points with ICM at the hand
+cap, reproducible and duplicate dealing, and enforcement around every bot call (exceptions, time
+budget, illegal actions).
+
+Variants: `variant=` takes either an engine `Variant` (mutate HandState directly) or a
+`hyperion.drills.variants.VariantHooks` object, which the engine wraps in `HooksVariant`:
+on_deal / on_street / score_hand / on_payout are called at the points the contract names, with an
+`ask(seat, prompt)` callback that lets a bot answer a variant decision through an optional
+`variant_decide(prompt) -> object` method (looked up on the bot, then bot.impl, then
+bot.impl.core so wrapped heroes are reached). A hook may also expose `score_splits` (split
+pots), `on_bust` (bonus points), `extras(hand)` (per-street Observation.extras) and `charges`
+(chips a hook moves into the pot, e.g. buying a card). With variant=None every hook is a no-op.
 
 Conventions, also recorded in docs/decisions.md:
 - Button: moves to the next live seat each hand. Small blind is the next live seat after it, big
@@ -21,13 +32,25 @@ Conventions, also recorded in docs/decisions.md:
 - Duplicate dealing: the deck for hand h depends only on (seed, h). Deal slot j holds a fixed run
   of cards; seat s receives slot (s - rotation) mod n, and the first button is seat `rotation`, so
   rotation k is rotation 0 with every seat relabelled by +k.
+- Antes go straight into the pot (Observation.pot), never into bets; a seat that cannot cover the
+  ante is all-in for what it has. Antes are posted before the blinds.
+- Straddle (Rules.straddle = k big blinds): with three or more in the hand the seat after the big
+  blind posts k bb as a live bet, action starts after it, and the min re-raise increment is the
+  straddle. Heads-up there is no straddle.
+- Pot-limit: max raise-to = current bet + (pot + bets on the street + the call). Fixed-limit: the
+  only raise-to is current bet + 1 bb preflop and on the flop, + 2 bb after; no cap on the number
+  of raises. In both, a stack shorter than the cap caps it.
+- must_use_hole = 2: showdown is the best 2 of the hole with 3 of the board (Omaha); other values
+  of must_use_hole evaluate every k-subset of the hole with (5 - k) of the board.
+- Rules.extras["removed_ranks"] (displayed ranks) are left out of the deck (short deck).
 """
 from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+from itertools import combinations
 from time import perf_counter_ns
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 from ..core.cards import deck_for, is_identity_order, remap
 from ..core.eval import evaluate, warm
@@ -134,12 +157,40 @@ class HandState:
     __slots__ = (
         "hand_no", "button", "blinds", "holes", "runout", "board", "stacks_start", "in_hand",
         "n_in_hand", "bets", "contrib", "pot", "current_bet", "last_inc", "history", "showdown",
-        "deltas",
+        "deltas", "ante", "spare", "extras",
     )
 
 
+_NO_EXTRAS: dict = {}
+
+
+def evaluate_must_use(hole: Sequence[int], board: Sequence[int], rules: Rules, k: int) -> int:
+    """Best hand using exactly k hole cards and 5 - k board cards (k = 2 is Omaha)."""
+    if not is_identity_order(rules):
+        hole = remap(hole, rules)
+        board = remap(board, rules)
+    best = 0
+    nb = 5 - k
+    if len(hole) < k or len(board) < nb:
+        raise ValueError(f"must_use_hole={k} needs {k} hole and {nb} board cards")
+    for hs in combinations(hole, k):
+        for bs in combinations(board, nb):
+            s = evaluate(hs + bs)
+            if s > best:
+                best = s
+    return best
+
+
 class Variant:
-    """Hooks for drills. Subclass and override; the default is plain hold'em under Rules."""
+    """Hooks for drills. Subclass and override; the default is plain hold'em under Rules.
+
+    `splits`, `payout` and `bust` are None on the base class so the engine's fast path does not
+    pay for them; HooksVariant fills them in from the drills contract when the hook has them.
+    """
+
+    splits: Optional[Callable] = None  # (hole, board, rules) -> list[int | None], one score per pot share
+    payout: Optional[Callable] = None  # (deltas, holes, board, hand_no, rules, rng) -> deltas
+    bust: Optional[Callable] = None  # (busted_seats, deltas, hand_no, rules) -> {seat: bonus points}
 
     def on_deal(self, hand: HandState, rng: random.Random) -> None:
         """After hole cards and the street-0 board are set, before any action."""
@@ -147,13 +198,93 @@ class Variant:
     def on_street(self, hand: HandState, street: int, rng: random.Random) -> None:
         """After hand.board is set for street >= 1, before action."""
 
+    def extras(self, hand: HandState) -> dict:
+        """Observation.extras for the current street (shared dict; bots must not mutate it)."""
+        return _NO_EXTRAS
+
     def evaluate(self, hole: Sequence[int], board: Sequence[int], rules: Rules) -> int:
+        if rules.must_use_hole:
+            return evaluate_must_use(hole, board, rules, rules.must_use_hole)
         cards = tuple(hole) + tuple(board)
         if not 5 <= len(cards) <= 8:
             raise ValueError(f"evaluator takes 5..8 cards, got {len(cards)}; override Variant.evaluate")
         if not is_identity_order(rules):
             cards = remap(cards, rules)
         return evaluate(cards)
+
+
+class HooksVariant(Variant):
+    """Bridges a `hyperion.drills.variants.VariantHooks` object to the engine's hand loop.
+
+    The hook sees *displayed* cards, holes as a per-seat list with () for seats not in the hand,
+    and a `spare` list: the undealt cards of this hand it may pop from. Anything it returns is
+    written back; a changed board is also written into the runout so later streets keep it.
+    """
+
+    def __init__(self, hooks, table: "Table"):
+        self.hooks = hooks
+        self.table = table
+        h = hooks
+        self.splits = getattr(h, "score_splits", None)
+        self.payout = h.on_payout if type(h).on_payout is not _hooks_base_method(h, "on_payout") else None
+        self.bust = getattr(h, "on_bust", None)
+        self._extras = getattr(h, "extras", None)
+        self._score = h.score_hand
+
+    def on_deal(self, hand: HandState, rng: random.Random) -> None:
+        t = self.table
+        hand.spare = t.deck[t.cards_per_hand:]
+        in_hand = hand.in_hand
+        holes = [hand.holes[s] if in_hand[s] else () for s in range(t.n)]
+        out = self.hooks.on_deal(holes, hand.spare, rng)
+        if out is not holes:
+            hand.holes = [tuple(out[s]) if in_hand[s] else hand.holes[s] for s in range(t.n)]
+        else:
+            hand.holes = holes
+        self._apply_charges(hand)
+        hand.extras = self._extras(hand) if self._extras else _NO_EXTRAS
+
+    def on_street(self, hand: HandState, street: int, rng: random.Random) -> None:
+        t = self.table
+        in_hand = hand.in_hand
+        holes = [hand.holes[s] if in_hand[s] else () for s in range(t.n)]
+        board, out = self.hooks.on_street(street, hand.board, holes, hand.spare, rng, ask=t._ask_variant)
+        board = tuple(board)
+        if board != hand.board:
+            hand.runout[: len(board)] = list(board)
+            hand.board = board
+        if out is not holes:
+            hand.holes = [tuple(out[s]) if in_hand[s] else hand.holes[s] for s in range(t.n)]
+        self._apply_charges(hand)
+        hand.extras = self._extras(hand) if self._extras else _NO_EXTRAS
+
+    def _apply_charges(self, hand: HandState) -> None:
+        """Chips a hook asked to move into the pot (hooks.charges = {seat: chips}), capped at the stack."""
+        charges = getattr(self.hooks, "charges", None)
+        if not charges:
+            return
+        stacks = self.table.stacks
+        for s, amt in charges.items():
+            if hand.in_hand[s] and amt > 0:
+                put = amt if amt < stacks[s] else stacks[s]
+                stacks[s] -= put
+                hand.contrib[s] += put
+                hand.pot += put
+        charges.clear()
+
+    def extras(self, hand: HandState) -> dict:
+        return hand.extras
+
+    def evaluate(self, hole, board, rules):
+        return self._score(hole, board, rules)
+
+
+def _hooks_base_method(h, name: str):
+    """The contract's identity implementation of `name`, so unoverridden hooks stay no-ops."""
+    for klass in type(h).__mro__:
+        if klass.__name__ == "VariantHooks" and name in klass.__dict__:
+            return klass.__dict__[name]
+    return None
 
 
 @dataclass
@@ -189,7 +320,16 @@ class Table:
         self.rules = rules = rules if rules is not None else Rules()
         self.rotation = rotation % n
         self.strict = mode == "strict"
-        self.variant = variant if variant is not None else Variant()
+        if rules.betting not in ("nolimit", "potlimit", "fixedlimit"):
+            raise ValueError(f"Rules.betting must be nolimit, potlimit or fixedlimit, got {rules.betting!r}")
+        self.betting = ("nolimit", "potlimit", "fixedlimit").index(rules.betting)
+        if variant is None:
+            self.variant = Variant()
+        elif isinstance(variant, Variant):
+            self.variant = variant
+        else:
+            self.variant = HooksVariant(variant, self)
+        self._deciders: list = [None] * n  # resolved variant_decide callables, filled lazily
         self.stats = list(stats) if stats is not None else [BotStats(type(b).__name__) for b in self.bots]
         if len(self.stats) != n:
             raise ValueError("one BotStats per seat")
@@ -197,16 +337,18 @@ class Table:
             st.new_table()
         self.rng = random.Random(seed)  # used for deals only, so hand h's deck depends on (seed, h)
         self.vrng = random.Random(seed * 1_000_003 + 7)  # for variant hooks
-        self.deck = list(deck_for(rules))
+        removed = set(rules.extras.get("removed_ranks", ()) or ())
+        self.deck = [c for c in deck_for(rules) if (c >> 2) not in removed]
         self.cards_per_hand = rules.hole_cards * n + rules.board_sizes[-1]
         if self.cards_per_hand > len(self.deck):
             raise ValueError("deck too small for this many seats under these rules")
-        warm(min(8, rules.hole_cards + rules.board_sizes[-1]))  # so no bot pays for the lazy tables
+        warm(5 if rules.must_use_hole else min(8, rules.hole_cards + rules.board_sizes[-1]))  # no bot pays for the lazy tables
         self.stacks = list(stacks) if stacks is not None else [rules.starting_stack] * n
         self.button = (self.rotation - 1) % n  # hand 0's button is seat `rotation`
         self.hand_no = 0
         self.places: list[int] = [-1] * n
         self.points = [0.0] * n
+        self.bonus = [0.0] * n  # points added by a variant's on_bust (knockout bounties)
         self.alive_count = sum(1 for s in self.stacks if s > 0)
         self.done = self.alive_count <= 1
         for s, bot in enumerate(self.bots):
@@ -279,8 +421,17 @@ class Table:
         hs.pot = 0
         hs.history = []
         hs.showdown = {}
+        hs.extras = _NO_EXTRAS
+        hs.ante = ante = rules.ante_at(self.hand_no)
         self.variant.on_deal(hs, self.vrng)
 
+        if ante:
+            for s in range(n):
+                if in_hand[s]:
+                    put = ante if ante < stacks[s] else stacks[s]
+                    stacks[s] -= put
+                    contrib[s] += put
+                    hs.pot += put
         for seat, amt in ((sb, blinds[0]), (bb, blinds[1])):
             put = amt if amt < stacks[seat] else stacks[seat]
             stacks[seat] -= put
@@ -288,15 +439,29 @@ class Table:
             contrib[seat] += put
         hs.current_bet = max(bets)
         hs.last_inc = blinds[1]
+        last_blind = bb
+        if rules.straddle and n_in >= 3:
+            st_seat = self._after(bb, in_hand)
+            amt = rules.straddle * blinds[1]
+            put = amt if amt < stacks[st_seat] else stacks[st_seat]
+            stacks[st_seat] -= put
+            bets[st_seat] += put
+            contrib[st_seat] += put
+            if put == amt:  # a full straddle is a blind raise: the min re-raise is twice the straddle
+                hs.last_inc = amt
+            hs.current_bet = max(bets)
+            last_blind = st_seat
+        if self.betting == 2:
+            hs.last_inc = blinds[1]
 
-        first = self._after(bb, in_hand)
+        first = self._after(last_blind, in_hand)
         for street in range(rules.streets):
             if street:
                 hs.pot += sum(bets)
                 for i in range(n):
                     bets[i] = 0
                 hs.current_bet = 0
-                hs.last_inc = blinds[1]
+                hs.last_inc = blinds[1] * (2 if (self.betting == 2 and street >= 2) else 1)
                 hs.board = tuple(hs.runout[: rules.board_sizes[street]])
                 self.variant.on_street(hs, street, self.vrng)
                 first = self._after(b, in_hand)
@@ -324,6 +489,9 @@ class Table:
     def _betting_round(self, hs: HandState, street: int, first: int) -> None:
         n, stacks, bets, contrib, in_hand = self.n, self.stacks, hs.bets, hs.contrib, hs.in_hand
         history = hs.history
+        betting = self.betting
+        fixed_inc = hs.blinds[1] * (2 if street >= 2 else 1)
+        extras = hs.extras
         need = [in_hand[s] and stacks[s] > 0 for s in range(n)]
         can_raise = [True] * n
         pending = sum(need)
@@ -343,6 +511,13 @@ class Table:
                 if owe > 0 or responders:
                     max_total = bets[s] + st
                     to_call = owe if owe < st else st
+                    if betting:
+                        if betting == 1:
+                            cap = cur + hs.pot + sum(bets) + to_call
+                        else:
+                            cap = cur + fixed_inc
+                        if cap < max_total:
+                            max_total = cap
                     raise_ok = responders and can_raise[s] and max_total > cur
                     min_total = cur + hs.last_inc
                     if min_total > max_total:
@@ -355,7 +530,7 @@ class Table:
                         hole=hs.holes[s], board=hs.board, street=street, seat=s, button=hs.button,
                         stacks=stacks[:], bets=bets[:], in_hand=in_hand[:], pot=hs.pot,
                         to_call=to_call, min_raise=min_total, max_raise=max_total, legal=legal,
-                        hand_no=hs.hand_no, blinds=hs.blinds, history=history[:],
+                        hand_no=hs.hand_no, blinds=hs.blinds, history=history[:], extras=extras,
                     )
                     a = self._ask(s, obs)
                     k = a.kind
@@ -378,7 +553,7 @@ class Table:
                         contrib[s] += put
                         inc = total - cur
                         full = inc >= hs.last_inc
-                        if full:
+                        if full and betting != 2:
                             hs.last_inc = inc
                         hs.current_bet = total
                         for o in range(n):
@@ -430,6 +605,40 @@ class Table:
             return a.clamp(obs)
         return a
 
+    def _ask_variant(self, s: int, prompt: dict):
+        """The hooks' `ask` callback: the bot's variant_decide(prompt) under the same enforcement as
+        act(); None when the bot has no such method, raised, or overran the budget in strict mode."""
+        fn = self._deciders[s]
+        if fn is None:
+            fn = False
+            bot = self.bots[s]
+            for obj in (bot, getattr(bot, "impl", None), getattr(getattr(bot, "impl", None), "core", None),
+                        getattr(bot, "inner", None)):
+                cand = getattr(obj, "variant_decide", None) if obj is not None else None
+                if callable(cand):
+                    fn = cand
+                    break
+            self._deciders[s] = fn
+        if fn is False:
+            return None
+        prompt = dict(prompt)
+        prompt.setdefault("seat", s)
+        prompt.setdefault("hand_no", self.hand_no)
+        prompt.setdefault("stacks", self.stacks[:])
+        st = self.stats[s]
+        t0 = perf_counter_ns()
+        try:
+            ans = fn(prompt)
+        except Exception as e:  # noqa: BLE001 - enforcement boundary
+            ans = None
+            st.exceptions += 1
+            st.last_error = repr(e)
+        dt = perf_counter_ns() - t0
+        st.record(dt)
+        if self.strict and dt > BUDGET_NS:
+            return None
+        return ans
+
     # ----- settlement --------------------------------------------------------------------------
 
     def _award(self, hs: HandState) -> None:
@@ -438,12 +647,19 @@ class Table:
         if len(contenders) == 1:
             stacks[contenders[0]] += sum(contrib)
             return
-        rules, board, ev = self.rules, hs.board, self.variant.evaluate
-        strength = {s: ev(hs.holes[s], board, rules) for s in contenders}
+        rules, board, variant = self.rules, hs.board, self.variant
         hs.showdown = {s: hs.holes[s] for s in contenders}
         levels = sorted({contrib[s] for s in contenders})
         b = hs.button
         order = [(b + 1 + i) % n for i in range(n)]  # odd chips go clockwise from the button
+        splits = variant.splits
+        if splits is None:
+            ev = variant.evaluate
+            scores = {s: (ev(hs.holes[s], board, rules),) for s in contenders}
+            k = 1
+        else:
+            scores = {s: tuple(splits(hs.holes[s], board, rules)) for s in contenders}
+            k = len(next(iter(scores.values())))
         prev = 0
         for lvl in levels:
             pot = 0
@@ -452,23 +668,50 @@ class Table:
                 if c > prev:
                     pot += (c if c < lvl else lvl) - prev
             eligible = [s for s in contenders if contrib[s] >= lvl]
-            best = max(strength[s] for s in eligible)
-            winners = [s for s in eligible if strength[s] == best]
-            share, odd = divmod(pot, len(winners))
-            for s in winners:
-                stacks[s] += share
-            if odd:
-                for s in order:
-                    if s in winners:
-                        stacks[s] += 1
-                        odd -= 1
-                        if not odd:
-                            break
+            if k == 1:
+                best = max(scores[s][0] for s in eligible)
+                self._pay(pot, [s for s in eligible if scores[s][0] == best], order)
+            else:
+                # one share per score column; a column nobody qualifies for (all None) goes to column 0
+                base, rem = divmod(pot, k)
+                winners0 = None
+                for col in range(k):
+                    part = base + (rem if col == 0 else 0)
+                    vals = [scores[s][col] for s in eligible if scores[s][col] is not None]
+                    if vals:
+                        best = max(vals)
+                        winners = [s for s in eligible if scores[s][col] == best]
+                    else:
+                        winners = winners0
+                    if col == 0:
+                        winners0 = winners
+                    if part and winners:
+                        self._pay(part, winners, order)
             prev = lvl
+
+    def _pay(self, pot: int, winners: list, order: list) -> None:
+        stacks = self.stacks
+        share, odd = divmod(pot, len(winners))
+        for s in winners:
+            stacks[s] += share
+        if odd:
+            for s in order:
+                if s in winners:
+                    stacks[s] += 1
+                    odd -= 1
+                    if not odd:
+                        break
 
     def _finish_hand(self, hs: HandState) -> None:
         n, stacks, rules = self.n, self.stacks, self.rules
         start = hs.stacks_start
+        payout = self.variant.payout
+        if payout is not None:
+            deltas = [stacks[s] - start[s] for s in range(n)]
+            new = payout(deltas, hs.holes, hs.board, hs.hand_no, rules, self.vrng)
+            for s in range(n):
+                d = int(new[s])
+                stacks[s] = start[s] + d if start[s] + d > 0 else 0
         hs.deltas = deltas = [stacks[s] - start[s] for s in range(n)]
         result = HandResult(hs.hand_no, deltas, hs.showdown, hs.board, hs.history)
         alive_before = [s for s in range(n) if start[s] > 0]
@@ -485,6 +728,11 @@ class Table:
             for i, s in enumerate(busted):
                 self._place(s, remaining + i)
             self.alive_count = remaining
+            bust = self.variant.bust
+            if bust is not None:
+                for s, bonus in bust(busted, deltas, hs.hand_no, rules).items():
+                    self.points[s] += float(bonus)
+                    self.bonus[s] += float(bonus)
         self.hand_no += 1
         if self.alive_count <= 1:
             for s in range(n):
@@ -496,13 +744,13 @@ class Table:
             survivors = sorted((s for s in range(n) if stacks[s] > 0), key=lambda s: (-stacks[s], s))
             for place, s in enumerate(survivors):
                 self.places[s] = place
-                self.points[s] = eq[s]
+                self.points[s] = eq[s] + self.bonus[s]
             self.done = True
 
     def _place(self, seat: int, place: int) -> None:
         payouts = self.rules.payouts
         self.places[seat] = place
-        self.points[seat] = float(payouts[place]) if place < len(payouts) else 0.0
+        self.points[seat] = (float(payouts[place]) if place < len(payouts) else 0.0) + self.bonus[seat]
 
 
 def play_table(

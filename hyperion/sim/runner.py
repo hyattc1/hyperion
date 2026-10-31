@@ -2,6 +2,7 @@
 
 `python -m hyperion.sim --tables 1000 --seed 1 --bots tag,nit,station,maniac --rotate`
 `python -m hyperion.sim --tables 125 --seed 7 --field realistic --rotate`   (named 8-bot fields)
+`python -m hyperion.sim --tables 300 --field realistic --variant short_deck`  (catalog entry: its Rules + hooks)
 
 Seats: the named bots are placed in a seeded random order per table; names beyond the table size
 are dropped, fewer are filled with random copies of the names given (the tournament fills with
@@ -188,7 +189,7 @@ def load_rules(spec: str) -> Rules:
     with open(spec) as f:
         raw = json.load(f)
     tup = lambda v: tuple(tuple(x) if isinstance(x, list) else x for x in v)  # noqa: E731
-    for k in ("board_sizes", "rank_order", "payouts", "blind_levels"):
+    for k in ("board_sizes", "rank_order", "payouts", "blind_levels", "ante_per_level"):
         if k in raw:
             raw[k] = tup(raw[k])
     return Rules(**raw)
@@ -205,7 +206,12 @@ def run_tournament(
     hero_config: Optional[dict] = None,
     trace_busts: Optional[str] = None,
     table_offset: int = 0,
+    variant=None,
 ) -> Report:
+    """`variant` is a hyperion.drills.variants.Variant (catalog entry): a fresh hooks object is built per
+    table because hooks keep per-hand state. Its Rules are used unless `rules` is given."""
+    if variant is not None and rules is None:
+        rules = variant.rules
     rules = rules if rules is not None else Rules()
     bestiary.HERO_CONFIG = hero_config
     n = rules.n_players
@@ -232,7 +238,9 @@ def run_tournament(
             if trace_busts:
                 bots = [BustTracer(b, nm, seating, busts) if nm == trace_busts else b for b, nm in zip(bots, seating)]
             stats = [reports[nm].stats for nm in seating]
-            res = play_table(bots, rules, seed=table_seed, rotation=rot, mode=mode, stats=stats, stacks=stacks)
+            hooks = variant.new_hooks() if variant is not None else None
+            res = play_table(bots, rules, seed=table_seed, rotation=rot, mode=mode, stats=stats, stacks=stacks,
+                             variant=hooks)
             hands += res.hands
             for s, nm in enumerate(seating):
                 r = reports[nm]
@@ -267,6 +275,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     p.add_argument("--rotate", action="store_true", help="play all rotations of each deal (duplicate)")
     p.add_argument("--mode", choices=("strict", "measure"), default="strict")
     p.add_argument("--rules", default="default", help="'default' or a json file of Rules fields")
+    p.add_argument("--variant", default=None, metavar="NAME",
+                   help="a hyperion.drills.variants catalog entry: plays its Rules (unless --rules is a file) and hooks")
     p.add_argument("--profile", action="store_true", help="print the hottest functions afterwards")
     p.add_argument("--list", action="store_true", help="list bot names and exit")
     p.add_argument("--hero-config", default=None, help="JSON (inline or file) of dotted hero Config overrides")
@@ -280,12 +290,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(f"field {nm:<14} {','.join(members)}")
         return 0
     rules = load_rules(a.rules)
+    variant = None
+    if a.variant:
+        from ..drills import variants as _variants
+
+        variant = _variants.get(a.variant, seed=a.seed)
+        if a.rules == "default":
+            rules = variant.rules
     names = field_names(a.field) if a.field else a.bots.split(",")
     prof = cProfile.Profile() if a.profile else None
     if prof:
         prof.enable()
     report = run_tournament(names, a.tables, a.seed, a.rotate, a.mode, rules,
-                            hero_config=load_hero_config(a.hero_config), trace_busts=a.trace_busts)
+                            hero_config=load_hero_config(a.hero_config), trace_busts=a.trace_busts,
+                            variant=variant)
     if prof:
         prof.disable()
     print(report.format())

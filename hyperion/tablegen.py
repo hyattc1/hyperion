@@ -141,10 +141,11 @@ _DECK: tuple[int, ...] = tuple(range(52))
 _CMAP: tuple[int, ...] = tuple(range(52))
 _CLASSES: dict[str, list[tuple[int, ...]]] = {}
 _KEEP: int = 0  # extras['keep']: showdown uses the best `keep` hole cards (discard variants); 0 = all
+_MUST_USE: int = 0  # Rules.must_use_hole: exactly k hole cards with 5 - k board cards (Omaha when 2)
 
 
 def _init_worker(rules_dict: dict, classes: dict | None = None) -> None:
-    global _R, _DECK, _CMAP, _CLASSES, _KEEP
+    global _R, _DECK, _CMAP, _CLASSES, _KEEP, _MUST_USE
     _R = rules_from_dict(rules_dict)
     _DECK = live_deck(_R)
     _CMAP = canon_map(_R)
@@ -152,7 +153,8 @@ def _init_worker(rules_dict: dict, classes: dict | None = None) -> None:
     _KEEP = int(_R.extras.get("keep", 0) or 0)
     if _KEEP >= _R.hole_cards:
         _KEEP = 0
-    warm(min(8, (_KEEP or _R.hole_cards) + _R.board_sizes[-1]))
+    _MUST_USE = int(getattr(_R, "must_use_hole", 0) or 0)
+    warm(5 if _MUST_USE else min(8, (_KEEP or _R.hole_cards) + _R.board_sizes[-1]))
 
 
 def _strength(cards: Iterable[int]) -> int:
@@ -160,7 +162,17 @@ def _strength(cards: Iterable[int]) -> int:
 
 
 def _showdown(hole: Sequence[int], board: Sequence[int]) -> int:
-    """Strength of hole+board; with a keep rule, the best keep-subset of the hole (perfect discard)."""
+    """Strength of hole+board; with a keep rule, the best keep-subset of the hole (perfect discard);
+    with must_use_hole, exactly that many hole cards and the rest from the board."""
+    if _MUST_USE:
+        k = _MUST_USE
+        best = 0
+        for hs in combinations(hole, k):
+            for bs in combinations(board, 5 - k):
+                s = _strength(hs + bs)
+                if s > best:
+                    best = s
+        return best
     if _KEEP:
         return max(_strength(tuple(sub) + tuple(board)) for sub in combinations(hole, _KEEP))
     return _strength(tuple(hole) + tuple(board))
