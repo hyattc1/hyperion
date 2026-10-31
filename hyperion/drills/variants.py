@@ -793,7 +793,7 @@ def omaha_four() -> Variant:
         rules=rules,
         breaks=(
             "The engine evaluates must_use_hole=2 exactly (60 five-card evaluations per showdown). gen_tables "
-            "honours must_use_hole in its showdown too, with 4-card best2+tags classes (about 1,700 labels) "
+            "honours must_use_hole in its showdown too, with 4-card best2+tags classes (550 labels) "
             "and no matrix; samples per class are thin at catalog budgets. Hero has no 4-card path at all: "
             "preflop falls through to check/fold and postflop to the safe action, so it blinds off. The "
             "bestiary's two-card helpers pick the best two of four, which is wrong but legal."
