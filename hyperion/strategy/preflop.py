@@ -52,6 +52,8 @@ class PreflopParams:
     patience_from_bb: float = 20.0
     patience_deep_bb: float = 60.0
     patience_shover: float = 0.0  # times the shover's shove rate above the prior (0 .. ~1)
+    reraise_margin: float = 0.0  # 4-bet / 5-bet shoves: equity vs random is discounted by this (a 3-bettor is not random)
+    reraise_tight_pfr: float = 0.0  # ... plus this much more when the re-raiser's PFR is below the prior (0 = off)
     raise_or_fold_bb: float = 25.0  # below this depth, no speculative flats
     short_flat_frac: float = 0.12
     open_size_bb: tuple = ((50, 2.5), (150, 2.3), (10**9, 2.2))  # (bb at most, size in bb)
@@ -111,15 +113,31 @@ class Preflop:
         if spot.n_raises == 2:
             frac = p.four_bet_frac
             if rank >= 1.0 - frac:
-                return self._raise_to(spot, spot.cur_bet * p.four_bet_mult)
+                amount = spot.cur_bet * p.four_bet_mult
+                if amount >= p.shove_instead_frac * spot.my_total and not self._reraise_ok(spot, cls, prof):
+                    return _CALL if spot.to_call <= p.call_max_stack_frac * spot.my_total else _FOLD
+                return self._raise_to(spot, amount)
             if spot.raiser != spot.me and self._opened(spot):
                 if rank >= 1.0 - p.call_3bet_frac and spot.to_call <= p.call_max_stack_frac * spot.my_total \
                         and spot.my_bb >= p.raise_or_fold_bb and spot.behind == 0:
                     return _CALL
             return _FOLD
-        if rank >= 1.0 - p.five_bet_frac:
+        if rank >= 1.0 - p.five_bet_frac and self._reraise_ok(spot, cls, prof):
             return Action(ActionKind.RAISE, obs.max_raise)
         return _FOLD
+
+    def _reraise_ok(self, spot: Spot, cls: str, prof: Profiler | None) -> bool:
+        """Shoving over a 3-bet or 4-bet: ICM-weighted EV against the re-raiser's (premium) range, taken as
+        equity vs random minus reraise_margin, minus more when the profiler shows a tight raiser."""
+        p = self.p
+        margin = p.reraise_margin
+        if p.reraise_tight_pfr > 0.0 and prof is not None and spot.raiser >= 0:
+            pfr = prof.pfr_rate(spot.raiser)
+            if pfr < Profiler.P_PFR:
+                margin += p.reraise_tight_pfr * (Profiler.P_PFR - pfr) / Profiler.P_PFR
+        if margin <= 0.0:
+            return True
+        return self._icm_call_ok(spot, cls, margin, 0)
 
     def _opened(self, spot: Spot) -> bool:
         """Did I make the first raise this hand?"""
