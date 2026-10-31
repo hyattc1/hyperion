@@ -37,16 +37,11 @@ shover's observed shove frequency; big-blind defence at pot-odds-correct frequen
 key; steal dials driven by the folder read within 20 hands; (5) sweep on realistic and top, confirm on
 base and strong, both mirror tests, readiness matrix; (6) add `rival2` to fields when it lands.
 
-### 2. Red-team rival 2: told to checkpoint to disk after every step. If `docs/drills/redteam/redteam-2.md`
-says COMPLETE, integrate it. If it says IN PROGRESS, the bot file is a usable partial: either integrate it as
-is or relaunch with this brief and point the new run at the partial. If both files are absent, relaunch:
-A computation-first team, seed 20262, no access to this repo and must not read rival1: builds its own
-169-class equity table by Monte Carlo at import (≤ 5 s), ranges from equity percentiles by position and
-players behind, heads-up push/fold by iterated best response tightened multiway, exact ICM once per hand
-with interpolation, wide steal-and-defend game, two-number opponent model with Beta priors, 60-minute cap,
-verified on the harness from `docs/drills/redteam/redteam-1.md`. Output: rival2_bot.py and redteam-2.md.
-Then integrate like rival 1: `hyperion/sim/rivals/rival2.py`, `RivalBot`-style adapter in bestiary.py,
-seat it in `top` and a new `top2` field, measure realistic/top/mirrors, decisions entry.
+### 2. Red-team rival 2: DONE (bot and report committed under docs/drills/redteam/). About as strong as rival 1:
+stronger preflop, all-in and heads-up; weaker postflop against tight players. Integration into the pool
+(hyperion/sim/rivals/rival2.py, `rival2` in bestiary, a `top2` field, four measurement tables) is RUNNING on
+Opus. If `docs/decisions.md` has no "Rival 2 in the pool" section, relaunch that integration the same way
+rival 1 was done.
 
 ### 3. Drill 5: DONE (report committed). Numbers: legal bot minute 7, spec exhausted minute 24, level with rival1.
 Operator protocol as in drill 3; kit B copied self-contained; hidden variant permuted_ranks (seed 0);
