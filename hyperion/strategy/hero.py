@@ -7,6 +7,22 @@
 Every tunable number lives in Config (and the per-module *Params it holds). Decision-time work is
 one Spot, one profiler update, and one module call. ICM is a per-hand value curve computed in
 hand_end / new_table where exact ICM's ~0.5 ms does not count against the decision budget.
+
+Variants are configured once per table from Rules (new_table) and read per decision from
+Observation.extras; every default is the plain game:
+  tables       `tables.tables_for(rules)`: tables/variants/<name>/ when the hole-card count, the deck or
+               the showdown rule differ from hold'em and the catalog has a matching set; a rank remap
+               (permuted ranks) keeps the default tables; a 3/4-card game without a set plays from the
+               best-two class plus tag bonuses, one position tighter
+  hand class   two cards: the 169 label (mirrored for lowball, a wild + x reads as the pair of x);
+               three or four cards: `tablegen.hole_label` ('AKs+l'), the key of the variant tables
+  postflop     keep-all and must-use-two reads for extra hole cards, lowball and wild reads, dead cards
+               from exposed_card, both boards of two_boards, value thresholds up before a swap street
+  payoff       bounty: expected extra chips in every pot we win (Spot.bounty_bonus); knockout bounty:
+               the house points for busting a covered opponent in every all-in EV (Spot.ko_points)
+  decisions    variant_decide: discard (keep the best two by the flop read, or by preflop rank before
+               the flop), swap (keep made hands and draws, replace the lowest dead card), buy_card
+               (when the price is at most a tenth of the stack)
 """
 from __future__ import annotations
 
@@ -14,15 +30,17 @@ import gc
 from dataclasses import dataclass, field, replace
 from functools import lru_cache
 
-from ..core.cards import is_identity_order, remap
-from ..core.types import Action, ActionKind, HandResult, Observation, Rules
-from .postflop import Postflop, PostflopParams
+from ..core.cards import hole_class, is_identity_order, remap
+from ..core.eval import warm
+from ..core.types import RANKS, Action, ActionKind, HandResult, Observation, Rules
+from ..tablegen import hole_label
+from .postflop import TIER_EQUITY, Postflop, PostflopParams
 from .preflop import Preflop, PreflopParams
 from .profiler import Profiler
 from .pushfold import PushFold, PushFoldParams
 from .safe import SafeBot, safe_action
 from .spot import Spot
-from .tables import Tables, load as load_tables
+from .tables import CLASSES, Tables, load as load_tables, tables_for
 
 _CHECK = Action(ActionKind.CHECK)
 _FOLD = Action(ActionKind.FOLD)
@@ -32,8 +50,8 @@ try:  # the ICM module is another builder's; chip-proportional if it is missing 
 except Exception:  # noqa: BLE001
     _icm_equity = None
 
-ICM_BUCKETS = 100  # opponents' stacks are rounded to 1/100 of the chips in play before the (memoised) exact ICM call
-ICM_ME_SUBDIV = 4  # my own units are chosen so my *share* of the chips is kept, to 1/4 of an opponent unit
+ICM_BUCKETS = 100  # default Config.icm_buckets: opponents' stacks are rounded to 1/100 of the chips in play before the (memoised) exact ICM call
+ICM_ME_SUBDIV = 4  # default Config.icm_me_subdiv: my own units are chosen so my *share* of the chips is kept, to 1/4 of an opponent unit
 
 
 @lru_cache(maxsize=1 << 15)
@@ -41,16 +59,16 @@ def _icm_bucketed(key: tuple, me: int, payouts: tuple) -> float:
     return _icm_equity(list(key), payouts)[me]
 
 
-def icm_value(stacks, me: int, payouts) -> float:
-    """My exact ICM points for `stacks`, memoised on a rounded key. Opponents are rounded to 1% of the
+def icm_value(stacks, me: int, payouts, buckets: int = ICM_BUCKETS, subdiv: int = ICM_ME_SUBDIV) -> float:
+    """My exact ICM points for `stacks`, memoised on a rounded key. Opponents are rounded to 1/buckets of the
     chips in play (their mutual proportions barely move my equity); my own entry is then set so that
     my share of the rounded total equals my true share, because that share is what the curve reads."""
     total = 0.0
     for s in stacks:
         if s > 0:
             total += s
-    unit = total / ICM_BUCKETS if total > 0 else 1.0
-    sub = ICM_ME_SUBDIV
+    unit = total / buckets if total > 0 else 1.0
+    sub = subdiv
     key = [0] * len(stacks)
     others = 0
     for i, s in enumerate(stacks):
@@ -61,7 +79,7 @@ def icm_value(stacks, me: int, payouts) -> float:
     mine = stacks[me]
     if mine > 0:
         rest = total - mine
-        key[me] = max(1, int(mine / rest * others + 0.5)) if rest > 0 and others > 0 else sub * ICM_BUCKETS
+        key[me] = max(1, int(mine / rest * others + 0.5)) if rest > 0 and others > 0 else sub * buckets
     return _icm_bucketed(tuple(key), me, tuple(float(p) for p in payouts))
 
 
@@ -74,11 +92,23 @@ class Config:
     profiler_blend_n: float = 8.0  # dials reach half strength after this many observed actions
     profiler_dial_strength: float = 1.0  # 0 = read opponents but never act on it
     profiler_calldown_slope: float = -0.8  # unknown archetype: call_down_mult = 1.4 + slope * aggression
+    # archetype flags fire after these sample sizes (the profiler's constructor knobs, exposed for the windows loop)
+    profiler_dead_after: int = 5  # faced this many bets without ever calling or raising: a dead seat
+    profiler_station_after: int = 10
+    profiler_nit_after: int = 20
+    profiler_maniac_after: int = 10
+    profiler_random_after: int = 15
     use_profiler: bool = True
     use_icm: bool = True
     # my-stack multiples the ICM curve samples. Dense around 1x: with samples only at 0.5/1/1.5 the piecewise-linear
     # curve had a kink at my stack that priced a +-7% flip at 57% equity where exact ICM says 47%.
     icm_ratios: tuple = (0.0, 0.25, 0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 2.0, 3.0, 4.0, 6.0)
+    icm_buckets: int = ICM_BUCKETS  # opponents' stacks rounded to 1/this of the chips in play before exact ICM
+    icm_me_subdiv: int = ICM_ME_SUBDIV  # my own rounding, in fractions of an opponent unit
+    # 3/4-card games without a variant table set: best-two class plus these bonuses per pairing / suited extra card
+    label_bonus_pair: float = 0.04
+    label_bonus_suited: float = 0.02
+    label_open_step: int = 1  # ... and this many positions tighter on opens
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5
@@ -118,13 +148,14 @@ class IcmCurve:
     busting right now (the ICM function reports 0 for a busted seat because its points are fixed)."""
 
     __slots__ = ("xs", "vs", "n")
+    points = True  # values are tournament points: knockout points add to them directly
 
     def __init__(self):
         self.xs = [0.0, 1.0]
         self.vs = [0.0, 1.0]
         self.n = 2
 
-    def compute(self, stacks, me: int, payouts, ratios) -> None:
+    def compute(self, stacks, me: int, payouts, ratios, buckets: int = ICM_BUCKETS, subdiv: int = ICM_ME_SUBDIV) -> None:
         total = float(sum(s for s in stacks if s > 0))
         base = float(stacks[me])
         alive = sum(1 for s in stacks if s > 0)
@@ -149,7 +180,7 @@ class IcmCurve:
                     st = [x if s == me else (stacks[s] * scale if stacks[s] > 0 else 0) for s in range(len(stacks))]
                 else:
                     st = [x if s == me else 0 for s in range(len(stacks))]
-                v = icm_value(st, me, pays)
+                v = icm_value(st, me, pays, buckets, subdiv)
             if xs and x <= xs[-1]:
                 break
             xs.append(x)
@@ -186,6 +217,32 @@ class IcmCurve:
         return v0 + (v1 - v0) * (x - x0) / (x1 - x0)
 
 
+# ---------------------------------------------------------------- class maps for the ranking axis
+
+def mirror_map(rank: dict) -> dict[str, str]:
+    """Lowball: the class at the mirrored position of the hold'em order (72o reads as AA, AA as 72o)."""
+    order = sorted(CLASSES, key=lambda c: rank[c])
+    n = len(order)
+    return {order[i]: order[n - 1 - i] for i in range(n)}
+
+
+def wild_map(wild_rank: int) -> dict[str, str]:
+    """Wild cards: a wild with x is at least a pair of x, two wilds are the best pair there is."""
+    w = RANKS[wild_rank]
+    out = {}
+    for c in CLASSES:
+        a, b = c[0], c[1]
+        if a == w and b == w:
+            out[c] = "AA"
+        elif a == w:
+            out[c] = b + b
+        elif b == w:
+            out[c] = a + a
+        else:
+            out[c] = c
+    return out
+
+
 class HeroCore:
     """The unguarded strategy. Hero wraps it in SafeBot; tests may poke it directly."""
 
@@ -193,11 +250,15 @@ class HeroCore:
         self.cfg = cfg = config or Config()
         self.tables = tables or load_tables(need_hu=True)
         self.prof = Profiler(8, prior_n=cfg.profiler_prior_n, blend_n=cfg.profiler_blend_n,
-                             dial_strength=cfg.profiler_dial_strength,
-                             calldown_slope=cfg.profiler_calldown_slope) if cfg.use_profiler else None
+                             dial_strength=cfg.profiler_dial_strength, calldown_slope=cfg.profiler_calldown_slope,
+                             dead_after=cfg.profiler_dead_after, station_after=cfg.profiler_station_after,
+                             nit_after=cfg.profiler_nit_after, maniac_after=cfg.profiler_maniac_after,
+                             random_after=cfg.profiler_random_after) if cfg.use_profiler else None
         self.preflop = Preflop(cfg.preflop, self.tables)
         self.pushfold = PushFold(cfg.pushfold, self.tables)
         self.postflop = Postflop(cfg.postflop, cfg.seed)
+        self._base = (self.preflop, self.pushfold)
+        self._modules: dict = {}  # (tables dir, scheme) -> (Preflop, PushFold) built for a variant set
         self.curve = IcmCurve()
         if cfg.use_icm:
             self.pushfold.curve = self.curve
@@ -213,6 +274,13 @@ class HeroCore:
         self.last_stacks = None
         self.payouts = self.rules.payouts
         self.last_path = ""  # which module made the last decision (diagnostics only)
+        self.active = self.tables  # the table set in play
+        self._label = False  # hands are labelled by tablegen.hole_label (3 or 4 hole cards)
+        self._cls_map = None  # 169 -> 169 remap (lowball mirror, wild cards)
+        self._must_use = 0
+        self._bounty = None  # (ratio, constant) when a bounty variant is on
+        self._ko = 0.0  # knockout points per bust
+        self._swap_street = 0
 
     # ------------------------------------------------------------------ Bot protocol
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
@@ -225,11 +293,55 @@ class HeroCore:
         self.hand_start = None
         self.last_stacks = [rules.starting_stack] * n_players
         self.panic = False
+        warm(8)  # 8-card lookups (three kept hole cards, a bought card) are built here, never inside a timed act()
+        self._configure(rules)
         if self.prof is not None:
             self.prof.reset(n_players, seat)
         if self.cfg.use_icm:
-            self.curve.compute(self.last_stacks, seat, self.payouts, self.cfg.icm_ratios)
+            self.curve.compute(self.last_stacks, seat, self.payouts, self.cfg.icm_ratios, self.cfg.icm_buckets,
+                               self.cfg.icm_me_subdiv)
         gc.freeze()  # tables and evaluator dicts leave the collector's reach: no gen-2 pause mid-decision
+
+    def _configure(self, rules: Rules) -> None:
+        """Per-table variant wiring from Rules: table set, class map, postflop mode, payoff terms."""
+        cfg = self.cfg
+        ex = rules.extras or {}
+        self._must_use = int(rules.must_use_hole or 0)
+        self._bounty = None
+        if "bounty_ratio" in ex or "bounty_funding" in ex or ex.get("variant") == "bounty":
+            self._bounty = (float(ex.get("bounty_ratio", 1.5)), float(ex.get("bounty_constant", 10)))
+        self._ko = float(ex.get("ko_points", 0.0) or 0.0)
+        self._swap_street = int(ex.get("swap_street", 0) or 0)
+        low = bool(ex.get("lowball"))
+        wild = ex.get("wild_rank", None)
+        wild_c = int(rules.rank_order[int(wild)]) if wild is not None else -1
+        fof = ex.get("category_order") == "flush_over_full_house"
+        self.postflop.set_mode(low=low, wild_rank=wild_c, flush_over_full=fof)
+        self._cls_map = mirror_map(self.tables.rank) if low else wild_map(wild_c) if wild_c >= 0 else None
+        t = tables_for(rules, self.tables)
+        if t is self.tables:
+            pre, pf = self._base
+            self._label = False
+        else:
+            key = (t.dir, t.scheme, t.source)
+            mods = self._modules.get(key)
+            if mods is None:
+                if t.scheme == "169":
+                    pre, pf = Preflop(cfg.preflop, t), PushFold(cfg.pushfold, t)
+                else:
+                    params = cfg.preflop
+                    if t.source.endswith("+labelview"):  # no variant set: best-two class, one position tighter
+                        t.rank.bonus_p = t.equity.bonus_p = cfg.label_bonus_pair
+                        t.rank.bonus_s = t.equity.bonus_s = cfg.label_bonus_suited
+                        params = replace(params, open_step=params.open_step + cfg.label_open_step)
+                    pre, pf = Preflop(params, t), self._base[1].with_tables(t)
+                mods = self._modules[key] = (pre, pf, t)
+            pre, pf, t = mods  # the set the cached modules were built on (a label view is rebuilt per call)
+            self._label = t.scheme != "169"
+        self.active = t
+        self.preflop, self.pushfold = pre, pf
+        if cfg.use_icm:
+            pre.curve = pf.curve = self.curve
 
     def set_panic(self, on: bool) -> None:
         self.panic = on
@@ -237,9 +349,10 @@ class HeroCore:
     def act(self, obs: Observation) -> Action:
         hole = obs.hole
         board = obs.board
-        if self._remap is not None:
-            hole = remap(hole, self._remap)
-            board = remap(board, self._remap)
+        rm = self._remap
+        if rm is not None:
+            hole = remap(hole, rm)
+            board = remap(board, rm)
         if obs.hand_no != self.hand_no:
             self.hand_no = obs.hand_no
             stacks, bets = obs.stacks, obs.bets
@@ -250,7 +363,33 @@ class HeroCore:
                 prof.observe(obs)
             except Exception:  # noqa: BLE001 - a profiler slip must not cost the decision
                 prof = None
-        spot = Spot(obs, hole)
+        nh = len(hole)
+        cls = None
+        if nh == 2:
+            cls = hole_class(hole)
+            cm = self._cls_map
+            if cm is not None:
+                cls = cm.get(cls, cls)
+        elif self._label and nh >= 3:
+            cls = hole_label(obs.hole, self.rules)  # the variant tables are keyed by displayed labels
+        extras = obs.extras
+        bounty = 0.0
+        dead = ()
+        exposed = None
+        board2 = None
+        if extras:
+            if self._bounty is not None:
+                bounty = self._bounty_bonus(obs, extras)
+            ex = extras.get("exposed")
+            if ex:
+                exposed, dead = self._exposed(ex, obs.seat)
+            if obs.street > 0:
+                bs = extras.get("boards")
+                if bs and len(bs) > 1 and len(bs[1]) == len(board):
+                    board2 = tuple(bs[1])
+                    if rm is not None:
+                        board2 = remap(board2, rm)
+        spot = Spot(obs, hole, cls, bounty, self._ko, dead, exposed)
         cheap = self.cfg.cheap or self.panic
         if obs.street == 0:
             if self.pushfold.applies(spot):
@@ -258,12 +397,22 @@ class HeroCore:
                 return self.pushfold.act(spot, prof, cheap)
             self.last_path = "preflop"
             return self.preflop.act(spot, prof, cheap)
-        if len(hole) != 2 or len(board) < 3:
+        if nh < 2 or len(board) < 3:
+            self.last_path = "safe"
+            return safe_action(obs)
+        mu = self._must_use
+        if mu:
+            if nh < mu or len(board) < 5 - mu:
+                self.last_path = "safe"
+                return safe_action(obs)
+        elif nh + len(board) > 8:
             self.last_path = "safe"
             return safe_action(obs)
         aggressor = prof is not None and prof.pre_raiser == obs.seat
+        value_shift = 1 if (self._swap_street and obs.street < self._swap_street) else 0
         self.last_path = "postflop"
-        return self.postflop.act(spot, hole, prof, aggressor, cheap, board)
+        return self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
+                                 value_shift=value_shift)
 
     def hand_end(self, result: HandResult) -> None:
         if self.prof is not None:
@@ -273,8 +422,132 @@ class HeroCore:
             after = [max(0, base[s] + result.deltas[s]) for s in range(len(base))]
             self.last_stacks = after
             if self.cfg.use_icm and after[self.seat] > 0:
-                self.curve.compute(after, self.seat, self.payouts, self.cfg.icm_ratios)
+                self.curve.compute(after, self.seat, self.payouts, self.cfg.icm_ratios, self.cfg.icm_buckets,
+                                   self.cfg.icm_me_subdiv)
         self.hand_start = None
+
+    # ------------------------------------------------------------------ extras
+    def _bounty_bonus(self, obs: Observation, extras: dict) -> float:
+        """Expected extra chips if we win this pot: the bounty pays (ratio - 1) x the net win + constant when
+        my bounty rank is in my hand or lands on the board (displayed ranks, as the hook draws them)."""
+        b = extras.get("bounties")
+        if not b:
+            return 0.0
+        r = b.get(obs.seat)
+        if r is None:
+            r = b.get(str(obs.seat))
+            if r is None:
+                return 0.0
+        ratio, const = self._bounty
+        hit = False
+        for c in obs.hole:
+            if (c >> 2) == r:
+                hit = True
+                break
+        if not hit:
+            for c in obs.board:
+                if (c >> 2) == r:
+                    hit = True
+                    break
+        if hit:
+            p = 1.0
+        else:
+            rules = self.rules
+            to_come = rules.board_sizes[-1] - len(obs.board)
+            if to_come <= 0:
+                return 0.0
+            unseen = rules.deck_size - len(obs.hole) - len(obs.board)
+            outs = rules.n_suits
+            p_none = 1.0
+            for k in range(to_come):
+                p_none *= (unseen - outs - k) / (unseen - k)
+            p = 1.0 - p_none
+        win = obs.pot + sum(obs.bets) - obs.bets[obs.seat]
+        return p * ((ratio - 1.0) * (win if win > 0 else 0) + const)
+
+    def _exposed(self, ex: dict, me: int):
+        """Other seats' face-up cards: {seat: canonical card} and the dead tuple for draw reads."""
+        rm = self._remap
+        out = {}
+        dead = []
+        for s, c in ex.items():
+            s = int(s)
+            if s == me or c is None:
+                continue
+            c = int(c)
+            if rm is not None:
+                c = rm.rank_order[c >> 2] * 4 + (c & 3)
+            out[s] = c
+            dead.append(c)
+        return out, tuple(dead)
+
+    # ------------------------------------------------------------------ variant decisions
+    def variant_decide(self, prompt: dict):
+        """The engine's ask(): discard / swap / buy_card. None means the hook's default."""
+        kind = prompt.get("decision")
+        hole = tuple(prompt.get("hole") or ())
+        board = tuple(prompt.get("board") or ())
+        rm = self._remap
+        if rm is not None:
+            hole, board = remap(hole, rm), remap(board, rm)
+        if kind == "discard":
+            return self._discard(hole, board)
+        if kind == "swap":
+            return self._swap(hole, board)
+        if kind == "buy_card":
+            price = int(prompt.get("price", 0) or 0)
+            stacks = prompt.get("stacks")
+            seat = int(prompt.get("seat", self.seat))
+            mine = stacks[seat] if stacks and 0 <= seat < len(stacks) else 0
+            return price <= 0.1 * mine
+        return None
+
+    def _keep_score(self, keep, board) -> float:
+        """How good the two kept cards are: the flop read when a board is shown, else the preflop rank."""
+        rank = self.tables.rank[hole_class(keep)]
+        if len(board) >= 3:
+            tier, outs, _ = self.postflop._read(keep, board, 0, ())
+            draw = outs * 0.04
+            return max(TIER_EQUITY[tier], draw) + 0.01 * rank
+        return rank
+
+    def _discard(self, hole, board):
+        """Index of the card whose removal leaves the best two."""
+        n = len(hole)
+        if n < 3:
+            return None
+        best_k, best = 0, -1.0
+        for k in range(n):
+            keep = hole[:k] + hole[k + 1:]
+            if len(keep) != 2:
+                continue
+            s = self._keep_score(keep, board)
+            if s > best:
+                best, best_k = s, k
+        return best_k
+
+    def _swap(self, hole, board):
+        """-1 to keep: a made hand or a draw. Otherwise replace the lowest card that pairs nothing on the board
+        and is not part of a flush draw."""
+        if len(hole) != 2 or len(board) < 3:
+            return -1
+        tier, outs, _ = self.postflop._read(hole, board, 0, ())
+        if tier >= 3 or outs >= 8:
+            return -1
+        board_ranks = {c >> 2 for c in board}
+        suits = [0, 0, 0, 0]
+        for c in board:
+            suits[c & 3] += 1
+        cands = []
+        for i, c in enumerate(hole):
+            if (c >> 2) in board_ranks or (c >> 2) == (hole[1 - i] >> 2):
+                continue
+            if suits[c & 3] + sum(1 for h in hole if (h & 3) == (c & 3)) >= 4:
+                continue
+            cands.append(i)
+        if not cands:
+            return -1
+        return min(cands, key=lambda i: hole[i] >> 2)
 
 
 class Hero:
@@ -301,6 +574,14 @@ class Hero:
     def hand_end(self, result: HandResult) -> None:
         self.safe.hand_end(result)
 
+    def variant_decide(self, prompt: dict):
+        """Guarded like act(): an error is counted and means the hook's default decision."""
+        try:
+            return self.core.variant_decide(prompt)
+        except Exception:  # noqa: BLE001
+            self.safe.errors += 1
+            return None
+
 
 def make_bot(config: Config | None = None) -> Hero:
     return Hero(config)
@@ -308,4 +589,5 @@ def make_bot(config: Config | None = None) -> Hero:
 
 gc.freeze()  # whatever was built at import (evaluator tables, straight-draw table) is permanent
 
-__all__ = ["Config", "Hero", "HeroCore", "IcmCurve", "config_from_dict", "icm_value", "make_bot", "replace"]
+__all__ = ["Config", "Hero", "HeroCore", "IcmCurve", "config_from_dict", "icm_value", "make_bot", "mirror_map",
+           "replace", "wild_map"]

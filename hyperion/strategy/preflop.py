@@ -66,10 +66,20 @@ class PreflopParams:
     four_bet_mult: float = 2.3
     shove_instead_frac: float = 0.4  # a raise this large relative to my stack becomes a shove
     cheap_open_frac: float = 0.12  # Hero.cheap(): one open fraction everywhere
+    # one knob each for "a step wider / tighter" (drill 4: open_frac_default only applies beyond 7 behind, which an
+    # 8-max table never reaches, so it is inert there; these two are the levers)
+    open_frac_mult: float = 1.0  # multiplies every open fraction
+    open_step: int = 0  # read the open fraction for this many more players behind (1 = one position tighter)
+    # exposed-card variants (Spot.exposed = {seat: card}): a high card showing behind me shrinks steals, and a
+    # shover's exposed card moves the calling margin
+    exposed_high_rank: int = 10  # canonical rank index: 10 = Q
+    exposed_steal_mult: float = 0.85  # per high card exposed behind me in an unopened pot
+    exposed_shove_margin: float = 0.03  # +this vs a shover showing a high card, -this vs one showing 9 or lower
 
 
 class _Linear:
     __slots__ = ()
+    points = False
 
     def value(self, x: float) -> float:
         return x
@@ -159,9 +169,11 @@ class Preflop:
         if spot.limpers == 0:
             if me == spot.bb_seat and can_check:
                 return _CHECK  # everyone folded to the big blind: free flop (or walk)
-            frac = p.open_frac.get(spot.behind, p.open_frac_default)
+            frac = p.open_frac.get(spot.behind + p.open_step, p.open_frac_default) * p.open_frac_mult
             if spot.behind <= p.steal_positions and prof is not None:
                 frac *= self._steal_mult(spot, prof)
+            if spot.exposed:
+                frac *= self._exposed_steal_mult(spot)
             if rank >= 1.0 - frac:
                 return self._raise_to(spot, self.open_size(spot))
             if me == spot.sb_seat and rank >= 1.0 - p.sb_complete_frac and spot.to_call <= spot.bb and spot.my_bb >= p.raise_or_fold_bb:
@@ -181,6 +193,16 @@ class Preflop:
                 and spot.my_bb >= p.raise_or_fold_bb:
             return _CALL
         return _CHECK if can_check else _FOLD
+
+    def _exposed_steal_mult(self, spot: Spot) -> float:
+        """Every opponent still in an unopened pot acts after me; each one showing a high card shrinks the steal."""
+        p = self.p
+        m = 1.0
+        for s in spot.opps:
+            c = spot.exposed.get(s)
+            if c is not None and (c >> 2) >= p.exposed_high_rank:
+                m *= p.exposed_steal_mult
+        return m
 
     def _steal_mult(self, spot: Spot, prof: Profiler) -> float:
         """Average steal dial of the opponents still to act, clamped so a dial cannot make us open any two."""
@@ -229,6 +251,14 @@ class Preflop:
         if spot.n_in >= 2:
             margin += p.shove_call_multiway
         margin += self._patience(spot, prof, spot.shover)
+        if spot.exposed:
+            c = spot.exposed.get(spot.shover)
+            if c is not None:
+                r = c >> 2
+                if r >= p.exposed_high_rank:
+                    margin += p.exposed_shove_margin
+                elif r <= 7:
+                    margin -= p.exposed_shove_margin
         return _CALL if self._icm_call_ok(spot, cls, margin, 0) else _FOLD
 
     def _patience(self, spot: Spot, prof: Profiler | None, shover: int) -> float:
@@ -259,7 +289,10 @@ class Preflop:
         obs = spot.obs
         v = self.curve.value
         behind = obs.stacks[spot.me]
-        return e * v(behind + spot.pot_total) + (1.0 - e) * v(behind - spot.to_call) > v(behind)
+        v_win = v(behind + spot.pot_total + spot.bounty_bonus)
+        if spot.ko_points and spot.facing_shove and spot.shover_covered and self.curve.points:
+            v_win += spot.ko_points  # the shover busts when we win: the house pays the knockout
+        return e * v_win + (1.0 - e) * v(behind - spot.to_call) > v(behind)
 
     def _equity_ok(self, spot: Spot, cls: str, margin: float, extra: int) -> bool:
         """Equity vs (players already in + extra) random hands beats the pot odds by margin."""

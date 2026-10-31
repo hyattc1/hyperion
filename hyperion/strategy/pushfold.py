@@ -2,12 +2,19 @@
 multiway by a one-line rule, gated by ICM.
 
 Offline (tools or the fallback at load):
-  solve_hu_pushfold(matrix, depths)  iterates damped best responses on the 169x169 all-in equity
-  matrix for the SB-pushes / BB-calls game at each stack depth S (blinds 0.5/1, no antes):
+  solve_hu_pushfold(matrix, depths)  fictitious play on the 169x169 all-in equity matrix for the
+  SB-pushes / BB-calls game at each stack depth S (blinds 0.5/1, no antes):
       push EV(h)  = sum_h' w(h'|h) [ c(h') * S(2e - 1) + (1 - c(h')) * 1 ]   vs  fold = -0.5
       call EV(h') = sum_h  w(h|h') p(h) * S(2e' - 1)                          vs  fold = -1
-  with card-removal weights w. Output per depth: push set, call set, their combo frequencies,
-  and each hand's equity against the opposing range. Cached to tables/pushfold_hu.json.
+  with card-removal weights w. Each side best-responds to the other's *average* strategy and the
+  averages converge to the mixed Nash equilibrium (the game is two-player zero-sum); a depth starts
+  from the previous depth's solution and stops when neither side can gain more than `tol` big
+  blinds per hand by deviating. The 2026-10-31 HRC cross-check traced the 21-25 bb zig-zag to the
+  old damped loop ending on alternate sides of the boundary at successive depths; the averaged,
+  converged solution has no such oscillation. Output per depth: push set and call set (the mixed
+  strategy thresholded at 0.5), their combo frequencies (of the mixed strategy), and each hand's
+  equity against the opposing mixed range. Cached to tables/pushfold_hu.json. A live-class mask
+  (short deck: 81 of the 169) keeps dead classes out of both ranges and out of the frequencies.
 
 Multiway rule (plainly): rank every hand by the deepest stack at which heads-up Nash still pushes
 it (ties by heads-up equity). With k opponents able to call, push the top
@@ -17,10 +24,18 @@ of hands by that order: k = 1 is the heads-up range, the button (k = 2) pushes 7
 multiway Nash tables. Dead seats do not count toward k. Calls use the same shape
 with the call order and p_call_HU. Opponent dials stretch f, clamped.
 
+Hands that are not one of the 169 classes (3- and 4-card variants label hands 'AKs+l'; see
+tablegen.hole_label) go through the same rule with the label's own percentile from the variant's
+preflop_rank table and its equity vs one random hand discounted by the average gap, at that depth,
+between "vs random" and "vs the Nash calling range" measured on the 169 solution.
+
 ICM gate: a candidate push or call must have positive ICM-weighted EV against folding, using the
 Nash caller frequency and the hand's equity against the calling range. ICM comes from a value
 curve V(my stack) that Hero precomputes once per hand (exact ICM is ~0.5 ms for eight seats, too
-slow for the decision path); without it V is chip-proportional and the gate is plain chip EV.
+slow for the decision path); without it V is chip-proportional and the gate is plain chip EV. A
+bounty's expected chips (Spot.bounty_bonus) sit in every pot we win; a knockout bounty's points
+(Spot.ko_points, times the share of opponents we cover) are added to the winning branch when the
+curve is in points.
 """
 from __future__ import annotations
 
@@ -60,8 +75,9 @@ class PushFoldParams:
 
 # ---------------------------------------------------------------- offline solver
 
-def removal_weights() -> list[list[int]]:
-    """w[i][j] = combos of class j that share no card with a representative combo of class i."""
+def removal_weights(live=None) -> list[list[int]]:
+    """w[i][j] = combos of class j that share no card with a representative combo of class i.
+    `live` (169 bools) zeroes the columns of classes the deck cannot make."""
     reps = [class_combos(c)[0] for c in CLASSES]
     combos = [class_combos(c) for c in CLASSES]
     n = len(CLASSES)
@@ -70,6 +86,8 @@ def removal_weights() -> list[list[int]]:
         a, b = reps[i]
         row = w[i]
         for j in range(n):
+            if live is not None and not live[j]:
+                continue
             cnt = 0
             for x, y in combos[j]:
                 if x != a and x != b and y != a and y != b:
@@ -101,11 +119,48 @@ def _pusher_br(call: list[float], e: list[list[float]], w: list[list[int]], S: f
         den = 0
         for j in range(n):
             wij = wi[j]
-            den += wij
-            c = call[j]
-            tot += wij * (c * S * (2.0 * ei[j] - 1.0) + (1.0 - c))
-        out[i] = 1.0 if tot / den > -0.5 else 0.0
+            if wij:
+                den += wij
+                c = call[j]
+                tot += wij * (c * S * (2.0 * ei[j] - 1.0) + (1.0 - c))
+        out[i] = 1.0 if den and tot / den > -0.5 else 0.0
     return out
+
+
+def _gains(push, call, br_push, br_call, e, w, S, counts, total) -> tuple[float, float]:
+    """How much (bb per hand) each side gains by best-responding instead of playing its average."""
+    n = len(push)
+    g_push = 0.0
+    for i in range(n):
+        if not counts[i]:
+            continue
+        wi, ei = w[i], e[i]
+        tot = 0.0
+        den = 0
+        for j in range(n):
+            wij = wi[j]
+            if wij:
+                den += wij
+                c = call[j]
+                tot += wij * (c * S * (2.0 * ei[j] - 1.0) + (1.0 - c))
+        ev_push = tot / den if den else -0.5
+        g_push += counts[i] * (br_push[i] - push[i]) * (ev_push + 0.5)
+    g_call = 0.0
+    for j in range(n):
+        if not counts[j]:
+            continue
+        wj, ej = w[j], e[j]
+        tot = 0.0
+        den = 0
+        for i in range(n):
+            p = push[i]
+            if p:
+                x = wj[i] * p
+                den += x
+                tot += x * (S * (2.0 * ej[i] - 1.0) + 1.0)
+        ev_call = tot / den if den else -1.0  # relative to folding (-1): calling gains ev_call
+        g_call += counts[j] * (br_call[j] - call[j]) * ev_call
+    return g_push / total, g_call / total
 
 
 def _eq_vs_range(rng: list[float], e: list[list[float]], w: list[list[int]]) -> list[float]:
@@ -124,33 +179,58 @@ def _eq_vs_range(rng: list[float], e: list[list[float]], w: list[list[int]]) -> 
     return out
 
 
-def _freq(rng: list[float]) -> float:
-    return sum(COMBO_COUNT[i] * rng[i] for i in range(len(rng))) / TOTAL_COMBOS
+def _freq(rng: list[float], counts=COMBO_COUNT, total: int = TOTAL_COMBOS) -> float:
+    return sum(counts[i] * rng[i] for i in range(len(rng))) / total
 
 
-def solve_hu_pushfold(matrix: list[list[float]], depths=DEFAULT_DEPTHS, iters: int = 40, damping: float = 0.5) -> dict:
-    """Heads-up push/fold approximation per depth. Returns the JSON-able table described in the module doc."""
-    w = removal_weights()
+def solve_hu_pushfold(matrix: list[list[float]], depths=DEFAULT_DEPTHS, iters: int = 600, live=None,
+                      tol: float = 1e-4) -> dict:
+    """Heads-up push/fold per depth by fictitious play (see the module doc). `iters` caps the iterations
+    per depth; a depth stops early once both sides' best-response gains are under `tol`. Returns the
+    JSON-able table described in the module doc plus `converged` {depth: [iterations, gain]}."""
+    n = len(CLASSES)
+    counts = [COMBO_COUNT[i] if (live is None or live[i]) else 0 for i in range(n)]
+    total = sum(counts) or TOTAL_COMBOS
+    w = removal_weights(live)
     out = {"classes": list(CLASSES), "depths": list(depths), "push": {}, "call": {}, "p_push": {}, "p_call": {},
-           "eq_vs_call": {}, "eq_vs_push": {}}
-    for S in depths:
-        S = float(S)
-        push = [1.0] * len(CLASSES)
-        call = _caller_br(push, matrix, w, S)
-        for _ in range(iters):
-            call_br = _caller_br(push, matrix, w, S)
-            call = [damping * a + (1 - damping) * b for a, b in zip(call, call_br)]
-            push_br = _pusher_br(call, matrix, w, S)
-            push = [damping * a + (1 - damping) * b for a, b in zip(push, push_br)]
-        call = _caller_br(push, matrix, w, S)
-        push = _pusher_br(call, matrix, w, S)
+           "eq_vs_call": {}, "eq_vs_push": {}, "converged": {}}
+    push = call = None
+    for S in sorted(float(d) for d in depths):
+        if push is None:
+            # cold start: a short damped best-response run lands near the equilibrium (averaging from
+            # "push everything" would take hundreds of iterations to forget it); the averages do the rest
+            push = [1.0 if counts[i] else 0.0 for i in range(n)]
+            call = [c if counts[i] else 0.0 for i, c in enumerate(_caller_br(push, matrix, w, S))]
+            for _ in range(min(40, iters)):
+                br_call = _caller_br(push, matrix, w, S)
+                br_push = _pusher_br(call, matrix, w, S)
+                for i in range(n):
+                    if counts[i]:
+                        push[i] += 0.5 * (br_push[i] - push[i])
+                        call[i] += 0.5 * (br_call[i] - call[i])
+        gain = (1.0, 1.0)
+        t = 0
+        for t in range(1, iters + 1):
+            br_call = _caller_br(push, matrix, w, S)
+            br_push = _pusher_br(call, matrix, w, S)
+            if t % 10 == 0 or t == iters:
+                gain = _gains(push, call, br_push, br_call, matrix, w, S, counts, total)
+                if gain[0] + gain[1] < tol:
+                    break
+            a = 1.0 / (t + 1)
+            for i in range(n):
+                if counts[i]:
+                    push[i] += a * (br_push[i] - push[i])
+                    call[i] += a * (br_call[i] - call[i])
         key = str(int(S)) if S == int(S) else str(S)
-        out["push"][key] = [int(x) for x in push]
-        out["call"][key] = [int(x) for x in call]
-        out["p_push"][key] = round(_freq(push), 4)
-        out["p_call"][key] = round(_freq(call), 4)
+        out["push"][key] = [1 if (x >= 0.5 and counts[i]) else 0 for i, x in enumerate(push)]
+        out["call"][key] = [1 if (x >= 0.5 and counts[i]) else 0 for i, x in enumerate(call)]
+        out["p_push"][key] = round(_freq(push, counts, total), 4)
+        out["p_call"][key] = round(_freq(call, counts, total), 4)
         out["eq_vs_call"][key] = [round(x, 4) for x in _eq_vs_range(call, matrix, w)]
         out["eq_vs_push"][key] = [round(x, 4) for x in _eq_vs_range(push, matrix, w)]
+        out["converged"][key] = [t, round(gain[0] + gain[1], 6)]
+        push, call = push[:], call[:]  # warm start for the next depth
     return out
 
 
@@ -163,22 +243,36 @@ def matrix_fingerprint(hu) -> str:
     return h.hexdigest()[:16]
 
 
-def build_pushfold_tables(tables: Tables, tables_dir: str = TABLES_DIR, depths=DEFAULT_DEPTHS, write: bool = True) -> dict:
-    """Solve from tables.hu and (optionally) write tables/pushfold_hu.json. For tools/gen_tables.py."""
-    sol = solve_hu_pushfold(tables.hu, depths)
+def build_pushfold_tables(tables: Tables, tables_dir: str = TABLES_DIR, depths=DEFAULT_DEPTHS, write: bool = True,
+                          iters: int = 600) -> dict:
+    """Solve from tables.hu (over tables.live) and (optionally) write tables/pushfold_hu.json. For tools/gen_tables.py."""
+    sol = solve_hu_pushfold(tables.hu, depths, iters=iters, live=tables.live)
     sol["matrix_fp"] = matrix_fingerprint(tables.hu)
+    sol["n_classes"] = sum(1 for x in (tables.live or []) if x) or len(CLASSES)
     if write:
         write_json("pushfold_hu.json", sol, tables_dir)
     return sol
 
 
-def load_pushfold(tables: Tables, tables_dir: str = TABLES_DIR) -> dict:
+_SOLUTIONS: dict[str, dict] = {}
+
+
+def load_pushfold(tables: Tables, tables_dir: str | None = None) -> dict:
+    """The solution for `tables` (from its own directory by default), re-solved when the cached file was
+    solved from a different matrix. Memoised per directory so new_table does not re-read 75 KB of JSON."""
+    tables_dir = tables_dir or tables.dir or TABLES_DIR
+    fp = matrix_fingerprint(tables.hu)
+    sol = _SOLUTIONS.get(tables_dir)
+    if sol is not None and sol.get("matrix_fp") == fp:
+        return sol
     raw = read_json("pushfold_hu.json", tables_dir)
-    if raw and raw.get("classes") == list(CLASSES) and raw.get("depths"):
-        if raw.get("matrix_fp") == matrix_fingerprint(tables.hu):
-            return raw
-        # stale: solved from a different matrix (tables were regenerated for a variant). Re-solve.
-    return build_pushfold_tables(tables, tables_dir, write=os.access(tables_dir, os.W_OK) if os.path.isdir(tables_dir) else False)
+    if raw and raw.get("classes") == list(CLASSES) and raw.get("depths") and raw.get("matrix_fp") == fp:
+        _SOLUTIONS[tables_dir] = raw
+        return raw
+    # stale or missing: solved from a different matrix (tables were regenerated for a variant). Re-solve.
+    sol = build_pushfold_tables(tables, tables_dir, write=os.access(tables_dir, os.W_OK) if os.path.isdir(tables_dir) else False)
+    _SOLUTIONS[tables_dir] = sol
+    return sol
 
 
 # ---------------------------------------------------------------- the engine
@@ -186,6 +280,7 @@ def load_pushfold(tables: Tables, tables_dir: str = TABLES_DIR) -> dict:
 class _Linear:
     """Chip-proportional value curve: the fallback when no ICM curve is set."""
     __slots__ = ()
+    points = False  # values are chips, not tournament points: knockout points cannot be added to them
 
     def value(self, x: float) -> float:
         return x
@@ -194,8 +289,11 @@ class _Linear:
 class PushFold:
     def __init__(self, params: PushFoldParams, tables: Tables, solution: dict | None = None):
         self.p = params
+        self.tables = tables
         self.rank = tables.rank
         self.equity = tables.equity
+        self.counts = tables.combo_count
+        self.total = tables.total_combos or TOTAL_COMBOS
         sol = solution or load_pushfold(tables)
         self.depths = [int(d) for d in sol["depths"]]
         self.max_depth = max(self.depths)
@@ -208,10 +306,23 @@ class PushFold:
         self.eq_vs_push = {int(k): v for k, v in sol["eq_vs_push"].items()}
         self.push_pct = self._order_pct(self.push_set)
         self.call_pct = self._order_pct(self.call_set)
+        self.call_disc = {D: self._discount(self.push_set[D], self.eq_vs_call[D]) for D in self.depths}
+        self.push_disc = {D: self._discount(self.call_set[D], self.eq_vs_push[D]) for D in self.depths}
         self.curve = _Linear()
 
+    def with_tables(self, tables: Tables) -> "PushFold":
+        """The same solution and dials, looking hands up in another rank / equity table (a 3- or 4-card
+        variant's labels). Cheap: shares every solved array."""
+        import copy
+
+        other = copy.copy(self)
+        other.tables = tables
+        other.rank = tables.rank
+        other.equity = tables.equity
+        return other
+
     def _order_pct(self, sets: dict[int, list[int]]) -> dict[str, float]:
-        """cls -> combo-weighted share of hands strictly ahead of it in (max depth, HU rank) order."""
+        """cls -> combo-weighted share of live hands strictly ahead of it in (max depth, HU rank) order."""
         depth_of = []
         for i, c in enumerate(CLASSES):
             d = 0
@@ -223,9 +334,36 @@ class PushFold:
         out = {}
         before = 0
         for _, _, i in depth_of:
-            out[CLASSES[i]] = before / TOTAL_COMBOS
-            before += COMBO_COUNT[i]
+            out[CLASSES[i]] = before / self.total
+            before += self.counts.get(CLASSES[i], 0)
         return out
+
+    def _discount(self, members: list[int], eq_vs: list[float]) -> float:
+        """Combo-weighted mean gap between a member's equity vs one random hand and vs the opposing range."""
+        num = den = 0.0
+        for i, c in enumerate(CLASSES):
+            k = self.counts.get(c, 0)
+            if members[i] and k:
+                num += k * (self.equity[c][0] - eq_vs[i])
+                den += k
+        return num / den if den else 0.0
+
+    # ------------------------------------------------------------ class keys: 169 labels or variant labels
+    @staticmethod
+    def _idx(cls: str) -> int:
+        return CLASS_INDEX.get(cls, -1)
+
+    def _ppct(self, cls: str, i: int) -> float:
+        return self.push_pct[cls] if i >= 0 else 1.0 - self.rank[cls]
+
+    def _cpct(self, cls: str, i: int) -> float:
+        return self.call_pct[cls] if i >= 0 else 1.0 - self.rank[cls]
+
+    def _e_call(self, D: int, cls: str, i: int) -> float:
+        return self.eq_vs_call[D][i] if i >= 0 else self.equity[cls][0] - self.call_disc[D]
+
+    def _e_push(self, D: int, cls: str, i: int) -> float:
+        return self.eq_vs_push[D][i] if i >= 0 else self.equity[cls][0] - self.push_disc[D]
 
     def depth(self, eff_bb: float) -> int:
         d = int(eff_bb + 0.5)
@@ -262,6 +400,7 @@ class PushFold:
         p = self.p
         obs = spot.obs
         cls = spot.cls
+        i = self._idx(cls)
         D = self.depth(spot.eff_bb)
         callers = self._callers(spot, prof)
         k = len(callers)
@@ -285,7 +424,7 @@ class PushFold:
             f *= self._clamp(m / k)
             if p.loose_caller_tighten > 0.0 and loose_sum > k:
                 f /= 1.0 + p.loose_caller_tighten * (loose_sum / k - 1.0)
-        if self.push_pct[cls] >= f:
+        if self._ppct(cls, i) >= f:
             return free
         # ICM gate
         pc_none = 1.0
@@ -296,7 +435,7 @@ class PushFold:
                 pc *= self._clamp(prof.call_vs_shove(s) / Profiler.P_CALL_SHOVE)
             pc_none *= 1.0 - (0.98 if pc > 0.98 else pc)
         pc_any = 1.0 - pc_none
-        e = self.eq_vs_call[D][CLASS_INDEX[cls]]
+        e = self._e_call(D, cls, i)
         if p.loose_caller_equity_blend > 0.0 and loose_max > 1.0:
             # a wide caller's range is nearer random than the Nash calling range: junk gains little, value hands gain
             w = p.loose_caller_equity_blend * (loose_max - 1.0)
@@ -304,20 +443,22 @@ class PushFold:
                 w = 1.0
             e += w * (self.equity[cls][0] - e)
         e -= p.multiway_equity_penalty * (k - 1) + p.push_equity_margin
-        if self._push_ev_ok(spot, pc_any, e):
+        if self._push_ev_ok(spot, pc_any, e, spot.cover_frac):
             return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else _CALL
         return free
 
-    def _push_ev_ok(self, spot: Spot, pc_any: float, e: float) -> bool:
+    def _push_ev_ok(self, spot: Spot, pc_any: float, e: float, cover: float = 0.0) -> bool:
         obs = spot.obs
         v = self.curve.value
         behind = obs.stacks[spot.me]
-        pot = spot.pot_total
+        pot = spot.pot_total + spot.bounty_bonus
         risk = min(behind, spot.max_opp_total)
         v_fold = v(behind)
         v_steal = v(behind + pot)
         v_win = v(behind + pot + risk)
         v_lose = v(behind - risk)
+        if spot.ko_points and self.curve.points:
+            v_win += spot.ko_points * cover
         ev = pc_any * (e * v_win + (1.0 - e) * v_lose) + (1.0 - pc_any) * v_steal
         return ev > v_fold + self.p.icm_epsilon
 
@@ -326,6 +467,7 @@ class PushFold:
         p = self.p
         obs = spot.obs
         cls = spot.cls
+        i = self._idx(cls)
         D = self.depth(spot.eff_bb)
         callers = self._callers(spot, prof)
         k = len(callers)
@@ -336,9 +478,9 @@ class PushFold:
             pc_raiser = min(0.95, pc_raiser * self._clamp(prof.call_vs_shove(spot.raiser) / Profiler.P_CALL_SHOVE))
         if cheap:
             f *= p.cheap_push_frac_mult
-        if self.call_pct[cls] < f:
-            e = self.eq_vs_call[D][CLASS_INDEX[cls]] - p.multiway_equity_penalty * max(0, k - 1) - p.push_equity_margin
-            if self._push_ev_ok(spot, pc_raiser, e):
+        if self._cpct(cls, i) < f:
+            e = self._e_call(D, cls, i) - p.multiway_equity_penalty * max(0, k - 1) - p.push_equity_margin
+            if self._push_ev_ok(spot, pc_raiser, e, spot.cover_frac):
                 return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else _CALL
         if spot.behind == 0 and spot.to_call <= p.bb_flat_max_frac * spot.my_total and self.rank[cls] >= p.bb_flat_min_rank:
             return _CALL
@@ -348,6 +490,7 @@ class PushFold:
         p = self.p
         obs = spot.obs
         cls = spot.cls
+        i = self._idx(cls)
         shover = spot.shover
         shover_total = obs.stacks[shover] + obs.bets[shover] if shover >= 0 else spot.max_opp_total
         D = self.depth(min(spot.my_total, shover_total) / spot.bb)
@@ -361,15 +504,17 @@ class PushFold:
         if prof is not None and not cheap and shover >= 0:
             f *= self._clamp(prof.exploit_dials(shover)["call_down_mult"])
             f *= self._clamp(prof.shove_rate(shover) / Profiler.P_SHOVE)
-        if self.call_pct[cls] >= f:
+        if self._cpct(cls, i) >= f:
             return _FOLD
-        e = self.eq_vs_push[D][CLASS_INDEX[cls]] - p.multiway_equity_penalty * (k_behind + max(0, spot.n_in - 1)) \
+        e = self._e_push(D, cls, i) - p.multiway_equity_penalty * (k_behind + max(0, spot.n_in - 1)) \
             - p.call_equity_margin
         v = self.curve.value
         behind = obs.stacks[spot.me]
         v_fold = v(behind)
-        v_win = v(behind + spot.pot_total)
+        v_win = v(behind + spot.pot_total + spot.bounty_bonus)
         v_lose = v(behind - spot.to_call)
+        if spot.ko_points and spot.shover_covered and self.curve.points:
+            v_win += spot.ko_points
         if e * v_win + (1.0 - e) * v_lose > v_fold + p.icm_epsilon:
             return _CALL
         return _FOLD

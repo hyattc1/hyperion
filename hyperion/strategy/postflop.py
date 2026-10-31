@@ -10,6 +10,19 @@ Tier (0..8) is the strength proxy, built from the made-hand category *relative t
 Scary boards demote: a possible flush or straight we do not hold caps the tier.
 TIER_EQUITY is the equity proxy against one opponent; draws use the rule of 2 and 4 on outs.
 
+Variants (Hero sets them from Rules / Observation.extras; every default is the plain game):
+  read_multi   three or four hole cards, kept whole (8 cards at the river) or Omaha-style must-use-two:
+               the same tiers from the same board-relative reading, one tier lower for made pairs and
+               two pairs because every hand at the table is stronger
+  read_low     2-7 lowball: the lowest five of my cards; tiers by the high card of a pairless low
+  read_wild    wild cards: each wild becomes the card that makes my best hand (greedy), then the
+               normal read on the result, one tier lower when the wild sits on the shared board
+  dead cards   exposed cards of other seats come off flush and straight outs
+  two boards   both boards are read; value needs both, the equity proxy is the mean (a split pot
+               is half a pot), bet sizes are halved
+  flush over full house, flush/straight tier shifts and the draw-outs multiplier are Config keys
+  (drill 4 found prompt 05's short-deck bullets had no knobs)
+
 Profiler dials: bluff_mult (0 vs stations/maniacs, high vs folders and dead seats),
 value_threshold_shift (negative = value bet thinner), call_down_mult (>1 vs maniacs).
 """
@@ -17,6 +30,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+from itertools import combinations
 
 from ..core.eval import category, evaluate, warm
 from ..core.types import Action, ActionKind
@@ -49,6 +63,7 @@ def _build_completers() -> list[int]:
 COMPLETERS = _build_completers()
 warm(7)  # eval builds its 6/7-card lookups lazily (~100 ms each): pay at import, never in act()
 TIER_EQUITY = (0.10, 0.20, 0.32, 0.42, 0.58, 0.72, 0.84, 0.92, 0.98)
+_LOW_TIER = {0: 8, 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 7, 7: 6, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1}  # pairless low by its top card
 
 
 @dataclass
@@ -85,13 +100,36 @@ class PostflopParams:
     icm_margin: float = 0.10  # the single biggest lever found: +0.14/+0.15/+0.07 on mixed/strong/weak fields, busts 54% -> 50%
     river_call_margin: float = 0.0  # extra margin on river calls: a student who bets the river has it
     river_min_tier: int = 0  # never call a river bet below this tier (0 = off)
+    # strength-axis knobs (prompt 05's short-deck patch): a made flush / straight lands this many tiers away from
+    # its hold'em tier, and draw outs are scaled (short deck: an open-ender is worth about 1.2x its hold'em outs)
+    flush_tier_shift: int = 0
+    straight_tier_shift: int = 0
+    draw_outs_mult: float = 1.0
+    # information-axis knobs
+    multi_tier_penalty: int = 1  # three or four hole cards: made pairs and two pairs (tiers 3..5) drop this much
+    two_boards_size_mult: float = 0.5  # every bet size when the pot splits over two boards
+    wild_board_penalty: int = 1  # a wild on the shared board helps everyone: one tier off my read
+    low_draw_outs_cap: int = 12  # lowball: at most this many outs to a better low are counted
 
 
 class _Linear:
     __slots__ = ()
+    points = False
 
     def value(self, x: float) -> float:
         return x
+
+
+def _must_use_strength(hole, board, k: int) -> int:
+    """Best hand using exactly k hole cards and 5 - k board cards (k = 2 is Omaha). Canonical cards."""
+    best = 0
+    nb = 5 - k
+    for hs in combinations(hole, k):
+        for bs in combinations(board, nb):
+            s = evaluate(hs + bs)
+            if s > best:
+                best = s
+    return best
 
 
 class Postflop:
@@ -99,6 +137,16 @@ class Postflop:
         self.p = params
         self.rng = random.Random(seed)
         self.curve = _Linear()  # Hero installs its ICM curve; chip EV otherwise
+        self.low = False
+        self.wild_rank = -1  # canonical rank index of the wild card, -1 = none
+        self.flush_over_full = False
+        self._mult = 1.0  # bet-size multiplier for the current decision (two boards: 0.5)
+
+    def set_mode(self, low: bool = False, wild_rank: int = -1, flush_over_full: bool = False) -> None:
+        """Ranking-axis switches Hero sets per table from Rules.extras."""
+        self.low = low
+        self.wild_rank = wild_rank
+        self.flush_over_full = flush_over_full
 
     def _commit_ok(self, spot: Spot, eq: float, risk: int) -> bool:
         """Risking `risk` chips with equity `eq` (opponent never folds) beats keeping them, in ICM points."""
@@ -107,12 +155,16 @@ class Postflop:
             return False
         v = self.curve.value
         behind = spot.obs.stacks[spot.me]
-        return e * v(behind + spot.pot_total + risk) + (1.0 - e) * v(behind - risk) > v(behind)
+        v_win = v(behind + spot.pot_total + spot.bounty_bonus + risk)
+        if spot.ko_points and self.curve.points:
+            v_win += spot.ko_points * spot.cover_frac
+        return e * v_win + (1.0 - e) * v(behind - risk) > v(behind)
 
     # ------------------------------------------------------------------ hand reading
     @staticmethod
-    def read(hole, board) -> tuple[int, int, bool]:
-        """(tier, outs, wet_board). Pure arithmetic over ranks and suits plus one evaluate()."""
+    def read(hole, board, dead=(), flush_shift: int = 0, straight_shift: int = 0, flush_over_full: bool = False) -> tuple[int, int, bool]:
+        """(tier, outs, wet_board) for two hole cards. Pure arithmetic over ranks and suits plus one evaluate().
+        `dead` cards (exposed elsewhere) come off the draw outs; the shifts move a made flush / straight."""
         cards = tuple(hole) + tuple(board)
         strength = evaluate(cards)
         cat = category(strength)
@@ -143,11 +195,15 @@ class Postflop:
         n_board = len(board)
         # flush draw: four to a suit using at least one hole card
         my_flush_cards = 0
+        fsuit = s1
         if s1 == s2:
             my_flush_cards = suit_cnt[s1] + 2
         else:
             a, b = suit_cnt[s1] + 1, suit_cnt[s2] + 1
-            my_flush_cards = a if a > b else b
+            if a >= b:
+                my_flush_cards = a
+            else:
+                my_flush_cards, fsuit = b, s2
         flush_draw = my_flush_cards == 4 and n_board < 5
         # straight draw: completing ranks beyond what the board alone offers
         mine = COMPLETERS[full_mask] & ~COMPLETERS[board_mask] if n_board < 5 else 0
@@ -161,11 +217,11 @@ class Postflop:
         # made-hand tier relative to the board
         if cat >= 4:
             if cat == 4:
-                tier = 6
+                tier = 6 + straight_shift
             elif cat == 5:
-                tier = 7
+                tier = 7 + flush_shift
             elif cat == 6:
-                tier = 7
+                tier = 6 if (flush_over_full and flush_possible) else 7
             else:
                 tier = 8
             if n_board == 5:
@@ -202,12 +258,8 @@ class Postflop:
             tier = 1 if (r1 > top and r2 > top) else 0
         outs = 0
         if tier < 6:
-            if flush_draw:
-                outs += 9
-            if oesd:
-                outs += 8 if not flush_draw else 6
-            elif gutshot:
-                outs += 4 if not flush_draw else 3
+            if flush_draw or oesd or gutshot:
+                outs = _draw_outs(flush_draw, fsuit, oesd, gutshot, mine, dead, cards)
             if flush_draw or oesd:
                 if tier >= 2:
                     tier = 4 if tier < 4 else tier
@@ -223,13 +275,247 @@ class Postflop:
                 tier = min(tier, 2)
             elif flush_possible and n_board >= 4 and tier < 7:
                 tier = min(tier, 4)
+        if tier < 0:
+            tier = 0
+        elif tier > 8:
+            tier = 8
         return tier, outs, wet
+
+    def read_multi(self, hole, board, must_use: int = 0, dead=()) -> tuple[int, int, bool]:
+        """(tier, outs, wet) for three or four hole cards: kept whole (best five of all, 8 cards at most)
+        or must-use-k (Omaha when k = 2). The same board-relative tiers as `read`, then
+        `multi_tier_penalty` off made pairs and two pairs because everyone holds more cards."""
+        p = self.p
+        hole = tuple(hole)
+        board = tuple(board)
+        nh = len(hole)
+        if must_use:
+            strength = _must_use_strength(hole, board, must_use)
+        else:
+            strength = evaluate(hole + board)
+        cat = category(strength)
+        hr = [c >> 2 for c in hole]
+        hs = [c & 3 for c in hole]
+        board_mask = 0
+        suit_cnt = [0, 0, 0, 0]
+        top = -1
+        paired_board = False
+        for c in board:
+            r = c >> 2
+            bit = 1 << r
+            if board_mask & bit:
+                paired_board = True
+            board_mask |= bit
+            suit_cnt[c & 3] += 1
+            if r > top:
+                top = r
+        hits = [0] * nh
+        for i in range(nh):
+            for c in board:
+                if (c >> 2) == hr[i]:
+                    hits[i] += 1
+        pocket = -1  # highest rank paired within the hole
+        for i in range(nh):
+            for j in range(i + 1, nh):
+                if hr[i] == hr[j] and hr[i] > pocket:
+                    pocket = hr[i]
+        hit_ranks = {hr[i] for i in range(nh) if hits[i]}
+        full_mask = board_mask
+        for r in hr:
+            full_mask |= 1 << r
+        bsm = max(suit_cnt)
+        flush_possible = bsm >= 3
+        four_flush = bsm >= 4
+        n_board = len(board)
+        need_hole = 2 if must_use == 2 else 1
+        # flush draw / one-card flush: per suit, how many of mine
+        my_suit = [0, 0, 0, 0]
+        for s in hs:
+            my_suit[s] += 1
+        flush_draw = False
+        fsuit = 0
+        one_card_flush = False
+        for s in range(4):
+            if my_suit[s] >= need_hole:
+                tot = my_suit[s] + suit_cnt[s]
+                if must_use == 2:
+                    if my_suit[s] >= 2 and suit_cnt[s] == 2 and n_board < 5:  # Omaha: two in hand, two on board
+                        flush_draw, fsuit = True, s
+                elif tot == 4 and n_board < 5:
+                    flush_draw, fsuit = True, s
+                if tot >= 5 and my_suit[s] == 1 and suit_cnt[s] >= 4:
+                    one_card_flush = True
+        mine = COMPLETERS[full_mask] & ~COMPLETERS[board_mask] if n_board < 5 else 0
+        n_str_outs = mine.bit_count()
+        oesd = n_str_outs >= 2
+        gutshot = n_str_outs == 1
+        connected = COMPLETERS[board_mask] != 0 or board_mask.bit_count() >= 3 and _span3(board_mask) <= 4
+        wet = flush_possible or connected
+        kicker = max(hr)
+        if cat >= 4:
+            if cat == 4:
+                tier = 6 + p.straight_tier_shift
+            elif cat == 5:
+                tier = 7 + p.flush_tier_shift
+                if one_card_flush and not must_use:
+                    tier = 4
+            elif cat == 6:
+                tier = 6 if (self.flush_over_full and flush_possible) else 7
+            else:
+                tier = 8
+            if n_board == 5 and not must_use and evaluate(board) == strength:
+                tier = 1  # playing the board
+            if cat == 4 and four_flush:
+                tier = 4
+        elif cat == 3:
+            if pocket >= 0 and pocket in hit_ranks:
+                tier = 6  # set
+            elif any(h == 2 for h in hits):
+                tier = 5  # trips with a board pair
+            elif hr.count(pocket) >= 3:
+                tier = 5  # trips in the hand
+            else:
+                tier = 1
+        elif cat == 2:
+            if len(hit_ranks) >= 2:
+                tier = 5 if not paired_board else 4
+            elif pocket >= 0 and hit_ranks:
+                tier = 5
+            elif pocket >= 0:
+                tier = 4 if pocket > top else 2
+            elif hit_ranks:
+                r = max(hit_ranks)
+                tier = _pair_tier(r, max([x for x in hr if x != r] or [0]), top)
+            else:
+                tier = 1 if paired_board else 0
+        elif cat == 1:
+            if pocket >= 0:
+                tier = 4 if pocket > top else 3 if pocket >= top - 1 and pocket > 7 else 2
+            elif hit_ranks:
+                r = max(hit_ranks)
+                tier = _pair_tier(r, max([x for x in hr if x != r] or [0]), top)
+            else:
+                tier = 1 if paired_board and kicker > top else 0
+        else:
+            tier = 1 if sum(1 for r in hr if r > top) >= 2 else 0
+        if 3 <= tier <= 5 and nh > 2:
+            tier -= p.multi_tier_penalty  # made pairs and two pairs only: a draw's outs are what they are
+        outs = 0
+        if tier < 6:
+            if flush_draw or oesd or gutshot:
+                outs = _draw_outs(flush_draw, fsuit, oesd, gutshot, mine, dead, hole + board)
+            if flush_draw or oesd:
+                if tier >= 2:
+                    tier = 4 if tier < 4 else tier
+                else:
+                    tier = 4 if (flush_draw and oesd) else 3
+            elif gutshot and tier < 1:
+                tier = 1
+            if tier <= 1 and kicker > top:
+                outs += 3 if sum(1 for r in hr if r > top) >= 2 else 0
+        if cat < 5:
+            if four_flush:
+                tier = min(tier, 2)
+            elif flush_possible and n_board >= 4 and tier < 7:
+                tier = min(tier, 4)
+        if tier < 0:
+            tier = 0
+        elif tier > 8:
+            tier = 8
+        return tier, outs, wet
+
+    def read_low(self, hole, board) -> tuple[int, int, bool]:
+        """2-7 lowball: the weakest five of my cards is my hand. Tier by the top card of a pairless, non-straight,
+        non-flush low (7-high is the nuts); a pair as the best low is nearly nothing. Outs: cards below my top
+        card that pair nothing in the low (capped), since every street can only improve a low."""
+        cards = tuple(hole) + tuple(board)
+        best = None
+        best_s = 1 << 30
+        for five in combinations(cards, 5):
+            s = evaluate(five)
+            if s < best_s:
+                best_s, best = s, five
+        cat = category(best_s)
+        ranks = sorted((c >> 2 for c in best), reverse=True)
+        if cat == 0:
+            tier = _LOW_TIER[ranks[0]]
+        elif cat == 1:
+            tier = 1 if ranks[0] <= 5 else 0
+        else:
+            tier = 0
+        outs = 0
+        if len(cards) < 7 and cat <= 1:
+            have = set(ranks)
+            seen = {}
+            for c in cards:
+                seen[c >> 2] = seen.get(c >> 2, 0) + 1
+            cap = self.p.low_draw_outs_cap
+            for r in range(ranks[0]):
+                if r not in have:
+                    outs += 4 - seen.get(r, 0)
+            if outs > cap:
+                outs = cap
+        return tier, outs, False
+
+    def read_wild(self, hole, board, must_use: int = 0, dead=()) -> tuple[int, int, bool]:
+        """Each wild (canonical rank self.wild_rank) becomes, greedily, the card that makes my best hand; then
+        the normal read on the substituted cards, `wild_board_penalty` lower when a wild was on the board."""
+        w = self.wild_rank
+        cards = list(hole) + list(board)
+        nh = len(hole)
+        wild_pos = [k for k, c in enumerate(cards) if (c >> 2) == w]
+        if not wild_pos:
+            if nh == 2 and not must_use:
+                return self.read(hole, board, dead, self.p.flush_tier_shift, self.p.straight_tier_shift, self.flush_over_full)
+            return self.read_multi(hole, board, must_use, dead)
+        present = {c for c in cards if (c >> 2) != w}
+        on_board = any(k >= nh for k in wild_pos)
+        for k in wild_pos:
+            best, best_s = cards[k], -1
+            for cand in range(52):
+                if (cand >> 2) == w or cand in present:
+                    continue
+                cards[k] = cand
+                s = evaluate(cards) if not must_use else _must_use_strength(cards[:nh], cards[nh:], must_use)
+                if s > best_s:
+                    best_s, best = s, cand
+            cards[k] = best
+            present.add(best)
+        h2, b2 = tuple(cards[:nh]), tuple(cards[nh:])
+        if nh == 2 and not must_use:
+            tier, outs, wet = self.read(h2, b2, dead, self.p.flush_tier_shift, self.p.straight_tier_shift, self.flush_over_full)
+        else:
+            tier, outs, wet = self.read_multi(h2, b2, must_use, dead)
+        if on_board and tier > 0:
+            tier = max(0, tier - self.p.wild_board_penalty)
+        return tier, outs, wet
+
+    def _read(self, hole, board, must_use: int, dead) -> tuple[int, int, bool]:
+        if self.low:
+            return self.read_low(hole, board)
+        if self.wild_rank >= 0:
+            return self.read_wild(hole, board, must_use, dead)
+        if len(hole) == 2 and not must_use:
+            p = self.p
+            return self.read(hole, board, dead, p.flush_tier_shift, p.straight_tier_shift, self.flush_over_full)
+        return self.read_multi(hole, board, must_use, dead)
+
+    def _equity(self, tier: int, outs: int, cards_to_come: int, n_opp: int) -> float:
+        p = self.p
+        draw_eq = outs * p.draw_outs_mult * (4 if cards_to_come == 2 else 2) / 100.0 if cards_to_come else 0.0
+        eq = TIER_EQUITY[tier]
+        if draw_eq > eq:
+            eq = draw_eq
+        if tier >= 4:
+            eq -= p.multiway_call_penalty * (n_opp - 1)
+        return eq
 
     # ------------------------------------------------------------------ sizing
     def _bet(self, spot: Spot, frac: float, bluff: bool = False, eq: float = 1.0) -> Action:
         obs = spot.obs
         if ActionKind.RAISE not in obs.legal:
             return _CALL if spot.to_call > 0 and ActionKind.CALL in obs.legal else _CHECK
+        frac *= self._mult
         pot_after_call = spot.pot_total + spot.to_call
         amount = obs.bets[spot.me] + spot.to_call + frac * pot_after_call
         if amount >= self.p.commit_frac * spot.my_total and not bluff:
@@ -254,16 +540,29 @@ class Postflop:
 
     # ------------------------------------------------------------------ decision
     def act(self, spot: Spot, hole, prof: Profiler | None, i_was_aggressor: bool, cheap: bool = False,
-            board=None) -> Action:
+            board=None, board2=None, must_use: int = 0, dead=(), value_shift: int = 0) -> Action:
         """`hole` and `board` are canonical cards (Hero remaps under a permuted rank order); the
-        displayed obs.board is only the fallback when no board is passed."""
+        displayed obs.board is only the fallback when no board is passed. `board2` is the second board of
+        a two-board game, `must_use` the Omaha rule, `dead` the exposed cards, `value_shift` raises the
+        value thresholds (streets before a swap)."""
         p = self.p
         obs = spot.obs
-        tier, outs, wet = self.read(hole, obs.board if board is None else board)
+        if board is None:
+            board = obs.board
+        tier, outs, wet = self._read(hole, board, must_use, dead)
         street = obs.street
         cards_to_come = 2 if street == 1 else 1 if street == 2 else 0
         n_opp = spot.n_opps
         ip = spot.behind == 0
+        self._mult = 1.0
+        eq = self._equity(tier, outs, cards_to_come, n_opp)
+        if board2 is not None:
+            t2, o2, w2 = self._read(hole, board2, must_use, dead)
+            eq = 0.5 * (eq + self._equity(t2, o2, cards_to_come, n_opp))
+            if t2 < tier:
+                tier, outs = t2, o2
+            wet = wet or w2
+            self._mult = p.two_boards_size_mult
         # opponent dials: the most cautious of the live opponents, call-down from the bettor
         bluff_mult = 1.0
         shift = 0.0
@@ -291,13 +590,8 @@ class Postflop:
                 bluff_mult = 3.0
         else:
             all_dead = False
-        draw_eq = outs * (4 if cards_to_come == 2 else 2) / 100.0 if cards_to_come else 0.0
-        eq = TIER_EQUITY[tier]
-        if draw_eq > eq:
-            eq = draw_eq
-        if tier >= 4:
-            eq -= p.multiway_call_penalty * (n_opp - 1)
-        value_tier = p.value_tier + int(shift)
+        value_tier = p.value_tier + int(shift) + value_shift
+        big_value_tier = p.big_value_tier + value_shift
         if cheap:
             return self._cheap(spot, tier, eq, wet)
 
@@ -307,13 +601,13 @@ class Postflop:
                 return self._bet(spot, p.dead_bet_size)
             if any_station:
                 if street == 3:
-                    if tier >= p.station_river_tier:
+                    if tier >= p.station_river_tier + value_shift:
                         return self._bet(spot, p.station_river_size, eq=eq)
                     return _CHECK
-                if tier >= p.station_early_tier:
+                if tier >= p.station_early_tier + value_shift:
                     return self._bet(spot, p.value_size_wet, eq=eq)
                 return _CHECK
-            if tier >= p.big_value_tier:
+            if tier >= big_value_tier:
                 return self._bet(spot, p.big_value_size, eq=eq)
             if tier >= value_tier:
                 return self._bet(spot, p.value_size_wet if wet else p.value_size_dry, eq=eq)
@@ -347,7 +641,7 @@ class Postflop:
         eq += (call_down - 1.0) * p.call_down_equity_bonus
         if any_station and bettor >= 0 and prof is not None and prof.station(bettor):
             margin += p.passive_bettor_extra_margin
-        if tier >= p.raise_tier:
+        if tier >= p.raise_tier + value_shift:
             return self._bet(spot, p.raise_size, eq=eq)
         if eq >= pot_odds + margin:
             if spot.to_call >= p.icm_gate_frac * obs.stacks[spot.me] and not self._commit_ok(spot, eq, spot.to_call):
@@ -364,6 +658,26 @@ class Postflop:
         if tier >= p.value_tier and eq >= spot.pot_odds:
             return _CALL
         return _FOLD
+
+
+def _draw_outs(flush_draw: bool, fsuit: int, oesd: bool, gutshot: bool, completers: int, dead, visible) -> int:
+    """Rule-of-thumb outs (9 flush, 8 open-ender, 4 gutshot, overlaps removed) minus the dead cards among them."""
+    outs = 0
+    if flush_draw:
+        fd = 9
+        if dead:
+            for c in dead:
+                if (c & 3) == fsuit and c not in visible:
+                    fd -= 1
+        outs += fd if fd > 0 else 0
+    if oesd or gutshot:
+        sd = (8 if oesd else 4) - (2 if (flush_draw and oesd) else 1 if flush_draw else 0)
+        if dead:
+            for c in dead:
+                if completers >> (c >> 2) & 1 and c not in visible:
+                    sd -= 1
+        outs += sd if sd > 0 else 0
+    return outs
 
 
 def _pair_tier(pair_rank: int, kicker: int, top: int) -> int:

@@ -91,6 +91,8 @@ def hole_label(hole: Sequence[int], rules: Rules = Rules(), cmap: Sequence[int] 
     """
     if len(hole) == 2:
         return hole_class(hole)
+    hole = sorted(hole)  # order-independent: Chen ties between pairs must resolve the same way for a dealt
+    # hand as for class_table's sorted combos, or the label is one no table has (found 2026-10-31)
     cmap = cmap or canon_map(rules)
     canon = [cmap[c] for c in hole]
     best = max(combinations(range(len(hole)), 2), key=lambda ij: _chen(canon[ij[0]], canon[ij[1]]))
