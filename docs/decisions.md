@@ -45,32 +45,33 @@ Append only. Newest at the bottom. One paragraph each: what was decided, why, wh
 - **Hero is always behind SafeBot.** `Hero()` builds `HeroCore` and wraps it in `SafeBot` itself, so the
   bestiary's `strategy.hero.Hero()` and `make_bot()` both get the guard. Telemetry: `hero.safe.stats()`.
 - **Panic needs a rate, not a count.** A preempted process overruns 0.5 ms no matter how cheap its code
-  is (a 5 us pure-arithmetic loop showed 750 us spikes on the dev box). SafeBot enters panic after
-  `panic_after=5` overruns *and* an overrun share above `panic_rate=2%` of calls.
+  is. SafeBot enters panic after `panic_after=5` overruns *and* an overrun share above `panic_rate=2%`.
 - **Exact ICM is off the decision path.** `core.icm.icm_equity` costs ~470 us with eight live seats.
   Hero computes a value curve V(my stack) at 7 multiples of my stack (0, 0.5 .. 3x) in `hand_end` /
   `new_table`, chips moving to or from the field pro rata, V(0) = the payout for busting now; the
-  push/fold engine interpolates. The curve is only recomputed once some live stack is at or under
-  25 bb (`Config.icm_when_short_bb`); deeper, a chip-proportional line stands in. If `core.icm`
-  fails to import, every curve is that line, i.e. chip EV.
+  decision path interpolates. Each ICM call goes through `icm_value`, which rounds live stacks to
+  1/40 of the chips in play and memoises (`lru_cache`), so the curve costs microseconds after the
+  first tables. If `core.icm` fails to import, V is chip-proportional, i.e. chip EV.
+- **ICM gates every all-in call, deep or short.** The push/fold engine and the deep-stack preflop
+  module both require ICM-weighted EV > fold for shoves and shove calls (equity vs random minus a
+  0.10 range premium). In the harness (150 tables, seed 7, bestiary mix) this moved the hero from
+  5.86 to 6.48 points per table (nit 6.34), mostly by cutting 5th-6th finishes from 31% to 14%;
+  `use_icm=False` gives 5.84, so the gain is the gate. The sweep of other levers (threshold 8/15 bb,
+  c = 0.5, tighter opens, no bluffs, no profiler) stayed within +-0.3, the 95% interval.
 - **Push/fold tables.** `tables/pushfold_hu.json` = heads-up push/call sets for 1..25 bb from damped
   best-response iteration (40 rounds, damping 0.5) on `hu_matrix.json` with card-removal weights.
   Edges match HoldemResources (K2o pushes to ~10 bb, 72o not past 2 bb, any-two calls at 2 bb).
   Multiway: push the top `p_push_HU(S) / (1 + 0.3 (k-1))` of hands ordered by (deepest HU push
   depth, HU equity); k = live, non-dead opponents who can call. c = 0.3 puts the 10 bb button near
-  39% and UTG eight-handed near 18%. Calls use the same shape with the call order. Then the ICM
-  gate: EV under V against the Nash caller frequency and the hand's equity vs the calling range
-  must beat folding. `tools/gen_tables.py` does not yet write this file; call
+  39% and UTG eight-handed near 18%. Calls use the same shape with the call order.
+  `tools/gen_tables.py` does not yet write this file; call
   `snapcall.strategy.pushfold.build_pushfold_tables(tables)` after regenerating the matrix, or the
   hero solves it at load (~4 s) and writes it if the directory is writable.
 - **Position = players still to act.** Preflop ranges are keyed by `behind` (7 = UTG eight-handed,
   2 = button, 1 = SB, 0 = BB), which stays meaningful as seats bust. All open/3-bet/call fractions
   are in `PreflopParams`; "top X" means `preflop_rank >= 1 - X` (combo-weighted midpoint percentile,
-  same definition as `snapcall.tablegen`).
-- **Calls use equity vs random hands with a premium.** Flat-calling an open counts the raiser plus
-  one extra opponent only when three or more players are still behind; calling a shove counts only
-  the players already in and requires equity to clear pot odds by 0.10 plus 0.05 per unit of
-  stack risked, because a shover's range is not random.
+  same definition as `snapcall.tablegen`). Flat-calling an open counts the raiser plus one extra
+  opponent only when three or more players are still behind.
 - **Profiler streets.** `Observation.history` has no street markers, so the profiler replays it with
   a betting-round tracker (round closes when nobody owes an action; a seat acting while owing none
   means a new street). It resyncs money and membership from each Observation and rebuilds the
@@ -81,9 +82,16 @@ Append only. Newest at the bottom. One paragraph each: what was decided, why, wh
   pairs/trips do not count for us), top pair / overpair by rank arithmetic, draws by a precomputed
   13-bit straight-completer table and suit counts, scary-board demotions. `core.eval.warm(7)` runs
   at import: the lazy 6/7-card tables cost ~100 ms each on first use and showed up as overruns.
-- **Latency.** 2,000 random self-consistent observations: mean ~14-25 us, p99 ~20 us min-of-3
-  (single pass p99 ~130 us, spikes are preemption). Tests assert mean < 150 us, p99 < 500 us on the
-  per-observation minimum of three passes and print the raw single pass.
+  `gc.freeze()` runs after import and in `new_table` so the big tables are never traversed by a
+  collection during a decision.
+- **Latency, and how to read it on this box.** 2,000 random self-consistent observations: mean 13-25
+  us, p99 ~20 us as the per-observation minimum of three passes (single pass p99 40-130 us). In
+  the engine: p50 11-14 us, p99 60-200 us, with a handful of 1-10 ms calls per 100 tables. Those
+  are not the bot: a 6 us arithmetic loop measured with `thread_time` shows 2-4 ms spikes 45-90
+  times a second here (WSL2: a vCPU descheduled by the host still accrues guest CPU time), no GC
+  collection overlaps them, and they land in a different trivial stage each time. Treat `tmo` for
+  any bot on this machine as environment noise; judge the hero by p50/p99 and by a quiet machine.
 - **Left out.** Hole-card counts other than 2 fall through (preflop check/fold, postflop still uses
   the evaluator for 3 hole cards; 4+ hole cards exceed its 8-card limit and SafeBot folds). No
-  bounty/auction hooks. The profiler does not model per-opponent ranges, only frequencies.
+  bounty/auction hooks. The profiler models frequencies, not ranges. Parameters are untuned beyond
+  the one sweep above; `Config` is the place to tune.

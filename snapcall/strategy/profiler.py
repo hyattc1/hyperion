@@ -1,0 +1,387 @@
+"""Per-seat opponent model. Resets in new_table (state is wiped per table in the real event anyway).
+
+Counters are plain int lists indexed by seat. Rates are Beta-smoothed with a weak prior worth
+`prior_n` observations (default 2, per Hoehn et al. 2005: weak priors beat strong ones in short
+matches). Flags fire after small fixed sample sizes because the field is deterministic bots.
+
+Street attribution: Observation.history is a flat (seat, Action) list for the hand with no street
+markers, so a small betting-round tracker replays it: a round closes when every seat that still
+owes an action has acted, and a seat acting again while it owes nothing means a new street began
+(covers all-in seats that never act again). Mis-tagging under odd kit behaviour costs one hand of
+stats, never an exception: everything here is best effort and bounded by the length of history.
+"""
+from __future__ import annotations
+
+from ..core.types import ActionKind, HandResult, Observation
+
+_FOLD = ActionKind.FOLD
+_CHECK = ActionKind.CHECK
+_CALL = ActionKind.CALL
+_RAISE = ActionKind.RAISE
+
+NEUTRAL_DIALS = {"bluff_mult": 1.0, "value_threshold_shift": 0.0, "steal_mult": 1.0, "call_down_mult": 1.0}
+
+
+def _rate(k: int, n: int, prior_mean: float, prior_n: float) -> float:
+    return (k + prior_mean * prior_n) / (n + prior_n)
+
+
+class Profiler:
+    # prior means for the Beta-smoothed rates
+    P_VPIP, P_PFR, P_FTB, P_SHOVE, P_CALL_SHOVE, P_WTSD, P_AGG = 0.25, 0.15, 0.5, 0.05, 0.25, 0.3, 0.4
+
+    def __init__(
+        self,
+        n_players: int = 8,
+        prior_n: float = 2.0,
+        dead_after: int = 5,
+        station_after: int = 10,
+        nit_after: int = 20,
+        maniac_after: int = 10,
+        random_after: int = 15,
+        blend_n: float = 8.0,
+    ):
+        self.prior_n = prior_n
+        self.dead_after = dead_after
+        self.station_after = station_after
+        self.nit_after = nit_after
+        self.maniac_after = maniac_after
+        self.random_after = random_after
+        self.blend_n = blend_n
+        self.reset(n_players)
+
+    # ------------------------------------------------------------------ lifecycle
+    def reset(self, n_players: int, my_seat: int = -1) -> None:
+        n = self.n = n_players
+        self.me = my_seat
+        z = lambda: [0] * n  # noqa: E731
+        self.hands = z()  # hands dealt
+        self.vpip = z()
+        self.pfr = z()
+        self.pre_faced = z()  # faced a raise preflop (opportunities to fold to a raise)
+        self.pre_folded = z()
+        self.post_faced = z()  # faced a bet postflop
+        self.post_folded = z()
+        self.post_actions = z()  # postflop actions taken
+        self.post_aggr = z()  # postflop bets/raises
+        self.actions = z()  # all actions
+        self.raises = z()
+        self.calls = z()
+        self.folds = z()
+        self.checks_free = z()  # checked when nothing to call
+        self.shoves = z()
+        self.shove_opps = z()  # actions where a shove was possible (any action counts)
+        self.faced_shove = z()
+        self.called_shove = z()
+        self.showdowns = z()
+        self._dials = [dict(NEUTRAL_DIALS) for _ in range(n)]
+        self.last_bb = 20
+        self.hand_no = -1
+        self._finished = True
+        self._start_blank()
+
+    def _start_blank(self) -> None:
+        n = self.n
+        self.consumed = 0
+        self.tstreet = 0
+        self.cur_bet = 0
+        self.committed = [0] * n
+        self.chips = [0] * n
+        self.need = 0
+        self.inhand = 0
+        self.dealt = 0
+        self.vpip_mask = 0
+        self.pfr_mask = 0
+        self.shove_pending = False
+        self.pre_raiser = -1
+        self.pre_raises = 0
+        self.seen_obs = False
+
+    def _start_hand(self, obs: Observation) -> None:
+        self._start_blank()
+        self.hand_no = obs.hand_no
+        self._finished = False
+        self.seen_obs = True
+        n = self.n
+        stacks, bets, in_hand = obs.stacks, obs.bets, obs.in_hand
+        dealt = 0
+        for s in range(n):
+            if in_hand[s] or stacks[s] + bets[s] > 0:
+                dealt |= 1 << s
+                self.hands[s] += 1
+        self.dealt = dealt
+        self.inhand = dealt
+        self.need = dealt
+        bb = obs.blinds[1] or self.last_bb
+        self.last_bb = bb
+        self.cur_bet = bb
+        # blinds: first two dealt seats after the button (button itself posts SB heads-up)
+        alive = [s for s in range(n) if dealt >> s & 1]
+        if len(alive) >= 2:
+            order = sorted(alive, key=lambda s: (s - obs.button - 1) % n)
+            if len(alive) == 2:
+                sb, bb_seat = obs.button, order[0] if order[0] != obs.button else order[1]
+            else:
+                sb, bb_seat = order[0], order[1]
+            self.committed[sb] = obs.blinds[0]
+            self.committed[bb_seat] = bb
+
+    # ------------------------------------------------------------------ updates
+    def observe(self, obs: Observation) -> None:
+        """Consume the new tail of obs.history. Call once per act(); cost is O(new actions)."""
+        hist = obs.history
+        if self._finished or obs.hand_no != self.hand_no or len(hist) < self.consumed:
+            self._start_hand(obs)
+        stacks, bets, chips = obs.stacks, obs.bets, self.chips
+        for s in range(self.n):
+            chips[s] = stacks[s] + bets[s]
+        if len(hist) > self.consumed:
+            self._consume(hist, obs.street)
+        # resync money and membership with what the kit says; rebuild `need` only if the street slipped
+        lost = self.tstreet != obs.street
+        self.cur_bet = cur = max(bets) if bets else 0
+        committed = self.committed
+        inhand = 0
+        need = self.need
+        me = obs.seat
+        n = self.n
+        if lost:
+            self.tstreet = obs.street
+            self.shove_pending = False
+            need = 0
+            my_pos = (me - obs.button - 1) % n
+        for s in range(n):
+            committed[s] = bets[s]
+            if obs.in_hand[s]:
+                inhand |= 1 << s
+                if lost and (bets[s] < cur or (s - obs.button - 1) % n > my_pos):
+                    need |= 1 << s
+        self.inhand = inhand
+        self.need = (need & inhand) | (1 << me)
+
+    def hand_end(self, result: HandResult) -> None:
+        hist = result.history
+        if self._finished or result.hand_no != self.hand_no:
+            # never observed this hand (we were out or all-in): degraded pass without blind info
+            self._start_blank()
+            self.hand_no = result.hand_no
+            self._finished = False
+            dealt = 0
+            for s, _ in hist:
+                dealt |= 1 << s
+            for s in result.showdown:
+                dealt |= 1 << s
+            self.dealt = self.inhand = self.need = dealt
+            self.cur_bet = self.last_bb
+            for s in range(self.n):
+                if dealt >> s & 1:
+                    self.hands[s] += 1
+        if len(hist) > self.consumed:
+            self._consume(hist, 99)
+        for s in result.showdown:
+            if 0 <= s < self.n:
+                self.showdowns[s] += 1
+        self._finished = True
+        for s in range(self.n):
+            self._dials[s] = self._compute_dials(s)
+
+    def _advance(self) -> None:
+        if self.tstreet < 3:
+            self.tstreet += 1
+        self.cur_bet = 0
+        c = self.committed
+        for s in range(self.n):
+            c[s] = 0
+        self.need = self.inhand
+        self.shove_pending = False
+
+    def _consume(self, hist, street_hint: int) -> None:
+        n = self.n
+        for i in range(self.consumed, len(hist)):
+            seat, act = hist[i]
+            if not 0 <= seat < n:
+                continue
+            bit = 1 << seat
+            if self.tstreet < street_hint and not (self.need & bit) and (self.inhand & bit):
+                self._advance()
+            kind = act.kind
+            pre = self.tstreet == 0
+            facing = self.cur_bet > self.committed[seat]
+            facing_raise = facing and (not pre or self.cur_bet > self.last_bb)
+            self.actions[seat] += 1
+            self.shove_opps[seat] += 1
+            if facing_raise:
+                if pre:
+                    self.pre_faced[seat] += 1
+                else:
+                    self.post_faced[seat] += 1
+                if self.shove_pending:
+                    self.faced_shove[seat] += 1
+            if not pre:
+                self.post_actions[seat] += 1
+            if kind is _FOLD:
+                self.folds[seat] += 1
+                if facing_raise:
+                    if pre:
+                        self.pre_folded[seat] += 1
+                    else:
+                        self.post_folded[seat] += 1
+                self.inhand &= ~bit
+                self.need &= ~bit
+            elif kind is _CHECK:
+                if not facing:
+                    self.checks_free[seat] += 1
+                self.need &= ~bit
+            elif kind is _CALL:
+                self.calls[seat] += 1
+                if pre and not (self.vpip_mask & bit):
+                    self.vpip_mask |= bit
+                    self.vpip[seat] += 1
+                if facing_raise and self.shove_pending:
+                    self.called_shove[seat] += 1
+                self.committed[seat] = self.cur_bet
+                self.need &= ~bit
+            elif kind is _RAISE:
+                amt = act.amount
+                self.raises[seat] += 1
+                if pre:
+                    if not (self.vpip_mask & bit):
+                        self.vpip_mask |= bit
+                        self.vpip[seat] += 1
+                    if not (self.pfr_mask & bit):
+                        self.pfr_mask |= bit
+                        self.pfr[seat] += 1
+                    self.pre_raiser = seat
+                    self.pre_raises += 1
+                else:
+                    self.post_aggr[seat] += 1
+                ch = self.chips[seat]
+                if ch > 0 and amt >= ch * 0.95:
+                    self.shoves[seat] += 1
+                    self.shove_pending = True
+                elif amt > self.cur_bet:
+                    self.shove_pending = False
+                if amt > self.cur_bet:
+                    self.cur_bet = amt
+                self.committed[seat] = amt
+                self.need = self.inhand & ~bit
+            else:
+                self.need &= ~bit
+            if self.need == 0 and self.inhand:
+                self._advance()
+        self.consumed = len(hist)
+
+    # ------------------------------------------------------------------ rates
+    def vpip_rate(self, s: int) -> float:
+        return _rate(self.vpip[s], self.hands[s], self.P_VPIP, self.prior_n)
+
+    def pfr_rate(self, s: int) -> float:
+        return _rate(self.pfr[s], self.hands[s], self.P_PFR, self.prior_n)
+
+    def fold_to_bet_pre(self, s: int) -> float:
+        return _rate(self.pre_folded[s], self.pre_faced[s], self.P_FTB, self.prior_n)
+
+    def fold_to_bet_post(self, s: int) -> float:
+        return _rate(self.post_folded[s], self.post_faced[s], self.P_FTB, self.prior_n)
+
+    def fold_to_bet(self, s: int) -> float:
+        return _rate(self.pre_folded[s] + self.post_folded[s], self.pre_faced[s] + self.post_faced[s], self.P_FTB, self.prior_n)
+
+    def shove_rate(self, s: int) -> float:
+        return _rate(self.shoves[s], self.shove_opps[s], self.P_SHOVE, self.prior_n)
+
+    def call_vs_shove(self, s: int) -> float:
+        return _rate(self.called_shove[s], self.faced_shove[s], self.P_CALL_SHOVE, self.prior_n)
+
+    def wtsd(self, s: int) -> float:
+        return _rate(self.showdowns[s], self.vpip[s], self.P_WTSD, self.prior_n)
+
+    def aggression(self, s: int) -> float:
+        return _rate(self.post_aggr[s], self.post_actions[s], self.P_AGG, self.prior_n)
+
+    def raise_freq(self, s: int) -> float:
+        return _rate(self.raises[s], self.actions[s], 0.2, self.prior_n)
+
+    # ------------------------------------------------------------------ flags
+    def faced_total(self, s: int) -> int:
+        return self.pre_faced[s] + self.post_faced[s]
+
+    def dead_seat(self, s: int) -> bool:
+        """Never voluntarily put a chip in, yet has faced >= dead_after bets. A crashed/timing-out bot."""
+        return self.faced_total(s) >= self.dead_after and self.calls[s] + self.raises[s] == 0
+
+    def station(self, s: int) -> bool:
+        return self.faced_total(s) >= self.station_after and self.fold_to_bet(s) < 0.2 and not self.maniac(s)
+
+    def maniac(self, s: int) -> bool:
+        return self.actions[s] >= self.maniac_after and self.raise_freq(s) > 0.5
+
+    def nit(self, s: int) -> bool:
+        return self.hands[s] >= self.nit_after and self.vpip_rate(s) < 0.12
+
+    def random_like(self, s: int) -> bool:
+        """Fold / call / raise each used at least a fifth of the time when facing a bet, with enough data."""
+        faced = self.faced_total(s)
+        if faced < self.random_after:
+            return False
+        folds = self.pre_folded[s] + self.post_folded[s]
+        # calls and raises while facing a bet are everything that was not a fold
+        rest = faced - folds
+        if rest <= 0:
+            return False
+        acted = self.actions[s]
+        r = self.raises[s] / acted if acted else 0.0
+        f = folds / faced
+        c = rest / faced - r
+        return f >= 0.2 and r >= 0.2 and c >= 0.15 and 0.2 <= self.checks_free[s] / max(1, acted) + f <= 0.9
+
+    def archetype(self, s: int) -> str:
+        if self.dead_seat(s):
+            return "dead"
+        if self.maniac(s):
+            return "maniac"
+        if self.station(s):
+            return "station"
+        if self.random_like(s):
+            return "random"
+        if self.nit(s):
+            return "nit"
+        return "unknown"
+
+    # ------------------------------------------------------------------ dials
+    def exploit_dials(self, s: int) -> dict:
+        """Cached per seat; recomputed at hand_end. Keys: bluff_mult, value_threshold_shift, steal_mult, call_down_mult."""
+        return self._dials[s]
+
+    def _compute_dials(self, s: int) -> dict:
+        n_obs = self.actions[s]
+        w = n_obs / (n_obs + self.blend_n)  # 0 with no data, ->1 with many actions
+        kind = self.archetype(s)
+        if kind == "dead":
+            target = (3.0, 0.0, 2.0, 1.0)
+            w = 1.0
+        elif kind == "station":
+            target = (0.0, -1.0, 0.7, 0.8)
+        elif kind == "maniac":
+            target = (0.3, -1.0, 0.8, 1.4)
+        elif kind == "random":
+            target = (0.5, -1.0, 1.2, 1.3)
+        elif kind == "nit":
+            target = (1.5, 1.0, 1.5, 0.6)
+        else:
+            ftb = self.fold_to_bet(s)
+            target = (0.5 + ftb, 0.0, 0.5 + self.fold_to_bet_pre(s), 1.4 - 0.8 * self.aggression(s))
+        return {
+            "bluff_mult": 1.0 + w * (target[0] - 1.0),
+            "value_threshold_shift": w * target[1],
+            "steal_mult": 1.0 + w * (target[2] - 1.0),
+            "call_down_mult": 1.0 + w * (target[3] - 1.0),
+        }
+
+    def summary(self, s: int) -> dict:
+        return {
+            "hands": self.hands[s], "vpip": round(self.vpip_rate(s), 2), "pfr": round(self.pfr_rate(s), 2),
+            "ftb_pre": round(self.fold_to_bet_pre(s), 2), "ftb_post": round(self.fold_to_bet_post(s), 2),
+            "shove": round(self.shove_rate(s), 2), "call_shove": round(self.call_vs_shove(s), 2),
+            "wtsd": round(self.wtsd(s), 2), "agg": round(self.aggression(s), 2), "type": self.archetype(s),
+        }
