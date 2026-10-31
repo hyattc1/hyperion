@@ -205,6 +205,22 @@ probability: a few percent; the MIT archive never did it in seven years.
 
 ---
 
+## 4b. Variant readiness (what Hero does on each catalogued twist)
+
+Measured with `tools/variant_matrix.py` on the realistic field, 300 tables, seed 7, after the variant
+fixes. READY = Hero plays and ranks top 2; PLAYS = ranks 3 to 4; WEAK = ranks 5+ or folds everything;
+BROKEN = exceptions. Full table with VPIP, bust rate and reasons: `docs/decisions.md`, "Variant readiness".
+
+| Axis | READY | PLAYS | Notes for the night |
+|---|---|---|---|
+| Strength ordering | permuted_ranks, short_deck, lowball, wild_deuces, flush_over_full_house | | Stage 3 regenerates; lowball and wild cards use the variant's score hook |
+| Information | toss_or_holdem, three_card_blind_discard, three_card_keep, omaha_four, swap_holdem, swap_one_turn, exposed_card, bonus_card | two_boards | Hero discards and buys via `variant_decide`; two boards still loses to the rival |
+| Payoff | bounty, knockout_bounty, top_heavy, hi_lo | | hi_lo plays high only; bounty reads only our own posted rank |
+| Betting | pot_limit, antes_from_level_3, fixed_raise, fast_schedule, straddle | | antes and straddle feed `stack_bb` |
+
+22 READY, 1 PLAYS, 0 WEAK, 0 BROKEN as of 2026-10-31. If the real twist is none of these, the nearest
+entry on its axis is the recipe; if it is not hold'em underneath, the FIT VERDICT sends us to the cheap bot.
+
 ## 5. The signal table (what a window does)
 
 | Standings say | Likely cause | Dial |
@@ -301,6 +317,7 @@ The track is decided in Stage 0, never on the night.
 | Date | Change | Source |
 |---|---|---|
 | 2026-10-31 | v1, consolidating `docs/night-of.md`, `docs/prompts/README.md`, drills 1 and 2 | this session |
+| 2026-10-31 | Section 4b: variant readiness matrix, 22 READY / 1 PLAYS | strategy pass |
 | 2026-10-31 | Evidence: drill 4 | drill 4 report |
 | 2026-10-31 | Evidence: final tuning numbers (Hero first on every field) | tuner report |
 | 2026-10-31 | Review 1 applied: Track A default; Stage 4 gate is errors, latency rate and Hero vs its own Stage 0 number, never vs tag; fallback is the Stage 2 cheap package; §3.5 upload cadence in Stages 2 and 6; Stage 3 timing under load; signal table names real Config keys; agent reads sections 3, 4, 7 only | playbook pass after review 1 |
