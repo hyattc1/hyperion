@@ -763,6 +763,18 @@ class RivalBot(_Base):
         self.impl.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas})
 
 
+class Rival2Bot(RivalBot):
+    """Red-team rival 2 (hyperion.sim.rivals.rival2), unchanged, behind the same kit adapter as rival 1.
+    Built blind against the same brief, so it reads the same fields (hole, board, street, seat, button,
+    stacks, bets, in_hand, pot, to_call, min/max_raise, legal as strings, 1-based hand_no, blinds,
+    history as (seat, (kind, amount))) and only `hand_no` from hand_end; it ignores the rules dict.
+    Importing it costs ~1.2 s (import-time Monte Carlo, push/fold solve) and ends in gc.freeze(),
+    which applies to the whole process. Its postflop sampler is time-boxed, so its play is not
+    bit-reproducible run to run the way every other bot here is."""
+
+    MODULE = "rival2"
+
+
 REGISTRY: dict[str, type] = {
     "crasher": Crasher,
     "timeout": TimeoutBot,
@@ -782,6 +794,7 @@ REGISTRY: dict[str, type] = {
     "hero_tight": HeroTight,
     "hero_loose": HeroLoose,
     "rival1": RivalBot,  # red-team drill 1's bot through the kit adapter; `naive` stays available by name
+    "rival2": Rival2Bot,  # red-team drill 2's computation-first bot through the same adapter
 }
 _BY_CLASS = {cls.__name__.lower(): cls for cls in REGISTRY.values()}
 
@@ -794,9 +807,11 @@ FIELDS: dict[str, tuple[str, ...]] = {
                   "timeout_then_recover"),
     # the table where everybody did their homework, plus two Hero copies with other settings
     "strong": ("hero", "pushfold", "pushfold", "tag", "hero_tight", "hero_loose", "nit", "loose_aggro"),
-    # the strong room with the rival twice: two rivals, the short-stacker, a TAG, a tight Hero,
-    # the loose student and one partially broken Monte Carlo bot
-    "top": ("hero", "rival1", "rival1", "pushfold", "tag", "hero_tight", "loose_aggro", "montecarlo30"),
+    # the strong room with both rivals: rival 1 twice, rival 2 (in the seat montecarlo30 had until
+    # 2026-10-31), the short-stacker, a TAG, a tight Hero and the loose student
+    "top": ("hero", "rival1", "rival1", "pushfold", "tag", "hero_tight", "loose_aggro", "rival2"),
+    # the same room weighted the other way: rival 2 twice, rival 1 once
+    "top2": ("hero", "rival1", "rival2", "rival2", "pushfold", "tag", "hero_tight", "loose_aggro"),
     # the table that busts itself: Hero's job is to survive it and be there at the end
     "chaos": ("hero", "crasher", "random", "allin", "station", "montecarlo", "maniac", "timeout_then_recover"),
 }
