@@ -50,6 +50,8 @@ class PushFoldParams:
     dial_min: float = 0.6
     dial_max: float = 2.0
     icm_epsilon: float = 1e-6
+    call_equity_margin: float = 0.0  # off the equity when calling a shove (the solver's caller is exact; the field is not)
+    push_equity_margin: float = 0.0  # off the equity when pushing
     cheap_push_frac_mult: float = 0.8  # Hero.cheap(): a bit tighter than the rule, no dials
 
 
@@ -270,7 +272,7 @@ class PushFold:
                 pc *= self._clamp(prof.call_vs_shove(s) / Profiler.P_CALL_SHOVE)
             pc_none *= 1.0 - (0.98 if pc > 0.98 else pc)
         pc_any = 1.0 - pc_none
-        e = self.eq_vs_call[D][CLASS_INDEX[cls]] - p.multiway_equity_penalty * (k - 1)
+        e = self.eq_vs_call[D][CLASS_INDEX[cls]] - p.multiway_equity_penalty * (k - 1) - p.push_equity_margin
         if self._push_ev_ok(spot, pc_any, e):
             return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else _CALL
         return free
@@ -304,7 +306,7 @@ class PushFold:
         if cheap:
             f *= p.cheap_push_frac_mult
         if self.call_pct[cls] < f:
-            e = self.eq_vs_call[D][CLASS_INDEX[cls]] - p.multiway_equity_penalty * max(0, k - 1)
+            e = self.eq_vs_call[D][CLASS_INDEX[cls]] - p.multiway_equity_penalty * max(0, k - 1) - p.push_equity_margin
             if self._push_ev_ok(spot, pc_raiser, e):
                 return Action(ActionKind.RAISE, obs.max_raise) if ActionKind.RAISE in obs.legal else _CALL
         if spot.behind == 0 and spot.to_call <= p.bb_flat_max_frac * spot.my_total and self.rank[cls] >= p.bb_flat_min_rank:
@@ -330,7 +332,8 @@ class PushFold:
             f *= self._clamp(prof.shove_rate(shover) / Profiler.P_SHOVE)
         if self.call_pct[cls] >= f:
             return _FOLD
-        e = self.eq_vs_push[D][CLASS_INDEX[cls]] - p.multiway_equity_penalty * (k_behind + max(0, spot.n_in - 1))
+        e = self.eq_vs_push[D][CLASS_INDEX[cls]] - p.multiway_equity_penalty * (k_behind + max(0, spot.n_in - 1)) \
+            - p.call_equity_margin
         v = self.curve.value
         behind = obs.stacks[spot.me]
         v_fold = v(behind)

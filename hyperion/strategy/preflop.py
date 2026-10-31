@@ -45,6 +45,13 @@ class PreflopParams:
     setmine_ratio: float = 15.0  # pairs call when effective stack >= ratio x the call
     shove_call_margin: float = 0.10  # a shover's range beats random: equity vs random is discounted by this
     shove_call_risk: float = 0.05  # extra margin per unit of (to_call / my stack)
+    shove_call_multiway: float = 0.08  # extra margin once a shove has already been called
+    # option value of waiting: a deep stack can decline a flip and wait for a better one, and a frequent
+    # shover will offer the same spot again. Both are extra equity margin on calling off a stack.
+    patience_deep: float = 0.0  # full extra margin at patience_deep_bb (linear from patience_from_bb)
+    patience_from_bb: float = 20.0
+    patience_deep_bb: float = 60.0
+    patience_shover: float = 0.0  # times the shover's shove rate above the prior (0 .. ~1)
     raise_or_fold_bb: float = 25.0  # below this depth, no speculative flats
     short_flat_frac: float = 0.12
     open_size_bb: tuple = ((50, 2.5), (150, 2.3), (10**9, 2.2))  # (bb at most, size in bb)
@@ -98,7 +105,7 @@ class Preflop:
         if spot.n_raises == 0:
             return self._unopened(spot, rank, prof)
         if spot.facing_shove:
-            return self._facing_shove(spot, cls, rank)
+            return self._facing_shove(spot, cls, rank, prof)
         if spot.n_raises == 1:
             return self._facing_open(spot, cls, rank, prof)
         if spot.n_raises == 2:
@@ -181,7 +188,8 @@ class Preflop:
         to_call, my_total = spot.to_call, spot.my_total
         if to_call > p.call_max_stack_frac * my_total:
             # a big raise: it is shove-or-fold territory, and only premiums continue
-            if rank >= 1.0 - p.short_flat_frac and self._icm_call_ok(spot, cls, p.shove_call_margin, 0):
+            margin = p.shove_call_margin + self._patience(spot, prof, spot.raiser)
+            if rank >= 1.0 - p.short_flat_frac and self._icm_call_ok(spot, cls, margin, 0):
                 return Action(ActionKind.RAISE, spot.obs.max_raise) if to_call >= 0.4 * my_total else _CALL
             return _FOLD
         pair = cls[0] == cls[1]
@@ -194,12 +202,26 @@ class Preflop:
         margin = p.call_margin_ip if spot.behind == 0 else p.call_margin_oop
         return _CALL if self._equity_ok(spot, cls, margin, 1 if spot.behind >= p.crowd_behind else 0) else _FOLD
 
-    def _facing_shove(self, spot: Spot, cls: str, rank: float) -> Action:
+    def _facing_shove(self, spot: Spot, cls: str, rank: float, prof: Profiler | None) -> Action:
         p = self.p
         margin = p.shove_call_margin + p.shove_call_risk * (spot.to_call / spot.my_total)
         if spot.n_in >= 2:
-            margin += 0.08
+            margin += p.shove_call_multiway
+        margin += self._patience(spot, prof, spot.shover)
         return _CALL if self._icm_call_ok(spot, cls, margin, 0) else _FOLD
+
+    def _patience(self, spot: Spot, prof: Profiler | None, shover: int) -> float:
+        """Extra equity margin for the option of waiting: deep stacks, and shovers who do it every hand."""
+        p = self.p
+        m = 0.0
+        if p.patience_deep > 0.0:
+            t = (spot.my_bb - p.patience_from_bb) / (p.patience_deep_bb - p.patience_from_bb)
+            m += p.patience_deep * (0.0 if t < 0.0 else 1.0 if t > 1.0 else t)
+        if p.patience_shover > 0.0 and prof is not None and shover >= 0:
+            r = prof.shove_rate(shover) - Profiler.P_SHOVE
+            if r > 0.0:
+                m += p.patience_shover * r
+        return m
 
     def _icm_call_ok(self, spot: Spot, cls: str, margin: float, extra: int) -> bool:
         """Calling for a large share of the stack: ICM-weighted EV must beat folding, with the equity

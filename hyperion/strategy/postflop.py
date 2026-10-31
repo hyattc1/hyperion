@@ -79,12 +79,33 @@ class PostflopParams:
     passive_bettor_extra_margin: float = 0.08  # a station betting means strength
     call_down_equity_bonus: float = 0.25  # per unit of (call_down_mult - 1): a flagged maniac buys ~one tier
     cheap_value_tier: int = 5  # Hero.cheap(): bet this and up, call with value_tier, otherwise check/fold
+    # ICM gate on commitments: a call or value bet that risks at least icm_gate_frac of my chips must have
+    # ICM-weighted EV above folding/checking, with the equity proxy discounted by icm_margin.
+    icm_gate_frac: float = 2.0  # 2.0 = never (the gate is off); 0.3 = any call for 30%+ of my stack
+    icm_margin: float = 0.05
+
+
+class _Linear:
+    __slots__ = ()
+
+    def value(self, x: float) -> float:
+        return x
 
 
 class Postflop:
     def __init__(self, params: PostflopParams, seed: int | None = None):
         self.p = params
         self.rng = random.Random(seed)
+        self.curve = _Linear()  # Hero installs its ICM curve; chip EV otherwise
+
+    def _commit_ok(self, spot: Spot, eq: float, risk: int) -> bool:
+        """Risking `risk` chips with equity `eq` (opponent never folds) beats keeping them, in ICM points."""
+        e = eq - self.p.icm_margin
+        if e <= 0.0:
+            return False
+        v = self.curve.value
+        behind = spot.obs.stacks[spot.me]
+        return e * v(behind + spot.pot_total + risk) + (1.0 - e) * v(behind - risk) > v(behind)
 
     # ------------------------------------------------------------------ hand reading
     @staticmethod
@@ -203,7 +224,7 @@ class Postflop:
         return tier, outs, wet
 
     # ------------------------------------------------------------------ sizing
-    def _bet(self, spot: Spot, frac: float, bluff: bool = False) -> Action:
+    def _bet(self, spot: Spot, frac: float, bluff: bool = False, eq: float = 1.0) -> Action:
         obs = spot.obs
         if ActionKind.RAISE not in obs.legal:
             return _CALL if spot.to_call > 0 and ActionKind.CALL in obs.legal else _CHECK
@@ -211,6 +232,17 @@ class Postflop:
         amount = obs.bets[spot.me] + spot.to_call + frac * pot_after_call
         if amount >= self.p.commit_frac * spot.my_total and not bluff:
             amount = obs.max_raise
+        p = self.p
+        behind = obs.stacks[spot.me]
+        put = int(amount) - obs.bets[spot.me]
+        if put >= p.icm_gate_frac * behind and not bluff and eq < 1.0:
+            risk = min(behind, spot.max_opp_total - obs.bets[spot.me]) if spot.max_opp_total > obs.bets[spot.me] else behind
+            if risk > 0 and not self._commit_ok(spot, eq, min(risk, put)):
+                if spot.to_call == 0:
+                    return _CHECK
+                if spot.to_call >= p.icm_gate_frac * behind and not self._commit_ok(spot, eq, spot.to_call):
+                    return _FOLD
+                return _CALL
         amount = int(amount)
         if amount < obs.min_raise:
             amount = obs.min_raise
@@ -271,15 +303,15 @@ class Postflop:
             if any_station:
                 if street == 3:
                     if tier >= p.station_river_tier:
-                        return self._bet(spot, p.station_river_size)
+                        return self._bet(spot, p.station_river_size, eq=eq)
                     return _CHECK
                 if tier >= p.station_early_tier:
-                    return self._bet(spot, p.value_size_wet)
+                    return self._bet(spot, p.value_size_wet, eq=eq)
                 return _CHECK
             if tier >= p.big_value_tier:
-                return self._bet(spot, p.big_value_size)
+                return self._bet(spot, p.big_value_size, eq=eq)
             if tier >= value_tier:
-                return self._bet(spot, p.value_size_wet if wet else p.value_size_dry)
+                return self._bet(spot, p.value_size_wet if wet else p.value_size_dry, eq=eq)
             if bluff_mult <= 0.0 or spot.my_total <= 0:
                 return _CHECK
             if street == 1 and i_was_aggressor:
@@ -307,10 +339,10 @@ class Postflop:
         if any_station and bettor >= 0 and prof is not None and prof.station(bettor):
             margin += p.passive_bettor_extra_margin
         if tier >= p.raise_tier:
-            return self._bet(spot, p.raise_size)
+            return self._bet(spot, p.raise_size, eq=eq)
         if eq >= pot_odds + margin:
-            if tier >= value_tier and spot.to_call >= p.commit_frac * spot.my_total:
-                return _CALL
+            if spot.to_call >= p.icm_gate_frac * obs.stacks[spot.me] and not self._commit_ok(spot, eq, spot.to_call):
+                return _FOLD
             return _CALL
         return _FOLD
 

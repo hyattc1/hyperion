@@ -40,8 +40,12 @@ class Profiler:
         maniac_after: int = 10,
         random_after: int = 15,
         blend_n: float = 8.0,
+        dial_strength: float = 1.0,
+        calldown_slope: float = -0.8,
     ):
         self.prior_n = prior_n
+        self.dial_strength = dial_strength  # scales every dial's distance from neutral (0 = no exploits)
+        self.calldown_slope = calldown_slope  # unknown archetype: call_down_mult = 1.4 + slope * aggression
         self.dead_after = dead_after
         self.station_after = station_after
         self.nit_after = nit_after
@@ -355,11 +359,13 @@ class Profiler:
 
     def _compute_dials(self, s: int) -> dict:
         n_obs = self.actions[s]
-        w = n_obs / (n_obs + self.blend_n)  # 0 with no data, ->1 with many actions
+        w = n_obs / (n_obs + self.blend_n) * self.dial_strength  # 0 with no data, ->1 with many actions
+        if w > 1.0:
+            w = 1.0
         kind = self.archetype(s)
         if kind == "dead":
             target = (3.0, 0.0, 2.0, 1.0)
-            w = 1.0
+            w = 1.0 if self.dial_strength > 0.0 else 0.0
         elif kind == "station":
             target = (0.0, -1.0, 0.7, 0.8)
         elif kind == "maniac":
@@ -370,7 +376,7 @@ class Profiler:
             target = (1.5, 1.0, 1.5, 0.6)
         else:
             ftb = self.fold_to_bet(s)
-            target = (0.5 + ftb, 0.0, 0.5 + self.fold_to_bet_pre(s), 1.4 - 0.8 * self.aggression(s))
+            target = (0.5 + ftb, 0.0, 0.5 + self.fold_to_bet_pre(s), 1.4 + self.calldown_slope * self.aggression(s))
         return {
             "bluff_mult": 1.0 + w * (target[0] - 1.0),
             "value_threshold_shift": w * target[1],

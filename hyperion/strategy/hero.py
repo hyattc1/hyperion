@@ -32,7 +32,7 @@ try:  # the ICM module is another builder's; chip-proportional if it is missing 
 except Exception:  # noqa: BLE001
     _icm_equity = None
 
-ICM_BUCKETS = 40  # stacks are rounded to 1/40 of the chips in play before the (memoised) exact ICM call
+ICM_BUCKETS = 100  # stacks are rounded to 1/100 of the chips in play before the (memoised) exact ICM call
 
 
 @lru_cache(maxsize=1 << 15)
@@ -41,7 +41,7 @@ def _icm_bucketed(key: tuple, me: int, payouts: tuple) -> float:
 
 
 def icm_value(stacks, me: int, payouts) -> float:
-    """My exact ICM points for `stacks`, with every live stack rounded to 2.5% of the chips in play so
+    """My exact ICM points for `stacks`, with every live stack rounded to 1% of the chips in play so
     the eight-seat computation (~0.5 ms) is memoised across hands and tables."""
     total = 0.0
     for s in stacks:
@@ -58,9 +58,12 @@ class Config:
     pushfold: PushFoldParams = field(default_factory=PushFoldParams)
     postflop: PostflopParams = field(default_factory=PostflopParams)
     profiler_prior_n: float = 2.0
+    profiler_blend_n: float = 8.0  # dials reach half strength after this many observed actions
+    profiler_dial_strength: float = 1.0  # 0 = read opponents but never act on it
+    profiler_calldown_slope: float = -0.8  # unknown archetype: call_down_mult = 1.4 + slope * aggression
     use_profiler: bool = True
     use_icm: bool = True
-    icm_ratios: tuple = (0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0)  # my-stack multiples the ICM curve samples
+    icm_ratios: tuple = (0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0)  # my-stack multiples the ICM curve samples
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5
@@ -70,6 +73,28 @@ class Config:
     @staticmethod
     def cheap_config() -> "Config":
         return Config(cheap=True, use_profiler=False, use_icm=False)
+
+
+def config_from_dict(overrides: dict | None, seed: int | None = None) -> Config:
+    """A Config with dotted overrides applied: {"preflop.three_bet_frac": 0.06, "postflop.value_tier": 5,
+    "pushfold.threshold_bb": 10, "use_profiler": false}. Dict-valued fields (open_frac) are merged by key.
+    This is how the runner and tools/sweep.py reach the levers without touching code."""
+    cfg = Config(seed=seed)
+    for key, val in (overrides or {}).items():
+        parts = key.split(".")
+        target = cfg
+        for part in parts[:-1]:
+            target = getattr(target, part)
+        leaf = parts[-1]
+        cur = getattr(target, leaf)
+        if isinstance(cur, dict) and isinstance(val, dict):
+            cur = dict(cur)
+            cur.update({int(k) if str(k).lstrip("-").isdigit() else k: v for k, v in val.items()})
+            val = cur
+        elif isinstance(cur, tuple) and isinstance(val, list):
+            val = tuple(tuple(x) if isinstance(x, list) else x for x in val)
+        setattr(target, leaf, val)
+    return cfg
 
 
 class IcmCurve:
@@ -114,6 +139,9 @@ class IcmCurve:
                 break
             xs.append(x)
             vs.append(v)
+        if xs[-1] < total:  # holding every chip is first place exactly: the curve's ceiling
+            xs.append(total)
+            vs.append(float(pays[0]))
         if len(xs) < 2:
             xs.append(xs[-1] + 1.0)
             vs.append(vs[-1])
@@ -138,9 +166,8 @@ class IcmCurve:
             i += 1
         x0, x1 = xs[i - 1], xs[i]
         v0, v1 = vs[i - 1], vs[i]
-        if x > x1:  # beyond the last sample: continue the last slope, never downwards
-            slope = (v1 - v0) / (x1 - x0) if x1 > x0 else 0.0
-            return v1 + max(0.0, slope) * (x - x1)
+        if x > x1:  # beyond the last sample (all the chips): nothing more to win
+            return v1
         return v0 + (v1 - v0) * (x - x0) / (x1 - x0)
 
 
@@ -150,7 +177,9 @@ class HeroCore:
     def __init__(self, config: Config | None = None, tables: Tables | None = None):
         self.cfg = cfg = config or Config()
         self.tables = tables or load_tables(need_hu=True)
-        self.prof = Profiler(8, prior_n=cfg.profiler_prior_n) if cfg.use_profiler else None
+        self.prof = Profiler(8, prior_n=cfg.profiler_prior_n, blend_n=cfg.profiler_blend_n,
+                             dial_strength=cfg.profiler_dial_strength,
+                             calldown_slope=cfg.profiler_calldown_slope) if cfg.use_profiler else None
         self.preflop = Preflop(cfg.preflop, self.tables)
         self.pushfold = PushFold(cfg.pushfold, self.tables)
         self.postflop = Postflop(cfg.postflop, cfg.seed)
@@ -158,6 +187,7 @@ class HeroCore:
         if cfg.use_icm:
             self.pushfold.curve = self.curve
             self.preflop.curve = self.curve
+            self.postflop.curve = self.curve
         self.panic = False
         self.rules = Rules()
         self.seat = 0
@@ -167,6 +197,7 @@ class HeroCore:
         self.hand_start = None  # chips per seat at the start of the current hand
         self.last_stacks = None
         self.payouts = self.rules.payouts
+        self.last_path = ""  # which module made the last decision (diagnostics only)
 
     # ------------------------------------------------------------------ Bot protocol
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
@@ -208,11 +239,15 @@ class HeroCore:
         cheap = self.cfg.cheap or self.panic
         if obs.street == 0:
             if self.pushfold.applies(spot):
+                self.last_path = "pushfold"
                 return self.pushfold.act(spot, prof, cheap)
+            self.last_path = "preflop"
             return self.preflop.act(spot, prof, cheap)
         if len(hole) != 2 or len(board) < 3:
+            self.last_path = "safe"
             return safe_action(obs)
         aggressor = prof is not None and prof.pre_raiser == obs.seat
+        self.last_path = "postflop"
         return self.postflop.act(spot, hole, prof, aggressor, cheap)
 
     def hand_end(self, result: HandResult) -> None:
@@ -258,4 +293,4 @@ def make_bot(config: Config | None = None) -> Hero:
 
 gc.freeze()  # whatever was built at import (evaluator tables, straight-draw table) is permanent
 
-__all__ = ["Config", "Hero", "HeroCore", "IcmCurve", "icm_value", "make_bot", "replace"]
+__all__ = ["Config", "Hero", "HeroCore", "IcmCurve", "config_from_dict", "icm_value", "make_bot", "replace"]

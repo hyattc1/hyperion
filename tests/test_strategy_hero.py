@@ -159,8 +159,9 @@ def test_icm_curve_is_concave_and_updates_at_hand_end():
     h.new_table(Rules(), 0, 8)
     c = h.core.curve
     assert c.xs[0] == 0 and c.vs[0] == 1.0  # busting 8th now is worth the 8th-place point
-    gains = [c.vs[i + 1] - c.vs[i] for i in range(len(c.vs) - 1)]
-    assert all(g > 0 for g in gains) and all(gains[i] >= gains[i + 1] - 1e-9 for i in range(len(gains) - 1))
+    slopes = [(c.vs[i + 1] - c.vs[i]) / (c.xs[i + 1] - c.xs[i]) for i in range(len(c.vs) - 1)]
+    assert all(g > 0 for g in slopes) and all(slopes[i] >= slopes[i + 1] - 2e-5 for i in range(len(slopes) - 1))
+    assert c.xs[-1] == 16000 and c.vs[-1] == 8.0 and c.value(50000) == 8.0  # every chip = first place, and no more
     assert c.value(2000) == pytest.approx(36 / 8)  # equal stacks: average of all payouts
     h.act(preflop_obs("Ah Ad", 0, hand_no=0))
     h.hand_end(HandResult(0, [1000, -1000, 0, 0, 0, 0, 0, 0], {}, (), []))

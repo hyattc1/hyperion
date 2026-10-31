@@ -310,6 +310,9 @@ class ChartTAG(_Base):
         return Action.fold()
 
 
+HERO_CONFIG: Optional[dict] = None  # dotted Config overrides for every Hero built here (runner --hero-config, sweeps)
+
+
 class Hero(_Base):
     """The bot under development: hyperion.strategy.hero.Hero if it exists, else ChartTAG."""
 
@@ -317,9 +320,9 @@ class Hero(_Base):
         super().__init__(seed)
         self.impl = None
         try:
-            from ..strategy.hero import Hero as _Hero  # type: ignore[import-not-found]
+            from ..strategy.hero import Hero as _Hero, config_from_dict  # type: ignore[import-not-found]
 
-            self.impl = _Hero()
+            self.impl = _Hero(config_from_dict(HERO_CONFIG, seed=seed))
         except Exception:  # noqa: BLE001 - strategy may not exist yet or may need arguments
             self.impl = ChartTAG(seed)
 

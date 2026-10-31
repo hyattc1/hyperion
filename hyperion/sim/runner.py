@@ -23,7 +23,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional, Sequence
 
-from ..core.types import Rules
+from ..core.cards import hole_class
+from ..core.types import ActionKind, Rules
+from . import bestiary
 from .bestiary import REGISTRY, make_bot
 from .engine import BotStats, play_table
 
@@ -55,12 +57,96 @@ class BotReport:
         return self.busts / self.seats if self.seats else 0.0
 
 
+class BustTracer:
+    """Wraps one bot and remembers, per hand, its last decision that put chips in. When the bot
+    busts, that decision is the one that did it: street, module (hero exposes `core.last_path`),
+    kind, how much of the stack it cost, stack in blinds, players alive, and who was in the pot."""
+
+    def __init__(self, inner, name: str, seating: Sequence[str], sink: list):
+        self.inner = inner
+        self.name = name
+        self.seating = list(seating)
+        self.sink = sink
+        self.seat = 0
+        self.last = None
+        self.start = None
+        self.hand_no = -1
+
+    def new_table(self, rules, seat, n):
+        self.seat = seat
+        self.inner.new_table(rules, seat, n)
+
+    def _path(self) -> str:
+        impl = getattr(self.inner, "impl", None)
+        core = getattr(impl, "core", None)
+        return getattr(core, "last_path", "") or type(impl or self.inner).__name__
+
+    def act(self, obs):
+        me = self.seat
+        if obs.hand_no != self.hand_no:
+            self.hand_no = obs.hand_no
+            self.start = obs.stacks[me] + obs.bets[me]
+            self.last = None
+        a = self.inner.act(obs)
+        k = a.kind
+        if k is ActionKind.CALL or k is ActionKind.RAISE:
+            total = obs.stacks[me] + obs.bets[me]
+            put = (obs.to_call if k is ActionKind.CALL else a.amount - obs.bets[me])
+            bb = obs.blinds[1] or 1
+            shover = any(obs.in_hand[s] and obs.stacks[s] == 0 and obs.bets[s] >= max(obs.bets) > 0
+                         for s in range(len(obs.stacks)) if s != me)
+            self.last = {
+                "hand": obs.hand_no, "street": obs.street, "path": self._path(), "kind": k.value,
+                "frac": put / obs.stacks[me] if obs.stacks[me] else 1.0, "bb": self.start / bb, "to_call_bb": obs.to_call / bb,
+                "alive": obs.players_left, "cls": hole_class(obs.hole) if len(obs.hole) == 2 else "?",
+                "n_opps": sum(obs.in_hand) - 1, "facing_shove": shover,
+                "opps": tuple(sorted(self.seating[s] for s in range(len(obs.stacks)) if obs.in_hand[s] and s != me)),
+            }
+        return a
+
+    def hand_end(self, result):
+        self.inner.hand_end(result)
+        if self.start is not None and result.hand_no == self.hand_no and result.deltas[self.seat] <= -self.start:
+            rec = dict(self.last) if self.last else {"hand": result.hand_no, "street": -1, "path": "none", "kind": "blind",
+                                                     "frac": 1.0, "bb": 0.0, "to_call_bb": 0.0, "alive": 0, "cls": "?",
+                                                     "n_opps": 0, "facing_shove": False, "opps": ()}
+            self.sink.append(rec)
+
+
+def format_busts(busts: list, seats: int) -> str:
+    """Aggregate the tracer's records: where and how the busts happened."""
+    if not busts:
+        return "no busts traced"
+    from collections import Counter
+    n = len(busts)
+    out = [f"{n} busts in {seats} seats ({100 * n / seats:.1f}%)"]
+
+    def table(title, key, top=12):
+        c = Counter(key(b) for b in busts)
+        out.append(f"  by {title}:")
+        for k, v in c.most_common(top):
+            out.append(f"    {str(k):<42} {v:>5} {100 * v / n:5.1f}%")
+
+    streets = {-1: "none", 0: "pre", 1: "flop", 2: "turn", 3: "river"}
+    table("module / street / kind", lambda b: f"{b['path']}/{streets.get(b['street'], b['street'])}/{b['kind']}"
+          + ("/vs-shove" if b["facing_shove"] else ""))
+    table("stack in bb at hand start", lambda b: "<=5" if b["bb"] <= 5 else "<=12" if b["bb"] <= 12 else "<=25"
+          if b["bb"] <= 25 else "<=50" if b["bb"] <= 50 else ">50")
+    table("players alive", lambda b: b["alive"])
+    table("share of stack put in by the fatal decision", lambda b: "<25%" if b["frac"] < 0.25 else "<50%"
+          if b["frac"] < 0.5 else "<100%" if b["frac"] < 0.999 else "all-in")
+    table("opponents in the pot", lambda b: ",".join(b["opps"]))
+    table("hole class (preflop busts)", lambda b: b["cls"] if b["street"] == 0 else "(postflop)")
+    return "\n".join(out)
+
+
 @dataclass
 class Report:
     bots: dict[str, BotReport]
     tables: int
     hands: int
     seconds: float
+    busts: list = field(default_factory=list)
 
     @property
     def hands_per_second(self) -> float:
@@ -111,8 +197,12 @@ def run_tournament(
     mode: str = "strict",
     rules: Optional[Rules] = None,
     stacks: Optional[Sequence[int]] = None,
+    hero_config: Optional[dict] = None,
+    trace_busts: Optional[str] = None,
+    table_offset: int = 0,
 ) -> Report:
     rules = rules if rules is not None else Rules()
+    bestiary.HERO_CONFIG = hero_config
     n = rules.n_players
     names = [nm.strip().lower() for nm in names if nm.strip()]
     if not names:
@@ -122,8 +212,9 @@ def run_tournament(
     reports = {nm: BotReport(nm, places=[0] * n, stats=BotStats(nm)) for nm in names}
     rotations = range(n) if rotate else (0,)
     hands = 0
+    busts: list = []
     t0 = time.perf_counter()
-    for t in range(tables):
+    for t in range(table_offset, table_offset + tables):
         table_seed = seed * 1_000_003 + t
         rng = random.Random(table_seed)
         seating = list(names[:n])
@@ -133,6 +224,8 @@ def run_tournament(
         per_name_points: dict[str, list[float]] = {nm: [] for nm in names}
         for rot in rotations:
             bots = [make_bot(nm, seed=table_seed * 64 + rot * 8 + s) for s, nm in enumerate(seating)]
+            if trace_busts:
+                bots = [BustTracer(b, nm, seating, busts) if nm == trace_busts else b for b, nm in zip(bots, seating)]
             stats = [reports[nm].stats for nm in seating]
             res = play_table(bots, rules, seed=table_seed, rotation=rot, mode=mode, stats=stats, stacks=stacks)
             hands += res.hands
@@ -145,7 +238,17 @@ def run_tournament(
         for nm, pts in per_name_points.items():
             if pts:
                 reports[nm].samples.append(sum(pts) / len(pts))
-    return Report(reports, tables * len(rotations), hands, time.perf_counter() - t0)
+    return Report(reports, tables * len(rotations), hands, time.perf_counter() - t0, busts)
+
+
+def load_hero_config(spec: Optional[str]) -> Optional[dict]:
+    """A JSON object of dotted Config overrides, inline or a path to a file; None for the defaults."""
+    if not spec:
+        return None
+    if spec.lstrip().startswith("{"):
+        return json.loads(spec)
+    with open(spec) as f:
+        return json.load(f)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -159,6 +262,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     p.add_argument("--rules", default="default", help="'default' or a json file of Rules fields")
     p.add_argument("--profile", action="store_true", help="print the hottest functions afterwards")
     p.add_argument("--list", action="store_true", help="list bot names and exit")
+    p.add_argument("--hero-config", default=None, help="JSON (inline or file) of dotted hero Config overrides")
+    p.add_argument("--trace-busts", default=None, metavar="BOT", help="report where this bot's busts happen")
     a = p.parse_args(argv)
     if a.list:
         for nm, cls in REGISTRY.items():
@@ -169,10 +274,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     prof = cProfile.Profile() if a.profile else None
     if prof:
         prof.enable()
-    report = run_tournament(names, a.tables, a.seed, a.rotate, a.mode, rules)
+    report = run_tournament(names, a.tables, a.seed, a.rotate, a.mode, rules,
+                            hero_config=load_hero_config(a.hero_config), trace_busts=a.trace_busts)
     if prof:
         prof.disable()
     print(report.format())
+    if a.trace_busts:
+        print(format_busts(report.busts, report.bots[a.trace_busts].seats))
     if prof:
         pstats.Stats(prof, stream=sys.stdout).sort_stats("tottime").print_stats(15)
     return 0

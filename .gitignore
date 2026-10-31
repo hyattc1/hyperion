@@ -8,3 +8,4 @@ tables/*.bin
 .benchmarks/
 drills/log/
 drills/scratch/
+scratch/
