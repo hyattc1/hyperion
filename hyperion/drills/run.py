@@ -28,7 +28,7 @@ from hyperion.drills import variants
 from hyperion.drills.fakekits import _table
 
 ROOT = Path(__file__).resolve().parents[2]
-KITS = ("a", "b", "c")
+KITS = ("a", "b", "c", "d")
 CHECKPOINTS = (("legal_bot", 15), ("tables", 30), ("hero_in_sim", 45), ("final", 60))
 REFERENCE = {k: ROOT / "hyperion" / "drills" / "reference" / f"kit_{k}_submission.py" for k in KITS}
 
@@ -95,6 +95,9 @@ class Drill:
             if self.kit == "b":
                 mod = importlib.import_module("hyperion.drills.fakekits.kit_b.runner")
                 return mod.run(mod.load_module(str(sub)), hands, seed, budget_ms, hole_cards)
+            if self.kit == "d":
+                mod = importlib.import_module("hyperion.drills.fakekits.kit_d.runner")
+                return mod.run([sys.executable, str(sub)], hands, seed, budget_ms, hole_cards, cwd=str(self.scratch))
             mod = importlib.import_module("hyperion.drills.fakekits.kit_c.runner")
             return mod.run([sys.executable, str(sub)], hands, seed, budget_ms, hole_cards, cwd=str(self.scratch))
         finally:
