@@ -72,7 +72,7 @@ class PreflopParams:
     # smoothed toward its prior by depth bucket. With a solved base (push/fold's Nash frequency for the seat, or the
     # solved re-shove frequency against the opener's range) the width is base x observed / prior; without one it is
     # the smoothed rate. 4-bet and later shoves keep the per-hand rule above.
-    shove_ctx_model: bool = True
+    shove_ctx_model: bool = False  # 400 seeds: on = rival2 among seven Heroes -0.14, but top -0.11 and realistic -0.05
     shove_fi_prior: tuple = (0.25, 0.06, 0.02, 0.01)  # first-in shoves per first-in opportunity, by depth bucket
     shove_vo_prior: tuple = (0.18, 0.15, 0.04, 0.02)  # re-shoves per "facing one open" opportunity
     # big-blind defence against a single open (no callers): call when my equity against the opener's estimated range,

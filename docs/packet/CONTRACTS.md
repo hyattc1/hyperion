@@ -110,7 +110,7 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 | `preflop.shove_range_mult` | 1.5 |
 | `preflop.shove_range_min` | 0.02 |
 | `preflop.shove_eq_margin` | 0.02 |
-| `preflop.shove_ctx_model` | True |
+| `preflop.shove_ctx_model` | False |
 | `preflop.shove_fi_prior` | (0.25, 0.06, 0.02, 0.01) |
 | `preflop.shove_vo_prior` | (0.18, 0.15, 0.04, 0.02) |
 | `preflop.bb_defend` | False |
