@@ -21,4 +21,6 @@ docs/night-of.md
 # the decision log is a working journal, not public documentation
 docs/decisions.md
 PLAYBOOK.md
+# session handoff notes are working material, like the playbook
+HANDOFF.md
 NIGHT*.md
