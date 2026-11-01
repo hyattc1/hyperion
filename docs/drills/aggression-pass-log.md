@@ -193,3 +193,40 @@ alone fails realistic (-0.063). The three together are the best row: top +0.172 
 0.066 outside noise, realistic +0.047, top2 +0.067, rival 2 among seven Heroes -0.129, base / strong +0.012 / -0.013.
 Next screen: the increments (the passing pair, then the threat read, then the exploitative re-shove pricing) with
 the payout tables the coordinator asked for.
+
+### Screen S3 (stage C): the increments, ten fields incl. two payout tables, 200 seeds (commit f238f5b)
+
+Settings on top of the default base: rv = `reshove_mid_bb` 25 + `vs_cbet_margin` 0.05; rvt = rv + `reshove_threat` 1.0;
+rvx = rv + `reshove_exploit`; rvtx = all four. real_p10 / real_th = the realistic field with payouts 10/7/5/4/3/2/1/0
+and 50/25/12/6/3/2/1/1 (the coordinator's robustness check; points on those scales).
+
+```
+Δhero (paired vs base) ± 95%; in r2h7/r1h7: Δ of the lone rival (lower is better for Hero)
+setting                                  realistic             top            top2            h7r1            h7r2            r2h7            base          strong        real_p10         real_th
+rv                                   +0.083 ±0.081   +0.140 ±0.097   +0.047 ±0.111   +0.118 ±0.059   +0.152 ±0.113   -0.034 ±0.116   +0.014 ±0.020   -0.012 ±0.089   +0.221 ±0.147   +2.189 ±0.992
+rvx                                  +0.027 ±0.089   +0.128 ±0.097   +0.036 ±0.108   +0.190 ±0.071   +0.255 ±0.111   -0.041 ±0.121   -0.031 ±0.027   -0.138 ±0.102   +0.294 ±0.159   +2.674 ±1.044
+rvt                                  +0.068 ±0.087   +0.161 ±0.092   +0.127 ±0.104   +0.126 ±0.065   +0.211 ±0.109   -0.101 ±0.121   +0.009 ±0.021   -0.014 ±0.085   +0.192 ±0.147   +1.820 ±0.979
+rvtx                                 +0.104 ±0.091   +0.071 ±0.101   +0.054 ±0.106   +0.184 ±0.070   +0.265 ±0.118   -0.066 ±0.128   -0.028 ±0.027   -0.135 ±0.099   +0.309 ±0.153   +2.630 ±1.002
+base                                  5.511 ±0.093    4.486 ±0.102    4.416 ±0.102    4.453 ±0.094    3.581 ±0.094    5.136 ±0.104    6.801 ±0.066    5.145 ±0.100    5.368 ±0.138   18.724 ±0.862
+
+Hero - rival paired, relative to base (Δ of the gap) for rival1 / rival2 where present; base row = the gap itself
+rv                                           +0.13     +0.23/+0.17     +0.14/+0.08           +0.13           +0.17                                                           +0.32           +3.50
+rvx                                          +0.12     +0.29/+0.14     +0.13/+0.09           +0.22           +0.29                                                           +0.49           +4.12
+rvt                                          +0.13     +0.23/+0.26     +0.28/+0.16           +0.14           +0.24                                                           +0.24           +2.85
+rvtx                                         +0.22     +0.22/+0.07     +0.20/+0.09           +0.21           +0.30                                                           +0.47           +3.94
+base                                         -0.15     -0.27/-0.53     -0.30/-0.60           -0.05           -1.05                                                           -0.46           -4.38
+
+timeouts (hero tmo, all seats), safe_err
+rv                                           148/0           194/0           147/0            66/0           223/0           835/0            74/0            40/0            39/0           100/0
+rvx                                          121/0           174/0           149/0            73/0           202/0           791/0            69/0            42/0            50/0            69/0
+rvt                                          108/0           237/0           148/0            66/0           199/0           875/0            95/0            30/0            48/0            86/0
+rvtx                                         144/0           208/0           128/0            56/0           254/0           858/0            43/0            36/0            34/0           103/0
+base                                         126/0           193/0           154/0            78/0           222/0           773/0            74/0            34/0            47/0            83/0
+```
+**Decision.** rv ships (f349380): realistic +0.083 ± 0.081 and top +0.140 ± 0.097, Hero + 7 rival1 +0.118 ± 0.059 and
+Hero + 7 rival2 +0.152 ± 0.113 outside noise, base +0.014, strong -0.012, and it gains under both payout tables
+(+0.221 ± 0.147, +2.19 ± 0.99). The exploitative re-shove price gains most in the mirrors (Hero + 7 rival2 +0.26) but
+fails strong (-0.138, -0.135 with the threat read): there the other Hero copies take the same config and re-shove
+into each other. The re-shove-threat read helps exactly the rooms it was built for (top2 +0.08 and rival 2 among
+seven Heroes -0.07 on top of rv) but its own increment is below zero on realistic again (-0.015 here, -0.063 alone
+in S2), so by the shipping rule it stays opt-in: `preflop.reshove_threat` 1.0 for a room of frequent re-shovers.
