@@ -407,8 +407,8 @@ def make_bot(route=None, seed: int | None = None, config: ComposeConfig | None =
 SHIP_ROUTE = ""  # the route the composite ships with when the dials name none (docs/drills/compose-log.md)
 
 
-def ship(dials: dict, seed: int | None = None) -> Composite:
-    """hyperion/ship.py's builder: the composite from one flat dials dict.
+def parse_dials(dials: dict | None) -> tuple:
+    """One flat dials dict -> (route, make_bot keywords). The keys:
       route          "section=donor,..." (default SHIP_ROUTE)
       r3.<name>      rival 3's core in the base (hyperion/hybrid/dials.py)
       exploit.<f>    the layer's params on top of Hero's shipped set; "exploit": None for no layer
@@ -444,16 +444,50 @@ def ship(dials: dict, seed: int | None = None) -> Composite:
         from ..hybrid.bot import _layer_with
 
         exploit = _layer_with(exploit, layer)
-    return make_bot(route, seed=seed, exploit=exploit, base_overrides=base, hero_member=hero, **d)
+    for k in d:
+        if k not in ComposeConfig.__dataclass_fields__ or k in ("route", "exploit", "base_overrides", "hero_member"):
+            raise KeyError(f"unknown composite dial {k!r}")
+    return route, {"exploit": exploit, "base_overrides": base, "hero_member": hero, **d}
+
+
+def ship(dials: dict, seed: int | None = None) -> Composite:
+    """hyperion/ship.py's builder: the composite from one flat dials dict (parse_dials)."""
+    route, kw = parse_dials(dials)
+    return make_bot(route, seed=seed, **kw)
+
+
+def variant_member(parent: str, base_overrides: dict | None = None, hero_member: dict | None = None) -> str:
+    """Register (this process only) a copy of member `parent` built with extra dials, as a member that can shadow:
+    tools/swap.py records where a dial would change a decision this way. Returns its member name."""
+    from dataclasses import replace as _replace
+    import json as _json
+
+    name = f"{parent}@" + _json.dumps({"b": base_overrides or {}, "h": hero_member or {}}, sort_keys=True)
+    if name not in MEMBERS:
+        build = MEMBERS[parent]
+        bo, hm = dict(base_overrides or {}), dict(hero_member or {})
+
+        def factory(cfg, seed):
+            return build(_replace(cfg, base_overrides={**cfg.base_overrides, **bo}, hero_member={**cfg.hero_member, **hm}),
+                         seed)
+
+        MEMBERS[name] = factory
+        if parent in RESYNC:
+            RESYNC[name] = RESYNC[parent]
+    return name
 
 
 # ---------------------------------------------------------------------------------------------- the simulator
-def register(name: str, route=None, **kw) -> type:
+def register(name: str, route=None, dials: dict | None = None, **kw) -> type:
     """Seat a composite in the simulator under `name` (this process only): `<field>@<name>` puts it in Hero's seat.
-    It reads the bestiary's HERO_CONFIG (Hero's dotted overrides) and HYBRID_CONFIG (panic_after, soft_us, ...) when
-    built, as `hero` and the hybrids do, so a model-mode run's settings reach it."""
+    Give a route and make_bot keywords, or one flat `dials` dict (parse_dials). It reads the bestiary's HERO_CONFIG
+    (Hero's dotted overrides) and HYBRID_CONFIG (panic_after, soft_us, ...) when built, as `hero` and the hybrids do, so
+    a model-mode run's settings reach it."""
     from ..sim import bestiary as B
 
+    if dials is not None:
+        route, dkw = parse_dials(dials)
+        kw = {**dkw, **kw}
     fixed = dict(kw)
 
     class _Seat(B._Base):
@@ -492,4 +526,4 @@ def register(name: str, route=None, **kw) -> type:
 
 
 __all__ = ["COUNTS", "Composite", "CompositeCore", "ComposeConfig", "DONORS", "KitMember", "MEMBERS", "SHIP_ROUTE",
-           "compose_config", "make_bot", "register", "register_member", "ship"]
+           "compose_config", "make_bot", "parse_dials", "register", "register_member", "ship", "variant_member"]

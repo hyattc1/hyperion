@@ -148,20 +148,24 @@ def play(field: str, cand: str, t: int, rot: int, rules=None, mode: str = "model
 # --------------------------------------------------------------------------------------------- the recorder
 class Recorder:
     """The tap: per rotation, the cells (section index, donor index) whose donor's action differs from the one taken in
-    that section at least once, and decision / disagreement counts."""
+    that section at least once, the variants (dial changes) that would change at least one decision, and decision /
+    disagreement counts."""
 
-    def __init__(self, donors):
+    def __init__(self, donors, variants=()):
         self.donors = list(donors)
+        self.variants = list(variants)  # (kind, parent member, variant member, layer params)
         self.reset()
 
     def reset(self):
         self.cells: set = set()
+        self.vflags: set = set()
         self.dec = [0] * len(SECTIONS)
         self.dis = {}
 
     def bind(self, core):
         idx = {n: i for i, n in enumerate(core.names)}
         self.spec = [(idx[CB.DONORS[d][0]], CB.DONORS[d][1]) for d in self.donors]
+        self.vspec = [(kind, idx.get(parent, -1), idx.get(vm, -1), lp) for kind, parent, vm, lp in self.variants]
         core.tap = self
 
     def __call__(self, core, obs, sec, mi, own, taken, props, ex):
@@ -186,53 +190,110 @@ class Recorder:
                 self.cells.add((sec, di))
                 k = (sec, di)
                 self.dis[k] = self.dis.get(k, 0) + 1
+        layer_on = core.route[sec][1] or core.panic
+        for vi, (kind, pm, vm, lp) in enumerate(self.vspec):
+            if vi in self.vflags:
+                continue
+            if kind == "full":
+                self.vflags.add(vi)
+                continue
+            m_eff = vm if (kind == "member" and mi == pm) else mi
+            p = props[m_eff] if m_eff >= 0 else None
+            a = p
+            if p is not None and layer_on and ex is not None:
+                saved = ex.p
+                try:
+                    if kind == "layer":
+                        ex.p = lp
+                    b = ex.override(obs, p)
+                except Exception:  # noqa: BLE001
+                    b = None
+                finally:
+                    ex.p = saved
+                if b is not None:
+                    a = b
+            if a is None or a.clamp(obs) != tk:
+                self.vflags.add(vi)
+
+
+# exploit params the layer's reads accumulate with: a change to these is not a read-time swap
+_LAYER_STATE = ("decay", "recover_cut", "recover_keep")
+
+
+def classify_variant(dials: dict, delta: dict):
+    """How the base run can tell where a dial change would change a decision: ("member", parent, base_overrides,
+    hero_member) for a copy of one member, ("layer", ExploitParams) for the layer's read-time params, else ("full",)
+    (every rotation replayed)."""
+    heads = {k.partition(".")[0] for k in delta}
+    if heads <= {"r3", "base"}:
+        _, kw = CB.parse_dials({"route": "", **delta})
+        return ("member", "base", kw["base_overrides"], {})
+    if heads == {"hero"}:
+        _, kw = CB.parse_dials({"route": "", **delta})
+        return ("member", "hero", {}, kw["hero_member"])
+    if heads == {"exploit"} and not any(k.partition(".")[2] in _LAYER_STATE for k in delta) \
+            and dials.get("exploit", "hero") is not None:
+        _, kw = CB.parse_dials({**dials, **delta})
+        return ("layer", kw["exploit"])
+    return ("full",)
 
 
 _REG: dict = {}
 
 
-def _register(route: dict, shadow: tuple = (), name: str = CAND):
-    key = (route_str(route), tuple(shadow), name)
+def _register(dials: dict, shadow: tuple = (), name: str = CAND):
+    key = (json.dumps(dials, sort_keys=True), tuple(shadow), name)
     if _REG.get(name) != key:
-        CB.register(name, dict(route), shadow=tuple(shadow))
+        CB.register(name, dials=dict(dials), shadow=tuple(shadow))
         _REG[name] = key
 
 
 def _job_base(args):
-    field, route, donors, keys, pay = args
+    field, dials, donors, variants, keys, pay = args
     setup_process()
     from hyperion.core.types import Rules
 
     rules = Rules(payouts=PAYOUTS[pay]) if PAYOUTS[pay] else None
-    _register(route, tuple(dict.fromkeys(CB.DONORS[d][0] for d in donors)))
-    rec = Recorder(donors)
+    vspecs = []
+    for name, delta in variants:
+        c = classify_variant(dials, delta)
+        if c[0] == "member":
+            vspecs.append(("member", c[1], CB.variant_member(c[1], c[2], c[3]), None))
+        elif c[0] == "layer":
+            vspecs.append(("layer", None, None, c[1]))
+        else:
+            vspecs.append(("full", None, None, None))
+    shadow = list(dict.fromkeys(CB.DONORS[d][0] for d in donors))
+    shadow += [vm for kind, _, vm, _ in vspecs if kind == "member"]
+    _register(dials, tuple(shadow))
+    rec = Recorder(donors, vspecs)
     out = []
     t0 = time.time()
+    from hyperion.sim import bestiary as B
+
+    cls = B.REGISTRY[CAND]
+
+    class Tapped(cls):
+        def __init__(self, seed=None):
+            super().__init__(seed)
+            rec.bind(self.impl.core)
+
+    B.REGISTRY[CAND + "_t"] = Tapped
     for t, rot in keys:
         rec.reset()
-        from hyperion.sim import bestiary as B
-
-        cls = B.REGISTRY[CAND]
-
-        class Tapped(cls):
-            def __init__(self, seed=None):
-                super().__init__(seed)
-                rec.bind(self.impl.core)
-
-        B.REGISTRY[CAND + "_t"] = Tapped
         pts, st, b = play(field, CAND + "_t", t, rot, rules)
         out.append((t, rot, pts, sorted(rec.cells), rec.dec, {f"{s}.{d}": v for (s, d), v in rec.dis.items()},
-                    dict(b.impl.core.counts), st.over_budget, st.exceptions))
+                    dict(b.impl.core.counts), st.over_budget, st.exceptions, sorted(rec.vflags)))
     return out, time.time() - t0, os.getloadavg()[0]
 
 
 def _job_play(args):
-    field, route, keys, pay, tag = args
+    field, dials, keys, pay, tag = args
     setup_process()
     from hyperion.core.types import Rules
 
     rules = Rules(payouts=PAYOUTS[pay]) if PAYOUTS[pay] else None
-    _register(route)
+    _register(dials)
     out = []
     t0 = time.time()
     for t, rot in keys:
@@ -242,9 +303,25 @@ def _job_play(args):
 
 
 # --------------------------------------------------------------------------------------------- files
-def stage_dir(out: str, field: str, seeds: str, pay: str, route: dict) -> str:
-    r = route_str(route) or "base"
-    d = os.path.join(out, f"{field}.{pay}.{seeds.replace(':', '-')}", r.replace("=", "~").replace(",", "+"))
+def load_dials(a) -> dict:
+    """The composite measured as the base: --dials (JSON, inline or a file) with --route on top."""
+    d = {}
+    if getattr(a, "dials", None):
+        d = json.load(open(a.dials)) if os.path.exists(a.dials) else json.loads(a.dials)
+    if a.route:
+        d["route"] = a.route
+    d["route"] = route_str(parse_route(d.get("route", "")))
+    return d
+
+
+def stage_dir(out: str, field: str, seeds: str, pay: str, dials: dict) -> str:
+    r = (route_str(parse_route(dials.get("route", ""))) or "base").replace("=", "~").replace(",", "+")
+    rest = {k: v for k, v in dials.items() if k != "route"}
+    if rest:
+        import hashlib
+
+        r += "~" + hashlib.sha1(json.dumps(rest, sort_keys=True).encode()).hexdigest()[:8]
+    d = os.path.join(out, f"{field}.{pay}.{seeds.replace(':', '-')}", r)
     os.makedirs(d, exist_ok=True)
     return d
 
@@ -265,16 +342,23 @@ def chunks(keys, n):
 
 
 # --------------------------------------------------------------------------------------------- commands
+def load_variants(a) -> dict:
+    if not getattr(a, "variants", None):
+        return {}
+    return json.load(open(a.variants)) if os.path.exists(a.variants) else json.loads(a.variants)
+
+
 def cmd_base(a):
-    route = parse_route(a.route)
+    dials = load_dials(a)
     donors = [d.strip() for d in a.donors.split(",") if d.strip()]
-    d = stage_dir(a.out, a.field, a.seeds, a.payouts, route)
+    variants = load_variants(a)
+    d = stage_dir(a.out, a.field, a.seeds, a.payouts, dials)
     path = os.path.join(d, "base.json")
     if os.path.exists(path) and not a.force:
         print("exists", path)
         return
     keys = [(t, r) for t in parse_seeds(a.seeds) for r in range(8)]
-    jobs = [(a.field, route, donors, k, a.payouts) for k in chunks(keys, a.chunk)]
+    jobs = [(a.field, dials, donors, list(variants.items()), k, a.payouts) for k in chunks(keys, a.chunk)]
     rows = []
     t0 = time.time()
     loads = []
@@ -282,14 +366,16 @@ def cmd_base(a):
         for out, secs, ld in p.imap_unordered(_job_base, jobs):
             rows += out
             loads.append(ld)
-    rows.sort()
-    res = {"field": a.field, "seeds": a.seeds, "payouts": a.payouts, "route": route, "donors": donors,
+    rows.sort(key=lambda r: (r[0], r[1]))
+    res = {"field": a.field, "seeds": a.seeds, "payouts": a.payouts, "route": parse_route(dials["route"]),
+           "dials": dials, "donors": donors, "variants": variants,
+           "kinds": {n: classify_variant(dials, v)[0] for n, v in variants.items()},
            "sections": list(SECTIONS), "rows": rows, "secs": time.time() - t0, "load": [min(loads), max(loads)],
            "when": time.strftime("%H:%M")}
     with open(path + ".tmp", "w") as fh:
         json.dump(res, fh)
     os.replace(path + ".tmp", path)
-    print(f"base {a.field} {route_str(route) or 'base'}: {len(rows)} rotations in {res['secs']:.0f}s, load {res['load']}")
+    print(f"base {a.field} {dials}: {len(rows)} rotations in {res['secs']:.0f}s, load {res['load']}")
 
 
 def per_seed(rows_pts: dict, seeds):
@@ -304,82 +390,115 @@ def ci(xs):
     return m, 1.96 * math.sqrt(v / n)
 
 
-def cmd_cells(a):
-    route = parse_route(a.route)
-    d = stage_dir(a.out, a.field, a.seeds, a.payouts, route)
-    base = load_base(d)
-    donors = base["donors"]
-    if a.cells == "all":
-        cells = [(s, di) for s in range(len(SECTIONS)) for di in range(len(donors))]
-    else:
-        cells = []
-        for c in a.cells.split(","):
-            sname, dn = c.split(":")
-            cells.append((SECTIONS.index(sname), donors.index(dn)))
-    rows = {(r[0], r[1]): r for r in base["rows"]}
+def _base_dials(base) -> dict:
+    return base.get("dials") or {"route": route_str(base["route"])}
+
+
+def _run_replays(a, todo):
+    """todo: [(tag, path, need, dials)] -> replays every needed rotation under its dials and writes each file."""
     jobs = []
-    todo = []
-    for s, di in cells:
-        name = f"{SECTIONS[s]}.{donors[di]}"
-        path = os.path.join(d, f"cell.{name}.json")
-        if os.path.exists(path) and not a.force:
-            continue
-        if SECTIONS[s] in route and route[SECTIONS[s]] == donors[di]:
-            continue
-        need = [k for k, r in rows.items() if a.full or [s, di] in r[3]]
-        rnew = {**route, SECTIONS[s]: donors[di]}
-        todo.append((name, path, need))
+    for tag, path, need, dials in todo:
         for k in chunks(sorted(need), a.chunk):
-            jobs.append((a.field, rnew, k, a.payouts, name))
-    # interleave the cells' chunks so load falls evenly; longest first
-    jobs.sort(key=lambda j: -len(j[2]))
-    got = {name: {} for name, _, _ in todo}
+            jobs.append((a.field, dials, k, a.payouts, tag))
+    jobs.sort(key=lambda j: -len(j[2]))  # longest first; the cells' chunks interleave so load falls evenly
+    got = {tag: {} for tag, _, _, _ in todo}
     t0 = time.time()
     if jobs:
         with Pool(a.workers) as p:
             for tag, out, secs, ld in p.imap_unordered(_job_play, jobs):
                 for t, rot, pts, counts, tmo, exc in out:
                     got[tag][(t, rot)] = (pts, counts, tmo, exc)
-    for name, path, need in todo:
-        g = got[name]
-        res = {"cell": name, "replayed": len(need), "rows": [[t, r, *v] for (t, r), v in sorted(g.items())],
+    for tag, path, need, dials in todo:
+        g = got[tag]
+        res = {"cell": tag, "dials": dials, "replayed": len(need), "rows": [[t, r, *v] for (t, r), v in sorted(g.items())],
                "secs": time.time() - t0}
         with open(path, "w") as fh:
             json.dump(res, fh)
-    print(f"cells {a.field}: {len(todo)} cells, {sum(len(n) for _, _, n in todo)} rotations replayed, {time.time() - t0:.0f}s")
+    return time.time() - t0
+
+
+def cmd_cells(a):
+    dials = load_dials(a)
+    route = parse_route(dials["route"])
+    d = stage_dir(a.out, a.field, a.seeds, a.payouts, dials)
+    base = load_base(d)
+    donors = base["donors"]
+    variants = base.get("variants", {})
+    vnames = list(variants)
+    if a.cells == "all":
+        cells = [(s, di) for s in range(len(SECTIONS)) for di in range(len(donors))] + [("var", n) for n in vnames]
+    else:
+        cells = []
+        for c in a.cells.split(","):
+            sname, dn = c.split(":", 1)
+            cells.append(("var", dn) if sname == "var" else (SECTIONS.index(sname), donors.index(dn)))
+    rows = {(r[0], r[1]): r for r in base["rows"]}
+    todo = []
+    for s, di in cells:
+        if s == "var":
+            name = f"var.{di}"
+            vi = vnames.index(di)
+            need = [k for k, r in rows.items() if a.full or (len(r) > 9 and vi in r[9])]
+            ndials = {**dials, **variants[di]}
+        else:
+            if SECTIONS[s] in route and route[SECTIONS[s]] == donors[di]:
+                continue
+            name = f"{SECTIONS[s]}.{donors[di]}"
+            need = [k for k, r in rows.items() if a.full or [s, di] in r[3]]
+            ndials = {**dials, "route": route_str({**route, SECTIONS[s]: donors[di]})}
+        path = os.path.join(d, f"cell.{name}.json")
+        if os.path.exists(path) and not a.force:
+            continue
+        todo.append((name, path, need, ndials))
+    secs = _run_replays(a, todo)
+    print(f"cells {a.field}: {len(todo)} cells, {sum(len(n) for _, _, n, _ in todo)} rotations replayed, {secs:.0f}s")
 
 
 def cmd_joint(a):
-    """A combined route against the base route: replay the union of its cells' disagreeing rotations."""
-    base_route = parse_route(a.base_route)
-    d = stage_dir(a.out, a.field, a.seeds, a.payouts, base_route)
+    """A changed composite (--to-route / --to-dials) against the base run's: replay the union of its cells' and
+    variants' disagreeing rotations (every rotation when a change was not recorded)."""
+    dials = load_dials(a)
+    d = stage_dir(a.out, a.field, a.seeds, a.payouts, dials)
     base = load_base(d)
     donors = base["donors"]
-    route = parse_route(a.route)
-    add = {k: v for k, v in route.items() if base_route.get(k) != v}
+    variants = base.get("variants", {})
+    route = parse_route(dials["route"])
+    new = dict(dials)
+    extra = json.loads(a.to_dials) if a.to_dials else {}
+    new.update(extra)
+    to_route = parse_route(a.to_route) if a.to_route else route
+    new["route"] = route_str(to_route)
+    add = {k: v for k, v in to_route.items() if route.get(k) != v}
+    full = a.full or any(route.get(k) and k not in to_route for k in route)  # a section put back on the base
+    cells = []
     for k, v in add.items():
-        if v not in donors and v != "base":
-            raise SystemExit(f"donor {v} was not shadowed in the base run")
-    cells = [[SECTIONS.index(k), donors.index(v)] for k, v in add.items() if v != "base"]
-    need = sorted((r[0], r[1]) for r in base["rows"] if a.full or any(c in r[3] for c in cells))
-    if any(v == "base" for v in add.values()):
-        need = sorted((r[0], r[1]) for r in base["rows"])  # a section put back on the base: no shortcut
-    tag = "joint." + (route_str(route) or "base")
-    jobs = [(a.field, route, k, a.payouts, tag) for k in chunks(need, a.chunk)]
-    got = {}
-    t0 = time.time()
-    with Pool(a.workers) as p:
-        for _, out, secs, ld in p.imap_unordered(_job_play, jobs):
-            for t, rot, pts, counts, tmo, exc in out:
-                got[(t, rot)] = (pts, counts, tmo, exc)
-    res = {"route": route, "base_route": base_route, "replayed": len(need),
-           "rows": [[t, r, *v] for (t, r), v in sorted(got.items())], "secs": time.time() - t0}
-    path = os.path.join(d, f"joint.{route_str(route).replace('=', '~').replace(',', '+')}.json")
-    with open(path, "w") as fh:
-        json.dump(res, fh)
+        if v not in donors:
+            full = True
+        else:
+            cells.append([SECTIONS.index(k), donors.index(v)])
+    vis = []
+    for k, v in extra.items():
+        hit = [n for n, delta in variants.items() if delta == {k: v}]
+        if not hit:
+            full = True
+        else:
+            vis.append(list(variants).index(hit[0]))
+    need = sorted((r[0], r[1]) for r in base["rows"]
+                  if full or any(c in r[3] for c in cells) or (len(r) > 9 and any(v in r[9] for v in vis)))
+    tag = "joint." + hashlib_tag(new)
+    path = os.path.join(d, f"{tag}.json")
+    secs = _run_replays(a, [(tag, path, need, new)])
+    with open(path) as fh:
+        res = json.load(fh)
     m, h = delta(base, res, parse_seeds(a.seeds))
-    print(f"joint {a.field} {route_str(route)} vs {route_str(base_route) or 'base'}: {m:+.3f} ± {h:.3f} "
-          f"({len(need)} of {len(base['rows'])} rotations replayed, {time.time() - t0:.0f}s)")
+    print(f"joint {a.field} {new} vs {dials}: {m:+.3f} ± {h:.3f} ({len(need)} of {len(base['rows'])} rotations replayed, "
+          f"{secs:.0f}s)")
+
+
+def hashlib_tag(dials: dict) -> str:
+    import hashlib
+
+    return hashlib.sha1(json.dumps(dials, sort_keys=True).encode()).hexdigest()[:10]
 
 
 def delta(base, cell, seeds):
@@ -393,8 +512,9 @@ def delta(base, cell, seeds):
 
 
 def cmd_report(a):
-    route = parse_route(a.route)
-    d = stage_dir(a.out, a.field, a.seeds, a.payouts, route)
+    dials = load_dials(a)
+    route = parse_route(dials["route"])
+    d = stage_dir(a.out, a.field, a.seeds, a.payouts, dials)
     base = load_base(d)
     donors = base["donors"]
     seeds = parse_seeds(a.seeds)
@@ -408,8 +528,10 @@ def cmd_report(a):
         for k, v in r[5].items():
             dis[k] = dis.get(k, 0) + v
     tot = sum(dec)
-    res = {"field": a.field, "seeds": a.seeds, "base_route": route, "base_pts": [bm, bh], "cells": {}}
-    print(f"## {a.field} ({a.seeds}, {a.payouts}), base {route_str(route) or 'hybrid3_x'}: {bm:.3f} ± {bh:.3f}")
+    res = {"field": a.field, "seeds": a.seeds, "dials": dials, "base_route": route, "base_pts": [bm, bh], "cells": {},
+           "variants": {}}
+    print(f"## {a.field} ({a.seeds}, {a.payouts}), base {dials if dials != {'route': ''} else 'hybrid3_x'}: "
+          f"{bm:.3f} ± {bh:.3f}")
     for s, sname in enumerate(SECTIONS):
         rows = []
         for di, dn in enumerate(donors):
@@ -423,12 +545,29 @@ def cmd_report(a):
             rows.append((m, h, dn, cell["replayed"], n_dis))
             res["cells"][f"{sname}.{dn}"] = {"d": m, "ci": h, "replayed": cell["replayed"], "disagree": n_dis,
                                             "decisions": dec[s]}
+        if not rows:
+            continue
         rows.sort(key=lambda x: -x[0])
         print(f"\n{sname} ({100 * dec[s] / max(1, tot):.1f}% of decisions)")
         for i, (m, h, dn, rep, nd) in enumerate(rows, 1):
             flag = " **" if m - h > 0 else (" (worse)" if m + h < 0 else "")
             print(f"  {i}. {dn}: {m:+.3f} ± {h:.3f}{flag}  [differs on {100 * nd / max(1, dec[s]):.1f}% of its decisions, "
                   f"{rep} rotations replayed]")
+    vrows = []
+    for n, delta_d in base.get("variants", {}).items():
+        p = os.path.join(d, f"cell.var.{n}.json")
+        if not os.path.exists(p):
+            continue
+        with open(p) as fh:
+            cell = json.load(fh)
+        m, h = delta(base, cell, seeds)
+        vrows.append((m, h, n, delta_d, cell["replayed"]))
+        res["variants"][n] = {"d": m, "ci": h, "dials": delta_d, "replayed": cell["replayed"]}
+    if vrows:
+        print("\ndial changes")
+        for i, (m, h, n, dd, rep) in enumerate(sorted(vrows, key=lambda x: -x[0]), 1):
+            flag = " **" if m - h > 0 else (" (worse)" if m + h < 0 else "")
+            print(f"  {i}. {n} {dd}: {m:+.3f} ± {h:.3f}{flag}  [{rep} rotations replayed]")
     with open(os.path.join(d, "report.json"), "w") as fh:
         json.dump(res, fh, indent=1)
 
@@ -439,6 +578,9 @@ def _spec_bot(name: str, spec: dict) -> str:
     if "bot" in spec:
         return spec["bot"]
     nm = "cmp_" + name
+    if "dials" in spec:
+        CB.register(nm, dials=dict(spec["dials"]))
+        return nm
     CB.register(nm, spec.get("route", ""), exploit=spec.get("exploit", "hero"),
                 base_overrides=dict(spec.get("base_overrides", {})), hero_overrides=dict(spec.get("hero_overrides", {})))
     return nm
@@ -535,8 +677,11 @@ def main(argv=None):
     p.add_argument("--field", required=True)
     p.add_argument("--seeds", default="0:200")
     p.add_argument("--payouts", default="lin", choices=sorted(PAYOUTS))
-    p.add_argument("--route", default="", help="base: the base route; joint: the route measured")
-    p.add_argument("--base-route", default="", help="joint: the base route it is measured against")
+    p.add_argument("--route", default="", help="the base composite's route (on top of --dials)")
+    p.add_argument("--dials", default="", help="the base composite's dials, JSON inline or a file (route, r3.*, ...)")
+    p.add_argument("--variants", default="", help="base: dial changes to record, JSON {name: {dial: value}}")
+    p.add_argument("--to-route", default="", help="joint: the route measured against the base's")
+    p.add_argument("--to-dials", default="", help="joint: dials changed on top of the base's (JSON)")
     p.add_argument("--donors", default=",".join(DONORS))
     p.add_argument("--cells", default="all")
     p.add_argument("--out", required=True)
