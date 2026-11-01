@@ -812,6 +812,9 @@ class Rival3Bot(RivalBot):
 # ----- the hybrid candidate: rival 2's decision core behind Hero's shell ---------------------------------------
 
 
+HYBRID_CONFIG: Optional[dict] = None  # flat HybridConfig overrides for every hybrid built here ({"mc_max": 48})
+
+
 class HybridBot(_Base):
     """The hybrid candidate (hyperion.hybrid): rival 2's decision core on plain hold'em behind Hero's shell (Rules,
     rank remap, variant decisions, SafeBot, Hero for what the core cannot represent). Its fallback Hero takes the
@@ -821,7 +824,7 @@ class HybridBot(_Base):
         super().__init__(seed)
         from ..hybrid import make_bot as _make_hybrid
 
-        self.impl = _make_hybrid(seed=seed, hero_overrides=HERO_CONFIG)
+        self.impl = _make_hybrid(seed=seed, overrides=HYBRID_CONFIG, hero_overrides=HERO_CONFIG)
 
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
         self.impl.new_table(rules, seat, n_players)
