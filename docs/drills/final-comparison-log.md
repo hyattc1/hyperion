@@ -287,3 +287,57 @@ the rest of the table to Hero's cheap path, of 3,200 per candidate.
 - **judge, load 2 -> 25:** hybrid3_x +0.068 ± 0.095, inside noise (model mode +0.135 ± 0.097); hybrid_x -0.365 ± 0.100.
   Once the load rose, the hybrids timed out about twice as often as Hero (hybrid3_x 0.155%, hybrid_x 0.193%, Hero
   0.088%) and panicked on more tables (17 and 25 against Hero's 1).
+
+## 09:16-09:27: payout tables on realistic and judge, model mode, 200 seeds x 8, six workers
+
+`Rules(payouts=...)`: the engine scores by it, Hero and the hybrids read it, rival 4 reads it through its adapter; raw rival 3 prices all-ins on the brief's table whatever is passed. Uniform is 4.00 on the brief's 10/7/5/4/3/2/1/0 and 12.5 on top_heavy 50/25/12/6/3/2/1/1. Only the ranking tables are kept here; the latency of these runs is in the timing section.
+
+### realistic.model.brief.200  (09:16-09:19, 2 min, load 24 -> 24)
+
+| # | candidate | pts ± 95% | - Hero (paired) | rank in field | 1st % | bust % | gaps (paired) | load |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hybrid3_x | 6.542 ± 0.176 | +0.233 ± 0.207 | 1 of 8 (leader hybrid3_x 6.54) | 47 | 50 | - rival1 +0.954 ± 0.274 | 24-25 |
+| 2 | Hero | 6.308 ± 0.152 | - | 1 of 8 (leader hero 6.31) | 45 | 52 | - rival1 +0.821 ± 0.269 | 24-25 |
+| 3 | rival3 (raw, reference) | 6.207 ± 0.171 | -0.101 ± 0.204 | 1 of 8 (leader rival3 6.21) | 41 | 54 | - rival1 +0.573 ± 0.279 | 24-25 |
+| 4 | hybrid3 (no layer) | 6.202 ± 0.170 | -0.106 ± 0.204 | 1 of 8 (leader hybrid3 6.20) | 41 | 55 | - rival1 +0.574 ± 0.276 | 24-25 |
+| 5 | hybrid_x | 5.961 ± 0.161 | -0.348 ± 0.204 | 1 of 8 (leader hybrid_x 5.96) | 39 | 57 | - rival1 +0.293 ± 0.239 | 24-25 |
+
+
+### judge.model.brief.200  (09:19-09:21, 3 min, load 24 -> 25)
+
+| # | candidate | pts ± 95% | - Hero (paired) | rank in field | 1st % | bust % | gaps (paired) | load |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hybrid3_x | 6.667 ± 0.159 | +0.188 ± 0.196 | 1 of 8 (leader hybrid3_x 6.67) | 52 | 47 | - rival4 +1.264 ± 0.228 | 24-27 |
+| 2 | Hero | 6.479 ± 0.172 | - | 1 of 8 (leader hero 6.48) | 48 | 49 | - rival4 +0.947 ± 0.248 | 24-26 |
+| 3 | hybrid3 (no layer) | 6.477 ± 0.166 | -0.003 ± 0.207 | 1 of 8 (leader hybrid3 6.48) | 48 | 50 | - rival4 +0.961 ± 0.244 | 24-27 |
+| 4 | rival3 (raw, reference) | 6.471 ± 0.166 | -0.008 ± 0.207 | 1 of 8 (leader rival3 6.47) | 48 | 50 | - rival4 +0.951 ± 0.244 | 24-27 |
+| 5 | hybrid_x | 5.933 ± 0.176 | -0.547 ± 0.224 | 1 of 8 (leader hybrid_x 5.93) | 41 | 56 | - rival4 +0.246 ± 0.246 | 24-26 |
+
+
+### realistic.model.th.200  (09:21-09:24, 3 min, load 25 -> 26)
+
+| # | candidate | pts ± 95% | - Hero (paired) | rank in field | 1st % | bust % | gaps (paired) | load |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hybrid3_x | 26.195 ± 1.109 | +0.377 ± 1.332 | 1 of 8 (leader hybrid3_x 26.19) | 45 | 52 | - rival1 +5.131 ± 1.800 | 25-27 |
+| 2 | Hero | 25.818 ± 0.924 | - | 1 of 8 (leader hero 25.82) | 45 | 52 | - rival1 +5.186 ± 1.574 | 25-27 |
+| 3 | rival3 (raw, reference) | 25.035 ± 1.048 | -0.783 ± 1.275 | 1 of 8 (leader rival3 25.03) | 41 | 54 | - rival1 +3.662 ± 1.753 | 25-27 |
+| 4 | hybrid3 (no layer) | 24.664 ± 1.012 | -1.154 ± 1.290 | 1 of 8 (leader hybrid3 24.66) | 41 | 55 | - rival1 +3.122 ± 1.688 | 25-27 |
+| 5 | hybrid_x | 23.262 ± 0.950 | -2.556 ± 1.249 | 1 of 8 (leader hybrid_x 23.26) | 38 | 59 | - rival1 +1.292 ± 1.462 | 25-27 |
+
+
+### judge.model.th.200  (09:24-09:27, 3 min, load 26 -> 24)
+
+| # | candidate | pts ± 95% | - Hero (paired) | rank in field | 1st % | bust % | gaps (paired) | load |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hybrid3_x | 27.385 ± 0.969 | +0.804 ± 1.317 | 1 of 8 (leader hybrid3_x 27.38) | 49 | 50 | - rival4 +8.069 ± 1.455 | 26-27 |
+| 2 | Hero | 26.581 ± 1.054 | - | 1 of 8 (leader hero 26.58) | 47 | 50 | - rival4 +6.816 ± 1.655 | 26-27 |
+| 3 | rival3 (raw, reference) | 26.427 ± 0.966 | -0.153 ± 1.254 | 1 of 8 (leader rival3 26.43) | 46 | 52 | - rival4 +6.747 ± 1.521 | 26-27 |
+| 4 | hybrid3 (no layer) | 25.763 ± 0.980 | -0.817 ± 1.261 | 1 of 8 (leader hybrid3 25.76) | 45 | 53 | - rival4 +6.161 ± 1.498 | 24-27 |
+| 5 | hybrid_x | 23.368 ± 1.011 | -3.212 ± 1.301 | 1 of 8 (leader hybrid_x 23.37) | 40 | 57 | - rival4 +2.326 ± 1.542 | 26-27 |
+
+
+Hero reproduces round 3 on the realistic payout deals exactly (6.308 and 25.818), and raw rival 3 its round 2 numbers
+(6.207, 25.035). hybrid3_x is first on all four and ahead of Hero by +0.19 to +0.23 on the brief's table and +0.4 to
++0.8 on top_heavy, all inside noise at 200 seeds. **hybrid_x is behind beyond noise on all four** (-0.35 and -0.55 on
+the brief's table, -2.6 and -3.2 on top_heavy). The layer is worth the most to the rival 3 core under top_heavy
+(hybrid3_x - hybrid3 +1.5 and +1.6 points), where the layer's extra steals add up to more firsts.
