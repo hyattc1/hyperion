@@ -7,8 +7,14 @@ and to move chips: blinds, four streets, side pots, a few dumb opponents. The ki
 Decision state is a plain dict so kit code cannot lean on hyperion.core.types by accident:
   hole, board, street (0..3), seat, button, stacks, bets, in_hand, pot (previous streets only),
   to_call, min_raise (raise-to total), max_raise (all-in total), legal {'fold','check','call','raise'},
-  hand_no, blinds, history [(seat, kind, total)]
+  hand_no, blinds, history [(seat, kind, total)], discards {seat: card}
 A policy is a callable(state) -> (kind, total) with kind in legal and total the raise-to amount.
+
+Toss mode (`toss=True`, toss-or-hold'em): three hole cards; once the flop is dealt, before its betting, every
+player still in the hand is asked once, first seat left of the button first, with legal == {'discard'} and
+answers ('discard', index 0..2). The card goes face up into `discards` (dead, not community) and history
+records (seat, 'discard', card); showdown is the two kept cards plus the board. A missing or illegal answer
+tosses `default_toss(hole)`.
 """
 from __future__ import annotations
 
@@ -61,11 +67,13 @@ class Report:
 class Table:
     def __init__(self, n_players: int = 4, seed: int = 0, stack: int = 2000, blinds=(10, 20),
                  hole_cards: int = 2, hands_per_level: int = 25,
-                 levels=((10, 20), (15, 30), (25, 50), (50, 100), (75, 150), (100, 200))):
+                 levels=((10, 20), (15, 30), (25, 50), (50, 100), (75, 150), (100, 200)), toss: bool = False):
         self.n = n_players
         self.rng = random.Random(seed)
         self.stacks = [stack] * n_players
-        self.hole_cards = hole_cards
+        self.toss = toss
+        self.hole_cards = 3 if toss else hole_cards
+        self.discards: dict[int, int] = {}
         self.levels = levels if blinds == (10, 20) else (blinds,)
         self.hands_per_level = hands_per_level
         self.button = n_players - 1
@@ -101,6 +109,7 @@ class Table:
         self.pot = 0
         self.board: tuple[int, ...] = ()
         self.history: list[tuple[int, str, int]] = []
+        self.discards = {}
         self.button = self.next_alive(self.button)
         sb_seat = self.next_alive(self.button) if len(alive) > 2 else self.button
         bb_seat = self.next_alive(sb_seat)
@@ -122,6 +131,8 @@ class Table:
                 self.last_raise = bb
                 self.board = self.board + tuple(deck.pop() for _ in range(BOARD_SIZES[street] - len(self.board)))
                 first = self.next_alive(self.button)
+                if street == 1 and self.toss:
+                    self._toss_round(first, policies)
             if sum(self.in_hand) > 1 and self._can_bet() > 1:
                 self._betting_round(street, first, policies, bb)
             if sum(self.in_hand) == 1:
@@ -137,6 +148,20 @@ class Table:
         self.stacks[seat] -= amt
         self.bets[seat] += amt
         self.committed[seat] += amt
+
+    def _toss_round(self, first: int, policies: list[Policy]) -> None:
+        for seat in [(first + i) % self.n for i in range(self.n)]:
+            hole = self.holes.get(seat, ())
+            if not self.in_hand[seat] or len(hole) != 3:
+                continue
+            st = self.state_for(seat, 1)
+            st.update(to_call=0, min_raise=0, max_raise=0, legal={"discard"})
+            kind, idx = policies[seat](st)
+            if not is_legal(kind, idx, st):
+                idx = default_toss(hole)
+            self.discards[seat] = hole[idx]
+            self.holes[seat] = hole[:idx] + hole[idx + 1:]
+            self.history.append((seat, "discard", hole[idx]))
 
     def _can_bet(self) -> int:
         return sum(1 for s in range(self.n) if self.in_hand[s] and self.stacks[s] > 0)
@@ -158,6 +183,7 @@ class Table:
             "in_hand": list(self.in_hand), "pot": self.pot, "to_call": to_call,
             "min_raise": min_raise, "max_raise": max_raise, "legal": legal,
             "hand_no": self.hand_no, "blinds": self.blinds(), "history": list(self.history),
+            "discards": dict(self.discards),
         }
 
     def _betting_round(self, street: int, first: int, policies: list[Policy], bb: int) -> None:
@@ -213,9 +239,21 @@ class Table:
             self.stacks[max(live, key=lambda s: strength[s])] += self.pot - paid
 
 
+def default_toss(hole) -> int:
+    """Index of the card the dealer tosses for you: keep a pair, else a suited two, else the two highest."""
+    def keep(i: int, j: int) -> int:
+        a, b = hole[i], hole[j]
+        return (100 if a >> 2 == b >> 2 else 0) + (3 if a & 3 == b & 3 else 0) + (a >> 2) + (b >> 2)
+
+    i, j = max(((i, j) for i in range(3) for j in range(i + 1, 3)), key=lambda ij: keep(*ij))
+    return 3 - i - j
+
+
 def legalize(kind: str, total: int, st: dict) -> tuple[str, int]:
     """Clamp a (kind, total) to something legal in st; returns a check/fold if the kind is not legal."""
     legal = st["legal"]
+    if "discard" in legal:
+        return ("discard", total) if is_legal(kind, total, st) else ("discard", default_toss(st["hole"]))
     if kind == "raise" and "raise" in legal:
         return "raise", max(st["min_raise"], min(st["max_raise"], int(total)))
     if kind in legal:
@@ -228,6 +266,8 @@ def legalize(kind: str, total: int, st: dict) -> tuple[str, int]:
 def is_legal(kind: str, total: int, st: dict) -> bool:
     if kind not in st["legal"]:
         return False
+    if kind == "discard":
+        return isinstance(total, int) and 0 <= total < len(st["hole"])
     if kind == "raise":
         return st["min_raise"] <= int(total) <= st["max_raise"]
     return True
@@ -300,11 +340,13 @@ class TimedSeat:
 
 
 def _safe(st: dict) -> tuple[str, int]:
+    if "discard" in st["legal"]:
+        return "discard", default_toss(st["hole"])
     return ("check", 0) if "check" in st["legal"] else ("fold", 0)
 
 
 def play(hero: Policy, hands: int, seed: int, n_players: int = 4, hole_cards: int = 2,
-         on_hand_end: Callable[[int, list[int]], None] | None = None, hero_seat: int = 0) -> int:
+         on_hand_end: Callable[[int, list[int]], None] | None = None, hero_seat: int = 0, toss: bool = False) -> int:
     """Play `hands` hands with hero in seat hero_seat and dumb opponents elsewhere; returns hero's delta.
 
     When the table ends (hero busted or everyone else did) a fresh table starts, so the hand count
@@ -317,7 +359,7 @@ def play(hero: Policy, hands: int, seed: int, n_players: int = 4, hole_cards: in
     table = None
     for _ in range(hands):
         if table is None or len(table.alive()) < 2 or table.stacks[hero_seat] == 0:
-            table = Table(n_players=n_players, seed=rng.randrange(1 << 30), hole_cards=hole_cards)
+            table = Table(n_players=n_players, seed=rng.randrange(1 << 30), hole_cards=hole_cards, toss=toss)
             table.hand_no = hand_no
         d = table.play_hand(policies)
         hand_no = table.hand_no

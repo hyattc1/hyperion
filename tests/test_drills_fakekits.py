@@ -97,3 +97,63 @@ def test_kit_c_adapter_parses_lines_and_only_answers_L_lines(capsys):
     obs = ad.to_observation("H1 D0 S1 KAs,Ad BKh,7d,2c C2000,1990,1980,2000 E0,0,0,0 I1011 O60 LF,K,R20-2000 V10/20 T9")
     assert obs.seat == 2 and obs.pot == 60 and obs.to_call == 0 and obs.in_hand == [True, False, True, True]
     assert obs.min_raise == 20 and obs.max_raise == 2000 and ActionKind.CALL not in obs.legal
+
+
+# ----- kit A toss mode (toss-or-hold'em: 3 hole cards, one face-up discard after the flop) -----
+
+class _TossAgent(kit_a.Agent):
+    """Discards the first card, then checks or folds; records what it saw."""
+
+    def __init__(self):
+        self.seen = []
+
+    def act(self, state):
+        self.seen.append((state.street, len(state.hand), list(state.legal_moves), dict(state.discards),
+                          list(state.action_log)))
+        if state.legal_moves == ["DISCARD"]:
+            return "DISCARD:0"
+        return "CHECK" if "CHECK" in state.legal_moves else "FOLD"
+
+
+def test_kit_a_toss_asks_one_discard_per_flop_and_shows_it():
+    agents = []
+
+    class Rec(_TossAgent):
+        def __init__(self):
+            super().__init__()
+            agents.append(self)
+
+    r = run_a.run(Rec, hands=60, seed=5, toss=True)
+    assert r.passed and r.illegal == 0 and r.exceptions == 0, r.summary()
+    seen = agents[0].seen
+    asks = [s for s in seen if s[2] == ["DISCARD"]]
+    assert asks and all(st == "flop" and n == 3 for st, n, *_ in asks)
+    assert all(n == 3 for st, n, *_ in seen if st == "preflop")
+    after = [s for s in seen if s[0] != "preflop" and s[2] != ["DISCARD"]]
+    assert after and all(n == 2 for _, n, *_ in after)  # two cards once the toss is done
+    assert any(0 in d for *_, d, _ in after)  # our tossed card is public
+    assert any(any(a.startswith("DISCARD:") for _, a in log) for *_, log in after)
+
+
+def test_kit_a_toss_counts_a_non_discard_answer_as_illegal_and_tosses_for_you():
+    class Ignores(kit_a.Agent):
+        def act(self, state):
+            return "CHECK" if "CHECK" in state.legal_moves else "FOLD"
+
+    r = run_a.run(Ignores, hands=60, seed=5, toss=True)
+    assert r.illegal > 0 and r.exceptions == 0
+    assert not r.passed
+
+
+def test_kit_a_parses_discard_and_dealer_default_keeps_a_pair():
+    from hyperion.drills.fakekits import _table
+
+    assert kit_a.parse_action("DISCARD:2") == ("discard", 2)
+    with pytest.raises(ValueError):
+        kit_a.parse_action("DISCARD: 2")
+    # 7c 7d As: keep the sevens, toss the ace (index 2); Kh Qh 2c: keep the suited two, toss the deuce
+    assert _table.default_toss((20, 21, 51)) == 2
+    assert _table.default_toss((46, 42, 0)) == 2
+    st = {"hole": (20, 21, 51), "legal": {"discard"}}
+    assert _table.is_legal("discard", 1, st) and not _table.is_legal("discard", 3, st)
+    assert not _table.is_legal("check", 0, st)

@@ -1,6 +1,8 @@
 """Kit A runner: plays a few hands of your Agent against built-in dumb opponents with a 1 ms budget.
 
-    python -m hyperion.drills.fakekits.kit_a.runner path/to/submission.py [--hands 30] [--seed 1]
+    python -m hyperion.drills.fakekits.kit_a.runner path/to/submission.py [--hands 30] [--seed 1] [--toss]
+
+--toss plays toss-or-hold'em: three hole cards and one face-up discard after the flop (see kit.py).
 
 submission.py must define `class Agent` (subclass of kit.Agent or duck-typed) with act(state) -> str.
 Over budget, exceptions and illegal actions all become an auto-fold (check if possible).
@@ -28,7 +30,7 @@ def load_agent_class(path: str):
 
 
 def run(agent_cls, hands: int = 30, seed: int = 1, budget_ms: float = 1.0, hole_cards: int = 2,
-        n_players: int = N_PLAYERS) -> _table.Report:
+        n_players: int = N_PLAYERS, toss: bool = False) -> _table.Report:
     report = _table.Report()
     agent = agent_cls()
     hero_seat = 0
@@ -52,7 +54,7 @@ def run(agent_cls, hands: int = 30, seed: int = 1, budget_ms: float = 1.0, hole_
 
     hero = _table.TimedSeat(call, budget_ms, report)
     report.delta = _table.play(hero, hands, seed, n_players=n_players, hole_cards=hole_cards,
-                               on_hand_end=hand_end, hero_seat=hero_seat)
+                               on_hand_end=hand_end, hero_seat=hero_seat, toss=toss)
     return report
 
 
@@ -63,9 +65,10 @@ def main(argv=None) -> int:
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--budget-ms", type=float, default=1.0)
     p.add_argument("--hole-cards", type=int, default=2)
+    p.add_argument("--toss", action="store_true", help="toss-or-hold'em: 3 hole cards, one face-up discard after the flop")
     a = p.parse_args(argv)
     sys.path.insert(0, str(Path(a.submission).resolve().parent))
-    report = run(load_agent_class(a.submission), a.hands, a.seed, a.budget_ms, a.hole_cards)
+    report = run(load_agent_class(a.submission), a.hands, a.seed, a.budget_ms, a.hole_cards, toss=a.toss)
     print(report.summary())
     for n in report.notes:
         print("  ", n)

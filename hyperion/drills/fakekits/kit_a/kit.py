@@ -2,6 +2,12 @@
 
 Action is a plain string: "FOLD", "CHECK", "CALL" or "RAISE:<total chips this street>".
 Cards are strings like "Ah", "10d" (ten is written as 10, not T).
+
+Toss-or-hold'em tables (runner --toss): you hold three cards. Once the flop is dealt, before anyone bets
+on it, each player still in the hand is asked once (first seat left of the dealer first) with
+legal_moves == ["DISCARD"] and answers "DISCARD:<i>", i the index into state.hand (0, 1 or 2). The tossed
+card is dead and face up: it appears in every later state's `discards` and in the action log as
+"DISCARD:<card>". From then on state.hand has two cards. Showdown: your two cards plus the five on the board.
 """
 from __future__ import annotations
 
@@ -38,13 +44,14 @@ class GameState:
     pot_size: int  # everything in the middle INCLUDING this street's bets
     current_bet: int  # highest bet this street (you must match it to stay in)
     my_bet: int  # what you have put in this street
-    legal_moves: list[str]  # subset of ["FOLD", "CHECK", "CALL", "RAISE"]
+    legal_moves: list[str]  # subset of ["FOLD", "CHECK", "CALL", "RAISE"], or ["DISCARD"] alone (toss tables)
     min_raise: int  # smallest legal RAISE total
     max_raise: int  # largest legal RAISE total (all-in)
     hand_number: int
     small_blind: int
     big_blind: int
     action_log: list[tuple[int, str]] = field(default_factory=list)  # (player index, "CALL"/"RAISE:120"/...)
+    discards: dict[int, str] = field(default_factory=dict)  # player index -> face-up tossed card, this hand
 
 
 class Agent:
@@ -68,8 +75,9 @@ def to_state(st: dict) -> GameState:
                    all_in=st["in_hand"][i] and st["stacks"][i] == 0)
         for i in range(n)
     ]
-    legal = [m for m in ("FOLD", "CHECK", "CALL", "RAISE") if m.lower() in st["legal"]]
-    log = [(s, k.upper() if k != "raise" else f"RAISE:{t}") for s, k, t in st["history"]]
+    legal = [m for m in ("FOLD", "CHECK", "CALL", "RAISE", "DISCARD") if m.lower() in st["legal"]]
+    log = [(s, f"RAISE:{t}" if k == "raise" else f"DISCARD:{card_name(t)}" if k == "discard" else k.upper())
+           for s, k, t in st["history"]]
     return GameState(
         hand=[card_name(c) for c in st["hole"]],
         community=[card_name(c) for c in st["board"]],
@@ -88,6 +96,7 @@ def to_state(st: dict) -> GameState:
         small_blind=st["blinds"][0],
         big_blind=st["blinds"][1],
         action_log=log,
+        discards={s: card_name(c) for s, c in st.get("discards", {}).items()},
     )
 
 
@@ -100,4 +109,6 @@ def parse_action(a: Action) -> tuple[str, int]:
         return a.lower(), 0
     if a.startswith("RAISE:") and a[6:].isdigit():
         return "raise", int(a[6:])
+    if a.startswith("DISCARD:") and a[8:].isdigit():
+        return "discard", int(a[8:])
     raise ValueError(f"bad action {a!r}")

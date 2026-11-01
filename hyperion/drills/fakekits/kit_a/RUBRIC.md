@@ -17,6 +17,7 @@ What a correct adapter must translate. Each line is a trap that has cost someone
 | return `"FOLD"`, `"CHECK"`, `"CALL"`, `"RAISE:<total>"` | `Action.kind`, `Action.amount` | the string must be exact; `"RAISE: 120"` with a space is garbage to this kit |
 | `Agent.new_game(my_index, n_players, starting_stack)` | `Bot.new_table(rules, seat, n_players)` | build `Rules()` from the blinds you see; the kit tells you nothing about the variant |
 | `Agent.hand_over(hand_number, chip_change)` | `Bot.hand_end(HandResult)` | no showdown info here; opponent modeling must come from `action_log` |
+| toss tables (`--toss`): `legal_moves == ["DISCARD"]` once per flop, answer `"DISCARD:<i>"` | `Hero.variant_decide({"decision": "discard", "hole", "board"})` returns the index | an index into `state.hand`, not a card; never route it through `act` (no legal Action exists); afterwards `hand` has two cards; `state.discards` (dead, face up) maps to `obs.extras["discards"]` as the sim gives it (Hero does not read it yet) |
 
 Budget: 1 ms wall-clock per `act` call measured around the call. Exceptions, slow calls and illegal
 actions are auto-folded (checked when possible) and counted. The runner passes when there are no
