@@ -39,3 +39,56 @@ Shares of hybrid3_x's decisions, model mode, 50 seeds x 8, in Hero's seat (%):
 
 Every section holds at least 1.3% of decisions on every field. Decision share is not points share: a section's weight in
 the swap matrix shows up as the size of its paired delta. Tests: tests/test_compose_sections.py.
+
+## 14:50: the composite bot (hyperion/compose/bot.py) and the swap tool (tools/swap.py)
+
+**Members and donors.** A route maps each section to a donor: a member bot and whether the exploit layer acts there.
+
+| donor | member | layer | is, with every section on it |
+|---|---|---|---|
+| base | rival 3's core behind Hero's shell | on | hybrid3_x |
+| hybrid3 | the same | off | hybrid3 |
+| hero | Hero's HeroCore | on | Hero as it ships |
+| r2x | rival 2's core behind the shell | on | hybrid_x |
+| rival1 | rival 1 as built, kit adapter | off | rival1 |
+| rival3 | rival 3 as built, kit adapter | off | rival3 (brief's payouts, no shell) |
+
+- **The layer sits in front of the whole composite, one instance.** It observes every decision and replaces a passive
+  action only where the donor has it on. It reads only the table, so one copy per member would read the same and cost
+  ~6 us each. "Layer off in section X" is the donor `hybrid3` in X.
+- **Every member in the route acts on every observation and gets every hand_end.** The members not chosen compute
+  their decision too, and it is discarded. Rival 3 keeps one fact about its own past ("I raised preflop", which raises
+  its flop bluff rate). When its answer was not the action taken, that flag is set from the action that was. Every
+  other member reads its state from the history.
+- **Only the route's members are built,** plus the base, which answers variant prompts and plays where a raw rival
+  cannot: Hero's 14 variant tables, permuted ranks, straddles (counted `fallback:plain`).
+- **Errors.** A failing chosen member gives the base's answer; a failing shadow is ignored; a late chosen member skips
+  the shadows (`late_us`, off in deterministic runs).
+
+**Both directions verified on real tables** (model mode, panic and soft deadlines off; per-decision sha1 in Hero's seat
+plus every seat's points; tests/test_compose.py):
+
+| route | against | result |
+|---|---|---|
+| every section `base` | hybrid3_x | bit-identical, with and without every other member shadowing |
+| every section `hybrid3` | hybrid3 | bit-identical |
+| every section `hero` | Hero | bit-identical, with every other member shadowing |
+| every section `rival3` | rival3 in Hero's seat | bit-identical, shadows on |
+| every section `rival1` | rival1 (strong; realistic already seats it) | bit-identical, shadows on |
+| every section `r2x` | hybrid_x | differs: rival 2's sampler stops on the wall clock. With its budget lifted (32 samples always) both are bit-identical |
+
+Members never change the observation (deep copies before and after every call, every member shadowing).
+
+**The swap tool's exact shortcut** (tools/swap.py). The base run plays the base route with every member shadowing.
+For each (table seed, rotation) it records which (section, donor) cells ever disagree with the action taken in their
+section. A rotation where the donor agrees at every decision of its section follows the base's trajectory exactly, so
+only disagreeing rotations are replayed. Checked against full replays: 0 mismatches over 5 cells x 48 rotations, plus a
+test. It also measures any combined route (the union of its cells' rotations).
+
+For determinism every run fixes rival 2's sampler at a sample count: opponents 110 (its host-speed average heads-up),
+the r2 member 32. That is a fixed-speed rival 2; the final measurement plays it as built.
+
+How often a donor's action differs from the base's on the first 6 seeds of realistic (rotations out of 48 with at least
+one difference): Hero, rival 1 and rival 2's core differ in nearly every rotation in the big preflop sections. Raw
+rival 3 differs from the base only where the payout correction moves an all-in price (7-15 of 48), and never facing a
+postflop bet. The layer-off donor differs where the layer fires (41 of 48 in post_hu_chk).
