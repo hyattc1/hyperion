@@ -107,3 +107,29 @@ first 200 seeds Hero scores 4.767 here against 4.814 in the hybrid agent's run o
 
 **hybrid_x leads (+0.300 ± 0.098), outside noise; hybrid3_x +0.061 ± 0.100, hybrid3 +0.008 and rival3 -0.004 are level
 with Hero.** Every candidate beats rival 4 here (+0.24 to +0.61). Rival 2 leads the room whenever hybrid_x is not in it.
+
+## 07:45-07:51: `realistic`, model mode, 400 seeds x 8
+
+| # | candidate | pts ± 95% | - Hero (paired) | rank in field | 1st % | bust % | gaps (paired) | load |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hybrid3_x | 6.120 ± 0.072 | +0.100 ± 0.087 | 1 of 8 (leader hybrid3_x 6.12) | 47 | 50 | - rival1 +0.557 ± 0.119 | 24-31 |
+| 2 | Hero | 6.020 ± 0.070 | - | 1 of 8 (leader hero 6.02) | 45 | 50 | - rival1 +0.495 ± 0.121 | 24-31 |
+| 3 | hybrid3 (no layer) | 5.954 ± 0.070 | -0.067 ± 0.089 | 1 of 8 (leader hybrid3 5.95) | 41 | 54 | - rival1 +0.356 ± 0.118 | 24-31 |
+| 4 | rival3 (raw, reference) | 5.887 ± 0.074 | -0.133 ± 0.090 | 1 of 8 (leader rival3 5.89) | 41 | 55 | - rival1 +0.292 ± 0.121 | 24-31 |
+| 5 | hybrid_x | 5.737 ± 0.078 | -0.283 ± 0.094 | 1 of 8 (leader hybrid_x 5.74) | 40 | 56 | - rival1 +0.105 ± 0.115 | 24-30 |
+
+| candidate | decisions | p50 / p99 us | wall >= 1 ms | engine timeouts | panicked tables | exc / ill / safe_err | routes and layer fires per table |
+|---|---|---|---|---|---|---|---|
+| Hero | 570,839 | 29 / 114 | 588 (0.103%) | 0 (0.000%) | 0 | 0 / 0 / 0 |  |
+| hybrid_x | 491,693 | 36 / 267 | 912 (0.185%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 93.71%; exploit:steal_fold 6.59, exploit:bet_checked 3.14, exploit:steal 0.64 |
+| hybrid3_x | 528,640 | 39 / 165 | 747 (0.141%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 97.10%; exploit:bet_checked 3.11, exploit:steal_fold 1.61, exploit:steal 0.13, hero:core_none 0.11 |
+| rival3 (raw, reference) | 517,978 | 26 / 109 | 542 (0.105%) | 0 (0.000%) | 0 | 0 / 0 / 0 |  |
+| hybrid3 (no layer) | 528,385 | 31 / 140 | 615 (0.116%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 99.94%; hero:core_none 0.09 |
+
+
+Hero reproduces both earlier runs on these deals exactly: 6.020 over 400 seeds is the exploit pass's final model-mode
+number, and 5.967 over the first 200 is the hybrid agent's round 3. hybrid3_x is 6.133 on the first 200 (round 3: 6.141).
+
+**hybrid3_x +0.100 ± 0.087 over Hero, just outside noise** (first 200 seeds +0.166 ± 0.128, all 400 smaller). Without
+the layer the rival 3 core is level-to-behind (-0.067), raw rival 3 behind (-0.133 ± 0.090), and **hybrid_x behind,
+-0.283 ± 0.094**. The layer is worth +0.17 to the rival 3 core here (hybrid3_x - hybrid3, same deals).
