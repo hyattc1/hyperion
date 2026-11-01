@@ -210,3 +210,27 @@ hero, pushfold, pushfold, tag, hero_tight, hero_loose, nit, loose_aggro. The two
 hybrid_x +0.166 ± 0.108 (outside noise), hybrid3_x +0.070 ± 0.104 (level). Without the layer the rival 3 core loses
 this room to Hero (-0.207 ± 0.100), and raw rival 3 by more (-0.265): the two layered Hero clones take pots from it.
 The layer is worth +0.28 to the rival 3 core here, the most of any field.
+
+## 08:10-08:16: `timeouts`, model mode, 400 seeds x 8
+
+hero, montecarlo, montecarlo30, timeout_then_recover, timeout_burst, tag, pushfold, loose_aggro.
+
+| # | candidate | pts ± 95% | - Hero (paired) | rank in field | 1st % | bust % | gaps (paired) | load |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hybrid3_x | 6.551 ± 0.071 | +0.112 ± 0.085 | 1 of 8 (leader hybrid3_x 6.55) | 62 | 37 |  | 12-17 |
+| 2 | Hero | 6.439 ± 0.071 | - | 1 of 8 (leader hero 6.44) | 58 | 39 |  | 12-17 |
+| 3 | hybrid3 (no layer) | 6.401 ± 0.071 | -0.038 ± 0.088 | 1 of 8 (leader hybrid3 6.40) | 56 | 42 |  | 12-17 |
+| 4 | rival3 (raw, reference) | 6.297 ± 0.074 | -0.142 ± 0.089 | 1 of 8 (leader rival3 6.30) | 54 | 44 |  | 12-17 |
+| 5 | hybrid_x | 6.034 ± 0.076 | -0.405 ± 0.089 | 1 of 8 (leader hybrid_x 6.03) | 50 | 49 |  | 12-17 |
+
+| candidate | decisions | p50 / p99 us | wall >= 1 ms | engine timeouts | panicked tables | exc / ill / safe_err | routes and layer fires per table |
+|---|---|---|---|---|---|---|---|
+| Hero | 564,565 | 27 / 107 | 175 (0.031%) | 0 (0.000%) | 0 | 0 / 0 / 0 |  |
+| hybrid_x | 468,115 | 35 / 262 | 275 (0.059%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 92.51%; exploit:steal_fold 8.15, exploit:bet_checked 2.96, exploit:steal 0.82 |
+| hybrid3_x | 513,308 | 37 / 143 | 253 (0.049%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 96.75%; exploit:bet_checked 2.95, exploit:steal_fold 2.09, exploit:steal 0.22, hero:core_none 0.15 |
+| rival3 (raw, reference) | 508,758 | 25 / 103 | 153 (0.030%) | 0 (0.000%) | 0 | 0 / 0 / 0 |  |
+| hybrid3 (no layer) | 521,150 | 30 / 123 | 197 (0.038%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 99.93%; hero:core_none 0.12 |
+
+
+Hero 6.439 is the exploit pass's final model-mode number on these deals, exactly. **hybrid3_x +0.112 ± 0.085 over Hero,
+outside noise; hybrid_x -0.405 ± 0.089**, its worst field: the rival 2 core loses the most where the field is weakest.
