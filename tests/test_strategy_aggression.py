@@ -137,3 +137,32 @@ def test_first_in_shove_zone_reaches_deeper_from_late_seats(tables):
     a = utg.act(obs)
     assert a.kind is ActionKind.RAISE and a.amount < obs.max_raise  # under the gun at 16 bb opens normally
     assert not utg.pushfold.fi_zone(Spot(obs, obs.hole))
+
+
+def test_per_seat_switch_to_the_reshove_read(tables):
+    """The per-opportunity read switches on for one seat's re-shoves once its smoothed re-shove rate at <= 25 bb
+    passes the threshold: a frequent re-shover's range widens (A9o calls), a rare one keeps the per-hand read; a
+    first-in shove never switches."""
+    core = core_with(tables, {"preflop.shove_ctx_auto": 0.12}, seat=7)
+    pre = core.preflop
+    obs = preflop_obs("Ad 9c", 7, stacks=[400] * 8, actions=FOLDS(2, 3, 4, 5, 6) + [(7, R(50)), (0, F), (1, R(400))])
+    spot = Spot(obs, obs.hole)
+    frequent, rare = Profiler(8), Profiler(8)
+    for prof in (frequent, rare):
+        prof.reset(8, 7)
+    frequent.vo_opp_b[1][1], frequent.vo_shove_b[1][1] = 30, 9  # 30% of 30 spots
+    rare.vo_opp_b[1][1], rare.vo_shove_b[1][1] = 30, 1
+    assert pre.frequent_reshover(frequent, 1) and not pre.frequent_reshover(rare, 1)
+    assert not pre.frequent_reshover(rare, 2)  # no data: the prior 0.06 is under the threshold
+    per_hand = pre.shover_range(spot, rare)
+    assert pre.shover_range(spot, frequent) > per_hand
+    off = core_with(tables, {}, seat=7).preflop
+    assert off.shover_range(spot, frequent) == pytest.approx(off.shover_range(spot, rare))  # off: the per-hand read
+    assert pre.act(spot, frequent) == C
+    assert pre.act(spot, rare) == F
+    # a first-in shove from a frequent re-shover keeps the per-hand read
+    frequent.vo_opp_b[6][1], frequent.vo_shove_b[6][1] = 30, 9
+    fi = preflop_obs("Ad 9c", 7, stacks=[400] * 8, actions=FOLDS(2, 3, 4, 5) + [(6, R(400))])
+    fs = Spot(fi, fi.hole)
+    assert fs.facing_shove and pre._shove_ctx(fs) == (1, -1) and pre.frequent_reshover(frequent, 6)
+    assert pre.shover_range(fs, frequent) == pytest.approx(off.shover_range(fs, frequent))

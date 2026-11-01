@@ -73,6 +73,12 @@ class PreflopParams:
     # solved re-shove frequency against the opener's range) the width is base x observed / prior; without one it is
     # the smoothed rate. 4-bet and later shoves keep the per-hand rule above.
     shove_ctx_model: bool = False  # 400 seeds: on = rival2 among seven Heroes -0.14, but top -0.11 and realistic -0.05
+    # ... switched on per seat for re-shoves only: once a seat's re-shove rate per "facing one open" spot at <= 25 bb,
+    # smoothed toward shove_ctx_auto_prior with shove_ctx_auto_n spots, reaches shove_ctx_auto (0 = off; a tiny
+    # value = every seat's re-shoves, never its first-in shoves)
+    shove_ctx_auto: float = 0.0
+    shove_ctx_auto_n: float = 8.0
+    shove_ctx_auto_prior: float = 0.06
     shove_fi_prior: tuple = (0.25, 0.06, 0.02, 0.01)  # first-in shoves per first-in opportunity, by depth bucket
     shove_vo_prior: tuple = (0.18, 0.15, 0.04, 0.02)  # re-shoves per "facing one open" opportunity
     # big-blind defence against a single open (no callers): call when my equity against the opener's estimated range,
@@ -354,8 +360,10 @@ class Preflop:
         chips = obs.stacks[sh] + obs.bets[sh] if sh >= 0 else spot.max_opp_total
         d = chips / spot.bb
         b = 0 if d <= 12 else 1 if d <= 25 else 2 if d <= 50 else 3
-        if p.shove_ctx_model and prof is not None and sh >= 0:
+        if (p.shove_ctx_model or p.shove_ctx_auto > 0.0) and prof is not None and sh >= 0:
             ctx, opener = self._shove_ctx(spot)
+            if ctx and not p.shove_ctx_model and (ctx != 2 or not self.frequent_reshover(prof, sh)):
+                ctx = 0
             if ctx:
                 pri = p.shove_fi_prior if ctx == 1 else p.shove_vo_prior
                 prior = pri[b] if b < len(pri) else pri[-1]
@@ -373,6 +381,13 @@ class Preflop:
         rate = (k + prior * p.shove_prior_n) / (n + p.shove_prior_n)
         x = base * rate / prior if base is not None else p.shove_range_mult * rate
         return p.shove_range_min if x < p.shove_range_min else 1.0 if x > 1.0 else x
+
+    def frequent_reshover(self, prof: Profiler, seat: int) -> bool:
+        """Has `seat` re-shoved over single opens at <= 25 bb often enough (smoothed) for the per-opportunity read?"""
+        p = self.p
+        k = prof.vo_shove_b[seat][0] + prof.vo_shove_b[seat][1]
+        n = prof.vo_opp_b[seat][0] + prof.vo_opp_b[seat][1]
+        return (k + p.shove_ctx_auto_prior * p.shove_ctx_auto_n) / (n + p.shove_ctx_auto_n) >= p.shove_ctx_auto
 
     @staticmethod
     def _shove_ctx(spot: Spot) -> tuple[int, int]:
