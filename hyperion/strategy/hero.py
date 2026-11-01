@@ -36,7 +36,7 @@ from ..core.cards import hole_class, is_identity_order, remap
 from ..core.eval import warm
 from ..core.types import RANKS, Action, ActionKind, HandResult, Observation, Rules
 from ..tablegen import hole_label
-from .exploit import Exploit, ExploitParams
+from .exploit import Exploit, ExploitParams, ShippedExploitParams
 from .postflop import TIER_EQUITY, Postflop, PostflopParams
 from .preflop import Preflop, PreflopParams
 from .profiler import Profiler
@@ -173,8 +173,9 @@ class Config:
     pushfold: PushFoldParams = field(default_factory=PushFoldParams)
     postflop: PostflopParams = field(default_factory=PostflopParams)
     # dead and timing-out seats (hyperion/strategy/exploit.py): its own reads, and overrides of the modules' action in
-    # a few spots; every spot off by default, so nothing runs unless one is on
-    exploit: ExploitParams = field(default_factory=ExploitParams)
+    # a few spots. Shipped on: bet when checked to by folders, the dead-seat steal, the steal by fold reads (exploit
+    # pass, docs/decisions.md); exploit.bet_checked / steal false and steal_min_fold 0 give the behaviour of 7e51197
+    exploit: ExploitParams = field(default_factory=ShippedExploitParams)
     profiler_prior_n: float = 2.0
     profiler_blend_n: float = 8.0  # dials reach half strength after this many observed actions
     profiler_dial_strength: float = 1.0  # 0 = read opponents but never act on it
@@ -373,7 +374,7 @@ class HeroCore:
         self.postflop = Postflop(cfg.postflop, cfg.seed)
         self.pushfold.pre = self.preflop
         self.preflop.pf = self.pushfold
-        self.exploit = Exploit(cfg.exploit) if cfg.exploit.active else None
+        self.exploit = Exploit(cfg.exploit) if cfg.exploit.active and not cfg.cheap else None  # cheap: no reads
         if self.prof is not None and self.pushfold.mw is not None:
             self.prof.call_prior = self.pushfold.call_prior  # shove calls are read against a solved caller's
         self._base = (self.preflop, self.pushfold)

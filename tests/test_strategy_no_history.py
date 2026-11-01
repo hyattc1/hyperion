@@ -86,6 +86,21 @@ def test_hero_without_history_plays_close_to_hero_with_it():
     measured 3.2 against 5.5 before the bets fallback; the gap must now be a fraction of a point."""
     field = ["hero", "rival1", "tag", "pushfold", "loose_aggro", "nit", "station", "maniac"]
     full, stripped = [], []
+    # the modules' inference only: the exploit layer reads the kit's own history and is inert without it
+    # (test_strategy_exploit_layer), so with it on the full-history Hero gains what the stripped one cannot
+    from hyperion.sim import bestiary
+
+    bestiary.HERO_CONFIG = {"exploit.bet_checked": False, "exploit.steal": False, "exploit.steal_min_fold": 0.0}
+    try:
+        _play(field, full, stripped)
+    finally:
+        bestiary.HERO_CONFIG = None
+    m_full, m_strip = sum(full) / len(full), sum(stripped) / len(stripped)
+    assert m_strip > m_full - 0.6, (m_full, m_strip)
+    assert m_strip > 4.8, (m_full, m_strip)
+
+
+def _play(field, full, stripped):
     for t in range(6):
         rng = random.Random(t)
         seating = field[:]
@@ -98,6 +113,3 @@ def test_hero_without_history_plays_close_to_hero_with_it():
                     bots[me] = _Stripped(bots[me])
                 res = play_table(bots, Rules(), seed=5000 + t, rotation=rot, mode="measure")
                 out.append(res.points[me])
-    m_full, m_strip = sum(full) / len(full), sum(stripped) / len(stripped)
-    assert m_strip > m_full - 0.6, (m_full, m_strip)
-    assert m_strip > 4.8, (m_full, m_strip)
