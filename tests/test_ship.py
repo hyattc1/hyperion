@@ -140,7 +140,7 @@ def test_adapter_hand_end_passes_the_kits_history_and_deltas():
     ad.hand_end(4, 30)
     hist = [(0, Action.raise_to(60)), (1, Action.call())]
     ad.hand_end(5, -60, history=hist, deltas=[60, -60, 0])
-    assert got[0].deltas == [0, 30] and got[0].history == []
+    assert got[0].deltas == [0, 30, 0] and got[0].history == []  # one per seat of the table start()ed
     assert got[1].deltas == [60, -60, 0] and got[1].history == hist and got[1].hand_no == 5
 
 
@@ -159,3 +159,34 @@ def test_a_history_rebuilt_from_the_bets_reaches_the_core_as_none():
     from hyperion.core.types import Action
     logged = make_observation(**kw, history=[(3, Action.raise_to(60))])
     assert logged.extras == {} and KitView()(logged, logged.hole, logged.board).history == [(3, ("raise", 60))]
+
+
+def test_no_log_seat_feeds_a_bot_what_a_kit_without_a_log_gives():
+    """tools/gate.py's baseline on kits with no action log: the raises rebuilt from the bets, a bare hand end."""
+    from hyperion.core.types import Action, HandResult
+    from hyperion.drills.adapter import NoLogSeat
+    from tests.strategy_helpers import preflop_obs
+
+    seen = []
+
+    class Bot:
+        def new_table(self, *a):
+            pass
+
+        def act(self, obs):
+            seen.append(obs)
+            return Action.fold()
+
+        def hand_end(self, result):
+            seen.append(result)
+
+
+    seat = NoLogSeat(Bot())
+    seat.new_table(Rules(), 2, 4)
+    log = [(3, Action.raise_to(60)), (4, Action.call()), (5, Action.fold())]
+    obs = preflop_obs("AsKd", seat=6, actions=log)
+    seat.act(obs)
+    assert seen[0].extras.get("history_from_bets") and [a.amount for _, a in seen[0].history] == [60]
+    assert obs.history[-3:] == log and not obs.extras, "the engine's own observation is untouched"
+    seat.hand_end(HandResult(hand_no=0, deltas=[5, -5, 30, -30], showdown={1: (0, 1)}, board=(), history=[(0, Action.call())]))
+    assert seen[1].deltas == [0, 0, 30, 0] and seen[1].history == [] and seen[1].showdown == {}

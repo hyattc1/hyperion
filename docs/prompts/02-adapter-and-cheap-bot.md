@@ -37,7 +37,8 @@ Track A (repo present):
 7. After the upload, gate that zip once: `python tools/gate.py dist/submission.zip --kit <a|b|c|d>
    --tables 30 --rules rules_tonight.json` (plus `--variant <name>` if the catalog has it). It imports
    the zip as the organisers would and plays it in our sim, paired against the bot the package records,
-   in-sim (`baseline bot cheap` line: `Hero.cheap()`). A kit that is none of the fake kits: first write `submission/gate_seat.py`, class
+   in-sim (`baseline bot cheap` line: `Hero.cheap()`). A kit with no action log (the rule sheet says so):
+   add `--kit-log no`, so the in-sim bot sees only what the kit gives (automatic for fake kits b, c, d). A kit that is none of the fake kits: first write `submission/gate_seat.py`, class
    `Seat` copied from `KitA` in `tools/gate_host.py` with `native` and `parse` changed for this kit, and
    pass `--kit submission/gate_seat.py --kit-module <their kit.py>` (a subprocess kit unlike c or d:
    say the gate cannot run). Required: `GATE PASS`. It proves the reverse adapter now, so Stage 4's gate

@@ -32,7 +32,8 @@ Same adapter and `rules_tonight.json`. Verify in this order, pasting every outpu
    table start), vendors the variant set the rules name, zips, writes the sha256 row: the submission.
 6. Gate the zip itself, the step 2 sim measured the in-sim bot: `python tools/gate.py dist/submission.zip
    --kit <same as Stage 2> --tables 100 --rules rules_tonight.json` (plus `--variant <name>`; about
-   3 minutes). It pairs against the bot the package records (`baseline bot hybrid3_x` line). Required:
+   3 minutes; `--kit-log no` as in Stage 2 if the kit has no action log). It pairs against the bot the
+   package records (`baseline bot hybrid3_x` line). Required:
    `GATE PASS` (0 exceptions, 0 illegal, and the package not behind the in-sim bot beyond the paired
    interval; drill 6's upload was 2.5 points behind and would have failed). Paste the last four lines.
    FAIL: do not upload. Run it on every zip before every upload, tonight's later ones included (a window

@@ -47,6 +47,7 @@ class Adapter:
         if rules is not None:
             self.rules = rules
         self.seat = seat
+        self.n_players = n_players
         self.started = True
         try:
             self.bot.new_table(self.rules, seat, n_players)
@@ -71,7 +72,7 @@ class Adapter:
         gives it."""
         try:
             if deltas is None:
-                deltas = [0] * (n_players or max(1, self.seat + 1))
+                deltas = [0] * (n_players or getattr(self, "n_players", 0) or max(1, self.seat + 1))
                 deltas[self.seat] = delta
             self.bot.hand_end(HandResult(hand_no=hand_no, deltas=list(deltas), showdown={}, board=(),
                                          history=list(history or [])))
@@ -99,6 +100,37 @@ def history_from_bets(street: int, button: int, stacks, bets, big_blind: int) ->
             continue
         out.append((seats[0], Action(ActionKind.RAISE, int(level))))
     return out
+
+
+class NoLogSeat:
+    """A bot fed what a kit with no action log gives it through a reference adapter: each decision's history is this
+    street's raises rebuilt from the bets (make_observation's rule, flagged in extras), and each hand end carries
+    only its own chip change. tools/gate.py seats the in-sim baseline this way for such kits, so the gate measures
+    the adapter, not the log the kit never had."""
+
+    def __init__(self, bot: Bot):
+        self.bot = bot
+        self.seat = 0
+        self.n = 0
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        self.seat, self.n = seat, n_players
+        self.bot.new_table(rules, seat, n_players)
+
+    def act(self, obs: Observation) -> Action:
+        import dataclasses
+
+        hist = history_from_bets(obs.street, obs.button, obs.stacks, obs.bets, obs.blinds[1])
+        return self.bot.act(dataclasses.replace(obs, history=hist, extras={**obs.extras, "history_from_bets": True}))
+
+    def hand_end(self, result: HandResult) -> None:
+        deltas = [0] * len(result.deltas)
+        if 0 <= self.seat < len(deltas):
+            deltas[self.seat] = result.deltas[self.seat]
+        self.bot.hand_end(HandResult(hand_no=result.hand_no, deltas=deltas, showdown={}, board=(), history=[]))
+
+    def variant_decide(self, prompt: dict):
+        return self.bot.variant_decide(prompt)
 
 
 def history_rows(history, discards: dict | None = None, at: int | None = None) -> list[list]:

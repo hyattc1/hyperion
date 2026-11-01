@@ -228,7 +228,8 @@ def test_a_gate_table_without_a_gate_seat_is_the_sim_table():
 def test_playbook_and_prompts_gate_the_zip():
     read = lambda rel: (ROOT / rel).read_text()  # noqa: E731
     p02, p04 = read("docs/prompts/02-adapter-and-cheap-bot.md"), read("docs/prompts/04-wire-hero.md")
-    assert "tools/gate.py dist/submission.zip" in p02 and "--hero-config cheap" in p02 and "GATE PASS" in p02
+    assert "tools/gate.py dist/submission.zip" in p02 and "--bot cheap" in p02 and "GATE PASS" in p02
+    assert "--kit-log no" in p02 and "--kit-log no" in p04
     assert "gate_seat.py" in p02 and "tools/gate_host.py" in p02
     assert "tools/gate.py dist/submission.zip" in p04 and "GATE PASS" in p04 and "every upload" in p04
     for text in (p02, p04):
@@ -273,3 +274,33 @@ def test_a_ship_package_is_gated_against_the_ship_bot_in_sim(tmp_path):
     pkg2, base2 = gate.play(cfg, bestiary.field_names("realistic"), 3, 3, Rules(), None, "measure", "sim", bot=bot)
     assert base2.label == "hybrid3_x (sim)" and base2.stats.calls > 0
     assert pkg2.stats.exceptions == pkg2.stats.illegal == 0 and pkg2.decisions > 0
+
+
+def test_a_kit_without_a_log_gives_the_baseline_no_log(tmp_path):
+    """--kit-log no (auto for fake kits b, c, d): the in-sim baseline sits behind NoLogSeat, the package does not."""
+    from hyperion.drills.adapter import NoLogSeat
+    from hyperion.sim import bestiary
+
+    seen = []
+    real = gate.GateTable
+
+    class Spy(real):
+        def __init__(self, bots, *a, **kw):
+            seen.append(any(isinstance(b, NoLogSeat) for b in bots))
+            super().__init__(bots, *a, **kw)
+
+    gate.GateTable = Spy
+    try:
+        src = SETUP + "from hyperion.drills.adapter import make_kit_b_module\n\ndecide, on_table_start, on_hand_end = make_kit_b_module()\n"
+        pkg = build(tmp_path, "nolog", src)
+        kit_dir, scratch = tmp_path / "nolog_kit", tmp_path / "nolog_cwd"
+        kit_dir.mkdir()
+        scratch.mkdir()
+        (kit_dir / "kit.py").write_bytes((gate.FAKEKITS / "kit_b" / "kit.py").read_bytes())
+        cfg = gate.Config(pkg=pkg, entry="submission.py", kit="b", kit_dir=kit_dir, scratch=str(scratch))
+        p, b = gate.play(cfg, bestiary.field_names("realistic"), 1, 3, Rules(), None, "measure", "sim",
+                         bot=("hybrid3_x", {}), no_log=True)
+    finally:
+        gate.GateTable = real
+    assert seen == [False, True], seen  # the package's table: no wrapper; the baseline's: the baseline wrapped
+    assert p.stats.exceptions == p.stats.illegal == 0 and b.stats.calls > 0

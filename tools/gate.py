@@ -35,6 +35,12 @@ paired against Hero. `--bot` / `--dials` replace the record; `--hero-config JSON
 package's own ship bot behind no adapter instead, for a package built from older code (it reads the package's
 tables too, so a missing variant set hides from it).
 
+A kit with no action log (`--kit-log no`; the default `auto` says no for fake kits b, c and d, whose reference
+adapters rebuild the raises from the bets, and yes for a and a seat file) gives the baseline what the kit gives
+the package: each decision's history rebuilt from the bets and a hand end with only its own chip change
+(hyperion.drills.adapter.NoLogSeat). Fed the full log, the in-sim bot is a bar no package on such a kit can
+reach (kit B: Hero -0.83 +- 0.46, hybrid3_x -1.23 +- 0.71 at 60 tables), so every upload would fail.
+
 FAIL (exit 1) when the package trails the baseline by more than the paired 95% interval, raises, sends
 an illegal action, never imports, or times out on more than --max-tmo-pct of its decisions (a warning
 instead when the load average exceeds the core count, the playbook's load clause). Otherwise PASS.
@@ -67,7 +73,7 @@ if str(ROOT) not in sys.path:
 
 from hyperion import ship  # noqa: E402
 from hyperion.core.types import Action, ActionKind, Observation, Rules  # noqa: E402
-from hyperion.drills.adapter import dealer_state, history_rows  # noqa: E402
+from hyperion.drills.adapter import NoLogSeat, dealer_state, history_rows  # noqa: E402
 from hyperion.sim import bestiary  # noqa: E402
 from hyperion.sim.engine import BUDGET_NS, BotStats, Table  # noqa: E402
 
@@ -703,10 +709,11 @@ def seating_for(names: list[str], n: int, table_seed: int) -> list[str]:
 
 def play(cfg: Config, names: list[str], tables: int, seed: int, rules: Rules, variant, mode: str,
          baseline: str, progress=None, base: Side | None = None,
-         bot: tuple[str, dict] | None = None) -> tuple[Side, Side]:
+         bot: tuple[str, dict] | None = None, no_log: bool = False) -> tuple[Side, Side]:
     """Each table seed with the package in the hero seat, then with the baseline there. A `base` from an
     earlier call with the same field, seeds and rules is reused instead of replayed. `bot` = (name, dials) for
-    hyperion.ship.make_bot in the baseline seat; None = the bestiary's `hero` (with bestiary.HERO_CONFIG)."""
+    hyperion.ship.make_bot in the baseline seat; None = the bestiary's `hero` (with bestiary.HERO_CONFIG).
+    `no_log`: the in-sim baseline sees what a kit with no action log gives (NoLogSeat)."""
     pkg = Side("package")
     sides = [(pkg, cfg.kit)]
     label = bot[0] if bot is not None else "hero"
@@ -725,6 +732,8 @@ def play(cfg: Config, names: list[str], tables: int, seed: int, rules: Rules, va
                 bots[g] = proxy
             elif bot is not None:
                 bots[g] = ship.make_bot(bot[0], bot[1], seed=table_seed * 64 + g)
+            if proxy is None and no_log and baseline == "sim":
+                bots[g] = NoLogSeat(bots[g])
             stats = [BotStats(nm) for nm in seating]
             stats[g] = side.stats
             hooks = variant.new_hooks() if variant is not None else None
@@ -872,6 +881,9 @@ def main(argv=None) -> int:
                                          "every other Hero seat), JSON or file, or `cheap` for Hero.cheap()")
     p.add_argument("--baseline", choices=("sim", "package"), default="sim")
     p.add_argument("--max-tmo-pct", type=float, default=0.3, help="timeouts as a share of decisions (default 0.3)")
+    p.add_argument("--kit-log", choices=("auto", "yes", "no"), default="auto",
+                   help="does the kit give an action log? no = the in-sim baseline sees the raises rebuilt from the "
+                        "bets, as the package does (auto: no for fake kits b, c, d; yes for a and a seat file)")
     a = p.parse_args(argv)
 
     from hyperion.sim.runner import load_hero_config, load_rules
@@ -916,7 +928,9 @@ def main(argv=None) -> int:
         print(f"      kit {a.kit}, {field_label}, {a.tables} tables {a.mode}, seed {a.seed}, rules {a.rules}"
               f"{', variant ' + a.variant if a.variant else ''}, baseline {a.baseline}"
               f"{', hero-config ' + a.hero_config if a.hero_config else ''}")
-        print(f"      baseline bot {bot[0]} dials {bot[1]} ({where})")
+        no_log = a.kit_log == "no" or (a.kit_log == "auto" and kit in ("b", "c", "d"))
+        print(f"      baseline bot {bot[0]} dials {bot[1]} ({where})"
+              f"{'; it sees what a kit with no action log gives (--kit-log no)' if no_log else ''}")
         t0 = time.perf_counter()
 
         def progress(done, pk, bs):
@@ -926,7 +940,7 @@ def main(argv=None) -> int:
                   f"({time.perf_counter() - t0:.0f} s)", file=sys.stderr, flush=True)
 
         pkg_side, base_side = play(cfg, names, a.tables, a.seed, rules, variant, a.mode, a.baseline, progress,
-                                   bot=bot)
+                                   bot=bot, no_log=no_log)
 
     n_places = rules.n_players
     print(f"{'seat':<27} {'n':>4} {'pts':>6} {'±95%':>5}  " + " ".join(f"{'p' + str(i + 1):>3}" for i in range(n_places))
