@@ -42,6 +42,12 @@ from its brief below and `git log`.
 - Compose: sections (hyperion/compose/sections.py), a composite bot that routes each section to the best member
   (all members shadow every decision), the section swap matrix, greedy combination, a guarded hill climb, one final
   measurement on both judges, ship only if it beats hybrid3_x. Log docs/drills/compose-log.md; entry "Composite bot".
+  **DONE (17:30), SHIPPED: `SHIP = "composite"` (d32d629).** It plays rival 3's core preflop and Hero postflop and
+  short facing a raise, with the layer at a fold read of 0.4 and Hero's postflop call margin at 0.20. Measured once at
+  400 x 8, it beats hybrid3_x and Hero beyond noise on night (+0.28 / +0.33, held-out seeds), night_hard, realistic,
+  top, judge, judge2 and judge2_night, and is ahead on judge_top (+0.09 inside noise / +0.17). 23/23 READY, gate PASS
+  on kits A and B, strict timeouts level with hybrid3_x. `--bot hybrid3_x` / `--bot hero` are the fallbacks. The
+  owner's other bot won no section.
 - Scratch builds (session scratchpad, no repo access): four bots built the way typical teams will build them
   (`field/f1_default`, `f2_montecarlo`, `f3_charts`, `f4_pushfold`, 60 minutes each) and rival 5, a fresh blind judge
   (`redteam5/`). Each is frozen when FROZEN.md5 appears; the field agent brings them into the repo.

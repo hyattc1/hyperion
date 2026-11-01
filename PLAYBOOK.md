@@ -25,11 +25,12 @@ pre-written; the code is pre-designed; the hour wires it to an interface we have
 applies one patch for the axis the variant moved.
 
 **What we ship.** The ship bot is whatever `hyperion/ship.py` names (the switch: `SHIP`, printed by `python -m
-hyperion.ship`). It says `hybrid3_x` for now: rival 3's decision core plus the exploit layer behind Hero's shell
-(adapter, `Rules`, rank remap, the 23 variant hooks, SafeBot), whose core makes about 97% of plain hold'em
-decisions while Hero plays the 14 tables it cannot represent. That setting is provisional. hybrid3_x leads Hero on
-realistic and the judges, ties on the night-like field and trails on its hard version; the compose agent's final
-measurement sets the switch (Hero, hybrid3_x or the composite). Every tool follows it: the entry's
+hyperion.ship`). It says `composite` (since 2026-11-01, decisions entry "Composite bot"). Preflop is hybrid3_x's
+play: rival 3's decision core plus the exploit layer behind Hero's shell (adapter, `Rules`, rank remap, the 23
+variant hooks, SafeBot), where Hero plays the 14 tables the core cannot represent. Postflop, and preflop when facing
+a raise short, Hero plays, with the same layer in front. Measured once, 400 x 8, it beats both hybrid3_x and Hero
+beyond noise on night, night_hard, realistic, top and three of the four judge fields, and is ahead on the fourth.
+`--bot hybrid3_x` and `--bot hero` are the fallbacks. Every tool follows it: the entry's
 `hyperion.ship.make_bot()`, `tools/pack.py`, `tools/gate.py`, `tools/latency.py`, `--field realistic@ship`.
 `--bot hero` on any of them restores Hero; `--bot cheap` is the Stage 2 bot. Dials are one JSON dict (`--dials`,
 kept in `DIALS`), and the night's dials are named recipes (`--dials survival`) that resolve for whichever bot the
@@ -352,6 +353,16 @@ Step sizes: `r3.push_margin` is steep (0.01 cut short-stack shoves by 7 points, 
   0.34 against the rebuild in-sim; kit A PASS -0.20 ± 0.55; a zip without the rebuild FAILS (-0.80 ± 0.52). With it,
   hybrid3_x - Hero on a no-log kit is what it is with the log (realistic +0.14 ± 0.12, night level).
 
+- Composite bot (2026-11-01, measured once, 400 duplicate seeds x 8, model mode, against both bases on the same deals):
+  `SHIP = "composite"`. It plays rival 3's core preflop, and Hero postflop and when it faces a raise short; the layer
+  bets when checked to at a fold read of 0.4, and Hero calls postflop with 0.20 equity to spare.
+  - Over hybrid3_x / over Hero: night +0.28 / +0.33, night_hard +0.29 / +0.32, realistic +0.28 / +0.42, top
+    +0.16 / +0.35 (held-out seeds); judge +0.30 / +0.43, judge2 +0.33 / +0.42, judge2_night +0.23 / +0.27,
+    judge_top +0.09 (inside noise) / +0.17. Everything else is beyond the 95% interval.
+  - 23/23 variants READY, first on 22. Gate PASS on kit B (night, the log rebuilt) and kit A.
+  - Strict timeouts level with hybrid3_x; p99 113 us at a table, 329 us through kit B with the deferred hand end.
+  - The owner's other bot, tried as a black-box donor, won no section.
+
 **Unverified**
 - Track B spec v2 (step 0 rank map, steps 2b and 3b, the value-curve ICM, the p99 gate). Drill 3
   ran v1; its minute 4 / 9 / 17 timings are the only Track B evidence.
@@ -421,6 +432,7 @@ The track is decided in Stage 0, never on the night.
 | 2026-11-01 | Evidence: final core comparison; hybrid3_x leads Hero on every field, recommended, owner to decide | final comparison |
 | 2026-11-01 | The ship switch (`hyperion/ship.py`, provisionally hybrid3_x; section 0 "What we ship", `--bot hero` restores Hero); window recipes that resolve for whichever bot it names; Stage 2's entry builds `hyperion.ship.make_bot()` packed `--bot cheap`, so Stage 4 is a repack; sim lines `--field realistic@ship`; the gate pairs against the bot the zip records and, on a kit with no action log, gives the baseline what the kit gives (`--kit-log`); Stage 5 and 6 changes are dials dicts kept in `DIALS`; section 5 rewritten with the core's dials as checked, Hero's keys alongside, no dial for a strong tight field; section 6 evidence | base switch |
 | 2026-11-01 | Infer the action log on kits without one: every adapter rebuilds the hand's log from the states when the kit has no log or part of one (`history_source` "bets" / "partial"; `hyperion/drills/infer_history.py`), holds a bare hand end for the next state's stacks, and conformance reports `history_infer` / `history_gap`; Stage 2 reads what the kit shows of the betting, section 4 says a kit with no log needs no patch, prompt 02 steps 1, 2, 4, 7 and prompt 04 step 1 follow; `tools/gate.py --kit-log no` pairs against the rebuild (`--kit-log bets` is the old baseline); wins back 86-95% of 0.56-0.92 points a table; section 6 evidence | action-log inference |
+| 2026-11-01 | Ship the composite: `SHIP = "composite"` (rival 3's core preflop, Hero postflop and short facing a raise, two climb dials; `hyperion/compose/`); section 0 "What we ship" says so; section 6 evidence. hybrid3_x and Hero stay one word away (`--bot`) | compose |
 
 ---
 
