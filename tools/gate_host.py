@@ -178,7 +178,6 @@ class Direct:
 def serve(kind: str, pkg: str, entry: str, kit_dir: str, seat_file: str | None) -> int:
     proto = os.fdopen(os.dup(1), "w", buffering=1)
     os.dup2(2, 1)  # anything the bot prints goes to stderr, never into the protocol
-    sys.stdout = os.fdopen(1, "w", buffering=1, closefd=False)
 
     def send(obj) -> None:
         proto.write(json.dumps(obj) + "\n")

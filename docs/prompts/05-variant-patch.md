@@ -46,4 +46,5 @@ caption every line "Hero on hold'em tables" and expect the patch to do nothing. 
 - Schedule: already in `Rules.blind_levels`; push/fold is solved per big blind, so no re-solve (a new
   matrix re-solves; the cache fingerprint forces it).
 
-Report the override dict you applied and the before and after sim lines.
+Report the override dict you applied and the before and after sim lines. If the patch is kept, repack
+(prompt 04 step 5) and run `tools/gate.py` on the new zip (step 6) before I upload it.

@@ -6,7 +6,8 @@ own logs say, if the kit exposes any: <paste or "none">.
 Rules of this loop, which you must not break:
 - One change per window. If two ideas look good, take the one that reduces busts.
 - Every change is verified in strict mode before submission: the 300-table sim from prompt 04 plus
-  the kit simulator, zero errors, points not lower than the current bot on the same seed.
+  the kit simulator, zero errors, points not lower than the current bot on the same seed; then the new
+  zip passes `tools/gate.py` (prompt 04 step 6, `--tables 40`).
 - The frozen known-good submission is <sha256>. If the change is not verified by minute 12, submit
   nothing; the frozen bot stays active.
 - Never add a new module in a window. Only `Config` overrides, table swaps, or a one-line guard.

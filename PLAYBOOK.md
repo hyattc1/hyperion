@@ -103,9 +103,9 @@ Done at home. Not optional; each item has sunk a drill or will.
 | # | Stage | Clock | Driver pastes | Effort | Pass check | If it fails |
 |---|---|---|---|---|---|---|
 | 1 | READ | 0:00–0:05 | `00-briefing` then `01-rule-sheet` with the rules and kit path | xhigh | Rule sheet filled, axis named, assumption diff listed | Verifier answers the agent's questions from the rules text; no code until the sheet exists |
-| 2 | ADAPT | 0:05–0:15 | `02-adapter-and-cheap-bot` | medium | Kit simulator 50 hands: 0 exceptions, 0 illegal, conformance 0 violations, bot folds/calls/raises at least once; `pack.py` zip hashed | Adapter clean at 0:12: upload the cheap bot. Not clean: upload the kit's own example bot at 0:12, the cheap bot at 0:17 (one upload per five minutes, §3.5) |
+| 2 | ADAPT | 0:05–0:15 | `02-adapter-and-cheap-bot` | medium | Kit simulator 50 hands: 0 exceptions, 0 illegal, conformance 0 violations, bot folds/calls/raises at least once; `pack.py` zip hashed; after the upload, `tools/gate.py` on that zip: GATE PASS | Adapter clean at 0:12: upload the cheap bot. Not clean: upload the kit's own example bot at 0:12, the cheap bot at 0:17 (one upload per five minutes, §3.5) |
 | 3 | TABLES | 0:15–0:25, only if the FIT VERDICT says REGENERATE | `03-tables` | medium | Generator finished, fingerprint matches, one remapped decision printed sane | Keep old tables; note which Stage 5 patch compensates |
-| 4 | WIRE | 0:25–0:40 | `04-wire-hero` | high | Kit sim 100 hands clean; our strict sim (the Stage 0 command with `--rules rules_tonight.json`): 0 exc, 0 illegal, p99 < 300 µs, over-1 ms rate < 0.3%, Hero within its own CI of the Stage 0 number. Hero vs tag is not the gate | Fallback: resubmit the Stage 2 cheap package unchanged |
+| 4 | WIRE | 0:25–0:40 | `04-wire-hero` | high | Kit sim 100 hands clean; our strict sim (the Stage 0 command with `--rules rules_tonight.json`): 0 exc, 0 illegal, p99 < 300 µs, over-1 ms rate < 0.3%, Hero within its own CI of the Stage 0 number. Hero vs tag is not the gate. Then `tools/gate.py` on the zip itself: GATE PASS, before this and every later upload | Fallback: resubmit the Stage 2 cheap package unchanged |
 | 5 | PATCH | 0:40–0:50 | `05-variant-patch`, the section for the named axis | xhigh | Same strict sim; points did not drop beyond CI; errors still zero | Revert. Ship without the patch. |
 | — | SUBMIT | 0:50 | — | — | Portal confirms; sha256 in `NIGHT.md`; copy to `frozen/T1` | Resubmit the Stage 2 cheap bot |
 | 6 | WINDOWS | after T1, ×5 | `06-windows` with standings pasted | high | One dial, verified in strict sim, submitted by minute 15 of the window | Keep the frozen bot. Submit nothing. |
@@ -152,10 +152,13 @@ If the axis did not move, skip to Stage 4 and say so in `NIGHT.md`. Drill 2 skip
 ### Stage 4: WIRE (0:25–0:40)
 
 Swap the cheap bot for `make_bot()`. Verify in this order: kit simulator, our strict sim on the
-realistic field, duplicate-dealt rotation, latency under load, import time from a fresh process.
-The strict sim is the gate: zero exceptions, zero illegal actions, latency inside budget, and Hero
-not worse than the tight chart bot. If the engine cannot represent the variant, run the standard
-game, caption every result "variant minus X", and let Stage 5 carry the difference.
+realistic field, duplicate-dealt rotation, latency under load, import time from a fresh process, then
+the zip. The strict sim measures the simulator's own Hero, which the engine feeds its full history;
+`tools/gate.py` measures what we upload: it imports the zip as the organisers would, plays it through
+the kit interface, and pairs it against in-sim Hero on the same deals. Drill 6's upload was 2.5 points
+behind its sim Hero (its adapter dropped the history) and nothing else saw it; the gate fails it. If the
+engine cannot represent the variant, run the standard game, caption every result "variant minus X", and
+let Stage 5 carry the difference.
 
 The fallback is not "fix Hero." It is the Stage 2 cheap package, resubmitted unchanged. (A "cheap
 bot plus profiler" middle option does not exist in the code and is not worth building in the hour.)
@@ -279,7 +282,7 @@ entry on its axis is the recipe; if it is not hold'em underneath, the FIT VERDIC
    Nothing else matters until it does. One upload per five minutes is the rules' cadence, not ours.
 2. Strategy code never imports the kit. One adapter.
 3. Every change is verified by a command whose output the Verifier reads. No change is kept on the
-   agent's word.
+   agent's word. No zip is uploaded until `tools/gate.py` passes on that zip.
 4. One axis patch in the hour. One dial per window.
 5. The frozen bot is always one command from being resubmitted.
 6. When the sim cannot see what a patch does, the patch does not ship.
@@ -325,6 +328,7 @@ The track is decided in Stage 0, never on the night.
 | 2026-10-31 | Stage 0 Prepared: offline install, second machine, pull discipline. Prompts 01/02/04/05 now use `hyperion/drills/conformance.py` (`HYPERION_CHECK=1`), `tools/pack.py`, `tools/latency.py`, `hyperion/drills/adapter_template.py` and `docs/packet/NIGHT-template.md`; 01 gained the FIT VERDICT; drill-2 and review-1 prompt defects applied (D1, D2, D3, D5, D7 in the prompts only) | night-of tooling pass |
 | 2026-11-01 | Drill 5 follow-ups: §4b permuted_ranks re-measured after tag, nit and pushfold learned to remap `rank_order` (Hero 6.34 to 5.95, still first; tag 4.96 to 5.44, pushfold 4.74 to 5.34); Track B spec v2.1: step 3b pushes on chip EV (the ICM form failed its own sanity check), a clause for kits with no history; `python -m hyperion.sim --variant-seed` | drill 5 follow-ups |
 | 2026-11-01 | Drill 6 (Track A, kit A, toss_or_holdem, separate-subagent agent role): checkpoints 12/21/29/34 (drill 3: 4/9/17/19), classification right, 0 illegal tosses; the shipped Agent scored 3.39 vs Hero 5.90 because no reference adapter passed `obs.history` (fixed: 5.81). Prompt edits: 02 history, `variant_decide` routing, legal `native_safe` on discard-only decisions, pytest while packing, `--tables-dir tables`; 03 keeps a catalog variant set, never overwrites the 2-card tables; 04 `obs.history` check, latency.py's 2-card generator, `--tables-dir`; 05 no discard rule or one-step tightening when variant tables load | drill 6 report |
+| 2026-11-01 | Gate the packaged bot: `tools/gate.py` plays the zip itself (fresh `python -I`, kit interface, paired against in-sim Hero); Stage 2 runs it once on the cheap zip, the Stage 4 gate and hard rule 3 before every upload. Drill 6's upload fails it (-2.46 ± 0.76), the history-fixed repack passes (-0.22 ± 0.40). Conformance checks history; `pack.py` vendors the active variant's tables itself (`--tables-dir` is an override); `latency.py` deals the rules' cards | gate pass |
 
 ---
 

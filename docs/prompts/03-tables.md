@@ -26,7 +26,8 @@ displayed 2 is strongest" or "three hole cards, one discarded face up before the
    also compare `t.equity['AA'][0]` with the value in `tables/preflop_equity.json`. Then construct
    `make_bot()` once in a fresh process and print one preflop and one flop decision on remapped cards
    (the permuted AA on a dry flop): the strongest displayed class is treated as the strongest.
-6. Nothing to copy: `pack.py` vendors `tables/` when it builds the zip. Re-run the kit simulator for
+6. Nothing to copy: `pack.py` vendors `tables/` and the `tables/variants/<name>/` that
+   `rules_tonight.json`'s `extras.variant` names when it builds the zip. Re-run the kit simulator for
    50 hands. Zero errors.
 
 If anything here takes longer than its box, stop, keep the old tables, and tell me which axis fix

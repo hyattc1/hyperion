@@ -24,14 +24,21 @@ Track A (repo present):
    it and go on; if the box load average exceeds the core count, re-run on a quiet box before failing
    the gate; the rate is 0.3% at normal load), and the report's action counts show fold, check-or-call
    and raise each at least once.
-5. `python -m pytest -q` from the repo root; it must stay green. It takes 2 to 3 minutes and never
+5. `python -m pytest -q` from the repo root; it must stay green. It takes 3 to 5 minutes and never
    imports `submission/`: run it while step 6 packs.
-6. `python tools/pack.py --entry submission/<entry>.py --out dist/ --tables-dir tables --extra
-   submission/adapter.py submission/rules_tonight.json --note "cheap bot"` (without `--tables-dir` the
-   catalog's `tables/variants/` is left out): it vendors `hyperion/` and `tables/`, times a
-   fresh-process import (fails over 5 s), checks 100 MB, zips with the entry at the top level, prints
-   the sha256 and writes the Submissions row in `NIGHT.md`. If the rules name another layout, match it
-   and say so. Tell me to upload.
+6. `python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py
+   submission/rules_tonight.json --note "cheap bot"`: it vendors `hyperion/`, `tables/` and the
+   variant set `rules_tonight.json` names (read its `tables` line), times a fresh-process import (fails
+   over 5 s), checks 100 MB, zips with the entry at the top level, prints the sha256 and writes the
+   Submissions row in `NIGHT.md`. If the rules name another layout, match it and say so. Tell me to upload.
+7. After the upload, gate that zip once: `python tools/gate.py dist/submission.zip --kit <a|b|c|d>
+   --tables 30 --hero-config cheap --rules rules_tonight.json` (plus `--variant <name>` if the catalog
+   has it). It imports the zip as the organisers would and plays it in our sim, paired against in-sim
+   `Hero.cheap()`. A kit that is none of the fake kits: first write `submission/gate_seat.py`, class
+   `Seat` copied from `KitA` in `tools/gate_host.py` with `native` and `parse` changed for this kit, and
+   pass `--kit submission/gate_seat.py --kit-module <their kit.py>` (a subprocess kit unlike c or d:
+   say the gate cannot run). Required: `GATE PASS`. It proves the reverse adapter now, so Stage 4's gate
+   is one command; a FAIL on the delta means the adapter loses something the sim's Hero has.
 
 Track B (blank directory): steps 1 and 4 are "one file, no vendoring". `submission.py` is steps 0 and 1
 of the from-scratch spec I pasted: the rank map at parse time, the safe wrapper and clamp first, the

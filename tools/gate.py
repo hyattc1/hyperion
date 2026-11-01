@@ -22,7 +22,9 @@ Action:
          out every action is a check or fold.
   seat.py  tonight's in-process kit: a class Seat modelled on gate_host.KitA, with --kit-module the
          organisers' kit.py.
-Illegal replies and exceptions are a check or fold, as the rules score them.
+Illegal replies and exceptions are a check or fold, as the rules score them. One exception: kit D's legal set
+lets a seat re-raise after a short all-in, which our engine does not reopen; that raise is played as a call
+and reported as a rule mismatch, since the bot followed its kit.
 
 Each table seed is played twice: the package in the `hero` seat of the field, then the same deal with the
 baseline in that seat and every other bot identical. The baseline is the simulator's own Hero (`--baseline
@@ -64,7 +66,7 @@ from hyperion.sim.engine import BUDGET_NS, BotStats, Table  # noqa: E402
 HOST = ROOT / "tools" / "gate_host.py"
 FAKEKITS = ROOT / "hyperion" / "drills" / "fakekits"
 KINDS = {k.value: k for k in ActionKind}
-FOLD, CHECK, RAISE = ActionKind.FOLD, ActionKind.CHECK, ActionKind.RAISE
+FOLD, CHECK, CALL, RAISE = ActionKind.FOLD, ActionKind.CHECK, ActionKind.CALL, ActionKind.RAISE
 READY_TIMEOUT_S = 60.0  # import on a loaded box; the organisers' own limit is unknown
 HARD_TIMEOUT_S = 2.0  # a reply slower than this marks a subprocess bot dead, as kits C and D do
 CHEAP = {"cheap": True, "use_profiler": False, "use_icm": False}  # Hero.cheap()'s Config
@@ -105,6 +107,8 @@ class Proxy:
         self.late = 0
         self.unasked = 0  # decisions after a pooled clock ran out: folded without asking, as kits C and D do
         self.unsupported = 0  # variant decisions this kit cannot carry: the dealer's default plays
+        self.lifecycle_errors = 0  # exceptions in table start or hand end, counted by the host
+        self.rule_mismatch = 0  # kit D raises its rules allow and ours do not (short all-in, no reopen)
         self.import_s: float | None = None
 
     def note(self, text: str) -> None:
@@ -264,8 +268,6 @@ class HostProxy(Proxy):
             self.proc.kill()
             self.proc.wait()
         self.log.close()
-
-    lifecycle_errors = 0
 
 
 def _json_extras(extras: dict) -> dict:
@@ -580,6 +582,12 @@ class GateTable(Table):
             p.note(f"unreadable reply {r.bad!r}")
             return self._fallback(obs)
         kind = KINDS.get(r.kind)
+        if (p.kit == "d" and kind is RAISE and RAISE not in obs.legal and CALL in obs.legal
+                and obs.stacks[s] > obs.to_call):
+            # kit D's skeleton lets a seat re-raise after a short all-in; our engine does not reopen the action.
+            # The bot followed its kit's rules, so this is a rule mismatch played as a call, not an illegal action.
+            p.rule_mismatch += 1
+            return Action.call()
         if kind is None or kind not in obs.legal or (kind is RAISE and not obs.min_raise <= r.total <= obs.max_raise):
             st.illegal += 1
             p.note(f"illegal {r.kind} {r.total} with legal {sorted(k.value for k in obs.legal)} "
@@ -637,6 +645,7 @@ class Side:
     late: int = 0
     unasked: int = 0
     unsupported: int = 0
+    rule_mismatch: int = 0
     lifecycle: int = 0
     notes: list[str] = field(default_factory=list)
     import_s: list[float] = field(default_factory=list)
@@ -719,8 +728,9 @@ def play(cfg: Config, names: list[str], tables: int, seed: int, rules: Rules, va
                 side.proxied = True
                 side.late += proxy.late
                 side.unasked += proxy.unasked
+                side.rule_mismatch += proxy.rule_mismatch
                 side.unsupported += proxy.unsupported
-                side.lifecycle += proxy.lifecycle_errors if isinstance(proxy, HostProxy) else 0
+                side.lifecycle += proxy.lifecycle_errors
                 if proxy.import_s is not None:
                     side.import_s.append(proxy.import_s)
                 side.fatal = side.fatal or proxy.fatal
@@ -888,6 +898,9 @@ def main(argv=None) -> int:
         print(f"package import {max(pkg_side.import_s):.2f} s at worst over {len(pkg_side.import_s)} fresh processes")
     if kit in ("c", "d"):
         print(f"tmo for kit {kit} counts decisions after the pooled clock ran out; p50/p99/max are round trips")
+    if pkg_side.rule_mismatch:
+        print(f"note: {pkg_side.rule_mismatch} raises kit d's rules allow after a short all-in and ours do not; "
+              f"played as calls, not counted illegal")
     if pkg_side.unsupported:
         print(f"note: {pkg_side.unsupported} variant decisions kit {a.kit} cannot carry; the dealer's default played them")
     for x in pkg_side.notes:

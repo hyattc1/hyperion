@@ -223,3 +223,20 @@ def test_a_gate_table_without_a_gate_seat_is_the_sim_table():
     bots = [bestiary.make_bot(nm, seed=table_seed * 64 + s) for s, nm in enumerate(seating)]
     res = gate.GateTable(bots, Rules(), table_seed, "measure", None, [BotStats(nm) for nm in seating]).play()
     assert res.points[seating.index("hero")] == want
+
+
+def test_playbook_and_prompts_gate_the_zip():
+    read = lambda rel: (ROOT / rel).read_text()  # noqa: E731
+    p02, p04 = read("docs/prompts/02-adapter-and-cheap-bot.md"), read("docs/prompts/04-wire-hero.md")
+    assert "tools/gate.py dist/submission.zip" in p02 and "--hero-config cheap" in p02 and "GATE PASS" in p02
+    assert "gate_seat.py" in p02 and "tools/gate_host.py" in p02
+    assert "tools/gate.py dist/submission.zip" in p04 and "GATE PASS" in p04 and "every upload" in p04
+    for text in (p02, p04):
+        assert "--tables-dir tables" not in text  # pack.py vendors the variant set itself now
+    pb = read("PLAYBOOK.md")
+    stages = pb.split("## 3. The stages", 1)[1].split("## 4b.", 1)[0]
+    rules = pb.split("## 7. Hard rules", 1)[1].split("## 8.", 1)[0]
+    assert "`tools/gate.py` on the zip itself: GATE PASS" in stages and "tools/gate.py" in rules
+    assert "Gate the packaged bot" in pb.split("## 9. Revision log", 1)[1]
+    assert "tools/gate.py" in read("docs/prompts/05-variant-patch.md") and "tools/gate.py" in read(
+        "docs/prompts/06-windows.md")
