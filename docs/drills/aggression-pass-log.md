@@ -91,3 +91,54 @@ delta in the "rival + 7 Heroes" field. Every screen's base sets `panic_after` 1,
 another session ran a dozen busy-loop processes (load average 26 on 8 cores), and Hero's SafeBot went to panic
 mode (cheap path: no reads, no ICM) in hundreds of tables, which switches the levers off mid-table and measures
 the host. That launch was discarded. The final run uses the shipped defaults (panic on).
+
+### Screen S1 (stage A): every lever, four fields, 160 seeds (commit 1f56fa2)
+
+Base = defaults (panic off). Cells: Hero's paired delta ± 95%; the second block is the change in the Hero-minus-rival
+gap (rival1 / rival2), the base row being the gap itself. Settings were queued one after another and a drill's
+table generation loaded the host during the second half: Hero's strict-mode timeouts per cell rose from 36-105
+(base and the first five settings) to 400-1,600 (from `shove_ctx_auto=0.12` on), and rival 2 timed out more too.
+That biases the later rows against Hero on realistic and for it against rival 2; `tools/sweep.py` now queues
+settings side by side (8e8a78c).
+
+```
+Δhero (paired vs base) ± 95%; in r2h7/r1h7: Δ of the lone rival (lower is better for Hero)
+setting                                  realistic             top            top2            h7r2
+base                                  5.605 ±0.108    4.565 ±0.109    4.349 ±0.120    3.636 ±0.107
+preflop.reshove_mid_bb=20            +0.004 ±0.090   +0.004 ±0.104   -0.004 ±0.113   -0.046 ±0.130
+preflop.reshove_mid_bb=25            -0.007 ±0.092   +0.001 ±0.091   +0.063 ±0.115   +0.025 ±0.122
+pushfold.reshove_w_observed=true     -0.114 ±0.094   -0.012 ±0.093   +0.090 ±0.117   -0.024 ±0.128
+pushfold.fi_threshold_bb=13          -0.121 ±0.102   -0.023 ±0.096   +0.021 ±0.130   +0.089 ±0.124
+preflop.shove_ctx_auto=0.001         -0.042 ±0.096   -0.078 ±0.100   -0.003 ±0.126   -0.001 ±0.126
+preflop.shove_ctx_auto=0.12          -0.087 ±0.101   -0.096 ±0.094   +0.027 ±0.130   -0.021 ±0.136
+postflop.vs_cbet_margin=0.05         -0.053 ±0.097   -0.035 ±0.109   +0.042 ±0.129   +0.130 ±0.135
+postflop.cbet_ftc_read=true          -0.032 ±0.097   -0.098 ±0.107   +0.061 ±0.122   -0.077 ±0.135
+rmid25_late                          -0.126 ±0.098   -0.039 ±0.105   +0.058 ±0.125   +0.099 ±0.123
+rmid25_wobs                          -0.044 ±0.096   -0.044 ±0.098   +0.034 ±0.117   +0.017 ±0.125
+fi13_l16                             -0.187 ±0.093   -0.118 ±0.103   +0.051 ±0.121   +0.117 ±0.136
+fi13_rest                            -0.134 ±0.103   -0.046 ±0.120   +0.050 ±0.121   -0.086 ±0.117
+
+Hero - rival paired, relative to base (Δ of the gap) for rival1 / rival2 where present; base row = the gap itself
+base                                         -0.09     -0.19/-0.36     -0.41/-0.64           -0.99
+preflop.reshove_mid_bb=20                    +0.04     +0.03/-0.09     +0.01/+0.03           -0.05
+preflop.reshove_mid_bb=25                    +0.00     +0.03/-0.07     +0.20/+0.02           +0.03
+pushfold.reshove_w_observed=true             -0.06     -0.03/+0.01     +0.12/+0.17           -0.03
+pushfold.fi_threshold_bb=13                  -0.17     -0.06/-0.11     +0.14/+0.04           +0.10
+preflop.shove_ctx_auto=0.001                 -0.05     -0.08/-0.11     -0.02/+0.01           -0.00
+preflop.shove_ctx_auto=0.12                  -0.06     -0.14/-0.18     +0.07/+0.04           -0.02
+postflop.vs_cbet_margin=0.05                 -0.03     -0.04/-0.09     +0.05/+0.01           +0.15
+postflop.cbet_ftc_read=true                  -0.01     -0.11/-0.28     +0.15/+0.02           -0.09
+rmid25_late                                  -0.14     -0.04/-0.05     +0.04/+0.16           +0.11
+rmid25_wobs                                  -0.00     -0.07/-0.05     +0.12/+0.04           +0.02
+fi13_l16                                     -0.18     -0.18/-0.20     +0.02/+0.05           +0.13
+```
+Readings. Nothing is outside noise on realistic or top. On top2 and against seven rival 2s most levers point up
+(+0.02 to +0.13) and most point down on realistic. Shoving more (first-in zone `fi_threshold_bb` 13: realistic
+-0.12; with 16 from late seats -0.19) repeats the deep pass's finding: the Monte Carlo bots call shoves at 1.6-5x
+Nash. The per-seat re-shove read (`shove_ctx_auto`) costs top -0.08/-0.10 like the deep pass's per-opportunity read.
+Mid-depth re-shoves are neutral on realistic and top (`reshove_mid_bb` 20: +0.004 / +0.004; 25: -0.007 / +0.001) and
+close the top2 gap to rival 1 by +0.20. A frequency check (`freq.py`, top2, 80 seeds, measure mode) confirms the lever
+works as built: with `reshove_mid_bb` 25 and the observed width, Hero's re-shoves at 10-25 bb in levels 4-8 rise from
+0.18 to 0.88 per seat (blinds 5% -> 11% of opens faced, big-blind 3-bets 7% -> 16%), each netting about +1.8 bb, like
+rival 2's +2.1, but rival 2 still makes 2.58 per seat: the solved table and Hero's ICM gate stop at a third of its
+volume.
