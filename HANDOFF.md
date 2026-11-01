@@ -23,9 +23,7 @@ judge. Winner = best on realistic, top and the rival-4 field, all 23 variants RE
 Hero's, robust across the three payout tables. The owner makes the final call on what ships.
 
 **Running as of 2026-11-01 00:30 ET (three Opus agents, launched from the coordinating session):**
-- Mid-phase aggression pass: Hero's 10–25 bb preflop volume (steals by fold-to-steal read, light 3-bets
-  from the blinds, per-seat re-shove read), rival 2 the main target. Running log, committed per screen:
-  `docs/drills/aggression-pass-log.md`. Owns `hyperion/strategy/*`, `tools/sweep.py`. Relaunch from the log.
+- Timeout and dead-seat exploit pass: DONE (section 1). The aggression pass before it is DONE too (entry "Mid-phase aggression pass").
 - Rival 3: integrated as `rival3`, the holdout (never tuned on); on `holdout` Hero - rival3 -0.74 ± 0.16.
 - Drill 5 follow-ups (item 4 below), then drill 6: Track A on kit A with toss_or_holdem, on a pinned copy.
 - Gate the packaged bot: DONE. `tools/gate.py` plays the upload zip itself, paired against in-sim Hero, and
@@ -39,24 +37,42 @@ Hero's, robust across the three payout tables. The owner makes the final call on
 
 Agents commit as they finish tasks. If one was killed, `git log` shows what landed; the rest is below.
 
-### 1. Mid-phase aggression pass: DONE (2026-11-01). Entry "Mid-phase aggression pass" in docs/decisions.md; every
-table in docs/drills/aggression-pass-log.md. (It follows the deep pass, whose entry "Deep Hero pass" stands.)
-Measured first: Hero already opens wider than both rivals at every position; its gap is re-raising (rival 2
-re-shoves 2.6 times per seat at 10-25 bb in levels 4-8, Hero 0.2) and heads-up postflop after calling (Hero folds
-71-78% to c-bets). Shipped (f349380): `preflop.reshove_mid_bb` 25 (re-shove the solved re-shove set over single
-opens up to 25 bb, ICM-gated) and `postflop.vs_cbet_margin` 0.05; plus Hero infers the betting state from the bets
-when an adapter passes no history (c38259e; stripped-history Hero 5.51 vs 5.76 with it, drill 6 had 3.21). Six more
-levers are built, tested and off (first-in shove zone, observed opener width, exploitative re-shove price, per-seat
-re-shove read, c-bet bluffs by fold-to-c-bet, opens tightened against a re-shove threat); why each failed the
-shipping rule is in the entry. Final, 400 seeds x 8, paired vs d917c45: Hero + realistic +0.05, top +0.08, top2
-+0.10, Hero + 7 rival1 4.52 (T2a met), holdout +0.11, both payout tables up, base/strong flat. Hero - rival1 -0.03
-realistic / -0.02 top (T1 inside noise of 0, not met on the point estimate); Hero - rival2 on top2 -0.47 (T7 not met);
-Hero + 7 rival2 3.67 (T2b not met). T3-T6 met; T5 22 READY / 1 PLAYS (two_boards), Hero first on 18 of 23.
-**Next lever:** heads-up postflop, read-driven (c-bet frequency, turn play, defence as the preflop caller): the
-measurement put it level with the re-shove gap and one margin closed part of it. Then `preflop.reshove_threat` 1.0
-(the one lever that moves the rival 2 rooms without touching re-shove calls) re-tested at 400 seeds on realistic.
-The rival-2-core fallback is assessed in the entry (cost: latency p99 ~285 us vs T4, fixed 10..0 ICM points, about 7
-of 23 variants routable); a hybrid is being built separately in hyperion/hybrid/ and is the owner's call.
+### 1. Timeout and dead-seat exploit pass: DONE (2026-11-01).
+
+The decisions entry is "Timeout and dead-seat exploit pass"; every table is in docs/drills/exploit-pass-log.md.
+(The aggression pass's entry, "Mid-phase aggression pass", stands.)
+
+**Timeouts can now be modelled.** Every timeout bot in the bestiary timed out on the wall clock, so strict screens
+followed the host. Engine mode `model` (`--mode model` in the runner and `tools/sweep.py`; default off) folds only the
+bots that report a modelled cost over 1 ms:
+- Monte Carlo rollouts are costed from a calibration on this box;
+- the sleeping bots report their sleep and skip it;
+- no bot is folded on the wall clock.
+
+Tables replay exactly. Against the wall clock it is within 0.2 points of timeout rate for the sleeping bots and 2
+points lower for the honest Monte Carlo, which the model's quiet-host calibration explains. New: `timeout_burst`
+(recovers between outages) and the `timeouts` field. Screen with `--mode model`.
+
+**Shipped (1957983; the final commit is 8a7af98).** `hyperion/strategy/exploit.py` is a layer any core can call:
+`observe(obs)`, `hand_end(result)`, `override(obs, proposed) -> Action | None`, or the `Exploited(inner)` wrapper. The
+call pattern is in the entry. It reads each seat in three cells (preflop, postflop heads-up, postflop multiway): the
+streak of passive decisions since its last call or raise, and a decayed fold rate. Hero's Config ships
+`ShippedExploitParams`:
+- bet a third of the pot when checked to by seats that fold, never into a seat that has just called;
+- steal any two into dead seats;
+- steal any two when the fold reads behind multiply to 0.7.
+
+`ExploitParams()` is the neutral layer. The keys `exploit.bet_checked` false, `exploit.steal` false and
+`exploit.steal_min_fold` 0 give 7e51197's play, bit-identical. Isolation and Hero's `dead_shift` are built, tested and
+off.
+
+**Final, 400 x 8, paired vs 7e51197.** model / strict, Hero's paired change: realistic +0.41 / +0.44, timeouts +0.38 / +0.39, top +0.13 / +0.20, top2 +0.18 / +0.21, base +0.12, strong +0.20, both payout tables up (+0.70, +4.6). Hero - rival1 +0.50 on realistic and +0.17 / +0.14 on top (**T1 met**). Hero - rival2 on top2 -0.26 / -0.20 (T7 met on the strict point estimate only). Hero + 7 rival1 4.65 (T2a met); Hero + 7 rival2 3.63 (-0.08, T2b not met). T3-T6 met: act() p99 40 us; **23 of 23 variants READY**, Hero first on 22. Holdout, measured once: Hero - rival3 -0.41 -> **+0.15** on `holdout`, -0.29 -> +0.01 on `top3` (strict +0.14, +0.12). Rival 3 stops being a holdout with the core comparison.
+
+**Next lever:** a blind-specific fold-to-steal read for `steal_min_fold`. Against seven rival 2s the fold-read steal
+loses 1.7 bb a table: rival 2 folds most raises but defends its blinds. Items 4 and 5 of the brief were cut when the
+plan moved to choosing the core. For the core choice: the hybrids' comparisons so far are against the frozen Hero
+7e51197, and Hero at 8a7af98 is that Hero plus the layer. `hybrid_x` / `hybrid3_x` put the same layer in front of
+each hybrid: +0.25 / +0.33 for the rival 2 core and +0.13 / +0.18 for the rival 3 core on realistic / timeouts, about +0.05 on top.
 
 ### 2. Red-team rival 2: DONE and integrated (`rival2`, fields `top`, `top2`; decisions entry "Rival 2 in the
 pool"). It is the strongest opponent: top2 Hero 4.36 vs rival2 4.98; one rival2 among 7 Heroes +0.69 over
