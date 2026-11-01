@@ -230,3 +230,32 @@ fails strong (-0.138, -0.135 with the threat read): there the other Hero copies 
 into each other. The re-shove-threat read helps exactly the rooms it was built for (top2 +0.08 and rival 2 among
 seven Heroes -0.07 on top of rv) but its own increment is below zero on realistic again (-0.015 here, -0.063 alone
 in S2), so by the shipping rule it stays opt-in: `preflop.reshove_threat` 1.0 for a room of frequent re-shovers.
+
+## Step 5: final run (f349380, clean worktree, 400 duplicate seeds x 8 rotations, seed 7, strict, 5 workers)
+
+"before" = the same commit with the two shipped keys off (`preflop.reshove_mid_bb` 0, `postflop.vs_cbet_margin` -1),
+which plays bit-identically to d917c45 (checked: 48 base-field tables, 7,590 hands, every bot's points equal to 6
+decimals); "after" = the shipped defaults. SafeBot panic on, as shipped (2 panics in the whole run: the host was
+quiet). MicroAgent through `HYPERION_MICROHOLDEM` from the sparring setup. Paired deltas are means of per-seed
+differences; ± is the 95% interval. exc and ill 0 in every cell.
+
+```
+Δhero (paired vs base) ± 95%; in r2h7/r1h7: Δ of the lone rival (lower is better for Hero)
+setting                                  realistic             top            top2            h7r1            h7r2            r1h7            r2h7            base          strong         holdout        real_p10         real_th             mh7
+base                                  5.544 ±0.068    4.557 ±0.072    4.416 ±0.072    4.436 ±0.062    3.600 ±0.067    4.539 ±0.082    5.138 ±0.076    6.813 ±0.045    5.134 ±0.073    5.466 ±0.063    5.429 ±0.103   18.857 ±0.642    4.442 ±0.065
+```
+Hero-minus-rival gaps (paired, before -> after): realistic vs rival1 -0.120 ± 0.115 -> -0.031 ± 0.109; top vs rival1
+-0.203 -> -0.019 ± 0.106, vs rival2 -0.393 -> -0.434 ± 0.114; top2 vs rival1 -0.293 -> -0.149, vs rival2 -0.578 ± 0.094
+-> -0.469 ± 0.098; holdout vs rival3 -0.510 ± 0.106 -> -0.372 ± 0.110; realistic with payouts 10/7/5/4/3/2/1/0 vs
+rival1 -0.398 -> -0.067, top-heavy -3.96 -> -0.63 (50-point scale). Lone bot among seven Heroes: rival1 4.539 ->
+4.423, rival2 5.138 -> 5.107, MicroAgent 4.442 -> 4.485 (all ± 0.07-0.08).
+
+T4 (f349380 worktree, `tools/latency.py --bot hero --n 4000`, three runs): act() mean 19.7-20.6 µs, p99 51-56 µs
+(d917c45 on the same tool: 18.6-20.0 / 56-87 µs); `tests/test_hand_end_timing.py`: hand_end p99 46 µs, new_table
+p99 51 µs on the default payouts (top-heavy 445 / 431 µs).
+
+T5 (`tools/variant_matrix.py --tables 300 --seed 7 --field realistic --workers 5`, f349380 worktree, 237 s):
+READY 22, PLAYS 1 (two_boards, third at 5.29 ± 0.23 behind rival1 5.97 and tag 5.39; hi_lo, the deep pass's PLAYS,
+is READY and first), WEAK 0, BROKEN 0; Hero first on 18 of 23 (deep pass 15); exc 0, ill 0, p99 69-219 µs.
+
+Public names: nothing renamed in `hyperion/strategy/*` (the hybrid agent imports from it); additions only.
