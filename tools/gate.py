@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-"""Gate what you upload: play the submission zip itself in our simulator, paired against in-sim Hero.
+"""Gate what you upload: play the submission zip itself in our simulator, paired against the same bot in-sim.
 
     python tools/gate.py dist/submission.zip --kit a|b|c|d|seat.py [--entry submission.py]
                          [--tables 100] [--seed 11] [--field realistic | --bots a,b,...] [--mode strict]
-                         [--rules rules_tonight.json] [--variant NAME] [--hero-config JSON|cheap]
-                         [--baseline sim|package] [--kit-module path/to/kit.py]
+                         [--rules rules_tonight.json] [--variant NAME] [--bot NAME] [--dials JSON]
+                         [--hero-config JSON|cheap] [--baseline sim|package] [--kit-module path/to/kit.py]
 
 Every Stage 4 number before drill 6 measured the simulator's own Hero, which the engine feeds its full
 history. The bot we upload sees only what its adapter passes, and in drill 6 that was 2.5 points a table
@@ -27,9 +27,13 @@ lets a seat re-raise after a short all-in, which our engine does not reopen; tha
 and reported as a rule mismatch, since the bot followed its kit.
 
 Each table seed is played twice: the package in the `hero` seat of the field, then the same deal with the
-baseline in that seat and every other bot identical. The baseline is the simulator's own Hero (`--baseline
-sim`, with --hero-config) or, for a package built from older code, that package's own Hero behind no adapter
-(`--baseline package`; it also reads the package's tables, so a missing variant set hides from it).
+baseline in that seat and every other bot identical. The baseline (`--baseline sim`) is the bot the package
+records in its hyperion/ship.py (tools/pack.py writes SHIP and DIALS there: hybrid3_x, the shipped base, unless
+packed with --bot), built by this repo's hyperion.ship.make_bot with those dials; a package with no record is
+paired against Hero. `--bot` / `--dials` replace the record; `--hero-config JSON|cheap` is the older form, Hero
+(or Hero.cheap()) with those Config keys, also given to every other Hero seat. `--baseline package` plays the
+package's own ship bot behind no adapter instead, for a package built from older code (it reads the package's
+tables too, so a missing variant set hides from it).
 
 FAIL (exit 1) when the package trails the baseline by more than the paired 95% interval, raises, sends
 an illegal action, never imports, or times out on more than --max-tmo-pct of its decisions (a warning
@@ -58,6 +62,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from hyperion import ship  # noqa: E402
 from hyperion.core.types import Action, ActionKind, Observation, Rules  # noqa: E402
 from hyperion.drills.adapter import dealer_state, history_rows  # noqa: E402
 from hyperion.sim import bestiary  # noqa: E402
@@ -69,7 +74,7 @@ KINDS = {k.value: k for k in ActionKind}
 FOLD, CHECK, CALL, RAISE = ActionKind.FOLD, ActionKind.CHECK, ActionKind.CALL, ActionKind.RAISE
 READY_TIMEOUT_S = 60.0  # import on a loaded box; the organisers' own limit is unknown
 HARD_TIMEOUT_S = 2.0  # a reply slower than this marks a subprocess bot dead, as kits C and D do
-CHEAP = {"cheap": True, "use_profiler": False, "use_icm": False}  # Hero.cheap()'s Config
+CHEAP = ship.CHEAP  # Hero.cheap()'s Config
 
 
 @dataclass
@@ -694,13 +699,16 @@ def seating_for(names: list[str], n: int, table_seed: int) -> list[str]:
 
 
 def play(cfg: Config, names: list[str], tables: int, seed: int, rules: Rules, variant, mode: str,
-         baseline: str, progress=None, base: Side | None = None) -> tuple[Side, Side]:
+         baseline: str, progress=None, base: Side | None = None,
+         bot: tuple[str, dict] | None = None) -> tuple[Side, Side]:
     """Each table seed with the package in the hero seat, then with the baseline there. A `base` from an
-    earlier call with the same field, seeds and rules is reused instead of replayed."""
+    earlier call with the same field, seeds and rules is reused instead of replayed. `bot` = (name, dials) for
+    hyperion.ship.make_bot in the baseline seat; None = the bestiary's `hero` (with bestiary.HERO_CONFIG)."""
     pkg = Side("package")
     sides = [(pkg, cfg.kit)]
+    label = bot[0] if bot is not None else "hero"
     if base is None:
-        base = Side("hero (sim)" if baseline == "sim" else "hero (package, no adapter)")
+        base = Side(f"{label} (sim)" if baseline == "sim" else f"{label} (package, no adapter)")
         sides.append((base, None if baseline == "sim" else "direct"))
     n = rules.n_players
     for t in range(tables):
@@ -712,6 +720,8 @@ def play(cfg: Config, names: list[str], tables: int, seed: int, rules: Rules, va
             proxy = make_proxy(cfg, kind) if kind else None
             if proxy is not None:
                 bots[g] = proxy
+            elif bot is not None:
+                bots[g] = ship.make_bot(bot[0], bot[1], seed=table_seed * 64 + g)
             stats = [BotStats(nm) for nm in seating]
             stats[g] = side.stats
             hooks = variant.new_hooks() if variant is not None else None
@@ -802,6 +812,29 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def baseline_bot(pkg: Path, bot: str | None, dials: str | None, hero_spec: str | None,
+                 hero_config: dict | None) -> tuple[tuple[str, dict], str]:
+    """((name, dials) for the baseline seat, where they came from): --bot / --dials, else --hero-config, else the
+    package's hyperion/ship.py record, else Hero."""
+    from hyperion.sim.runner import load_hero_config
+
+    if hero_spec and not bot:
+        name = "cheap" if hero_spec.strip() == "cheap" else "hero"
+        rec, where = (name, {} if name == "cheap" else dict(hero_config or {})), "--hero-config"
+    else:
+        record = pkg / "hyperion" / "ship.py"
+        try:
+            rec, where = ship.read_record(record), "the package's hyperion/ship.py"
+        except (OSError, ValueError, SyntaxError):
+            rec, where = ("hero", {}), "no record in the package: Hero"
+    if bot or dials:
+        rec = (bot or rec[0], load_hero_config(dials) if dials else rec[1])
+        where = "--bot / --dials" if bot else where + ", --dials"
+    if rec[0] not in ship.BUILDERS:
+        raise SystemExit(f"FAIL baseline bot {rec[0]!r} is not in hyperion/ship.py BUILDERS ({', '.join(ship.BUILDERS)})")
+    return rec, where
+
+
 def check_kit(kit: str, rules: Rules, variant) -> None:
     """Refuse what a kit cannot carry rather than gate a game the bot never saw."""
     if kit == "d" and rules.straddle:
@@ -829,8 +862,11 @@ def main(argv=None) -> int:
     p.add_argument("--rules", default="default", help="'default' or a Rules JSON (rules_tonight.json)")
     p.add_argument("--variant", help="a catalog variant: its hooks, and its Rules unless --rules is a file")
     p.add_argument("--variant-seed", type=int, default=None)
-    p.add_argument("--hero-config", help="dotted Config overrides for the sim baseline (JSON or file), or `cheap` "
-                                         "for Hero.cheap() when gating the Stage 2 package")
+    p.add_argument("--bot", help="the baseline bot (hyperion/ship.py BUILDERS name; default: the one the package "
+                                 "records in its hyperion/ship.py, else hero)")
+    p.add_argument("--dials", help="the baseline's dials, JSON inline or a file (default: the package's record)")
+    p.add_argument("--hero-config", help="older form: Hero with these dotted Config overrides as the baseline (and in "
+                                         "every other Hero seat), JSON or file, or `cheap` for Hero.cheap()")
     p.add_argument("--baseline", choices=("sim", "package"), default="sim")
     p.add_argument("--max-tmo-pct", type=float, default=0.3, help="timeouts as a share of decisions (default 0.3)")
     a = p.parse_args(argv)
@@ -849,7 +885,8 @@ def main(argv=None) -> int:
     if "hero" not in names:
         raise SystemExit("FAIL the field needs a `hero` seat: the package and the baseline take turns in it")
     hero_config = CHEAP if (a.hero_config or "").strip() == "cheap" else load_hero_config(a.hero_config)
-    bestiary.HERO_CONFIG = hero_config
+    if a.hero_config:
+        bestiary.HERO_CONFIG = hero_config
     kit = a.kit.lower() if a.kit.lower() in ("a", "b", "c", "d") else "seat"
     check_kit(kit, rules, variant)
 
@@ -869,12 +906,14 @@ def main(argv=None) -> int:
         scratch.mkdir()
         cfg = Config(pkg=pkg, entry=a.entry, kit=kit, kit_dir=kit_dir, scratch=str(scratch),
                      seat_file=Path(a.kit).resolve() if kit == "seat" else None)
+        bot, where = baseline_bot(pkg, a.bot, a.dials, a.hero_config, hero_config)
         digest = sha256(src) if src.is_file() else "(directory)"
         field_label = f"--bots {a.bots}" if a.bots else f"field {a.field}"
         print(f"gate  {src}  sha256 {digest}")
         print(f"      kit {a.kit}, {field_label}, {a.tables} tables {a.mode}, seed {a.seed}, rules {a.rules}"
               f"{', variant ' + a.variant if a.variant else ''}, baseline {a.baseline}"
               f"{', hero-config ' + a.hero_config if a.hero_config else ''}")
+        print(f"      baseline bot {bot[0]} dials {bot[1]} ({where})")
         t0 = time.perf_counter()
 
         def progress(done, pk, bs):
@@ -883,7 +922,8 @@ def main(argv=None) -> int:
             print(f"      {done}/{a.tables} tables  package {m1:.2f}  baseline {m2:.2f}  "
                   f"({time.perf_counter() - t0:.0f} s)", file=sys.stderr, flush=True)
 
-        pkg_side, base_side = play(cfg, names, a.tables, a.seed, rules, variant, a.mode, a.baseline, progress)
+        pkg_side, base_side = play(cfg, names, a.tables, a.seed, rules, variant, a.mode, a.baseline, progress,
+                                   bot=bot)
 
     n_places = rules.n_players
     print(f"{'seat':<27} {'n':>4} {'pts':>6} {'±95%':>5}  " + " ".join(f"{'p' + str(i + 1):>3}" for i in range(n_places))

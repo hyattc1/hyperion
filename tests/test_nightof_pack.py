@@ -50,8 +50,30 @@ def test_pack_builds_verifies_zips_and_logs(tmp_path):
     assert "agent.py" in names and "hyperion/__init__.py" in names and "tables/meta.json" in names
     night = (tmp_path / "NIGHT.md").read_text()
     rows = [line for line in night.splitlines() if sha in line]
-    assert len(rows) == 1 and "| cheap bot |" in rows[0] and "import 0." in rows[0]
+    assert len(rows) == 1 and "| hybrid3_x: cheap bot |" in rows[0] and "import 0." in rows[0]
     assert night.index(sha) < night.index("## Windows"), "row goes under Submissions, not at the end"
+    assert "bot      hybrid3_x  dials {}" in r.stdout and "bot built in" in r.stdout
+
+
+def test_pack_records_the_bot_and_dials_it_packed(tmp_path):
+    """--bot / --dials go into the package's hyperion/ship.py (the gate reads them there); the repo's copy is untouched."""
+    import ast
+
+    spec = importlib.util.spec_from_file_location("ship_under_test", ROOT / "hyperion" / "ship.py")
+    ship = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ship)
+    (tmp_path / "agent.py").write_text("from hyperion.ship import make_bot\nBOT = make_bot()\n")
+    r = run_pack(tmp_path, "--entry", "agent.py", "--out", "dist", "--bot", "hero",
+                 "--dials", '{"preflop.three_bet_frac": 0.05}')
+    assert r.returncode == 0, r.stdout + r.stderr
+    rec = ship.read_record(tmp_path / "dist" / "submission" / "hyperion" / "ship.py")
+    assert rec == ("hero", {"preflop.three_bet_frac": 0.05}), rec
+    assert ship.read_record(ROOT / "hyperion" / "ship.py") == (ship.SHIP, ship.DIALS)
+    ast.parse((tmp_path / "dist" / "submission" / "hyperion" / "ship.py").read_text())
+    bad = run_pack(tmp_path, "--entry", "agent.py", "--out", "dist2", "--bot", "nobody")
+    assert bad.returncode != 0 and "BUILDERS" in bad.stdout + bad.stderr
+    broken = run_pack(tmp_path, "--entry", "agent.py", "--out", "dist3", "--dials", '{"preflop.open_frac": 0.3}')
+    assert broken.returncode == 1 and "import   FAIL" in broken.stdout, broken.stdout
 
 
 def test_pack_without_slim_keeps_fakekits_and_skips_night_when_absent(tmp_path):

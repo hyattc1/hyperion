@@ -61,7 +61,7 @@ class Drill:
             self.variant.summary, "", "## Checkpoints", "",
             f"- T+15 write `{self.scratch}/submission.py` for kit {self.kit} (read kit/RUBRIC.md) and press Enter in the drill",
             f"- T+30 `python tools/gen_tables.py --rules {self.scratch}/variant.json --out {self.scratch}/tables`",
-            "- T+45 hero wired: hyperion.strategy.hero.make_bot() behind the adapter, playing in the sim",
+            "- T+45 the ship bot wired: hyperion.ship.make_bot() behind the adapter, playing in the sim",
             "- T+60 final run", "", "## What breaks", "", self.variant.breaks, "", "## Checklist", "",
         ] + [f"- {c}" for c in self.variant.checklist]
         (self.scratch / "BRIEF.md").write_text("\n".join(brief) + "\n")
@@ -131,7 +131,7 @@ class Drill:
     def check_hero_in_sim(self) -> tuple[str, str]:
         hero = None
         try:
-            hero_mod = importlib.import_module("hyperion.strategy.hero")
+            hero_mod = importlib.import_module("hyperion.ship")  # the bot we ship (hyperion/ship.py)
             hero = hero_mod.make_bot()
         except Exception as e:  # noqa: BLE001
             hero_err = f"{type(e).__name__}: {e}"

@@ -2,8 +2,14 @@
 """One-command submission packager (stdlib only).
 
     python tools/pack.py --entry submission/agent.py --out dist/ [--extra submission/adapter.py ...]
+                         [--bot hybrid3_x|hero|cheap] [--dials JSON]
                          [--slim] [--rules rules_tonight.json] [--tables-dir DIR] [--note "what changed"]
                          [--night NIGHT.md]
+
+The bot the package plays is hyperion/ship.py's SHIP with its DIALS (the shipped base, hybrid3_x, unless the file
+says otherwise); --bot and --dials replace them, and pack writes the pair it packed into the package's copy of
+that file, so the zip records what it plays and tools/gate.py pairs it against the same bot. `--bot cheap` is
+Stage 2's Hero.cheap(); `--bot hero` restores Hero. The entry builds it with `hyperion.ship.make_bot()`.
 
 Builds <out>/submission/: hyperion/ (never tests, docs or caches; with --slim also without
 drills/fakekits and the sim bestiary), tables/ (the default tables, plus tables/variants/<name>/ when the
@@ -12,7 +18,8 @@ or directories beside it. The rules are --rules, else the first --extra JSON wit
 rules_tonight.json beside the entry; their extras["variant"] is the active variant (drill 6 shipped
 without its variant set because --tables-dir was not passed). Then, from a fresh Python started in another
 directory with PYTHONPATH cleared, imports the entry module with <out>/submission first on sys.path,
-checks that `hyperion` resolved from there, and times the import (fail over --import-budget seconds).
+checks that `hyperion` resolved from there, and times the import (fail over --import-budget seconds), then
+builds the recorded bot there once if the entry imports hyperion (`hyperion.ship.make_bot()`; fail if it raises).
 Checks the size against --max-mb, zips to <out>/submission.zip with the entry at the top level, prints
 sha256, size and import time, and appends the same as a row under "## Submissions" in NIGHT.md if that
 file exists (the minute is computed from a `T0: HH:MM` line in NIGHT.md when there is one).
@@ -39,15 +46,54 @@ SKIP_NAMES = {"__pycache__", "tests", "docs", ".benchmarks", ".pytest_cache", ".
 SLIM_SKIPS = {ROOT / "hyperion" / "drills": {"fakekits"}, ROOT / "hyperion" / "sim": {"bestiary.py"}}
 
 _IMPORT_PROBE = """
-import importlib, sys, time
+import importlib, os, sys, time
 dest, name = sys.argv[1], sys.argv[2]
 sys.path.insert(0, dest)
 t0 = time.perf_counter()
 importlib.import_module(name)
 dt = time.perf_counter() - t0
+build = -1.0
+if "hyperion" in sys.modules and os.path.isfile(os.path.join(dest, "hyperion", "ship.py")):
+    t1 = time.perf_counter()
+    importlib.import_module("hyperion.ship").make_bot()
+    build = time.perf_counter() - t1
 hyp = sys.modules.get("hyperion")
-print("%.3f %s" % (dt, getattr(hyp, "__file__", "-") if hyp else "-"))
+print("%.3f %.3f %s" % (dt, build, getattr(hyp, "__file__", "-") if hyp else "-"))
 """
+
+
+def ship_module():
+    """This repo's hyperion/ship.py loaded by path (only its stdlib record helpers and BUILDERS are used here)."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_ship_record", ROOT / "hyperion" / "ship.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def parse_dials(spec: str | None) -> dict | None:
+    """--dials: a JSON object inline or in a file; None when not given."""
+    if spec is None:
+        return None
+    text = spec if spec.lstrip().startswith("{") else Path(spec).read_text()
+    val = json.loads(text)
+    if not isinstance(val, dict):
+        raise SystemExit(f"FAIL --dials must be a JSON object, got {val!r}")
+    return val
+
+
+def record_bot(dest: Path, bot: str | None, dials: dict | None) -> tuple[str, dict]:
+    """Write --bot / --dials into the package's hyperion/ship.py; returns the (bot, dials) it now records."""
+    ship = ship_module()
+    path = dest / "hyperion" / "ship.py"
+    name, have = ship.read_record(path)
+    name = bot or name
+    dials = have if dials is None else dials
+    if name not in ship.BUILDERS:
+        raise SystemExit(f"FAIL --bot {name!r} is not in hyperion/ship.py BUILDERS ({', '.join(ship.BUILDERS)})")
+    ship.write_record(path, name, dials)
+    return name, dials
 
 
 def _ignore(slim: bool):
@@ -132,7 +178,8 @@ def build(dest: Path, entry: Path, extras: list[Path], slim: bool, tables_dir: P
 
 
 def verify_import(dest: Path, module: str, budget_s: float, python: str = sys.executable) -> tuple[bool, str, float]:
-    """(ok, detail, import seconds). Fresh interpreter, other cwd, no PYTHONPATH, dest first on sys.path."""
+    """(ok, detail, import seconds). Fresh interpreter, other cwd, no PYTHONPATH, dest first on sys.path; the
+    recorded bot is built once after the import (its seconds are in the detail)."""
     env = {k: v for k, v in os.environ.items() if not k.startswith("PYTHON")}
     with tempfile.TemporaryDirectory() as elsewhere:
         t0 = time.perf_counter()
@@ -145,13 +192,15 @@ def verify_import(dest: Path, module: str, budget_s: float, python: str = sys.ex
     if proc.returncode != 0:
         tail = (proc.stderr or proc.stdout).strip().splitlines()[-3:]
         return False, "import failed: " + " | ".join(tail), wall
-    secs, where = proc.stdout.strip().split(" ", 1)
-    secs = float(secs)
+    secs, build, where = proc.stdout.strip().splitlines()[-1].split(" ", 2)
+    secs, build = float(secs), float(build)
     if where != "-" and not Path(where).resolve().is_relative_to(dest.resolve()):
         return False, f"hyperion resolved outside the package: {where}", secs
-    if secs > budget_s:
-        return False, f"import took {secs:.2f} s, budget {budget_s:g} s (move work to the table-start hook)", secs
-    return True, f"hyperion from {where}" if where != "-" else "entry does not import hyperion", secs
+    if secs + max(0.0, build) > budget_s:
+        return False, (f"import took {secs:.2f} s and the bot build {max(0.0, build):.2f} s, budget {budget_s:g} s "
+                       f"(move work to the table-start hook)"), secs
+    built = f"; bot built in {build:.2f} s" if build >= 0 else ""
+    return True, (f"hyperion from {where}" if where != "-" else "entry does not import hyperion") + built, secs
 
 
 def package_files(root: Path) -> list[Path]:
@@ -218,6 +267,9 @@ def main(argv=None) -> int:
     p.add_argument("--entry", required=True, help="the kit's entry file; copied to the top of the package")
     p.add_argument("--out", default="dist", help="output directory (default dist/)")
     p.add_argument("--extra", nargs="*", default=[], help="files or directories to copy beside the entry")
+    p.add_argument("--bot", help="the bot to record in the package (default hyperion/ship.py's SHIP): hybrid3_x, "
+                                 "hero, cheap (Stage 2's Hero.cheap()) or any BUILDERS name")
+    p.add_argument("--dials", help="JSON object (inline or a file) of dials to record (default hyperion/ship.py's DIALS)")
     p.add_argument("--slim", action="store_true", help="drop drills/fakekits and the sim bestiary")
     p.add_argument("--rules", help="the rules JSON whose extras.variant picks tables/variants/<name>/ (default: "
                                    "the first --extra JSON with Rules keys, else rules_tonight.json beside the entry)")
@@ -246,10 +298,12 @@ def main(argv=None) -> int:
     rules_path = find_rules(entry, extras, Path(a.rules).resolve() if a.rules else None)
     variant, needs = active_variant(rules_path)
     tables = build(dest, entry, extras, a.slim, tables_dir, variant, needs_variant=needs)
+    bot, dials = record_bot(dest, a.bot, parse_dials(a.dials))
 
     ok, detail, secs = verify_import(dest, entry.stem, a.import_budget)
     size, count = tree_size(dest)
     print(f"package  {dest}  ({count} files, {human(size)})")
+    print(f"bot      {bot}  dials {dials}  (recorded in the package's hyperion/ship.py; the gate pairs against it)")
     print(f"tables   {tables}  (rules {rules_path or 'none found'})")
     print(f"import   {'ok' if ok else 'FAIL'} {secs:.2f} s  {detail}")
     if not ok:
@@ -268,7 +322,8 @@ def main(argv=None) -> int:
     night = Path(a.night)
     if night.is_file():
         minute = minute_since_t0(night.read_text())
-        row = f"| {minute} | {zip_path.name} | {sha} | {human(zsize)} / import {secs:.2f} s | {a.note} | |"
+        what = f"{bot}{' ' + json.dumps(dials) if dials else ''}: {a.note}" if a.note else f"{bot}{' ' + json.dumps(dials) if dials else ''}"
+        row = f"| {minute} | {zip_path.name} | {sha} | {human(zsize)} / import {secs:.2f} s | {what} | |"
         append_night_row(night, row)
         print(f"NIGHT.md row appended under Submissions (minute {minute})")
     return 0

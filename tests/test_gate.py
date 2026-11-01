@@ -240,3 +240,36 @@ def test_playbook_and_prompts_gate_the_zip():
     assert "Gate the packaged bot" in pb.split("## 9. Revision log", 1)[1]
     assert "tools/gate.py" in read("docs/prompts/05-variant-patch.md") and "tools/gate.py" in read(
         "docs/prompts/06-windows.md")
+
+
+def test_the_baseline_is_the_bot_the_package_records(tmp_path):
+    """pack.py records SHIP and DIALS in the package's hyperion/ship.py; the gate pairs against that bot in-sim."""
+    from hyperion import ship
+
+    pkg = build(tmp_path, "rec", "X = 1\n")
+    assert gate.baseline_bot(pkg, None, None, None, None) == ((ship.SHIP, ship.DIALS), "the package's hyperion/ship.py")
+    ship.write_record(pkg / "hyperion" / "ship.py", "hero", {"preflop.three_bet_frac": 0.05})
+    assert gate.baseline_bot(pkg, None, None, None, None)[0] == ("hero", {"preflop.three_bet_frac": 0.05})
+    assert gate.baseline_bot(pkg, None, None, "cheap", gate.CHEAP)[0] == ("cheap", {})
+    assert gate.baseline_bot(pkg, "hybrid3_x", '{"r3.open_scale": 1.1}', None, None)[0] == \
+        ("hybrid3_x", {"r3.open_scale": 1.1})
+    (pkg / "hyperion" / "ship.py").unlink()
+    assert gate.baseline_bot(pkg, None, None, None, None)[0] == ("hero", {})
+    with pytest.raises(SystemExit):
+        gate.baseline_bot(pkg, "nobody", None, None, None)
+
+
+def test_a_ship_package_is_gated_against_the_ship_bot_in_sim(tmp_path):
+    """The kit A reference entry builds hyperion.ship.make_bot(); 3 tables against in-sim hybrid3_x run clean."""
+    from hyperion.sim import bestiary
+
+    src = SETUP + "from hyperion.drills.adapter import KitAAgent as Agent  # noqa: F401\n"
+    pkg_side, base_side = play_pkg(tmp_path, "shipped", src, bestiary.field_names("realistic"), 3)
+    assert base_side.label == "hero (sim)"  # play() without bot= keeps the bestiary's Hero
+    pkg = tmp_path / "shipped"
+    kit_dir, scratch = tmp_path / "shipped_kit", tmp_path / "shipped_cwd"
+    cfg = gate.Config(pkg=pkg, entry="submission.py", kit="a", kit_dir=kit_dir, scratch=str(scratch))
+    bot, _ = gate.baseline_bot(pkg, None, None, None, None)
+    pkg2, base2 = gate.play(cfg, bestiary.field_names("realistic"), 3, 3, Rules(), None, "measure", "sim", bot=bot)
+    assert base2.label == "hybrid3_x (sim)" and base2.stats.calls > 0
+    assert pkg2.stats.exceptions == pkg2.stats.illegal == 0 and pkg2.decisions > 0

@@ -9,7 +9,8 @@ is importable). The working directory is a scratch directory, not the package.
     gate_host.py serve  <kind> <package_dir> <entry.py> <kit_dir> [<seat_file.py>]
         kind a | b      the fake kits' in-process interfaces (class Agent / module-level decide)
         kind seat       a seat file for tonight's kit (class Seat, same five methods as KitA below)
-        kind direct     the package's own Hero with no adapter: hyperion.strategy.hero.make_bot()
+        kind direct     the package's own bot with no adapter: hyperion.ship.make_bot() (the bot and dials the
+                        package records), or hyperion.strategy.hero.make_bot() in a package without ship.py
         One JSON object per line on the saved stdout, requests on stdin. The bot's own prints go to stderr.
     gate_host.py launch <package_dir> <entry.py> <kit_dir> [args...]
         subprocess kits (c, d): run the entry as __main__ with argv = [entry, *args]; stdin and stdout stay
@@ -113,12 +114,17 @@ class KitB:
 
 
 class Direct:
-    """No kit: the package's own Hero (make_bot(), default Config) fed the engine's Observation, full history
-    included. The baseline that isolates the kit path from code drift between the package and this repo."""
+    """No kit: the package's own ship bot (hyperion.ship.make_bot(): the bot and dials it records; Hero with the
+    default Config in a package from before ship.py) fed the engine's Observation, full history included. The
+    baseline that isolates the kit path from code drift between the package and this repo."""
 
     def __init__(self, module, kit):
         from hyperion.core import types as T  # the package's hyperion: its directory is first on sys.path
-        from hyperion.strategy.hero import make_bot
+
+        try:
+            from hyperion.ship import make_bot
+        except ImportError:
+            from hyperion.strategy.hero import make_bot
 
         self.T, self.bot = T, make_bot()
         self.kinds = {k.value: k for k in T.ActionKind}

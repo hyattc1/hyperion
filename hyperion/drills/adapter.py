@@ -332,14 +332,14 @@ class KitCAdapter(Adapter):
 
 
 def _default_bot() -> Bot:
-    """Hero if the strategy builder has shipped it, else the cheap stand-in. HYPERION_DRILL_BOT=cheap forces
-    the stand-in (adapter tests measure translation, not hero)."""
+    """The bot hyperion/ship.py ships (`ship.make_bot()`: SHIP with its DIALS, which a package records), else the
+    cheap stand-in. HYPERION_DRILL_BOT=cheap forces the stand-in (adapter tests measure translation, not the bot)."""
     if os.environ.get("HYPERION_DRILL_BOT") == "cheap":
         from hyperion.drills.cheapbot import CheapBot
 
         return CheapBot()
     try:
-        from hyperion.strategy.hero import make_bot  # type: ignore
+        from hyperion.ship import make_bot  # type: ignore
 
         return make_bot()
     except Exception:  # noqa: BLE001 - not there yet, or broken: the drill must still run

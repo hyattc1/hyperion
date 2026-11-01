@@ -100,6 +100,51 @@ class SimSeat:
         return self.impl.variant_decide(prompt)
 
 
+# ---------------------------------------------------------------- the record in a package's copy of this file
+
+def read_record(path) -> tuple[str, dict]:
+    """(SHIP, DIALS) as written in a copy of this file, read without importing it (tools/gate.py on a zip)."""
+    import ast
+    from pathlib import Path
+
+    found = {}
+    for node, name in _record_nodes(ast.parse(Path(path).read_text(encoding="utf-8"))):
+        found[name] = ast.literal_eval(node.value)
+    if set(found) != {"SHIP", "DIALS"} or not isinstance(found["SHIP"], str) or not isinstance(found["DIALS"], dict):
+        raise ValueError(f"{path}: no SHIP = '<name>' and DIALS: dict = {{...}} at the top level")
+    return found["SHIP"], found["DIALS"]
+
+
+def write_record(path, name: str, dials: dict) -> None:
+    """Rewrite the SHIP and DIALS lines of a copy of this file (tools/pack.py, in the package it builds)."""
+    import ast
+    from pathlib import Path
+
+    path = Path(path)
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    new = {"SHIP": f"SHIP = {name!r}\n", "DIALS": f"DIALS: dict = {dict(dials)!r}\n"}
+    nodes = sorted(_record_nodes(ast.parse("".join(lines))), key=lambda x: -x[0].lineno)
+    if {n for _, n in nodes} != set(new):
+        raise ValueError(f"{path}: no SHIP and DIALS assignments to rewrite")
+    for node, nm in nodes:  # bottom first, so earlier line numbers stay valid
+        lines[node.lineno - 1:node.end_lineno] = [new[nm]]
+    path.write_text("".join(lines), encoding="utf-8")
+
+
+def _record_nodes(tree):
+    import ast
+
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            nm = node.targets[0].id
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None:
+            nm = node.target.id
+        else:
+            continue
+        if nm in ("SHIP", "DIALS"):
+            yield node, nm
+
+
 def register_sim(dials: dict | None = None, name: str | None = None) -> str:
     """Seat the ship bot as `ship` in the simulator (`--field realistic@ship`), with these dials. Returns describe()."""
     from .sim import bestiary

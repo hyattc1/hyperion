@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 """Decision latency of a bot, and of the adapter round trip, on random self-consistent Observations.
 
-    python tools/latency.py --bot hero|cheap|module:attr --n 2000
+    python tools/latency.py [--bot ship|hybrid3_x|hero|cheap|module:attr] [--dials JSON] --n 2000
                             [--adapter module:Class --native kit_a|kit_b|kit_c|kit_d|module:func]
                             [--rules rules_tonight.json] [--variant NAME] [--seed 2026] [--p99-us 500]
 
-Prints mean, p50, p99 and max in µs, the count over 1 ms, wall versus process CPU time for the run,
+`--bot ship` (the default) is the bot hyperion/ship.py ships, with its DIALS or `--dials`; any other BUILDERS
+name there (hybrid3_x, hero, cheap) builds that bot with the same dials. Prints mean, p50, p99 and max in µs, the count over 1 ms, wall versus process CPU time for the run,
 garbage collections during it, and the timer floor. Exit 1 if p99 exceeds --p99-us (default 500) for
 the bot or for the round trip. The observations (and the kit-native states for the round trip) are
 built before the clock starts and every call is timed alone into a preallocated list, so the harness
@@ -42,13 +43,14 @@ def load_attr(spec: str):
     return getattr(importlib.import_module(mod), attr)
 
 
-def load_bot(spec: str):
-    if spec == "hero":
-        from hyperion.strategy.hero import make_bot
-        return make_bot()
-    if spec == "cheap":
-        from hyperion.strategy.hero import Hero
-        return Hero.cheap()
+def load_bot(spec: str, dials: dict | None = None):
+    """ship (hyperion/ship.py's SHIP), a BUILDERS name, or module:attr (a Bot, or a factory returning one)."""
+    from hyperion import ship
+
+    if spec == "ship":
+        return ship.make_bot(None, dials)
+    if spec in ship.BUILDERS:
+        return ship.make_bot(spec, {} if dials is None else dials)
     obj = load_attr(spec)
     return obj() if callable(obj) else obj
 
@@ -198,7 +200,10 @@ def line(label: str, m: dict) -> str:
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--bot", default="hero", help="hero | cheap | module:attr (a Bot, or a factory returning one)")
+    p.add_argument("--bot", default="ship", help="ship (hyperion/ship.py's bot, the default) | hybrid3_x | hero | "
+                                                 "cheap | module:attr (a Bot, or a factory returning one)")
+    p.add_argument("--dials", help="dials for the bot, JSON inline or a file (default: hyperion/ship.py's DIALS for "
+                                   "ship, none for a named bot)")
     p.add_argument("--n", type=int, default=2000)
     p.add_argument("--warm", type=int, default=200, help="untimed calls before the run (default 200)")
     p.add_argument("--adapter", help="module:Class, an Adapter subclass to time the round trip through")
@@ -211,7 +216,10 @@ def main(argv=None) -> int:
     a = p.parse_args(argv)
 
     rules = load_rules(a.rules, a.variant)
-    bot = load_bot(a.bot)
+    dials = None
+    if a.dials:
+        dials = json.loads(a.dials) if a.dials.lstrip().startswith("{") else json.loads(Path(a.dials).read_text())
+    bot = load_bot(a.bot, dials)
     obs = observations(a.n, a.seed, rules.n_players, a.seat, rules)
     warm = obs[: min(a.warm, len(obs))]
     bot.new_table(rules, a.seat, rules.n_players)
@@ -228,7 +236,11 @@ def main(argv=None) -> int:
             adapter.decide(x)
         runs.append(("adapter.decide", measure(adapter.decide, natives)))
 
-    print(f"bot {a.bot}  rules {a.rules or (a.variant and 'variant ' + a.variant) or 'default'}  "
+    from hyperion import ship
+
+    label = ship.describe(None, dials) if a.bot == "ship" else (ship.describe(a.bot, dials or {})
+                                                               if a.bot in ship.BUILDERS else a.bot)
+    print(f"bot {label}  rules {a.rules or (a.variant and 'variant ' + a.variant) or 'default'}  "
           f"hole cards {rules.hole_cards}  seed {a.seed}  seat {a.seat}  warm {len(warm)}")
     for label, m in runs:
         print(line(label, m))
