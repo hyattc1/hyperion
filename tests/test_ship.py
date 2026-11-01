@@ -190,3 +190,9 @@ def test_no_log_seat_feeds_a_bot_what_a_kit_without_a_log_gives():
     assert obs.history[-3:] == log and not obs.extras, "the engine's own observation is untouched"
     seat.hand_end(HandResult(hand_no=0, deltas=[5, -5, 30, -30], showdown={1: (0, 1)}, board=(), history=[(0, Action.call())]))
     assert seen[1].deltas == [0, 0, 30, 0] and seen[1].history == [] and seen[1].showdown == {}
+
+
+def test_every_registered_ship_bot_builds_with_no_dials():
+    for name in ship.BUILDERS:
+        bot = ship.make_bot(name, {})
+        assert all(hasattr(bot, m) for m in ("new_table", "act", "hand_end", "variant_decide")), name

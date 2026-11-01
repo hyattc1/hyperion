@@ -14,9 +14,11 @@ The dials are one flat dict whatever the bot (docs/packet/CONTRACTS.md lists eve
                 {"exploit": null} for none; "cheap": true (every decision Hero's cheap path); the fallback Hero:
                 `hero.<Config key>`; and any flat HybridConfig field (hyperion/hybrid/bot.py).
 
-Registering another bot as the ship bot (the compose agent's composite, say) is one entry in BUILDERS, its name to
-"module:function" for a function (dials: dict, seed: int | None) -> a bot with new_table, act, hand_end and
-variant_decide, and then SHIP = that name (or `--bot <name>` on each tool to try it first).
+Registering another bot as the ship bot is one entry in BUILDERS, its name to "module:function" for a function
+(dials: dict, seed: int | None) -> a bot with new_table, act, hand_end and variant_decide, imported only from
+hyperion/ (pack vendors hyperion/ and tables/); shipping it is then the one line SHIP = that name (or `--bot <name>`
+on pack, gate and latency to try it first). The composite (hyperion/compose/) is registered: SHIP = "composite"
+ships it, with its dials (route, r3.*, ...) in DIALS.
 """
 from __future__ import annotations
 
@@ -30,6 +32,7 @@ BUILDERS = {
     "hybrid3": "hyperion.ship:hybrid3",  # the same without the layer
     "hero": "hyperion.ship:hero",  # Hero alone, default Config: the base until 2026-11-01
     "cheap": "hyperion.ship:cheap",  # Hero.cheap(): Stage 2's bot
+    "composite": "hyperion.compose.bot:ship",  # sections routed to donors (hyperion/compose/); not measured as a ship yet
 }
 
 
