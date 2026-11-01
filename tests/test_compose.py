@@ -230,3 +230,36 @@ def test_ship_builder_reads_one_flat_dials_dict():
     assert CBm.ship({"exploit": None}).core.ex is None
     with pytest.raises(KeyError):
         CBm.ship({"preflop.open_frac": 0.2})
+
+
+@pytest.mark.parametrize("field,variant", [("realistic", None), ("night", None), ("realistic", "permuted_ranks"),
+                                           ("realistic", "short_deck")])
+def test_light_shadows_play_the_same(sim, field, variant):
+    """Light shadows (Hero preflop, the base postflop keep their state without deciding) change no decision."""
+    route = "post=hero,pre_raised_short=hero"
+    v = V.get(variant, seed=7) if variant else None
+    got = []
+    for light in (False, True):
+        register("_comp", route, light=light)
+        got.append(_play("_comp", field, seeds=1 if v is None else 1, variant=v))
+    assert got[0] == got[1]
+
+
+def test_hero_preflop_raise_flag_follows_the_action_taken():
+    from hyperion.compose.bot import _resync_hero
+
+    class H:
+        hand_no, _pre_aggr = 4, False
+
+    def o(to_call, bets, hist=()):
+        return type("O", (), {"street": 0, "hand_no": 4, "to_call": to_call, "bets": bets, "blinds": (10, 20),
+                              "history": list(hist)})()
+
+    h = H()
+    _resync_hero(h, (4, False), o(0, [10, 20]), Action.raise_to(60))  # the base opened: Hero is the aggressor
+    assert h._pre_aggr is True
+    _resync_hero(h, (4, True), o(120, [60, 180], [(1, Action.raise_to(180))]), Action.call())  # called a 3-bet
+    assert h._pre_aggr is False
+    h._pre_aggr = True
+    _resync_hero(h, (3, True), o(0, [10, 20]), Action.check())  # a new hand starts unraised
+    assert h._pre_aggr is False

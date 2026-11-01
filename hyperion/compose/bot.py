@@ -99,6 +99,77 @@ def _resync_r3(bot, before, obs: Observation, taken: Action) -> None:
     bot.my_pf_raise = bool(prev or taken.kind is _RAISE)
 
 
+def _hero_state(m):
+    return m.hand_no, m._pre_aggr
+
+
+def _resync_hero(m, before, obs: Observation, taken: Action) -> None:
+    """Hero keeps "I was the last preflop raiser" (`_pre_aggr`, its postflop aggressor when the kit passes no history)
+    from its own answers; when another member's answer was taken, set it as Hero's own act would from the one taken."""
+    if obs.street != 0:
+        return
+    h0, p0 = before
+    prev = p0 if h0 == obs.hand_no else False
+    if taken.kind is _RAISE:
+        m._pre_aggr = True
+        return
+    if obs.to_call > 0:
+        hist = obs.history
+        raised = any(a.kind is _RAISE for _, a in hist) if hist else max(obs.bets) > obs.blinds[1]
+        if raised:
+            m._pre_aggr = False
+            return
+    m._pre_aggr = prev
+
+
+# Light shadows (ComposeConfig.light): a member not chosen keeps its state from the observation without deciding, where
+# its decision changes nothing it keeps. Hero preflop: its modules keep no state, so the hand's chips and the profiler's
+# read are all; postflop it draws from its RNG, so it decides in full. Rival 3's core postflop: its decision draws from
+# its RNG (and nothing else it keeps), and preflop it draws nothing, so its read of the hand (the history replay) is
+# all; preflop it decides in full (its own preflop raise is part of its state).
+def _hero_light_ok(m, obs: Observation) -> bool:
+    return obs.street == 0 and not m.panic
+
+
+def _hero_light(m, obs: Observation) -> None:
+    if obs.hand_no != m.hand_no:
+        m.hand_no = obs.hand_no
+        m.hand_start = [s + b for s, b in zip(obs.stacks, obs.bets)]
+        m._pre_aggr = False
+    prof = m.prof
+    if prof is not None:
+        try:
+            prof.observe(obs)
+        except Exception:  # noqa: BLE001 - as in HeroCore.act
+            pass
+
+
+def _none(*args, **kw):
+    return None
+
+
+def _base_light_ok(m, obs: Observation) -> bool:
+    return obs.street > 0 and not m.panic and m._table_why is None and len(obs.hole) == 2
+
+
+def _base_light(m, obs: Observation) -> None:
+    hole, board = obs.hole, obs.board
+    rm = m._remap
+    if rm is not None:
+        from ..core.cards import remap
+
+        hole, board = remap(hole, rm), remap(board, rm)
+    m._core_hand = obs.hand_no
+    kit = m.kit(obs, hole, board)
+    core = m.core
+    core._t0 = perf_counter()
+    core._post = _none  # the instance attribute hides the method: the history replay runs, the decision does not
+    try:
+        core._act(kit)
+    finally:
+        del core._post
+
+
 def _hybrid_member(core: str, cfg: "ComposeConfig", seed):
     from ..hybrid.bot import HybridCore, hybrid_config
     from ..strategy.exploit import ExploitParams
@@ -146,6 +217,12 @@ MEMBERS: dict[str, Callable] = {
 RESYNC: dict[str, tuple] = {
     "base": (lambda m: _r3_state(m.core), lambda m, st, obs, a: _resync_r3(m.core, st, obs, a)),
     "rival3": (lambda m: _r3_state(m.impl), lambda m, st, obs, a: _resync_r3(m.impl, st, obs, a)),
+    "hero": (_hero_state, _resync_hero),
+}
+# member name -> (can a light shadow stand in for its decision on this observation, the light shadow)
+LIGHT: dict[str, tuple] = {
+    "hero": (_hero_light_ok, _hero_light),
+    "base": (_base_light_ok, _base_light),
 }
 # donor name -> (member, the exploit layer acts on its decisions)
 DONORS: dict[str, tuple[str, bool]] = {
@@ -181,6 +258,8 @@ class ComposeConfig:
     shadow_all: bool = False  # run every registered member, not only the route's (tests, timing)
     shadow: tuple = ()  # ... or these members as well as the route's (tools/swap.py: the donors it records)
     late_us: float = 700.0  # the chosen member already used this much: shadows skip this decision
+    light: bool = False  # light shadows where a member allows them (LIGHT): the same play, about half the cost;
+    #                      off where every member's answer is needed (tools/swap.py records them)
     deadline_ms: float = 0.5  # SafeBot, as Hero sets it
     panic_after: int = 5
     panic_rate: float = 0.02
@@ -223,6 +302,8 @@ class CompositeCore:
         self.plain_only = [bool(getattr(m, "plain_only", False)) for m in self.members]
         self.resync = [RESYNC.get(n) for n in names]
         self._rs_idx = [j for j, r in enumerate(self.resync) if r is not None]
+        self.light = [LIGHT.get(n) if cfg.light else None for n in names]
+        self._lit = [False] * len(names)
         self._states: list = [None] * len(names)
         self._props: list = [None] * len(names)
         # tap(core, obs, section, chosen index, chosen member's answer, action taken, every member's answer, layer):
@@ -311,10 +392,16 @@ class CompositeCore:
                 counts["shadow:late"] += 1
             else:
                 shadowed = True
+                light, lit = self.light, self._lit
                 for j in range(nm):
                     if j != mi and j != failed:
+                        lt = light[j]
                         try:
-                            props[j] = members[j].act(obs)
+                            if lt is not None and lt[0](members[j], obs):
+                                lt[1](members[j], obs)
+                                lit[j] = True
+                            else:
+                                props[j] = members[j].act(obs)
                         except Exception:  # noqa: BLE001 - a shadow's failure costs nothing
                             props[j] = None
                             counts["shadow:error:" + self.names[j]] += 1
@@ -330,14 +417,18 @@ class CompositeCore:
                 COUNTS[why] += 1
                 a = b
         if shadowed:
+            lit = self._lit
             for j in self._rs_idx:
-                # a member whose answer was not the action taken: its record of its own actions follows the one taken
+                # a member whose answer was not the action taken (or that did not answer: a light shadow): its record
+                # of its own actions follows the one taken
                 pj = props[j]
-                if j != mi and states[j] is not None and pj is not None and pj != a:
+                if j != mi and states[j] is not None and (lit[j] or (pj is not None and pj != a)):
                     try:
                         resync[j][1](members[j], states[j], obs, a)
                     except Exception:  # noqa: BLE001
                         pass
+            for j in range(nm):
+                lit[j] = False
             tap = self.tap
             if tap is not None:
                 tap(self, obs, sec, mi, own, a, props, ex)
@@ -453,8 +544,10 @@ def parse_dials(dials: dict | None) -> tuple:
 
 
 def ship(dials: dict, seed: int | None = None) -> Composite:
-    """hyperion/ship.py's builder: the composite from one flat dials dict (parse_dials)."""
+    """hyperion/ship.py's builder: the composite from one flat dials dict (parse_dials), with light shadows unless the
+    dials say {"light": false} (the same play; tests/test_compose.py)."""
     route, kw = parse_dials(dials)
+    kw.setdefault("light", True)
     return make_bot(route, seed=seed, **kw)
 
 
