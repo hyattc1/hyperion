@@ -2,17 +2,20 @@
 
 Every bot here implements the Bot protocol and decides in well under 1 ms. They see displayed
 cards and most of them evaluate those directly, which is wrong under a rank-permuting variant,
-exactly like a naive bot would be. Helpers tolerate any hole-card count so variants do not crash
-them; their poker sense is only meant for two cards.
+exactly like a naive bot would be. tag, nit and pushfold read `Rules.rank_order` first
+(`strength_view`), like a student who read the rule sheet, so they stay honest yardsticks under
+permuted ranks. Helpers tolerate any hole-card count so variants do not crash them; their poker
+sense is only meant for two cards.
 """
 from __future__ import annotations
 
+import dataclasses
 import os
 import random
 import time
 from typing import Optional
 
-from ..core.cards import deck_for, hole_class
+from ..core.cards import deck_for, hole_class, remap
 from ..core.eval import category, evaluate
 from ..core.types import RANKS, Action, ActionKind, HandResult, Observation, Rules
 
@@ -34,6 +37,17 @@ def two_card_class(hole: tuple[int, ...]) -> str:
         if by_rank[i] >> 2 == by_rank[i + 1] >> 2:
             return hole_class((by_rank[i], by_rank[i + 1]))
     return hole_class((by_rank[0], by_rank[1]))
+
+
+_IDENTITY_ORDER = tuple(range(13))
+
+
+def strength_view(obs: Observation, rules: Rules) -> Observation:
+    """`obs` with hole and board mapped to canonical strength under `rules.rank_order`; `obs` itself when the
+    order is the identity. A copy, so the engine's observation is never mutated."""
+    if tuple(rules.rank_order) == _IDENTITY_ORDER:
+        return obs
+    return dataclasses.replace(obs, hole=remap(obs.hole, rules), board=remap(obs.board, rules))
 
 
 def made_category(hole: tuple[int, ...], board: tuple[int, ...]) -> int:
@@ -207,6 +221,7 @@ class Nit(_Base):
         self.open_bb, self.shove_below_bb = open_bb, shove_below_bb
 
     def act(self, obs: Observation) -> Action:
+        obs = strength_view(obs, self.rules)
         if obs.street == 0:
             if two_card_class(obs.hole) in self.PREMIUM:
                 if obs.stack_bb <= self.shove_below_bb:
@@ -286,6 +301,7 @@ class ChartTAG(_Base):
         self.cbet_done_hand = -1
 
     def act(self, obs: Observation) -> Action:
+        obs = strength_view(obs, self.rules)
         bb = obs.big_blind
         cls = two_card_class(obs.hole)
         if obs.street == 0:
@@ -485,6 +501,7 @@ class PushFoldBot(_Base):
         return self.PUSH[(15, pos)]
 
     def act(self, obs: Observation) -> Action:
+        obs = strength_view(obs, self.rules)
         bb = obs.big_blind
         cls = two_card_class(obs.hole)
         if obs.street == 0:

@@ -213,7 +213,7 @@ BROKEN = exceptions. Full table with VPIP, bust rate and reasons: `docs/decision
 
 | Axis | READY | PLAYS | Notes for the night |
 |---|---|---|---|
-| Strength ordering | permuted_ranks, short_deck, lowball, wild_deuces, flush_over_full_house | | Stage 3 regenerates; lowball and wild cards use the variant's score hook |
+| Strength ordering | permuted_ranks, short_deck, lowball, wild_deuces, flush_over_full_house | | Stage 3 regenerates; lowball and wild cards use the variant's score hook; permuted_ranks re-measured 2026-11-01 with tag, nit and pushfold remapping too: Hero first, 5.95 ± 0.23, next rival1 5.52 |
 | Information | toss_or_holdem, three_card_blind_discard, three_card_keep, omaha_four, swap_holdem, swap_one_turn, exposed_card, bonus_card | two_boards | Hero discards and buys via `variant_decide`; two boards still loses to the rival |
 | Payoff | bounty, knockout_bounty, top_heavy, hi_lo | | hi_lo plays high only; bounty reads only our own posted rank |
 | Betting | pot_limit, antes_from_level_3, fixed_raise, fast_schedule, straddle | | antes and straddle feed `stack_bb` |
@@ -323,6 +323,7 @@ The track is decided in Stage 0, never on the night.
 | 2026-10-31 | Review 1 applied: Track A default; Stage 4 gate is errors, latency rate and Hero vs its own Stage 0 number, never vs tag; fallback is the Stage 2 cheap package; §3.5 upload cadence in Stages 2 and 6; Stage 3 timing under load; signal table names real Config keys; agent reads sections 3, 4, 7 only | playbook pass after review 1 |
 | 2026-10-31 | Drill 3 (Track B, kit A, bounty): section 6 carries its timings and sim placings, section 8 says what Track B can and cannot produce; spec v2 (drill-3 defect edits, step 0 rank map, steps 2b and 3b, value-curve ICM off the decision path, p99 gate, under 1,600 words); prompt 02's Track B paragraph matches; fake kits self-contained (`fakekits/_eval.py`) | drill 3 pass |
 | 2026-10-31 | Stage 0 Prepared: offline install, second machine, pull discipline. Prompts 01/02/04/05 now use `hyperion/drills/conformance.py` (`HYPERION_CHECK=1`), `tools/pack.py`, `tools/latency.py`, `hyperion/drills/adapter_template.py` and `docs/packet/NIGHT-template.md`; 01 gained the FIT VERDICT; drill-2 and review-1 prompt defects applied (D1, D2, D3, D5, D7 in the prompts only) | night-of tooling pass |
+| 2026-11-01 | Drill 5 follow-ups: §4b permuted_ranks re-measured after tag, nit and pushfold learned to remap `rank_order` (Hero 6.34 to 5.95, still first; tag 4.96 to 5.44, pushfold 4.74 to 5.34); Track B spec v2.1: step 3b pushes on chip EV (the ICM form failed its own sanity check), a clause for kits with no history; `python -m hyperion.sim --variant-seed` | drill 5 follow-ups |
 
 ---
 

@@ -120,3 +120,63 @@ def test_nit_folds_junk_and_raises_premiums():
         c in B.Nit.PREMIUM for c, _ in preflop
     )
     assert all(k in (ActionKind.FOLD, ActionKind.CHECK) for c, k in preflop if c not in B.Nit.PREMIUM)
+
+
+# ----- tag, nit and pushfold read Rules.rank_order (honest yardsticks under permuted ranks) -----
+
+from hyperion.core.types import Observation  # noqa: E402
+from hyperion.drills import variants  # noqa: E402
+
+PERM0 = variants.get("permuted_ranks", seed=0).rules  # printed K plays as an ace, Q as a deuce, 3 as a queen
+YARDSTICKS = ("tag", "nit", "pushfold")
+
+
+def _utg_preflop(hole: str) -> Observation:
+    """Eight seats, button 0, blinds posted, seat 3 (UTG) first in with 100 bb."""
+    stacks = [2000, 1990, 1980] + [2000] * 5
+    bets = [0, 10, 20] + [0] * 5
+    return Observation(hole=parse_cards(hole), board=(), street=0, seat=3, button=0, stacks=stacks, bets=bets,
+                       in_hand=[True] * 8, pot=0, to_call=20, min_raise=40, max_raise=2000,
+                       legal=frozenset({ActionKind.FOLD, ActionKind.CALL, ActionKind.RAISE}), hand_no=1,
+                       blinds=(10, 20))
+
+
+def _flop_checked_to(hole: str, board: str) -> Observation:
+    """Heads-up flop, nothing bet, seat 3 to act."""
+    stacks = [0, 0, 1800, 1800] + [0] * 4
+    in_hand = [False, False, True, True] + [False] * 4
+    return Observation(hole=parse_cards(hole), board=parse_cards(board), street=1, seat=3, button=0,
+                       stacks=stacks, bets=[0] * 8, in_hand=in_hand, pot=400, to_call=0, min_raise=20,
+                       max_raise=1800, legal=frozenset({ActionKind.FOLD, ActionKind.CHECK, ActionKind.RAISE}),
+                       hand_no=1, blinds=(10, 20))
+
+
+def _decide(name: str, rules: Rules, obs: Observation) -> ActionKind:
+    bot = B.make_bot(name, seed=1)
+    bot.new_table(rules, obs.seat, 8)
+    return bot.act(obs).kind
+
+
+def test_strength_view_copies_and_remaps_only_under_a_permutation():
+    obs = _flop_checked_to("3h 9d", "Qs 7d 3c")
+    assert B.strength_view(obs, Rules()) is obs
+    v = B.strength_view(obs, PERM0)
+    assert v is not obs and obs.hole == parse_cards("3h 9d") and obs.board == parse_cards("Qs 7d 3c")
+    assert B.two_card_class(B.strength_view(_utg_preflop("Ks Kh"), PERM0).hole) == "AA"
+    assert v.board == tuple(PERM0.rank_order[c >> 2] * 4 + (c & 3) for c in obs.board)
+
+
+@pytest.mark.parametrize("name", YARDSTICKS)
+def test_yardsticks_play_strength_not_print_preflop(name):
+    # printed QQ is a premium pair in hold'em and the worst pair under the seed-0 scramble; printed KK is the best
+    assert _decide(name, Rules(), _utg_preflop("Qs Qh")) is ActionKind.RAISE
+    assert _decide(name, PERM0, _utg_preflop("Qs Qh")) is ActionKind.FOLD
+    assert _decide(name, PERM0, _utg_preflop("Ks Kh")) is ActionKind.RAISE
+
+
+@pytest.mark.parametrize("name", YARDSTICKS)
+def test_yardsticks_read_the_board_in_strength_too(name):
+    # printed 3 is tonight's queen: 3-9 on Q-7-3 is bottom pair in print and top pair in strength
+    obs = _flop_checked_to("3h 9d", "Qs 7d 3c")
+    assert _decide(name, Rules(), obs) is ActionKind.CHECK
+    assert _decide(name, PERM0, obs) is ActionKind.RAISE
