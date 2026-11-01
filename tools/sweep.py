@@ -87,10 +87,17 @@ def settings_from_spec(spec: dict) -> dict[str, dict]:
 
 
 def format_results(results: dict, fields: dict, settings: dict, rival: str = "tag") -> str:
+    """One row per (setting, field): Hero's mean, bust rate, timeouts, swallowed errors, its paired delta against
+    the base, and for each bot named in `rival` (comma-separated) its mean and the paired delta of the Hero-minus-
+    rival gap. In a field where Hero holds seven of eight seats ("rival + 7 Heroes"), the lone bot's paired delta
+    is shown instead (lower is better for Hero)."""
+    rivals = [r.strip() for r in rival.split(",") if r.strip()]
     lines = []
     base = results["base"]
-    head = (f"{'setting':<44} {'field':<7} {'hero':>6} {'±':>5} {'bust%':>5} {'tmo':>4} {'serr':>4} {rival:>6} "
-            f"{'Δhero':>6} {'±':>5} {'Δ(h-' + rival + ')':>8}")
+    head = f"{'setting':<44} {'field':<9} {'hero':>6} {'±':>5} {'bust%':>5} {'tmo':>4} {'serr':>4} {'Δhero':>6} {'±':>5}"
+    for rv in rivals:
+        head += f" {rv:>8} {'Δ(h-' + rv[:6] + ')':>10}"
+    head += f" {'lone Δ':>14}"
     lines.append(head)
     summary = {}
     for name in settings:
@@ -105,17 +112,25 @@ def format_results(results: dict, fields: dict, settings: dict, rival: str = "ta
             h = r["hero"]
             hm, hc = mean_ci(h["samples"])
             bust = 100 * h["busts"] / h["seats"] if h["seats"] else 0.0
-            rv = r.get(rival)
-            rm = sum(rv["samples"]) / len(rv["samples"]) if rv and rv["samples"] else float("nan")
             b = base[field]["hero"]["samples"]
             d, dc = mean_ci([x - y for x, y in zip(h["samples"], b)])
-            if rv and rival in base[field]:
-                br = base[field][rival]["samples"]
-                dd, _ = mean_ci([(x - y) - (bx - by) for x, y, bx, by in zip(h["samples"], rv["samples"], b, br)])
-            else:
-                dd = float("nan")
-            lines.append(f"{name[:44]:<44} {field:<7} {hm:>6.3f} {hc:>5.3f} {bust:>5.1f} {h['tmo']:>4} "
-                         f"{h.get('safe_err', 0):>4} {rm:>6.3f} {d:>+6.3f} {dc:>5.3f} {dd:>+8.3f}")
+            row = (f"{name[:44]:<44} {field[:9]:<9} {hm:>6.3f} {hc:>5.3f} {bust:>5.1f} {h['tmo']:>4} "
+                   f"{h.get('safe_err', 0):>4} {d:>+6.3f} {dc:>5.3f}")
+            for rv in rivals:
+                x = r.get(rv)
+                if x and x["samples"] and rv in base[field]:
+                    rm = sum(x["samples"]) / len(x["samples"])
+                    br = base[field][rv]["samples"]
+                    dd, _ = mean_ci([(a - c) - (e - f) for a, c, e, f in zip(h["samples"], x["samples"], b, br)])
+                    row += f" {rm:>8.3f} {dd:>+10.3f}"
+                else:
+                    row += f" {'':>8} {'':>10}"
+            names = fields[field].split(",") if isinstance(fields[field], str) else list(fields[field])
+            lone = [nm for nm in names if nm != "hero"]
+            if names.count("hero") == len(names) - 1 and len(lone) == 1 and lone[0] in r:
+                ld, lc = mean_ci([x - y for x, y in zip(r[lone[0]]["samples"], base[field][lone[0]]["samples"])])
+                row += f" {ld:>+8.3f} ±{lc:.3f}"
+            lines.append(row)
             worst = d if worst is None else min(worst, d)
         summary[name] = worst
     lines.append("")
@@ -134,7 +149,7 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=os.cpu_count() or 4)
     ap.add_argument("--chunks", type=int, default=4, help="slices per (setting, field) for the pool")
     ap.add_argument("--out", default=None, help="write raw results json here")
-    ap.add_argument("--rival", default="tag", help="the bot to report the paired hero-minus-rival delta against")
+    ap.add_argument("--rival", default="tag", help="bots (comma-separated) to report the paired hero-minus-rival delta against")
     a = ap.parse_args(argv)
     with open(a.spec) as f:
         spec = json.load(f)
