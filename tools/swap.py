@@ -21,7 +21,7 @@ hard stop at 520 us): in these runs every rival 2 opponent draws a fixed `R2_SAM
 a fixed 32 (its `mc_max`), so fields with rival 2 replay exactly. Its import-time equity tables stop at 1500 boards or
 2.4 s: its clock is held still while it imports, so every process builds all 1500. The night persona
 `agent_montecarlo` samples on the wall clock too: here its clock advances AGENT_MC_STEP_US per read; `agent_pushfold`
-skips its heaviest jam EV after 260 us on the wall clock: here it never runs late. That is a fixed-speed rival 2; the final measurement plays it as built.
+skips its heaviest jam EV after 260 us on the wall clock: here it never runs late. That is a fixed-speed rival 2 (`--as-built` keeps the wall clock).
 
 The sample is one table seed (its eight rotations averaged), paired with the base on the same seed.
 """
@@ -51,6 +51,7 @@ HYBRID_CONFIG = {"panic_after": 10 ** 9, "soft_us": 1e6, "mc_budget_us": 1e9, "m
 HERO_CONFIG = {"panic_after": 10 ** 9}
 R2_SAMPLES = 110
 AGENT_MC_STEP_US = 3.5  # agent_montecarlo's clock advances this much per read (the field agent's fixed-speed setting)
+RIVAL5_STEP_US = 4.0  # rival 5's (the second judge's), likewise
 SEED = 7
 CAND = "compose_cand"
 PAYOUTS = {"lin": None, "brief": (10, 7, 5, 4, 3, 2, 1, 0), "th": (50, 25, 12, 6, 3, 2, 1, 1)}
@@ -74,6 +75,8 @@ def setup_process(mode: str = "model", as_built: bool = False) -> None:
         return
     if hasattr(B, "AgentMonteCarloBot"):  # the night persona whose sampler runs on the wall clock: fixed speed
         B.AgentMonteCarloBot.STEP_US = AGENT_MC_STEP_US
+    if hasattr(B, "Rival5Bot"):  # the second judge: its postflop sampler stops at 130 us on the wall clock
+        B.Rival5Bot.STEP_US = RIVAL5_STEP_US
     if "agent_pushfold" in B.REGISTRY:  # its 260 us wall-clock guard before the heaviest jam EV: never late here
         from hyperion.sim.field import load as _load_field
 
