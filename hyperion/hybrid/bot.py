@@ -1,17 +1,23 @@
-"""HybridCore routes each decision to rival 2's core or to Hero; Hybrid is the SafeBot shell around it.
+"""HybridCore routes each decision to a rival's core or to Hero; Hybrid is the SafeBot shell around it.
+
+The core is `HybridConfig.core`: "rival2" (`hybrid`, core.py) or "rival3" (`hybrid3`, core3.py). Each exposes the same
+adapter (setup, start_hand, decide, legalize, end), and the routing below is the same for both.
 
 Routing, per table from Rules and per decision from the observation:
-  core   plain hold'em as rival 2 models it: two hole cards (three before a discard only with
-         hero_on_three_cards off: the core then sees its best two), a 52-card deck, board 3/4/5, best five of seven, no-limit or pot-limit (the core's all-in is
-         `max_raise`, the pot-limit cap), antes (they are in `pot`, which the core reads as dead money), any blind
-         schedule (it reads the current blinds each decision; it has no place for future levels), any payout
-         table (its ICM curve is built from `Rules.payouts`), any rank order (cards are remapped first).
+  core   plain hold'em as the rivals model it: two hole cards (three before a discard only with hero_on_three_cards
+         off: the core then sees its best two), a 52-card deck, board 3/4/5, best five of seven, no-limit or pot
+         limit (the core's all-in is `max_raise`, the pot-limit cap), antes (they are in `pot`, which the cores read
+         as dead money), any blind schedule (they read the current blinds each decision; neither has a place for
+         future levels), any payout table (built into rival 2's curve and rival 3's all-in prices from
+         `Rules.payouts`), any rank order (cards are remapped first).
   hero   what the core cannot represent, named by a counter: `hero:table:<why>` for a whole table (short deck,
          lowball, wild cards, category order, hi/lo, two boards, must-use-two, three hole cards, fixed limit,
-         bounties, knockout points, exposed cards); `hero:straddle` (preflop with a straddle: the core reads it as an open raise);
-         `hero:extra_hole` (postflop with more than two hole cards); `hero:soft_deadline` (already late when
-         the core's sampler would start: Hero's cheap path); `hero:core_error` (the core raised or returned
-         nothing); `hero:panic` (SafeBot saw repeated overruns: Hero's cheap path for the rest of the table).
+         bounties, knockout points, exposed cards); `hero:straddle` (preflop with a straddle: the cores read it as
+         an open raise); `hero:extra_hole` (postflop with more than two hole cards); `hero:soft_deadline` (already
+         late when the core's expensive part would start: Hero's cheap path); `hero:core_none` (the core declined:
+         rival 3 returns nothing when the move it wants is not legal, e.g. a shove with only call or fold offered, and
+         would then fold); `hero:core_error` (the core raised or its answer was unreadable); `hero:panic` (SafeBot saw repeated overruns: Hero's cheap path for the rest of the
+         table).
 Variant decisions (discard, swap, buy a card) are always Hero's `variant_decide`.
 
 Counters: `HybridCore.counts` per bot, and the module-level `COUNTS` summed over every HybridCore in the process
@@ -28,6 +34,9 @@ from ..core.types import Action, HandResult, Observation, Rules
 from ..strategy.hero import Config, HeroCore, config_from_dict
 from ..strategy.safe import SafeBot
 from .core import KitView, Rival2Core, SoftDeadline, best_two, from_kit
+from .core3 import Rival3Core
+
+CORES = {"rival2": Rival2Core, "rival3": Rival3Core}  # HybridConfig.core -> the decision core behind the shell
 
 COUNTS: Counter = Counter()  # every HybridCore in this process adds its routes here
 
@@ -37,6 +46,7 @@ _SHOWDOWN_KEYS = ("lowball", "wild_rank", "category_order", "hi_lo")
 @dataclass
 class HybridConfig:
     hero: Config = field(default_factory=Config)  # the Hero that takes every decision the core does not
+    core: str = "rival2"  # the decision core: "rival2" (`hybrid`) or "rival3" (`hybrid3`)
     # the core's postflop sampler (rival 2 as built: 160 / 48 / 260 us budget / 520 us hard stop)
     mc_max: int = 32  # samples (heads-up: one runout per two samples); 32 v 64 v as built: no measurable difference
     mc_min: int = 16  # samples before the wall budget may stop it (rival 2 divides this by the opponents sampled)
@@ -97,12 +107,14 @@ def table_reason(rules: Rules, cfg: HybridConfig) -> str | None:
 
 
 class HybridCore:
-    """Rival 2's core for what it can represent, Hero for the rest (module doc). Not guarded: Hybrid wraps it."""
+    """A rival's core for what it can represent, Hero for the rest (module doc). Not guarded: Hybrid wraps it."""
 
     def __init__(self, config: HybridConfig | None = None):
         self.cfg = cfg = config or HybridConfig()
         self.hero = HeroCore(cfg.hero)
-        self.core = Rival2Core()
+        if cfg.core not in CORES:
+            raise KeyError(f"unknown hybrid core {cfg.core!r}; known: {', '.join(CORES)}")
+        self.core = CORES[cfg.core]()
         self.kit = KitView()
         self.counts: Counter = Counter()
         self.panic = False
@@ -127,15 +139,12 @@ class HybridCore:
         self.hero.new_table(rules, seat, n_players)
         self.kit.reset()
         core = self.core
-        core.new_table({"starting_stack": rules.starting_stack, "hand_cap": rules.max_hands,
-                        "n_players": n_players, "blinds": rules.blind_levels}, seat, n_players)
-        core.configure(rules.payouts, cfg.mc_max, cfg.mc_min, cfg.mc_budget_us, cfg.mc_hard_us, cfg.soft_us)
-        core.inline_curves = 0
+        core.setup(rules, seat, n_players, cfg)
         self._start = [rules.starting_stack] * n_players
         self._start_hand = 0
         self._core_hand = -1
         if self._table_why is None:
-            core.prime(1, self._start)
+            core.start_hand(1, self._start)
 
     def set_panic(self, on: bool) -> None:
         self.panic = on
@@ -164,7 +173,9 @@ class HybridCore:
         try:
             kit = self.kit(obs, hole, board)
             ans = self.core.decide(kit, t0)
-            a = from_kit(self.core._legal(ans, kit), obs) if ans is not None else None
+            if ans is None:  # the core declined (rival 3 does when the move it wants is not legal): Hero decides
+                return self._hero(obs, "hero:core_none")
+            a = from_kit(self.core.legalize(ans, kit), obs)
         except SoftDeadline:
             return self._hero(obs, "hero:soft_deadline", cheap=True)
         except Exception:  # noqa: BLE001 - the core's failure is Hero's decision, never a forced fold
@@ -197,13 +208,13 @@ class HybridCore:
         try:
             self.hero.hand_end(result)
         finally:
-            self.core.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas})
+            self.core.end(result)
             start = self._start
             if len(result.deltas) == len(start) and result.hand_no == self._start_hand:
                 self._start = [max(0, start[s] + result.deltas[s]) for s in range(len(start))]
                 self._start_hand = result.hand_no + 1
                 if self._table_why is None and self._start[self.seat] > 0:
-                    self.core.prime(result.hand_no + 2, self._start)
+                    self.core.start_hand(result.hand_no + 2, self._start)
 
     # ------------------------------------------------------------------ variant decisions
     def variant_decide(self, prompt: dict):

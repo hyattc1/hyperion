@@ -244,3 +244,22 @@ At load ~30, `import hyperion.sim.rivals.rival2` computed 1,088 and 1,152 of its
 (the 2.4 s budget binds) and took 5.9-6.4 s; quiet, 1,500 boards in ~1.15 s. The core's equity tables, and so its play,
 differ between processes on a loaded host. The round-trip and legality tests now switch off SafeBot panic (it reads
 the wall clock) and play deep stacks, so a loaded host cannot make them flake.
+
+# Hybrid 3: rival 3's decision core behind the same shell
+
+## 04:42: hybrid3 built (commit below)
+
+- `hyperion/hybrid/core3.py`: `Rival3Core` subclasses rival 3's `Bot` (rival3.py untouched). Its one ICM method,
+  `_allin`, is re-implemented with `icm_points` and `Rules.payouts` (rival 3's O(n) closed form whenever the payouts
+  are linear from third place down, which covers 8..1 and the brief's table; Hero's exact `icm_me` otherwise), and its
+  bust value comes from the same table. hand_end gets the hand's history in the kit's shape. A soft deadline before
+  its preflop/postflop logic gives Hero's cheap path. Replay errors are counted before rival 3 swallows them.
+- `hyperion/hybrid/bot.py`: one router for both cores (`HybridConfig.core` "rival2" | "rival3"), through one adapter
+  (setup, start_hand, decide, legalize, end). The rival 2 hybrid's play is bit-identical across the refactor (563
+  decisions over 4 deterministic tables, same sha). New route `hero:core_none`: rival 3 returns nothing when the move
+  it wants is not legal (a shove with only call or fold offered; as built it then folds); Hero decides those.
+- Bestiary: `hybrid3`; fields `realistic_h3`, `top_h3`, `top2_h3`.
+- `tests/test_hybrid3.py`: 33 tests (legality over 300 deep hands with 0 replay errors, all 23 entries with the
+  expected routing, the rank-remap round trip, `icm_points` against `_icm1` and `icm_me`, payouts in `_allin` with
+  rival 3's globals untouched, the hand_end history, declines, the soft deadline, timing). Full suite 656 passed.
+- Smoke (strict, 10 seeds x 8, load ~3): top2_h3 p50 32 / p99 70 us, realistic_h3 p50 28 / p99 65 us.

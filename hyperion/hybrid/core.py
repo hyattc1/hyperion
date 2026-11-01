@@ -137,6 +137,22 @@ class Rival2Core(R2.Bot):
     _t0 = 0.0
     inline_curves = 0  # hands whose curve had to be built inside a decision (should stay 0)
 
+    # ------------------------------------------------------------------ the adapter HybridCore drives
+    def setup(self, rules, seat: int, n_players: int, cfg) -> None:
+        self.new_table({"starting_stack": rules.starting_stack, "hand_cap": rules.max_hands,
+                        "n_players": n_players, "blinds": rules.blind_levels}, seat, n_players)
+        self.configure(rules.payouts, cfg.mc_max, cfg.mc_min, cfg.mc_budget_us, cfg.mc_hard_us, cfg.soft_us)
+        self.inline_curves = 0
+
+    def start_hand(self, kit_hand_no: int, totals) -> None:
+        self.prime(kit_hand_no, totals)
+
+    def legalize(self, ans, kit):
+        return self._legal(ans, kit)
+
+    def end(self, result) -> None:
+        self.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas})
+
     def configure(self, payouts, mc_max: int, mc_min: int, budget_us: float, hard_us: float, soft_us: float) -> None:
         self.payouts = tuple(payouts)
         self.mc_max, self.mc_min = int(mc_max), int(mc_min)

@@ -912,11 +912,14 @@ class HybridBot(_Base):
     rank remap, variant decisions, SafeBot, Hero for what the core cannot represent). Its fallback Hero takes the
     same dotted overrides as `hero` (HERO_CONFIG). A candidate measured against Hero, not a replacement."""
 
+    CORE = "rival2"
+
     def __init__(self, seed: Optional[int] = None):
         super().__init__(seed)
         from ..hybrid import make_bot as _make_hybrid
 
-        self.impl = _make_hybrid(seed=seed, overrides=HYBRID_CONFIG, hero_overrides=HERO_CONFIG)
+        self.impl = _make_hybrid(seed=seed, overrides={**(HYBRID_CONFIG or {}), "core": self.CORE},
+                                 hero_overrides=HERO_CONFIG)
 
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
         self.impl.new_table(rules, seat, n_players)
@@ -929,6 +932,13 @@ class HybridBot(_Base):
 
     def variant_decide(self, prompt: dict):
         return self.impl.variant_decide(prompt)
+
+
+class Hybrid3Bot(HybridBot):
+    """The second hybrid candidate: rival 3's decision core (hyperion.hybrid.core3) behind the same shell as `hybrid`:
+    payouts from Rules in its all-in prices, the hand's history at hand_end, Hero for what it cannot represent."""
+
+    CORE = "rival3"
 
 
 REGISTRY: dict[str, type] = {
@@ -954,6 +964,7 @@ REGISTRY: dict[str, type] = {
     "rival2": Rival2Bot,  # red-team drill 2's computation-first bot through the same adapter
     "rival3": Rival3Bot,  # red-team drill 3's exploitation-first bot: the holdout, never tuned against
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
+    "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
 }
 
 # Opponents that need something from outside this repo. Each is registered only when its environment
@@ -1010,6 +1021,11 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "top2_h": ("hybrid", "rival1", "rival2", "rival2", "pushfold", "tag", "hero_tight", "loose_aggro"),
     "holdout_h": ("hybrid", "rival3", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "tag",
                   "timeout_then_recover"),
+    # the same three rooms with the rival 3 hybrid in Hero's seat
+    "realistic_h3": ("hybrid3", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "rival1", "tag",
+                     "timeout_then_recover"),
+    "top_h3": ("hybrid3", "rival1", "rival1", "pushfold", "tag", "hero_tight", "loose_aggro", "rival2"),
+    "top2_h3": ("hybrid3", "rival1", "rival2", "rival2", "pushfold", "tag", "hero_tight", "loose_aggro"),
     # timeout-heavy: the four timeout-prone bots (honest Monte Carlo, Monte Carlo timing out 30% postflop, one that
     # breaks for good, one that breaks in outages and recovers) with the three competent students. Screened with the
     # deterministic timeout model (mode "model") so its timeouts do not follow the host
