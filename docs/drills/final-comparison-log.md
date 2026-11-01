@@ -341,3 +341,96 @@ Hero reproduces round 3 on the realistic payout deals exactly (6.308 and 25.818)
 +0.8 on top_heavy, all inside noise at 200 seeds. **hybrid_x is behind beyond noise on all four** (-0.35 and -0.55 on
 the brief's table, -2.6 and -3.2 on top_heavy). The layer is worth the most to the rival 3 core under top_heavy
 (hybrid3_x - hybrid3 +1.5 and +1.6 points), where the layer's extra steals add up to more firsts.
+
+## 09:28-09:30: the 23 variants, Hero against hybrid3_x, model mode, 200 unrotated tables per entry, four workers
+
+Each catalogue entry's own field, the same table seeds for both. "Route" is where hybrid3_x's decisions went: the rival
+3 core, or Hero for the whole table where the shell sends that variant to Hero (in which case the two play the same
+code and the delta is exactly zero). Verdicts as in PLAYBOOK §4b (READY = first or second, no exceptions, VPIP ≥ 10).
+Bold would mark a paired delta beyond its 95% interval; none is.
+
+| variant | hybrid3_x route | Hero: pts, rank, verdict | hybrid3_x: pts, rank, verdict | hybrid3_x - Hero | p99 us Hero / h3x | wall >= 1 ms Hero / h3x | load |
+|---|---|---|---|---|---|---|---|
+| permuted_ranks | core 97% | 6.48, 1, READY | 6.70, 1, READY | +0.22 ± 0.34 | 150 / 205 | 0.17% / 0.24% | 23-22 |
+| short_deck | Hero (deck) | 5.94, 1, READY | 5.94, 1, READY | +0.00 ± 0.00 | 191 / 194 | 0.18% / 0.09% | 23-22 |
+| lowball | Hero (showdown) | 7.77, 1, READY | 7.77, 1, READY | +0.00 ± 0.00 | 148 / 140 | 0.21% / 0.18% | 23-22 |
+| wild_deuces | Hero (showdown) | 7.09, 1, READY | 7.09, 1, READY | +0.00 ± 0.00 | 194 / 214 | 0.04% / 0.16% | 22-22 |
+| flush_over_full_house | Hero (showdown) | 6.01, 1, READY | 6.01, 1, READY | +0.00 ± 0.00 | 126 / 128 | 0.21% / 0.21% | 22-23 |
+| toss_or_holdem | Hero (three_cards) | 6.19, 1, READY | 6.19, 1, READY | +0.00 ± 0.00 | 192 / 134 | 0.11% / 0.18% | 22-22 |
+| three_card_blind_discard | Hero (three_cards) | 6.16, 1, READY | 6.16, 1, READY | +0.00 ± 0.00 | 150 / 176 | 0.05% / 0.21% | 22-23 |
+| three_card_keep | Hero (three_cards) | 6.19, 1, READY | 6.19, 1, READY | +0.00 ± 0.00 | 221 / 131 | 0.32% / 0.26% | 22-23 |
+| omaha_four | Hero (must_use) | 6.78, 1, READY | 6.78, 1, READY | +0.00 ± 0.00 | 140 / 138 | 0.36% / 0.29% | 23-23 |
+| swap_holdem | core 97% | 6.12, 1, READY | 6.12, 1, READY | -0.00 ± 0.38 | 97 / 136 | 0.20% / 0.30% | 23-25 |
+| swap_one_turn | core 97% | 6.21, 1, READY | 6.30, 1, READY | +0.09 ± 0.34 | 132 / 228 | 0.04% / 0.22% | 23-25 |
+| exposed_card | Hero (exposed) | 5.86, 1, READY | 5.86, 1, READY | +0.00 ± 0.00 | 113 / 179 | 0.21% / 0.25% | 23-25 |
+| two_boards | Hero (showdown) | 6.02, 1, READY | 6.02, 1, READY | +0.00 ± 0.00 | 105 / 110 | 0.23% / 0.24% | 25-25 |
+| bonus_card | core 75% | 5.96, 1, READY | 6.08, 1, READY | +0.12 ± 0.32 | 99 / 208 | 0.12% / 0.28% | 25-26 |
+| bounty | Hero (bounty) | 5.82, 1, READY | 5.82, 1, READY | +0.00 ± 0.00 | 99 / 170 | 0.15% / 0.12% | 25-25 |
+| knockout_bounty | Hero (bounty) | 7.75, 1, READY | 7.75, 1, READY | +0.00 ± 0.00 | 128 / 103 | 0.04% / 0.12% | 25-24 |
+| top_heavy | core 97% | 26.42, 1, READY | 24.18, 1, READY | -2.25 ± 3.71 | 161 / 221 | 0.05% / 0.15% | 25-24 |
+| hi_lo | Hero (showdown) | 5.92, 1, READY | 5.92, 1, READY | +0.00 ± 0.00 | 88 / 175 | 0.08% / 0.11% | 24-23 |
+| pot_limit | core 97% | 5.86, 1, READY | 6.01, 1, READY | +0.16 ± 0.38 | 86 / 111 | 0.10% / 0.12% | 24-23 |
+| antes_from_level_3 | core 97% | 6.00, 1, READY | 6.13, 1, READY | +0.13 ± 0.37 | 85 / 209 | 0.14% / 0.11% | 23-22 |
+| fixed_raise | Hero (fixed_limit) | 5.93, 2, READY | 5.93, 2, READY | +0.00 ± 0.00 | 88 / 160 | 0.09% / 0.07% | 23-22 |
+| fast_schedule | core 98% | 5.64, 1, READY | 5.78, 1, READY | +0.14 ± 0.39 | 163 / 128 | 0.12% / 0.16% | 23-22 |
+| straddle | core 30% | 6.08, 1, READY | 5.90, 1, READY | -0.18 ± 0.35 | 84 / 114 | 0.05% / 0.09% | 22-22 |
+
+**Hero: 23 of 23 READY, first on 22. hybrid3_x: 23 of 23 READY, first on 22.** Zero exceptions, zero inner fallbacks,
+zero illegal actions for both. Fourteen entries route whole tables to Hero, so they are identical by construction. On the
+nine where the rival 3 core plays, hybrid3_x is ahead on seven and behind on two, every one inside noise at 200 tables.
+`top_heavy` (-2.25 ± 3.71, on a 50..1 point scale) is the widest interval in the matrix; the 200 x 8 rotated payout run
+above is the better measure of that table and has hybrid3_x ahead (+0.38 realistic, +0.80 judge). `straddle` (-0.18 ±
+0.35) is the one entry where the core plays only 30% of decisions; it stays READY and first.
+
+## Timing: merged over the stages (from the same runs, no new tables)
+
+Model mode, realistic + judge + timeouts, 9,600 tables per candidate, host load 12-34 (the separate blind-bot session
+was running):
+
+| candidate | decisions | p50 / p99 us | mean us | wall >= 1 ms | engine timeouts | panicked tables | load |
+|---|---|---|---|---|---|---|---|
+| Hero | 1,711,659 | 28 / 116 | 37.1 | 0.126% | 0.000% | 0 of 9,600 | 12-34 |
+| hybrid_x | 1,447,461 | 36 / 273 | 68.4 | 0.218% | 0.000% | 0 of 9,600 | 12-34 |
+| hybrid3_x | 1,573,640 | 39 / 177 | 51.3 | 0.187% | 0.000% | 0 of 9,600 | 12-34 |
+| rival3 (raw, reference) | 1,553,001 | 26 / 111 | 34.7 | 0.126% | 0.000% | 0 of 9,600 | 12-34 |
+| hybrid3 (no layer) | 1,589,976 | 31 / 137 | 41.2 | 0.144% | 0.000% | 0 of 9,600 | 12-34 |
+
+Strict mode, realistic, 3,200 tables per candidate, quiet host (load 1-4), everything as shipped:
+
+| candidate | decisions | p50 / p99 us | mean us | wall >= 1 ms | engine timeouts | panicked tables | load |
+|---|---|---|---|---|---|---|---|
+| Hero | 564,224 | 27 / 73 | 30.4 | 0.006% | 0.006% | 0 of 3,200 | 1-3 |
+| hybrid_x | 486,918 | 34 / 220 | 54.5 | 0.012% | 0.012% | 0 of 3,200 | 1-4 |
+| hybrid3_x | 525,241 | 37 / 94 | 40.8 | 0.007% | 0.007% | 0 of 3,200 | 1-4 |
+| rival3 (raw, reference) | 514,549 | 25 / 69 | 28.3 | 0.008% | 0.008% | 0 of 3,200 | 1-4 |
+| hybrid3 (no layer) | 526,598 | 29 / 79 | 33.0 | 0.006% | 0.006% | 0 of 3,200 | 1-3 |
+
+On the quiet host hybrid3_x times out on 0.007% of decisions against Hero's 0.006% (about one more per 100,000
+decisions); p99 94 against 73 µs. Under load it crosses 1 ms on 0.19% of decisions against Hero's 0.13%. No candidate
+panicked a single table. The extra cost is the exploit layer plus rival 3's reads (hybrid3 without the layer: 0.006%).
+
+## Verdict (written 12:05 by the coordinator; the measuring agent stopped after the variant run)
+
+Points per field, ranked (model mode, 400 seeds x 8, unless marked strict):
+
+| Field | 1st | 2nd | 3rd | 4th | 5th |
+|---|---|---|---|---|---|
+| judge (rival 4, never tuned on) | hybrid3_x 6.18 | hybrid3 6.04 | Hero 6.04 | rival3 5.95 | hybrid_x 5.69 |
+| judge_top | hybrid_x 5.13 | hybrid3_x 4.89 | hybrid3 4.84 | Hero 4.83 | rival3 4.83 |
+| realistic | hybrid3_x 6.12 | Hero 6.02 | hybrid3 5.95 | rival3 5.89 | hybrid_x 5.74 |
+| realistic, strict | hybrid3_x 6.09 | hybrid3 5.97 | Hero 5.97 | rival3 5.88 | hybrid_x 5.70 |
+| top | hybrid_x 5.10 | hybrid3_x 4.93 | hybrid3 4.84 | rival3 4.80 | Hero 4.79 |
+| top2 | hybrid_x 5.09 | hybrid3_x 4.84 | hybrid3 4.72 | rival3 4.70 | Hero 4.69 |
+| strong | hybrid_x 5.51 | hybrid3_x 5.41 | Hero 5.34 | hybrid3 5.14 | rival3 5.08 |
+| timeouts | hybrid3_x 6.55 | Hero 6.44 | hybrid3 6.40 | rival3 6.30 | hybrid_x 6.03 |
+
+- **hybrid3_x is first or second on every field and ahead of Hero on every field** (paired). Beyond noise on judge
+  (+0.14 ± 0.10), realistic (+0.10 ± 0.09; strict +0.13 ± 0.09), timeouts (+0.11 ± 0.09), top (+0.14 ± 0.10) and top2
+  (+0.14 ± 0.10); inside noise on judge_top, strong, judge strict and the payout tables, all positive.
+- **hybrid_x wins the strong rooms and loses the rest beyond noise**: judge -0.35, realistic -0.28, timeouts -0.41,
+  top_heavy -2.6 / -3.2. The rooms the event will look like are the realistic ones, so it fails the plan's test.
+- **The plan's test** (HANDOFF, 04:00): best on realistic, top and the judge field; 23 READY; timeouts no worse than
+  Hero's; robust across the payout tables. hybrid3_x meets it except that it is second to hybrid_x on top, and its
+  timeouts are level with Hero's on a quiet host and 1.5x under load.
+- **Recommendation: ship hybrid3_x.** Before it ships: import each core lazily (`hyperion.hybrid` imports rival 2's
+  core too, 1.2-6 s), pack it, and pass `tools/gate.py` on the zip. The owner makes the call.

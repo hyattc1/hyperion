@@ -35,6 +35,11 @@ Hero's, robust across the three payout tables. The owner makes the final call on
 - Hybrid 3 candidate: DONE. `hybrid3` / `hybrid3_x` (rival 3's core behind Hero's shell, without / with the layer)
   vs Hero 0d660dc (current strategy) with the layer: hybrid3_x realistic +0.17, judge +0.18, top +0.18, top2 +0.22, 23/23
   READY, 1.4x Hero's timeouts (hybrid3 1.0x). Provisional; the final comparison decides (decisions "Hybrid 3 candidate").
+- Final core comparison: DONE. hybrid3_x (rival 3's core + the exploit layer behind Hero's shell) is first or second on every
+  field and ahead of Hero on all of them (judge +0.14, realistic +0.10, top +0.14, top2 +0.14, timeouts +0.11), 23/23 READY,
+  timeouts level with Hero's on a quiet host. hybrid_x wins the strong rooms and loses the judge and realistic fields
+  beyond noise. Recommendation: ship hybrid3_x after the lazy-import fix and a gate pass; **the owner decides**
+  (decisions entry "Final core comparison", log `docs/drills/final-comparison-log.md`).
 - Rival 4 (the judge): integrated as `rival4`, fields `judge` and `judge_top`, hero seat swapped by `judge@hybrid3` etc.;
   never tuned on; measured once in the final comparison (decisions entry "Rival 4 in the pool (the judge)").
 

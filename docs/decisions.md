@@ -2482,3 +2482,39 @@ elsewhere, and its decisions are the ones the team has tuned and understands. Th
 
 This recommendation is provisional: the separate final comparison decides between Hero HEAD, hybrid_x and hybrid3_x on
 current code. Only round 3 and the judge rows here are against current Hero.
+
+## Final core comparison (2026-11-01, builder: final comparison; verdict by the coordinator)
+
+The one comparison the plan change (HANDOFF, 04:00) called for: which decision core ships behind Hero's shell. Five
+candidates in Hero's seat on the same deals, seeds and opponents: Hero (with the shipped exploit layer), `hybrid_x`
+(rival 2's core + layer), `hybrid3_x` (rival 3's core + layer), `hybrid3` (no layer) and raw rival 3 as a reference.
+400 seeds x 8 rotations per field in model mode, strict mode on realistic and judge, the brief's and top_heavy payout
+tables at 200 x 8, and all 23 variants for Hero and hybrid3_x. Code at `ac2db3e`; nothing was edited. Every table:
+`docs/drills/final-comparison-log.md`. The measuring agent stopped after the variant run; the coordinator ran the last
+two analysis scripts on its saved samples and wrote the verdict.
+
+**Result.** hybrid3_x is first or second on every field and ahead of Hero on every field, paired:
+
+| Field | hybrid3_x - Hero | hybrid_x - Hero |
+|---|---|---|
+| judge (rival 4, measured once) | **+0.14 ± 0.10** | **-0.35 ± 0.10** |
+| judge_top | +0.06 ± 0.10 | **+0.30 ± 0.10** |
+| realistic | **+0.10 ± 0.09** | **-0.28 ± 0.09** |
+| realistic, strict | **+0.13 ± 0.09** | **-0.27 ± 0.10** |
+| judge, strict | +0.07 ± 0.10 | **-0.37 ± 0.10** |
+| top | **+0.14 ± 0.10** | **+0.31 ± 0.10** |
+| top2 | **+0.14 ± 0.10** | **+0.39 ± 0.10** |
+| strong | +0.07 ± 0.10 | **+0.17 ± 0.11** |
+| timeouts | **+0.11 ± 0.09** | **-0.41 ± 0.09** |
+| brief's table, realistic / judge | +0.23 / +0.19 | -0.35 / -0.55 (both beyond noise) |
+| top_heavy, realistic / judge | +0.38 / +0.80 | -2.6 / -3.2 (both beyond noise) |
+
+Bold is beyond the 95% interval. Variants: both 23 of 23 READY, first on 22, zero exceptions; 14 entries route the whole
+table to Hero, and on the other nine the deltas are all inside noise (seven ahead, two behind). Timing: on a quiet host
+hybrid3_x times out on 0.007% of decisions against Hero's 0.006%, p99 94 against 73 µs; under load 12-34 it crosses
+1 ms on 0.19% against 0.13%. No candidate panicked a table.
+
+**Decision.** Recommend shipping hybrid3_x; the owner makes the call. hybrid_x is the best bot in rooms full of strong
+bots and the worst in the rooms the event will look like, beyond noise on the judge. Hero stays the fallback and the
+shell. Before hybrid3_x ships: import each core lazily, so a hybrid3 package does not load rival 2's core (1.2-6 s at
+import); pack it; pass `tools/gate.py` on the zip; re-check timeouts strict on a quiet host.
