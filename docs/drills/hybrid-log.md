@@ -77,3 +77,25 @@ Routes: top core 252,387, soft deadline 89, panic 799 (two tables); top2 core 25
 | strong | 5.150 ± 0.101 | 5.165 ± 0.117 | **+0.015 ± 0.143** | 1 of 7; hero_loose 4.800 | 16/58 us, 0.01% (load 5-7) | 23/182 us, 0.01% (load 4-6) |
 
 Routes: core 254,012, nothing else.
+
+## 02:09-02:17: payout robustness, the brief's 10/7/5/4/3/2/1/0 (uniform 4.00; same seeds; load 1.4-5.7)
+
+`--payouts` sets `Rules.payouts`: the engine scores by it, Hero reads it, the hybrid's curve is built from it.
+
+| field | Hero | hybrid | hybrid - Hero (paired) | hybrid's rank, leader |
+|---|---|---|---|---|
+| realistic, brief payouts | 5.376 ± 0.145 | 5.492 ± 0.154 | +0.116 ± 0.197 | 2 of 8; rival1 5.965 |
+| top, brief payouts | 3.929 ± 0.128 | 4.553 ± 0.157 | **+0.624 ± 0.196** | 2 of 7; rival2 4.748 |
+
+(Linear 8..1 is the default: realistic +0.001 ± 0.129, top +0.491 ± 0.139 above.) Under the brief's table Hero is
+fourth on top, 0.85 behind rival 2 and level with tag; the hybrid is second, 0.20 behind rival 2.
+
+## 02:17-02:26: payout robustness, top_heavy 50/25/12/6/3/2/1/1 (uniform 12.5; same seeds; load 4.4-6.1)
+
+| field | Hero | hybrid | hybrid - Hero (paired) | hybrid's rank, leader |
+|---|---|---|---|---|
+| realistic, top_heavy | 19.53 ± 0.92 | 20.09 ± 0.94 | +0.57 ± 1.23 | 2 of 8; rival1 23.18 |
+| top, top_heavy | 12.75 ± 0.78 | 15.36 ± 0.77 | **+2.62 ± 1.06** | 3 of 7; rival1 15.96, rival2 15.92 |
+
+On top, Hero is 3.4-3.7 behind both rivals under top_heavy; the hybrid is level with them (-0.6). Routes: realistic
+core 241,388, soft deadline 54, panic 49; top core 239,508, soft deadline 37, panic 95.
