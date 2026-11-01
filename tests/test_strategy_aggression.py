@@ -166,3 +166,78 @@ def test_per_seat_switch_to_the_reshove_read(tables):
     fs = Spot(fi, fi.hole)
     assert fs.facing_shove and pre._shove_ctx(fs) == (1, -1) and pre.frequent_reshover(frequent, 6)
     assert pre.shover_range(fs, frequent) == pytest.approx(off.shover_range(fs, frequent))
+
+
+# ---------------------------------------------------------------- heads-up raised pots
+
+from hyperion.core.types import HandResult  # noqa: E402
+from hyperion.strategy.postflop import Postflop, PostflopParams  # noqa: E402
+
+from .strategy_helpers import street_obs  # noqa: E402
+
+CHECK = Action.check()
+BTN_OPEN_BB_CALL = FOLDS(2, 3, 4, 5, 6) + [(7, R(50)), (0, F), (1, C)]
+
+
+def _play_hand(prof, flop_actions, hand_no=3):
+    prof.observe(preflop_obs("Ah Kh", 0, button=7, actions=FOLDS(2, 3, 4, 5, 6) + [(7, R(50))], hand_no=hand_no))
+    prof.hand_end(HandResult(hand_no, [0] * 8, {}, (), BTN_OPEN_BB_CALL + flop_actions))
+
+
+def test_profiler_counts_cbets_and_folds_to_them():
+    prof = Profiler(8)
+    prof.reset(8, 0)
+    _play_hand(prof, [(1, CHECK), (7, R(36)), (1, F)])
+    assert (prof.cb_opp[7], prof.cbets[7], prof.fcb_opp[1], prof.fcb_fold[1]) == (1, 1, 1, 1)
+    _play_hand(prof, [(1, CHECK), (7, CHECK)], hand_no=4)  # the raiser checked back: a chance, no c-bet
+    assert (prof.cb_opp[7], prof.cbets[7], prof.fcb_opp[1]) == (2, 1, 1)
+    _play_hand(prof, [(1, R(36)), (7, F)], hand_no=5)  # the caller led: no c-bet chance
+    assert prof.cb_opp[7] == 2 and prof.fcb_opp[1] == 1
+    assert prof.cbet_rate(7) == pytest.approx((1 + 0.65 * 4) / 6)
+    assert prof.fold_to_cbet(1) == pytest.approx((1 + 0.5 * 4) / 5)
+
+
+def _facing_cbet(hole="8h 7h", board="Kc 8d 3s", bet=36):
+    st = [1950] * 8
+    st[7] = 1950 - bet
+    bets = [0] * 8
+    bets[7] = bet
+    in_hand = [s in (1, 7) for s in range(8)]
+    hist = BTN_OPEN_BB_CALL + [(1, CHECK), (7, R(bet))]
+    return street_obs(hole, board, 1, button=7, stacks=st, pot=110, in_hand=in_hand, bets=bets, history=hist)
+
+
+def test_middle_pair_calls_a_small_cbet_only_with_the_lever():
+    obs = _facing_cbet()
+    prof = Profiler(8)
+    prof.reset(8, 1)
+    prof.pre_raiser = 7
+    off = Postflop(PostflopParams(), seed=1)
+    on = Postflop(PostflopParams(vs_cbet_margin=0.05), seed=1)
+    spot = Spot(obs, obs.hole)
+    assert off.act(spot, obs.hole, prof, False) == F  # middle pair (0.32) under pot odds 0.20 + 0.15
+    assert on.act(spot, obs.hole, prof, False) == C
+    big = _facing_cbet(bet=110)  # a pot-sized bet is not a small c-bet
+    assert on.act(Spot(big, big.hole), big.hole, prof, False) == F
+    prof.pre_raiser = 4  # the bettor was not the preflop raiser
+    assert on.act(spot, obs.hole, prof, False) == F
+    rare = Postflop(PostflopParams(vs_cbet_margin=0.05, vs_cbet_min_rate=0.8), seed=1)
+    prof.pre_raiser = 7
+    assert rare.act(spot, obs.hole, prof, False) == F  # no c-bet data: the prior 0.65 is under 0.8
+
+
+def test_cbet_bluffs_follow_the_callers_fold_to_cbet():
+    st = [1950] * 8
+    in_hand = [s in (1, 7) for s in range(8)]
+    obs = street_obs("5h 4c", "Kc 9d 2s", 7, button=7, stacks=st, pot=110, in_hand=in_hand,
+                     history=BTN_OPEN_BB_CALL + [(1, CHECK)])
+    spot = Spot(obs, obs.hole)
+    folder, sticky = Profiler(8), Profiler(8)
+    for prof, k in ((folder, 18), (sticky, 1)):
+        prof.reset(8, 7)
+        prof.fcb_opp[1], prof.fcb_fold[1] = 20, k
+    read = Postflop(PostflopParams(cbet_ftc_read=True), seed=3)
+    counts = {}
+    for name, prof in (("folder", folder), ("sticky", sticky)):
+        counts[name] = sum(read.act(spot, obs.hole, prof, True).kind is ActionKind.RAISE for _ in range(300))
+    assert counts["folder"] > 200 and counts["sticky"] < 60

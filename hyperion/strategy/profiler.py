@@ -100,6 +100,12 @@ class Profiler:
         # A seat's open rate is its range width when it opens (the solved re-shove table's w).
         self.open_opp = [[0, 0] for _ in range(n)]  # [late, early]
         self.opens = [[0, 0] for _ in range(n)]
+        # heads-up flops after a preflop raise: the raiser's first flop action with no bet in front (a c-bet chance)
+        # and the other player's answer to that c-bet
+        self.cb_opp = z()
+        self.cbets = z()
+        self.fcb_opp = z()
+        self.fcb_fold = z()
         self._dials = [dict(NEUTRAL_DIALS) for _ in range(n)]
         self.last_bb = 20
         self.hand_no = -1
@@ -128,6 +134,7 @@ class Profiler:
         self.pre_limped = False
         self.pre_behind = [0] * n  # players dealt in who act after each seat preflop
         self.pre_order_known = False  # False in the degraded hand_end pass (no observation, no button)
+        self.cb_state = 0  # this hand's flop: 0 nothing yet, 1 the raiser c-bet, 2 answered or not a c-bet spot
 
     def _start_hand(self, obs: Observation) -> None:
         self._start_blank()
@@ -263,6 +270,8 @@ class Profiler:
                         depth = (self.cur_bet if self.cur_bet < ch else ch) / (self.last_bb or 1)
                         self.faced_shove_exp[seat] += cp(depth)
             first_ctx = 0
+            if self.tstreet == 1 and self.cb_state < 2:
+                self._cbet_obs(seat, kind)
             if not pre:
                 self.post_actions[seat] += 1
             elif not (self.pre_acted_mask & bit):
@@ -343,7 +352,36 @@ class Profiler:
                 self._advance()
         self.consumed = len(hist)
 
+    def _cbet_obs(self, seat: int, kind) -> None:
+        """Count c-bet chances and answers on a heads-up flop after a single preflop raiser (before the action
+        is applied: cur_bet is what the seat faces)."""
+        r = self.pre_raiser
+        if r < 0 or bin(self.inhand).count("1") != 2 or not (self.inhand >> r & 1):
+            self.cb_state = 2
+            return
+        if self.cb_state == 0:
+            if self.cur_bet > 0:  # someone bet into the raiser first: no c-bet chance this hand
+                self.cb_state = 2
+            elif seat == r:
+                self.cb_opp[r] += 1
+                if kind is _RAISE:
+                    self.cbets[r] += 1
+                    self.cb_state = 1
+                else:
+                    self.cb_state = 2
+        elif seat != r:  # answering the c-bet
+            self.fcb_opp[seat] += 1
+            if kind is _FOLD:
+                self.fcb_fold[seat] += 1
+            self.cb_state = 2
+
     # ------------------------------------------------------------------ rates
+    def cbet_rate(self, s: int, prior: float = 0.65, n0: float = 4.0) -> float:
+        return (self.cbets[s] + prior * n0) / (self.cb_opp[s] + n0)
+
+    def fold_to_cbet(self, s: int, prior: float = 0.5, n0: float = 4.0) -> float:
+        return (self.fcb_fold[s] + prior * n0) / (self.fcb_opp[s] + n0)
+
     def vpip_rate(self, s: int) -> float:
         return _rate(self.vpip[s], self.hands[s], self.P_VPIP, self.prior_n)
 

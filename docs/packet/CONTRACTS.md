@@ -208,6 +208,12 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 | `postflop.tight_agg` | 0.4 |
 | `postflop.late_calldown_cap` | 1.0 |
 | `postflop.river_min_tier` | 0 |
+| `postflop.vs_cbet_margin` | -1.0 |
+| `postflop.vs_cbet_max_pot` | 0.75 |
+| `postflop.vs_cbet_min_rate` | 0.0 |
+| `postflop.cbet_ftc_read` | False |
+| `postflop.cbet_ftc_prior` | 0.5 |
+| `postflop.cbet_ftc_max` | 1.8 |
 | `postflop.flush_tier_shift` | 0 |
 | `postflop.straight_tier_shift` | 0 |
 | `postflop.draw_outs_mult` | 1.0 |

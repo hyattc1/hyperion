@@ -108,6 +108,17 @@ class PostflopParams:
     # dial > 1, i.e. lighter calls, against passive bettors whose late bets are value); 9 = off
     late_calldown_cap: float = 1.0  # swept: +0.13 vs seven rival1, rival1 among seven Heroes -0.17; neutral on the fields
     river_min_tier: int = 0  # never call a river bet below this tier (0 = off)
+    # heads-up raised pots. Facing the preflop raiser's flop c-bet (heads-up, the first bet of the street, at most
+    # vs_cbet_max_pot of the pot) from a seat whose smoothed c-bet rate is at least vs_cbet_min_rate, the call margin
+    # is vs_cbet_margin instead of call_margin (-1 = off): a c-bet range is wide, and a third-pot bet folded middle
+    # pair. With cbet_ftc_read my heads-up c-bet bluffs scale by the caller's smoothed fold-to-c-bet over
+    # cbet_ftc_prior (capped at cbet_ftc_max) instead of the general bluff dial.
+    vs_cbet_margin: float = -1.0
+    vs_cbet_max_pot: float = 0.75
+    vs_cbet_min_rate: float = 0.0
+    cbet_ftc_read: bool = False
+    cbet_ftc_prior: float = 0.5
+    cbet_ftc_max: float = 1.8
     # strength-axis knobs (prompt 05's short-deck patch): a made flush / straight lands this many tiers away from
     # its hold'em tier, and draw outs are scaled (short deck: an open-ender is worth about 1.2x its hold'em outs)
     flush_tier_shift: int = 0
@@ -632,6 +643,9 @@ class Postflop:
                 return _CHECK
             if street == 1 and i_was_aggressor:
                 freq = p.cbet_freq_ip_dry * bluff_mult
+                if p.cbet_ftc_read and n_opp == 1 and prof is not None:
+                    r = prof.fold_to_cbet(spot.opps[0], p.cbet_ftc_prior) / p.cbet_ftc_prior
+                    freq = p.cbet_freq_ip_dry * (r if r < p.cbet_ftc_max else p.cbet_ftc_max)
                 if not ip:
                     freq *= p.cbet_oop_mult
                 if wet:
@@ -655,7 +669,12 @@ class Postflop:
         if street >= 2 and bettor >= 0 and prof is not None and not cheap:
             if call_down > p.late_calldown_cap and not (prof.maniac(bettor) or prof.random_like(bettor)):
                 call_down = p.late_calldown_cap
-        margin = p.call_margin / call_down if call_down > 0 else p.call_margin
+        base_margin = p.call_margin
+        if p.vs_cbet_margin >= 0.0 and street == 1 and n_opp == 1 and bettor >= 0 and prof is not None \
+                and prof.pre_raiser == bettor and obs.bets[spot.me] == 0 and obs.pot > 0 \
+                and spot.to_call <= p.vs_cbet_max_pot * obs.pot and prof.cbet_rate(bettor) >= p.vs_cbet_min_rate:
+            base_margin = p.vs_cbet_margin
+        margin = base_margin / call_down if call_down > 0 else base_margin
         if p.tight_aggro_margin > 0.0 and street >= 2 and bettor >= 0 and prof is not None and not cheap \
                 and prof.vpip_rate(bettor) < p.tight_vpip and prof.aggression(bettor) > p.tight_agg:
             margin += p.tight_aggro_margin
