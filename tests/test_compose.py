@@ -211,3 +211,20 @@ def test_every_section_is_routable():
     c = make_bot(route={s: "hero" for s in SECTIONS}).core
     assert [d for d in c.donors] == ["hero"] * len(SECTIONS)
     assert all(mi == 1 and layer for mi, layer in c.route)
+
+
+def test_ship_builder_reads_one_flat_dials_dict():
+    from hyperion.compose import bot as CBm
+
+    b = CBm.ship({"route": "pre_hu=hero", "exploit.bet_frac": 0.4, "r3.bluff_scale": 1.2,
+                  "hero.preflop.three_bet_frac": 0.05})
+    c = b.core
+    assert c.names == ["base", "hero"] and c.donors[SECTIONS.index("pre_hu")] == "hero"
+    assert c.ex.p.bet_frac == 0.4 and c.ex.p.bet_checked  # on top of Hero's shipped layer
+    assert c.members[0].cfg.r3.bluff_scale == 1.2
+    assert c.members[1].cfg.preflop.three_bet_frac == 0.05
+    assert c.members[0].cfg.hero.preflop.three_bet_frac != 0.05  # hero.* reaches the hero member only
+    assert CBm.ship({"cheap": True}).core.names == ["base"]
+    assert CBm.ship({"exploit": None}).core.ex is None
+    with pytest.raises(KeyError):
+        CBm.ship({"preflop.open_frac": 0.2})

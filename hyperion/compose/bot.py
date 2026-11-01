@@ -118,7 +118,7 @@ def _hero_member(cfg: "ComposeConfig", seed):
     from ..strategy.exploit import ExploitParams
     from ..strategy.hero import HeroCore, config_from_dict
 
-    c = config_from_dict(cfg.hero_overrides, seed=seed)
+    c = config_from_dict({**cfg.hero_overrides, **cfg.hero_member}, seed=seed)
     c.exploit = ExploitParams()
     m = HeroCore(c)
     m.plain_only = False
@@ -175,7 +175,9 @@ class ComposeConfig:
     exploit: object = "hero"
     hero_overrides: dict = field(default_factory=dict)  # Hero's dotted Config overrides (hero member and every fallback Hero)
     hybrid_overrides: dict = field(default_factory=dict)  # flat HybridConfig overrides for the hybrid members (soft_us ...)
-    base_overrides: dict = field(default_factory=dict)  # ... for the base only (rival 3 core knobs, once exposed)
+    base_overrides: dict = field(default_factory=dict)  # dials for the base only: r3.* (rival 3's core), hero.* (its
+    #                                                     fallback Hero), flat HybridConfig fields
+    hero_member: dict = field(default_factory=dict)  # Hero's dotted Config keys for the hero member only
     shadow_all: bool = False  # run every registered member, not only the route's (tests, timing)
     shadow: tuple = ()  # ... or these members as well as the route's (tools/swap.py: the donors it records)
     late_us: float = 700.0  # the chosen member already used this much: shadows skip this decision
@@ -401,6 +403,50 @@ def make_bot(route=None, seed: int | None = None, config: ComposeConfig | None =
     return Composite(config or compose_config(route, seed=seed, **kw))
 
 
+# ---------------------------------------------------------------------------------------------- shipping
+SHIP_ROUTE = ""  # the route the composite ships with when the dials name none (docs/drills/compose-log.md)
+
+
+def ship(dials: dict, seed: int | None = None) -> Composite:
+    """hyperion/ship.py's builder: the composite from one flat dials dict.
+      route          "section=donor,..." (default SHIP_ROUTE)
+      r3.<name>      rival 3's core in the base (hyperion/hybrid/dials.py)
+      exploit.<f>    the layer's params on top of Hero's shipped set; "exploit": None for no layer
+      hero.<key>     Hero's Config for the hero member (the sections routed to `hero`)
+      base.<key>     any other dial for the base (`base.hero.<key>`: its fallback Hero; flat HybridConfig fields)
+      cheap          every decision the base's cheap path (Hero's), no other member
+      late_us, deadline_ms, panic_after, panic_rate   the shell's clocks"""
+    d = dict(dials or {})
+    route = d.pop("route", SHIP_ROUTE)
+    exploit = d.pop("exploit", "hero")
+    layer, base, hero = {}, {}, {}
+    for k in list(d):
+        head, dot, rest = k.partition(".")
+        if not dot:
+            continue
+        v = d.pop(k)
+        if head == "r3":
+            base[k] = v
+        elif head == "exploit":
+            layer[rest] = v
+        elif head == "hero":
+            hero[rest] = v
+        elif head == "base":
+            base[rest] = v
+        else:
+            raise KeyError(f"unknown composite dial {k!r}")
+    if d.pop("cheap", False):
+        base["cheap"] = True
+        route = ""
+    if layer:
+        if exploit is None:
+            raise KeyError("exploit.* dials with the layer off")
+        from ..hybrid.bot import _layer_with
+
+        exploit = _layer_with(exploit, layer)
+    return make_bot(route, seed=seed, exploit=exploit, base_overrides=base, hero_member=hero, **d)
+
+
 # ---------------------------------------------------------------------------------------------- the simulator
 def register(name: str, route=None, **kw) -> type:
     """Seat a composite in the simulator under `name` (this process only): `<field>@<name>` puts it in Hero's seat.
@@ -445,5 +491,5 @@ def register(name: str, route=None, **kw) -> type:
     return _Seat
 
 
-__all__ = ["COUNTS", "Composite", "CompositeCore", "ComposeConfig", "DONORS", "KitMember", "MEMBERS", "compose_config",
-           "make_bot", "register", "register_member"]
+__all__ = ["COUNTS", "Composite", "CompositeCore", "ComposeConfig", "DONORS", "KitMember", "MEMBERS", "SHIP_ROUTE",
+           "compose_config", "make_bot", "register", "register_member", "ship"]

@@ -1,7 +1,7 @@
 """Sections of the game: every decision falls in exactly one of twelve, read from the Observation alone.
 
 The composite bot (hyperion/compose/bot.py) routes each section to the member bot whose decisions there are best; the
-skill profile (tools/profile.py) scores each bot per section. Both need the same small partition, cheap enough to run on
+skill profile (tools/skill_profile.py) scores each bot per section. Both need the same small partition, cheap enough to run on
 every decision (about 1 us), and coarse enough that each section holds a few percent of the decisions of a 200-hand,
 8-seat turbo with 100 bb stacks and blinds every 25 hands.
 
