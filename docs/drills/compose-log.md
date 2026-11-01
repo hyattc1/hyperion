@@ -374,3 +374,16 @@ Ranked, best first (Δ vs P; bold = beyond the 95% interval):
 One trial of 54 is beyond noise upward, and five are beyond noise downward. About one in forty would clear the interval by
 chance, so the screen alone proves nothing. The four best go to confirmation at 400 x 8 on fresh seeds 6000-6399 (night,
 plus realistic and top as guards).
+
+## 16:41-16:54: climb confirmation, round 1 (fresh seeds 6000-6399, 400 x 8, paired against P)
+
+| dial on P | night | realistic | top | accepted? |
+|---|---|---|---|---|
+| exploit.bet_min_fold 0.4 (bet when checked to at a fold read of 0.4, not 0.5) | +0.037 ± 0.043 | +0.038 ± 0.040 | **+0.072 ± 0.046** | not alone: night inside noise |
+| hero.postflop.call_margin 0.2 (Hero calls postflop bets with 0.20 equity to spare, not 0.15) | +0.027 ± 0.032 | **+0.038 ± 0.037** | -0.019 ± 0.033 | not alone: night inside noise |
+| hero.postflop.vs_cbet_margin 0.0 | +0.017 ± 0.019 | +0.010 ± 0.021 | +0.021 ± 0.027 | not alone: night inside noise (screen +0.035) |
+| r3.open_scale 1.1 | -0.001 ± 0.039 | -0.016 ± 0.039 | +0.038 ± 0.048 | no |
+
+None clears the rule alone (beyond noise on night, not worse beyond noise on realistic and top). Three are positive on
+the screen and on night, and close to or past noise on a guard field. Round 2 tests them together, once, on fresh seeds
+7000-7399: B1 = bet_min_fold 0.4; C2 = B1 + call_margin 0.2; C3 = C2 + vs_cbet_margin 0.0.
