@@ -207,3 +207,44 @@ the postflop play behind them go together, which is why single swaps do not add 
 **The owner's other bot as a donor** (black box, scratch only, the snapshot matching its current dist md5 07f2f6ed,
 night, hybrid3_x base): it wins no section. It is worse beyond noise in 7 of 12 sections (pre_raised_deep -0.20,
 post_hu_bet -0.24, post_hu_chk -0.27) and level in the other five. Nothing of it is shipped or combined.
+
+## 15:40-15:55: greedy combination on night (screen seeds 0-199, 200 x 8)
+
+Every route is measured once, as one composite, and paired on the same deals against both hybrid3_x and Hero
+(tools/swap.py `joint`: the rotations where the route can differ from the base run are replayed; here that is
+1465-1600 of 1600). These seeds are the screen's, so the numbers carry selection bias. The pick is confirmed on fresh
+seeds 1000-1399 next, and the final check uses held-out seeds 5000-5399, used once.
+
+Round 1, the screens' leading swaps combined:
+
+| # | route (sections not named: the hybrid3_x base) | points | - hybrid3_x | - Hero |
+|---|---|---|---|---|
+| 1 | **postflop all Hero, pre_raised_short Hero** | 5.971 | **+0.223 ± 0.113** | **+0.217 ± 0.118** |
+| 2 | post_hu_bet Hero, pre_raised_short Hero | 5.896 | **+0.148 ± 0.099** | **+0.142 ± 0.121** |
+| 3 | every section Hero but pre_raised_deep (the base) | 5.892 | **+0.144 ± 0.124** | **+0.138 ± 0.110** |
+| 4 | post_hu_bet + post_mw Hero, pre_raised_short Hero | 5.890 | **+0.141 ± 0.107** | **+0.135 ± 0.118** |
+| 5 | as 3, pre_open_40 r2x | 5.863 | +0.115 ± 0.122 | **+0.109 ± 0.104** |
+| 6 | as 5, pre_allin r2x | 5.847 | +0.098 ± 0.121 | +0.092 ± 0.107 |
+
+Round 2, one more change to route 1 (paired against route 1):
+
+| # | change to route 1 | - route 1 | - hybrid3_x | - Hero |
+|---|---|---|---|---|
+| 1 | pre_open_short Hero | +0.023 ± 0.039 | +0.246 | +0.240 |
+| 2 | pre_open_10 Hero | +0.014 ± 0.060 | +0.236 | +0.230 |
+| 3 | pre_hu Hero | -0.007 ± 0.011 | +0.216 | +0.210 |
+| 4 | pre_open_20 Hero | -0.016 ± 0.071 | +0.206 | +0.200 |
+| 5 | pre_allin Hero | -0.027 ± 0.055 | +0.196 | +0.189 |
+| 6 | pre_3way Hero | **-0.035 ± 0.029** | +0.188 | +0.182 |
+| 7 | post_hu_chk r2x | -0.045 ± 0.095 | +0.178 | +0.172 |
+| 8 | pre_allin r2x | **-0.050 ± 0.045** | +0.172 | +0.166 |
+| 9 | post_mw back to the base | -0.055 ± 0.073 | +0.167 | +0.161 |
+| 10 | pre_raised_short back to the base (postflop Hero only) | **-0.077 ± 0.064** | +0.145 | +0.139 |
+| 11 | pre_open_40 Hero | -0.080 ± 0.100 | +0.142 | +0.136 |
+| 12 | pre_open_40 r2x | -0.093 ± 0.100 | +0.130 | +0.123 |
+
+**Nothing improves route 1 beyond noise, so the greedy stops there.** The pick ("P") is rival 3's core and the layer
+preflop, Hero facing a raise when short (under 20 bb effective), and Hero and the layer postflop. Each of its three
+parts pays: postflop facing a bet (+0.09 alone), postflop checked to (+0.08 on top), and the short raise spot (+0.08 on
+top). Hero's checked-to play loses alone (-0.02) but pays once Hero also plays the bets: the two halves of a postflop
+strategy fit together.
