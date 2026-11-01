@@ -3,7 +3,10 @@ import importlib.util
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
+
+import pytest
 
 from hyperion.core.types import ActionKind, Rules
 from hyperion.drills.adapter import KitBAdapter, KitCAdapter, KitDAdapter
@@ -28,14 +31,39 @@ def run_latency(*args: str, env=None):
                           timeout=300, env=env)
 
 
+def _host_p99_us(us: int = 30, n: int = 3000) -> float:
+    """p99 wall time, in microseconds, of a fixed `us`-microsecond busy loop in this process (as in
+    tests/test_sim_bestiary.py)."""
+    times = []
+    for _ in range(n):
+        t0 = time.perf_counter_ns()
+        end = t0 + us * 1000
+        while time.perf_counter_ns() < end:
+            pass
+        times.append((time.perf_counter_ns() - t0) / 1000)
+    times.sort()
+    return times[int(0.99 * n)]
+
+
+def _skip_if_oversubscribed(r) -> None:
+    """A p99 failure on an oversubscribed host is the host's, not the bot's: skip when a fixed 30 us loop's p99 is
+    over 300 us. Any other failure, and a p99 failure on a quiet host, still fails."""
+    if r.returncode != 0 and "FAIL p99" in r.stdout:
+        host = _host_p99_us()
+        if host >= 300:
+            pytest.skip(f"host oversubscribed: {r.stdout.strip().splitlines()[-1]}; a 30 us loop p99 {host:.0f} us")
+
+
 def test_cheap_bot_round_trip_through_kit_b_and_kit_c_passes():
     r = run_latency("--bot", "cheap", "--n", "300", "--warm", "20",
                     "--adapter", "hyperion.drills.adapter:KitBAdapter", "--native", "kit_b")
+    _skip_if_oversubscribed(r)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "bot.act" in r.stdout and "adapter.decide" in r.stdout and "OK p99" in r.stdout
     assert "gc gen0/1/2" in r.stdout and "timer floor" in r.stdout and "over 1 ms" in r.stdout
     r = run_latency("--bot", "cheap", "--n", "100", "--warm", "10",
                     "--adapter", "hyperion.drills.adapter:KitCAdapter", "--native", "kit_c")
+    _skip_if_oversubscribed(r)
     assert r.returncode == 0, r.stdout + r.stderr
 
 
