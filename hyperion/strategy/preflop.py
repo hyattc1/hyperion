@@ -91,6 +91,16 @@ class PreflopParams:
     folder_ftr: float = 0.75
     folder_min_n: int = 4
     folder_steal_mult: float = 1.0
+    # mid-depth re-shoves: facing one open with no callers at push/fold threshold < effective stack <= reshove_mid_bb,
+    # shove when the solved re-shove table (multiway.py: 4-25 bb over a 2.3 bb open, the opener's range the top w)
+    # has the hand and push/fold's ICM gate passes. 0 = off: above push/fold depth only the value 3-bet slice
+    # re-raises. Filters: my seat (players still to act behind me), the opener's seat when it opened, the open size,
+    # and a minimum estimated opener width (pushfold.opener_width).
+    reshove_mid_bb: float = 0.0
+    reshove_mid_max_behind: int = 7  # 2 = the button and the blinds
+    reshove_mid_opener_max_behind: int = 7  # 3 = cutoff, button and small blind opens
+    reshove_mid_max_open_bb: float = 4.0
+    reshove_mid_min_w: float = 0.0
     reraise_margin: float = 0.15  # 4-bet / 5-bet shoves: equity vs random is discounted by this (a 3-bettor is not random)
     reraise_tight_pfr: float = 0.0  # ... plus this much more when the re-raiser's PFR is below the prior (0 = off)
     raise_or_fold_bb: float = 25.0  # below this depth, no speculative flats
@@ -293,6 +303,12 @@ class Preflop:
             mult = p.three_bet_mult_ip if spot.behind == 0 else p.three_bet_mult_oop
             self.last = "3bet"
             return self._raise_to(spot, spot.cur_bet * mult)
+        if p.reshove_mid_bb > 0.0 and self.pf is not None and spot.n_in == 1 and spot.raiser >= 0 \
+                and spot.eff_bb <= p.reshove_mid_bb and spot.behind <= p.reshove_mid_max_behind \
+                and spot.cur_bet <= p.reshove_mid_max_open_bb * spot.bb and ActionKind.RAISE in spot.obs.legal \
+                and self._reshove_mid(spot, prof):
+            self.last = "reshove_mid"
+            return Action(ActionKind.RAISE, spot.obs.max_raise)
         if p.bb_defend and spot.me == spot.bb_seat and spot.n_in == 1 and spot.raiser >= 0 and self.req is not None \
                 and spot.to_call <= p.bb_defend_max_frac * spot.my_total:
             act = self._bb_defend(spot, cls, prof)
@@ -319,6 +335,15 @@ class Preflop:
         self.last = "call_open"
         return _CALL if self._equity_ok(spot, cls, margin, 1 if spot.behind >= p.crowd_behind else 0) else _FOLD
 
+    def _reshove_mid(self, spot: Spot, prof: Profiler | None) -> bool:
+        p = self.p
+        pf = self.pf
+        if p.reshove_mid_opener_max_behind < 7 and pf.behind_seat(spot, spot.raiser) > p.reshove_mid_opener_max_behind:
+            return False
+        if p.reshove_mid_min_w > 0.0 and pf.opener_width(spot, prof, spot.raiser) < p.reshove_mid_min_w:
+            return False
+        return bool(pf.reshove_mid(spot, prof))
+
     def shover_range(self, spot: Spot, prof: Profiler | None, base: float | None = None) -> float:
         """Estimated width (top x of hands) of the shover's range. `base` (push/fold: the Nash push frequency for
         the shover's seat and depth) is scaled by how much more or less often than the prior this seat shoves;
@@ -337,7 +362,7 @@ class Preflop:
                 k, n = prof.shove_counts_ctx(sh, chips, ctx)
                 post = (k + prior * p.shove_prior_n) / (n + p.shove_prior_n)
                 if ctx == 2 and self.pf is not None:
-                    base = self.pf.reshove_freq(spot, opener, sh)
+                    base = self.pf.reshove_freq(spot, opener, sh, prof)
                 x = base * post / prior if base is not None else post
                 return p.shove_range_min if x < p.shove_range_min else 1.0 if x > 1.0 else x
         pri = p.shove_prior

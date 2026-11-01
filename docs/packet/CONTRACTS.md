@@ -123,6 +123,11 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 | `preflop.folder_ftr` | 0.75 |
 | `preflop.folder_min_n` | 4 |
 | `preflop.folder_steal_mult` | 1.0 |
+| `preflop.reshove_mid_bb` | 0.0 |
+| `preflop.reshove_mid_max_behind` | 7 |
+| `preflop.reshove_mid_opener_max_behind` | 7 |
+| `preflop.reshove_mid_max_open_bb` | 4.0 |
+| `preflop.reshove_mid_min_w` | 0.0 |
 | `preflop.reraise_margin` | 0.15 |
 | `preflop.reraise_tight_pfr` | 0.0 |
 | `preflop.raise_or_fold_bb` | 25.0 |
@@ -160,6 +165,8 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 | `pushfold.exploit_l_min` | 0.3 |
 | `pushfold.exploit_l_max` | 3.0 |
 | `pushfold.exploit_expected_norm` | True |
+| `pushfold.reshove_w_observed` | False |
+| `pushfold.reshove_w_n0` | 6.0 |
 | `postflop.cbet_freq_ip_dry` | 0.6 |
 | `postflop.cbet_oop_mult` | 0.6 |
 | `postflop.cbet_multiway_mult` | 0.5 |

@@ -51,6 +51,7 @@ from .tables import CLASSES, CLASS_INDEX, COMBO_COUNT, TABLES_DIR, TOTAL_COMBOS,
 _FOLD = Action(ActionKind.FOLD)
 _CHECK = Action(ActionKind.CHECK)
 _CALL = Action(ActionKind.CALL)
+_BB_OPEN_PRIOR = (0.45, 0.45, 0.40, 0.28, 0.22, 0.18, 0.15, 0.13)  # PreflopParams.bb_open_prior's default
 _mw = None  # hyperion.strategy.multiway, imported on first use (it imports from this module)
 DEFAULT_DEPTHS = tuple(range(1, 26))
 
@@ -86,6 +87,11 @@ class PushFoldParams:
     exploit_l_min: float = 0.3
     exploit_l_max: float = 3.0
     exploit_expected_norm: bool = True  # looseness = calls / a solved caller's calls in the same spots (profiler.call_prior)
+    # the opener's width w for the re-shove table (and for reading a re-shove when calling): its observed first-in
+    # open rate at > 12 bb from its position class (late = cutoff, button, small blind; early), smoothed toward
+    # bb_open_prior[its seat] with reshove_w_n0 spots. Off = bb_open_prior times its PFR over the prior.
+    reshove_w_observed: bool = False
+    reshove_w_n0: float = 6.0
 
 
 # ---------------------------------------------------------------- offline solver
@@ -542,9 +548,10 @@ class PushFold:
             q *= mw["S_max"] / depth_bb
         return q
 
-    def reshove_freq(self, spot: Spot, opener: int, shover: int):
+    def reshove_freq(self, spot: Spot, opener: int, shover: int, prof: Profiler | None = None):
         """The solved re-shove frequency for `shover` over `opener`'s open (None without the table): the opener's
-        range is my own open fraction when I opened, else bb_open_prior by its seat; m = players behind the shover."""
+        range is my own open fraction when I opened, else bb_open_prior by its seat (its observed open rate with
+        reshove_w_observed); m = players behind the shover."""
         mw = self.mw
         if mw is None or opener < 0:
             return None
@@ -554,8 +561,10 @@ class PushFold:
         if opener == spot.me and pre is not None:
             pp = pre.p
             w = pp.open_frac.get(kb + pp.open_step, pp.open_frac_default) * pp.open_frac_mult
+        elif self.p.reshove_w_observed and prof is not None:
+            w = self.opener_width(spot, prof, opener)
         else:
-            pri = pre.p.bb_open_prior if pre is not None else (0.45, 0.45, 0.40, 0.28, 0.22, 0.18, 0.15, 0.13)
+            pri = pre.p.bb_open_prior if pre is not None else _BB_OPEN_PRIOR
             w = pri[kb] if kb < len(pri) else pri[-1]
         m = self.behind_seat(spot, shover)
         if m > rs["m_max"]:
@@ -623,14 +632,7 @@ class PushFold:
         raiser = spot.raiser
         if raiser < 0 or raiser == spot.me or obs.stacks[raiser] <= 0:
             return None
-        pre = self.pre
-        pri = pre.p.bb_open_prior if pre is not None else (0.45, 0.45, 0.40, 0.28, 0.22, 0.18, 0.15, 0.13)
-        kb = self.behind_seat(spot, raiser)
-        w = pri[kb] if kb < len(pri) else pri[-1]
-        if prof is not None:
-            r = prof.pfr_rate(raiser) / Profiler.P_PFR
-            w *= 0.5 if r < 0.5 else 2.5 if r > 2.5 else r
-        wi = _mw.nearest_w(mw, w)
+        wi = _mw.nearest_w(mw, self.opener_width(spot, prof, raiser))
         m = len(callers) - 1  # the opener is one of the callers
         if m < 0:
             m = 0
@@ -652,6 +654,31 @@ class PushFold:
                 pc_any = 0.98
         e = rs["eqc"][wi][m][S][i] - self.p.push_equity_margin
         return self._push_ev_ok(spot, pc_any, e, spot.cover_frac)
+
+    def opener_width(self, spot: Spot, prof: Profiler | None, opener: int) -> float:
+        """Estimated share of hands `opener` opens from its seat: bb_open_prior by the players behind it, then either
+        its observed first-in open rate from that position class (reshove_w_observed) or the prior times its PFR
+        over the prior, clamped to [0.5, 2.5] of the prior."""
+        pre = self.pre
+        pri = pre.p.bb_open_prior if pre is not None else _BB_OPEN_PRIOR
+        kb = self.behind_seat(spot, opener)
+        w = pri[kb] if kb < len(pri) else pri[-1]
+        if prof is None:
+            return w
+        if self.p.reshove_w_observed:
+            return prof.open_rate(opener, kb <= Profiler.LATE_BEHIND, w, self.p.reshove_w_n0)
+        r = prof.pfr_rate(opener) / Profiler.P_PFR
+        return w * (0.5 if r < 0.5 else 2.5 if r > 2.5 else r)
+
+    def reshove_mid(self, spot: Spot, prof: Profiler | None):
+        """Above push/fold depth: shove over one open from the solved re-shove family (4-25 bb), True / False, or
+        None when the table does not describe the spot."""
+        mw = self.mw
+        cls = spot.cls
+        i = self._idx(cls) if cls is not None else -1
+        if mw is None or i < 0 or not self.p.use_reshove_table:
+            return None
+        return self._reshove_table(spot, prof, mw, cls, i, self._callers(spot, prof))
 
     def _push_ev_ok(self, spot: Spot, pc_any: float, e: float, cover: float = 0.0) -> bool:
         obs = spot.obs

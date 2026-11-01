@@ -30,6 +30,7 @@ class Profiler:
     # prior means for the Beta-smoothed rates
     P_VPIP, P_PFR, P_FTB, P_SHOVE, P_CALL_SHOVE, P_WTSD, P_AGG = 0.25, 0.15, 0.5, 0.05, 0.25, 0.3, 0.4
     SHOVE_BUCKETS_BB = (12.0, 25.0, 50.0)  # depth buckets (bb at its first preflop action) for shove_counts
+    LATE_BEHIND = 3  # an open with at most this many players behind (cutoff, button, small blind) is a late open
 
     def __init__(
         self,
@@ -94,6 +95,11 @@ class Profiler:
         self.fi_shove_b = [[0] * nb for _ in range(n)]
         self.vo_opp_b = [[0] * nb for _ in range(n)]
         self.vo_shove_b = [[0] * nb for _ in range(n)]
+        # first-in opens per opportunity (nobody raised or limped before the seat's first preflop action, the seat
+        # deeper than 12 bb), split by its position then: late (at most LATE_BEHIND players to act after it), early.
+        # A seat's open rate is its range width when it opens (the solved re-shove table's w).
+        self.open_opp = [[0, 0] for _ in range(n)]  # [late, early]
+        self.opens = [[0, 0] for _ in range(n)]
         self._dials = [dict(NEUTRAL_DIALS) for _ in range(n)]
         self.last_bb = 20
         self.hand_no = -1
@@ -119,6 +125,9 @@ class Profiler:
         self.pre_acted_mask = 0
         self.pre_shoved_mask = 0
         self.pre_bucket = [0] * n
+        self.pre_limped = False
+        self.pre_behind = [0] * n  # players dealt in who act after each seat preflop
+        self.pre_order_known = False  # False in the degraded hand_end pass (no observation, no button)
 
     def _start_hand(self, obs: Observation) -> None:
         self._start_blank()
@@ -148,6 +157,14 @@ class Profiler:
                 sb, bb_seat = order[0], order[1]
             self.committed[sb] = obs.blinds[0]
             self.committed[bb_seat] = bb
+            if len(alive) == 2:
+                pre = [obs.button, bb_seat]
+            else:
+                pre = order[2:] + order[:2]  # UTG ... button, then the blinds
+            k = len(pre)
+            for i, s in enumerate(pre):
+                self.pre_behind[s] = k - 1 - i
+            self.pre_order_known = True
 
     # ------------------------------------------------------------------ updates
     def observe(self, obs: Observation) -> None:
@@ -255,6 +272,11 @@ class Profiler:
                 self.pre_hands_b[seat][b] += 1
                 ctx = 1 if self.pre_raises == 0 else 2 if (self.pre_raises == 1 and not self.shove_pending) else 0
                 first_ctx = ctx
+                if ctx == 1 and b >= 1 and not self.pre_limped and self.pre_order_known:
+                    late = 0 if self.pre_behind[seat] <= self.LATE_BEHIND else 1
+                    self.open_opp[seat][late] += 1
+                    if kind is _RAISE:
+                        self.opens[seat][late] += 1
                 if ctx == 1:
                     self.fi_opp_b[seat][b] += 1
                 elif ctx == 2:
@@ -274,6 +296,8 @@ class Profiler:
                 self.need &= ~bit
             elif kind is _CALL:
                 self.calls[seat] += 1
+                if pre and self.pre_raises == 0:
+                    self.pre_limped = True
                 if pre and not (self.vpip_mask & bit):
                     self.vpip_mask |= bit
                     self.vpip[seat] += 1
@@ -357,6 +381,11 @@ class Profiler:
         if ctx == 1:
             return self.fi_shove_b[s][b], self.fi_opp_b[s][b]
         return self.vo_shove_b[s][b], self.vo_opp_b[s][b]
+
+    def open_rate(self, s: int, late: bool, prior: float, n0: float) -> float:
+        """Seat s's first-in open rate from late (or early) position, Beta-smoothed toward `prior` with n0 spots."""
+        i = 0 if late else 1
+        return (self.opens[s][i] + prior * n0) / (self.open_opp[s][i] + n0)
 
     def call_looseness(self, s: int, n0: float = 4.0) -> float:
         """Calls of shoves over the calls a solved caller would have made in the same spots (1 = Nash-like),
