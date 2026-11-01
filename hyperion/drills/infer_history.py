@@ -34,7 +34,7 @@ Cost: one pass over the seats that acted since the last decision, about 10-25 µ
     hist = inf.hand_end(final_stacks=..., shown=...)   # the HandResult's history; arguments when the kit gives them
 
 A kit whose hand end says nothing still shows every seat's stack in the next hand's first state, so the adapter holds
-the hand end until then (`finals_from_next`): the folds after our last reply and every seat's chip change, delivered
+the hand end until then (`chips_after_hand`): the folds after our last reply and every seat's chip change, delivered
 just before the next decision. `InferSeat(bot)` is the simulator seat a kit with no log gives through such an adapter
 (tools/gate.py's in-sim baseline for `--kit-log no`, and the measurement in hyperion/drills/infer_eval.py).
 """
@@ -368,7 +368,7 @@ class HistoryInference:
         out = [(me, sent)]
         self.need[me] = False
         self._apply(me, sent)
-        final = self._finals(final_stacks, deltas)
+        final = self._end_chips(final_stacks, deltas)
         if final is None:
             return out
         stacks, bets, inh, need = self.stacks, self.bets, self.inh, self.need
@@ -405,7 +405,7 @@ class HistoryInference:
         paid = _antes(self.stacks0, self.pot0, self.rules, self.hand_no)
         return None if paid is None else [self.stacks0[s] + paid[s] for s in range(len(self.stacks0))]
 
-    def _finals(self, final_stacks, deltas):
+    def _end_chips(self, final_stacks, deltas):
         if final_stacks is not None and len(final_stacks) == self.n:
             return [int(x) for x in final_stacks]
         if deltas is not None and len(deltas) == self.n:
@@ -429,7 +429,7 @@ def _antes(totals, pot: int, rules, hand_no: int) -> list[int] | None:
     return [ante if totals[s] > 0 else 0 for s in range(n)]
 
 
-def finals_from_next(obs: Observation, rules: Rules | None = None) -> list[int] | None:
+def chips_after_hand(obs: Observation, rules: Rules | None = None) -> list[int] | None:
     """Every seat's chips after the last hand, from this hand's first state (preflop, before our first reply): what
     each seat has behind and in front now, plus the ante it posted. The tail of a hand on a kit whose hand end says
     nothing (`HistoryInference.hand_end(final_stacks=...)`). None when this is not a preflop state or the antes do
@@ -507,11 +507,11 @@ class InferSeat:
         """The waiting hand end, settled by this hand's first state when it follows it."""
         hand_no, delta = self.pending
         self.pending = None
-        finals = finals_from_next(obs, self.rules) if obs is not None and obs.hand_no == hand_no + 1 else None
-        start = self.inf.start_stacks() if finals is not None and self.inf.hand_no == hand_no else None
-        hist = self.inf.hand_end(final_stacks=finals if start is not None else None, hand_no=hand_no)
+        after = chips_after_hand(obs, self.rules) if obs is not None and obs.hand_no == hand_no + 1 else None
+        start = self.inf.start_stacks() if after is not None and self.inf.hand_no == hand_no else None
+        hist = self.inf.hand_end(final_stacks=after if start is not None else None, hand_no=hand_no)
         if start is not None:
-            self.bot.hand_end(HandResult(hand_no=hand_no, deltas=[f - b for f, b in zip(finals, start)], showdown={},
+            self.bot.hand_end(HandResult(hand_no=hand_no, deltas=[f - b for f, b in zip(after, start)], showdown={},
                                          board=(), history=hist))
         else:
             self._end(hand_no, delta, hist)

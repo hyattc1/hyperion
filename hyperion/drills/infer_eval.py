@@ -179,13 +179,13 @@ class _Checker:
         self.bot.new_table(r, s, n)
 
     def act(self, obs):
-        from hyperion.drills.infer_history import finals_from_next
+        from hyperion.drills.infer_history import chips_after_hand
 
         bare = dataclasses.replace(obs, history=[], extras={})
         if self.pending is not None:  # final "next": the hand end settled by this state's stacks
             res, self.pending = self.pending, None
-            finals = finals_from_next(bare, self.rules) if obs.hand_no == res.hand_no + 1 else None
-            got = self.inf.hand_end(final_stacks=finals, hand_no=res.hand_no)
+            after = chips_after_hand(bare, self.rules) if obs.hand_no == res.hand_no + 1 else None
+            got = self.inf.hand_end(final_stacks=after, hand_no=res.hand_no)
             self._score(got, res.history, res.hand_no, "hand_end")
         t0 = time.perf_counter_ns()
         o2 = self.inf.observe(bare)

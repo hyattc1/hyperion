@@ -15,7 +15,7 @@ from hyperion.drills import infer_eval as E
 from hyperion.drills.adapter import KitBAdapter, dealer_state
 from hyperion.drills.conformance import checked
 from hyperion.drills.fakekits.kit_b import kit as kit_b
-from hyperion.drills.infer_history import HistoryInference, InferSeat, finals_from_next
+from hyperion.drills.infer_history import HistoryInference, InferSeat, chips_after_hand
 from hyperion.sim.engine import Table
 
 FOLD, CHECK, CALL, RAISE = ActionKind.FOLD, ActionKind.CHECK, ActionKind.CALL, ActionKind.RAISE
@@ -68,7 +68,7 @@ class Script:
         pass
 
 
-def random_table(rng: random.Random, finals: str):
+def random_table(rng: random.Random, ends: str):
     n = rng.randint(2, 8)
     level = rng.choice(((10, 20), (25, 50), (100, 200)))
     rules = Rules(n_players=n, blind_levels=(level,), ante=rng.choice((0, 0, 5, level[1] // 4)), ante_from_level=0,
@@ -77,7 +77,7 @@ def random_table(rng: random.Random, finals: str):
     book: dict = {}
     st: Counter = Counter()
     st["ns"], st["bad"] = [], []
-    bots = [E._Checker(E._Streets(RandomBot(rng.randrange(1 << 30)), book), st, book, finals, rules) for _ in range(n)]
+    bots = [E._Checker(E._Streets(RandomBot(rng.randrange(1 << 30)), book), st, book, ends, rules) for _ in range(n)]
     return Table(bots, rules, seed=rng.randrange(1 << 30), stacks=stacks, mode="measure"), st
 
 
@@ -127,7 +127,7 @@ def _play(scripts, me, hands=1, final="none", rules=None, stacks=None):
             bare = dataclasses.replace(obs, history=[], extras={})
             if self.pending is not None:
                 res, self.pending = self.pending, None
-                seen.append(("end", rows(self.inf.hand_end(final_stacks=finals_from_next(bare, rules),
+                seen.append(("end", rows(self.inf.hand_end(final_stacks=chips_after_hand(bare, rules),
                                                            hand_no=res.hand_no)), rows(res.history)))
             got = self.inf.observe(bare)
             seen.append(("act", rows(got.history), rows(obs.history), bool(got.extras.get("history_gap"))))
@@ -318,11 +318,11 @@ def test_infer_seat_matches_the_adapter_path_and_costs_little():
     assert ns[len(ns) // 2] < 100_000, ns[len(ns) // 2]  # ~10 us on a quiet host; generous under load
 
 
-def test_finals_from_next_adds_the_antes_back():
+def test_chips_after_hand_adds_the_antes_back():
     from tests.strategy_helpers import make_obs
 
     o = make_obs(seat=3, bets=[10, 20, 0, 0], stacks=[1980, 1970, 1990, 1990], pot=40, hand_no=7)
-    assert finals_from_next(o, Rules(n_players=4, ante=10, ante_from_level=0)) == [2000] * 4
-    assert finals_from_next(o, Rules(n_players=4)) == [2000] * 4  # the pot alone, split evenly
+    assert chips_after_hand(o, Rules(n_players=4, ante=10, ante_from_level=0)) == [2000] * 4
+    assert chips_after_hand(o, Rules(n_players=4)) == [2000] * 4  # the pot alone, split evenly
     flop = dataclasses.replace(o, street=1)
-    assert finals_from_next(flop) is None
+    assert chips_after_hand(flop) is None

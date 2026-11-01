@@ -131,19 +131,19 @@ class Adapter:
 
     def _deliver(self, obs: Observation | None) -> None:
         """The waiting hand end, settled by `obs` when it is the next hand's first state."""
-        from hyperion.drills.infer_history import finals_from_next
+        from hyperion.drills.infer_history import chips_after_hand
 
         hand_no, delta, n_players, history, board = self._pending
         self._pending = None
-        finals = deltas = None
+        after = deltas = None
         if obs is not None and obs.hand_no == hand_no + 1 and self.inference.hand_no == hand_no:
-            finals = finals_from_next(obs, self.rules)
-            start = self.inference.start_stacks() if finals is not None else None
-            if start is not None and len(start) == len(finals):
-                deltas = [f - b for f, b in zip(finals, start)]
+            after = chips_after_hand(obs, self.rules)
+            start = self.inference.start_stacks() if after is not None else None
+            if start is not None and len(start) == len(after):
+                deltas = [f - b for f, b in zip(after, start)]
             else:
-                finals = None
-        self._end(hand_no, delta, n_players, history, deltas, finals, None, board)
+                after = None
+        self._end(hand_no, delta, n_players, history, deltas, after, None, board)
 
     def _end(self, hand_no, delta, n_players, history, deltas, final_stacks, showdown, board) -> None:
         try:
