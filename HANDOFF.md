@@ -5,12 +5,17 @@ is either committed or named as lost-if-killed.
 
 ## State in one paragraph
 
-Hero, the bot, plays all 23 catalogued twists (22 READY, 1 PLAYS), decides in ~15 µs, passes 430+
-tests, and was tuned to finish first against every field we wrote. Then a red-team rival built blind in
-36 minutes (`hyperion/sim/rivals/rival1.py`) turned out stronger: tied on the realistic field, ahead on the
-top field, and it wins the mirror test. The owner's position: Hero is still a tuned chart bot with lots
-of room; the rival is a sparring partner, not a ceiling. The prep for the hour (prompts, playbook, four
-fake kits, tooling, five drills) is in good shape; Track A (bring the repo) is the default.
+**As of 2026-11-01 18:00 ET the ship bot is the composite** (`hyperion/ship.py`: `SHIP = "composite"`, `DIALS = {}`):
+rival 3's core with the exploit layer preflop, Hero with the layer postflop and when facing a raise short, behind
+Hero's shell (adapter, `Rules`, 23 variant hooks, SafeBot, action-log rebuild). Measured once at 400 x 8 it beats
+hybrid3_x and Hero beyond noise on held-out night, night_hard, realistic and top and on three of four judge fields
+(judge_top ahead inside noise); 23/23 READY, gate PASS on kits A and B, p99 329 µs in the gate, strict timeouts level
+with hybrid3_x. Fallbacks are one word away: `python -m hyperion.ship --bot hybrid3_x` or `--bot hero` (decisions entry
+"Composite bot", log `docs/drills/compose-log.md`). No agents are running. What is left: strict timing re-checks on a
+quiet host, the Nov 7 re-research of the Menlo Park kit, and the owner's items (who sits at the table, the email).
+
+History: Hero was tuned to finish first against every field we wrote, then a red-team rival built blind beat it; the
+plan changed to choosing the best core behind Hero's shell (below), and then to combining the best sections.
 
 ## What was running when this was written, and how to relaunch each
 
@@ -22,10 +27,10 @@ stops being a holdout; rival 4 (built blind, no assigned philosophy, scratchpad 
 judge. Winner = best on realistic, top and the rival-4 field, all 23 variants READY, timeouts no worse than
 Hero's, robust across the three payout tables. The owner makes the final call on what ships.
 
-**Running as of 2026-11-01 13:45 ET (owner: "fully execute everything end-to-end").** Goal: the best possible base
+**Launched 2026-11-01 13:45 ET, all finished by 18:00 ET (owner: "fully execute everything end-to-end").** Goal: the best possible base
 for the night. Eight agents launched from the coordinating session; each commits per step. Relaunch any that died
 from its brief below and `git log`.
-- Base switch: make hybrid3_x the shipped bot (lazy core imports, one ship switch used by pack/gate/latency/adapter,
+- Base switch: DONE (shipped hybrid3_x until the composite replaced it at 17:30). Make hybrid3_x the shipped bot (lazy core imports, one ship switch used by pack/gate/latency/adapter,
   Hero one flag away, night-of dials working on the rival 3 core, rehearsal on a fake kit). Decisions entry "Ship
   hybrid3_x as the base". Owns hyperion/hybrid/, tools/pack.py, tools/gate*.py, tools/latency.py, hyperion/drills/,
   docs/prompts/, PLAYBOOK.md, docs/packet/.
@@ -75,7 +80,7 @@ from its brief below and `git log`.
 - Rival 4 (the judge): integrated as `rival4`, fields `judge` and `judge_top`, hero seat swapped by `judge@hybrid3` etc.;
   never tuned on; measured once in the final comparison (decisions entry "Rival 4 in the pool (the judge)").
 
-- The ship switch: DONE; the choice is PROVISIONAL. `hyperion/ship.py` (`SHIP = "hybrid3_x"` for now, `DIALS = {}`)
+- The ship switch: DONE; the composite now ships (above). `hyperion/ship.py` (`SHIP = "hybrid3_x"` at the time, `DIALS = {}`)
   names the ship bot for the entry, pack, gate, latency and `--field <field>@ship`; `--bot hero` restores Hero;
   `SHIP = "composite"` ships the composite. The compose agent's final measurement sets SHIP (hybrid3_x ties Hero on
   `night`, trails on `night_hard`, leads on realistic and the judges). Lazy imports (build 1.5 s -> 0.3 s), r3.* dials
