@@ -809,6 +809,33 @@ class Rival3Bot(RivalBot):
                             "history": [(s, (a.kind.value, a.amount)) for s, a in result.history]})
 
 
+# ----- the hybrid candidate: rival 2's decision core behind Hero's shell ---------------------------------------
+
+
+class HybridBot(_Base):
+    """The hybrid candidate (hyperion.hybrid): rival 2's decision core on plain hold'em behind Hero's shell (Rules,
+    rank remap, variant decisions, SafeBot, Hero for what the core cannot represent). Its fallback Hero takes the
+    same dotted overrides as `hero` (HERO_CONFIG). A candidate measured against Hero, not a replacement."""
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        from ..hybrid import make_bot as _make_hybrid
+
+        self.impl = _make_hybrid(seed=seed, hero_overrides=HERO_CONFIG)
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        self.impl.new_table(rules, seat, n_players)
+
+    def act(self, obs: Observation) -> Action:
+        return self.impl.act(obs)
+
+    def hand_end(self, result: HandResult) -> None:
+        self.impl.hand_end(result)
+
+    def variant_decide(self, prompt: dict):
+        return self.impl.variant_decide(prompt)
+
+
 REGISTRY: dict[str, type] = {
     "crasher": Crasher,
     "timeout": TimeoutBot,
@@ -830,6 +857,7 @@ REGISTRY: dict[str, type] = {
     "rival1": RivalBot,  # red-team drill 1's bot through the kit adapter; `naive` stays available by name
     "rival2": Rival2Bot,  # red-team drill 2's computation-first bot through the same adapter
     "rival3": Rival3Bot,  # red-team drill 3's exploitation-first bot: the holdout, never tuned against
+    "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
 }
 
 # Opponents that need something from outside this repo. Each is registered only when its environment
@@ -878,6 +906,14 @@ FIELDS: dict[str, tuple[str, ...]] = {
     # it is where a gain measured against rivals 1 and 2 shows whether it generalises
     "holdout": ("hero", "rival3", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "tag",
                 "timeout_then_recover"),
+    # the hybrid candidate in Hero's seat, everything else as in realistic, top, top2 and holdout: the same seating
+    # and the same duplicate deals seed for seed, so hybrid(X_h) - hero(X) is a paired comparison
+    "realistic_h": ("hybrid", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "rival1", "tag",
+                    "timeout_then_recover"),
+    "top_h": ("hybrid", "rival1", "rival1", "pushfold", "tag", "hero_tight", "loose_aggro", "rival2"),
+    "top2_h": ("hybrid", "rival1", "rival2", "rival2", "pushfold", "tag", "hero_tight", "loose_aggro"),
+    "holdout_h": ("hybrid", "rival3", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "tag",
+                  "timeout_then_recover"),
     # the table that busts itself: Hero's job is to survive it and be there at the end
     "chaos": ("hero", "crasher", "random", "allin", "station", "montecarlo", "maniac", "timeout_then_recover"),
 }
