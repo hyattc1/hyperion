@@ -158,3 +158,30 @@ hero, rival1, rival1, pushfold, tag, hero_tight, loose_aggro, rival2. hero_tight
 **hybrid_x +0.305 ± 0.101 and hybrid3_x +0.141 ± 0.099 over Hero, both outside noise**; hybrid3 +0.042 and raw rival 3
 +0.007 level. Rival 2 leads the room unless hybrid_x sits in it. (First 200 seeds: Hero 4.743 here against 4.765 in
 round 3 on the same deals; rival 2's sampler reads the wall clock.)
+
+## 07:57-08:06: `top2`, model mode, 400 seeds x 8
+
+hero, rival1, rival2, rival2, pushfold, tag, hero_tight, loose_aggro.
+
+| # | candidate | pts ± 95% | - Hero (paired) | rank in field | 1st % | bust % | gaps (paired) | load |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hybrid_x | 5.086 ± 0.079 | +0.394 ± 0.104 | 1 of 7 (leader hybrid_x 5.09) | 23 | 68 | - rival1 +0.563 ± 0.116; - rival2 +0.184 ± 0.102 | 25-36 |
+| 2 | hybrid3_x | 4.835 ± 0.075 | +0.142 ± 0.099 | 2 of 7 (leader rival2 4.94) | 19 | 75 | - rival1 +0.230 ± 0.118; - rival2 -0.107 ± 0.105 | 25-36 |
+| 3 | hybrid3 (no layer) | 4.721 ± 0.078 | +0.029 ± 0.102 | 3 of 7 (leader rival2 4.96) | 16 | 78 | - rival1 +0.137 ± 0.119; - rival2 -0.237 ± 0.102 | 22-36 |
+| 4 | rival3 (raw, reference) | 4.702 ± 0.077 | +0.010 ± 0.099 | 3 of 7 (leader rival2 4.93) | 19 | 75 | - rival1 +0.113 ± 0.116; - rival2 -0.230 ± 0.104 | 23-36 |
+| 5 | Hero | 4.692 ± 0.079 | - | 3 of 7 (leader rival2 4.95) | 20 | 77 | - rival1 +0.129 ± 0.124; - rival2 -0.253 ± 0.106 | 27-36 |
+
+| candidate | decisions | p50 / p99 us | wall >= 1 ms | engine timeouts | panicked tables | exc / ill / safe_err | routes and layer fires per table |
+|---|---|---|---|---|---|---|---|
+| Hero | 529,998 | 31 / 119 | 920 (0.174%) | 0 (0.000%) | 0 | 0 / 0 / 0 |  |
+| hybrid_x | 515,518 | 37 / 235 | 1258 (0.244%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 95.38%; exploit:steal_fold 5.21, exploit:bet_checked 2.33, exploit:steal 0.31 |
+| hybrid3_x | 512,519 | 45 / 202 | 1270 (0.248%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 97.78%; exploit:bet_checked 2.39, exploit:steal_fold 1.19, exploit:steal 0.05, hero:core_none 0.04 |
+| rival3 (raw, reference) | 497,407 | 31 / 139 | 717 (0.144%) | 0 (0.000%) | 0 | 0 / 0 / 0 |  |
+| hybrid3 (no layer) | 507,284 | 36 / 159 | 863 (0.170%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 99.98%; hero:core_none 0.03 |
+
+
+**hybrid_x +0.394 ± 0.104 and hybrid3_x +0.142 ± 0.099 over Hero, both outside noise**; hybrid3 and raw rival 3 level.
+hybrid_x is the only candidate ahead of rival 2 here (+0.18 ± 0.10).
+
+(A usage-limit cutoff hit after this stage; the driver had already finished top2, strong and timeouts and written their
+samples to disk, so these three entries are written from those files, nothing re-run.)
