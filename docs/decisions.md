@@ -2999,3 +2999,101 @@ engine's. The won-back and left columns are paired, seed for seed.
 **Not done.**
 - No quiet-host strict timing of a held hand end inside the decision clock.
 - Track B's spec keeps its own no-history clause; it was not changed.
+
+## Composite bot (2026-11-01, builder: compose)
+
+Brief (HANDOFF, 13:45): find, for each section of the game, whether another bot's decisions beat the base's; combine
+the winners; run a guarded hill climb; measure once on both judges; ship only if the result beats hybrid3_x. At 14:50
+the coordinator widened the rule: the composite must beat both hybrid3_x and Hero beyond noise on night, be no worse
+than either beyond noise on night_hard, realistic and top, and lose to neither on the judges. Running log with every
+table: `docs/drills/compose-log.md`.
+
+**What shipped (d32d629): `SHIP = "composite"`, called F below.**
+- Preflop, rival 3's core plays, the hybrid3_x base.
+- Hero plays every postflop decision, and preflop when facing a raise short (under 20 bb effective, four or more
+  players alive).
+- The exploit layer sits in front of both. Two dials came out of the climb: the layer bets when checked to at a fold
+  read of 0.4 (was 0.5), and Hero calls a postflop bet only with 0.20 equity to spare (was 0.15).
+
+`hyperion.ship.make_bot()` builds it: `composite` with no dials is F (`hyperion.compose.bot.SHIP_DIALS`).
+hybrid3_x and Hero are each one word away.
+
+**Final numbers, measured once** (400 x 8, model mode at fixed speed, F against both bases on the same deals). The
+judges ran on seeds 0-399, the guard fields on held-out seeds 5000-5399.
+
+| field | F - hybrid3_x | F - Hero |
+|---|---|---|
+| judge (rival 4) | **+0.30 ± 0.08** | **+0.43 ± 0.09** |
+| judge_top | +0.09 ± 0.09 | **+0.17 ± 0.10** |
+| judge2 (rival 5) | **+0.33 ± 0.08** | **+0.42 ± 0.09** |
+| judge2_night | **+0.23 ± 0.08** | **+0.27 ± 0.09** |
+| night | **+0.28 ± 0.08** | **+0.33 ± 0.08** |
+| night_hard | **+0.29 ± 0.09** | **+0.32 ± 0.09** |
+| realistic | **+0.28 ± 0.08** | **+0.42 ± 0.08** |
+| top | **+0.16 ± 0.09** | **+0.35 ± 0.09** |
+
+Bold is beyond the 95% interval. Other checks:
+- **Variants:** 23 of 23 READY, first on 22. Level or ahead of hybrid3_x on every entry but lowball (-0.07 ± 0.07).
+- **No action log:** with the log rebuilt by the adapters' inference, P (F before the climb) still beat both, beyond
+  noise: +0.22 / +0.18 on night, +0.37 / +0.33 on realistic.
+- **Gate:** PASS on kit B (night, the log rebuilt, -0.06 ± 0.44) and on kit A (realistic, +0.02 ± 0.49).
+- **Timing:** strict timeouts level with hybrid3_x on a quiet host (1 against 2 of ~270,000 decisions). p99 113 us at a
+  table, 127 us through the kit B adapter, 329 us in the gate with the deferred hand end; hybrid3_x 80 / 88 / 239.
+- **Repo checks:** full suite green; export 0 denylist hits.
+
+**How it was found.**
+1. *Sections* (`hyperion/compose/sections.py`). Twelve, read from the Observation in ~1 us:
+   - preflop by players alive (heads-up, three-handed, four or more), by what we face (unopened, a raise, an all-in),
+     and by effective stack (10 / 20 / 40 bb bands);
+   - postflop: heads-up facing a bet, heads-up checked to, multiway.
+
+   Each holds 1.3-23% of decisions.
+2. *The composite* (`hyperion/compose/bot.py`). A route sends each section to a donor: a member bot, with or without
+   the layer.
+   - Every member in the route sees every observation and hand end; members not chosen still decide ("shadow"), or,
+     where nothing they keep depends on it, only update their state ("light").
+   - Rival 3's and Hero's "I raised preflop" flags follow the action actually taken.
+   - With every section on one donor it plays bit-identically to that bot alone, for hybrid3_x, hybrid3, Hero, raw
+     rival 1 and raw rival 3, and for hybrid_x once rival 2's clock is fixed.
+3. *The swap matrix* (`tools/swap.py`, 200 x 8). An exact shortcut makes it cheap: a base run records where each donor
+   would act differently, and only those rotations are replayed. It was run on realistic and night with hybrid3_x as
+   the base, and on night with Hero as the base. Both matrices agree on the two big sections:
+   - facing a deep preflop raise, rival 3's core beats Hero by ~0.14 (from either base);
+   - facing a heads-up postflop bet, Hero beats the core: +0.09 from the hybrid3_x base, +0.19 from the Hero base.
+4. *Sections do not add.* Hero's single swaps from the hybrid3_x base sum to about -0.19 on night, yet the two bases
+   tie. Opening ranges and the postflop play behind them fit together, so combining was done by measuring whole
+   routes.
+5. *Greedy* on night, every route paired against both bases. P = Hero postflop plus Hero facing a raise short came out
+   first (+0.22 / +0.22 on the screen seeds), and no further section change helped. P was confirmed on fresh seeds
+   1000-1399: beyond noise over both bases on night, night_hard, realistic and top (+0.11 to +0.27).
+6. *Guarded climb* from P.
+   - 54 one-dial trials on night: rival 3's core dials, the layer's params, and Hero's postflop and re-shove dials.
+     One trial passed the screen up and five went down, about what chance gives.
+   - The best four were confirmed one at a time on fresh seeds 6000-6399. None was beyond noise on night alone.
+   - Tested together once on seeds 7000-7399, two of them were beyond noise on night (+0.06) and better on realistic
+     (+0.09) and top (+0.08). That pair is the only accepted step.
+7. *The owner's other bot* was tried as a black box donor (scratch only, a snapshot matching its current dist). It won
+   no section on night: worse beyond noise in 7 of 12, level in the rest. Nothing of it is used.
+
+**Rankings by section** (night, hybrid3_x base; the first donor is the best, the base itself is level 0):
+- **Hero beats the base in two sections.** Facing a heads-up postflop bet, Hero +0.09 is beyond noise. Facing a raise
+  short, Hero +0.06 is inside noise.
+- **The base is first or level in the other ten**, among Hero, rival 1, the rival 2 core, raw rival 3 and the base
+  without the layer. Rival 1 and the rival 2 core are worse beyond noise in four and three sections.
+- **Turning the layer off** costs 0.16 when checked to postflop, and nothing measurable anywhere else.
+
+Every section's full list on night, on realistic and with Hero as the base is in the log.
+
+**What it did not do.**
+- The per-section matrices on night_hard, top and strong were stopped for the greedy step: the guard fields were
+  measured on whole composites instead.
+- Strong was not used as a guard under the widened rule.
+- Hero's dials in the climb were replayed in full, not by the shortcut.
+
+**Caveats.**
+- The screens and greedy rounds reused seeds 0-199. Every adopted change was confirmed on fresh seeds, and the final
+  row is on seeds used nowhere else.
+- night_hard carries ~1.9 strong seats a table that Hero was tuned on. Night and judge2_night, whose opponents nobody
+  tuned on, are the fields to weigh, and F leads on all three.
+- Model mode now plays rival 2, rival 5, agent_montecarlo and agent_pushfold at a fixed speed. Top numbers here are
+  not comparable with the final core comparison's top / top2 rows, which played rival 2 on the wall clock.
