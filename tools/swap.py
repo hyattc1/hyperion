@@ -16,9 +16,10 @@ disagreeing rotations are replayed. The same holds for any set of swaps (the uni
 which is how `joint` measures a combined route against its base. `--full` replays every rotation (the check).
 
 **Determinism.** Mode "model", SafeBot panic off, the hybrids' soft deadline off and the composite's `late_us` off, as
-the final comparison ran. Rival 2's sampler reads the wall clock (it stops at 260 us, ~110 samples heads-up here): in
-these runs every rival 2 opponent draws a fixed `R2_SAMPLES` (110) and the rival 2 core member a fixed 32 (its
-`mc_max`), so fields with rival 2 replay exactly. That is a fixed-speed rival 2; the final measurement plays it as built.
+the final comparison ran. Rival 2's sampler reads the wall clock (it stops at 260 us, ~110 samples heads-up here, with a
+hard stop at 520 us): in these runs every rival 2 opponent draws a fixed `R2_SAMPLES` (110) and the rival 2 core member
+a fixed 32 (its `mc_max`), so fields with rival 2 replay exactly. Its import-time equity tables stop at 1500 boards or
+2.4 s; a process where the clock bound prints a warning. That is a fixed-speed rival 2; the final measurement plays it as built.
 
 The sample is one table seed (its eight rotations averaged), paired with the base on the same seed.
 """
@@ -73,6 +74,19 @@ def setup_process(mode: str = "model", as_built: bool = False) -> None:
 
         R2.Bot.MC_BUDGET_US = 1e9
         R2.Bot.MC_MAX = R2_SAMPLES
+        if not getattr(R2.Bot, "_swap_fixed", False):  # its postflop call also passes a hard stop at t0 + 520 us
+            wall = R2.Bot.equity_mc
+
+            def equity_mc(self, hole, board, cuts, deadline, fits=None, hard=None):
+                return wall(self, hole, board, cuts, deadline, fits, deadline + 1.0)
+
+            R2.Bot.equity_mc = equity_mc
+            R2.Bot._swap_fixed = True
+        # its import-time equity tables stop at 1500 boards or 2.4 s, whichever comes first: on a host slow enough for
+        # the clock to bind, processes differ, so say so
+        if R2.MC_N != R2.MC_BOARDS:
+            print(f"warning: rival 2's import-time tables stopped at {R2.MC_N} of {R2.MC_BOARDS} boards in this "
+                  "process: fields with rival 2 do not replay exactly", file=sys.stderr)
 
 
 def route_str(route: dict) -> str:

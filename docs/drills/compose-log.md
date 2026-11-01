@@ -92,3 +92,12 @@ How often a donor's action differs from the base's on the first 6 seeds of reali
 one difference): Hero, rival 1 and rival 2's core differ in nearly every rotation in the big preflop sections. Raw
 rival 3 differs from the base only where the payout correction moves an all-in price (7-15 of 48), and never facing a
 postflop bet. The layer-off donor differs where the layer fires (41 of 48 in post_hu_chk).
+
+## 14:10: determinism of the screens
+
+The shortcut and the pairing need every seat to replay exactly. Two runs of the same tables in one process, swap.py's
+setup: realistic, strong and the eight timeout and weak bots replay exactly. Fields with rival 2 did not. Besides its
+260 us budget, its postflop call passes a hard stop at t0 + 520 us, which a loaded host reaches. swap.py now lifts both
+(110 samples always), and rival 2, `night` and every other field replay exactly. Rival 2's import-time equity tables
+stop at 1500 boards or 2.4 s, so a worker that imported it on a host slow enough for the clock to bind would differ
+from the others. swap.py warns when that happens. The first `top` base run was made before the fix, so it is redone.
