@@ -68,3 +68,26 @@ re-shove table with the opener's observed open rate as w; (b) reinterpreted as t
 effective stack (push/fold first-in to ~13-15 bb, by position); (e) heads-up c-bet and fold-to-c-bet by reads;
 (d) the per-seat switch to the per-opportunity re-shove read. (a) is built last, if at all: the table says
 Hero already steals more than either rival.
+
+## Step 2: levers built (all Config keys, off by default, tests in tests/test_strategy_aggression.py)
+
+| commit | lever | keys |
+|---|---|---|
+| 0b6289b | (c) mid-depth re-shoves: facing one open with no callers above push/fold depth, shove the solved re-shove set (multiway table, 4-25 bb) when the ICM gate passes; the opener's width w from its observed first-in open rate (profiler, > 12 bb, late / early position class) instead of the seat prior x PFR ratio | `preflop.reshove_mid_bb` (+ `_max_behind`, `_opener_max_behind`, `_max_open_bb`, `_min_w`), `pushfold.reshove_w_observed`, `reshove_w_n0` |
+| 75d484d | (b, as the measurement reframed it) the first-in shove zone: unopened pots stay push/fold (solved first-in table + ICM gate) above threshold_bb up to a depth, deeper from late seats; the rest fold or keep the chart's raise | `pushfold.fi_threshold_bb`, `fi_late_threshold_bb`, `fi_late_behind`, `fi_rest_open` |
+| f82b5c8 | (d) per-seat switch to the per-opportunity re-shove read once a seat's smoothed re-shove rate at <= 25 bb passes a threshold; first-in shoves keep the per-hand read | `preflop.shove_ctx_auto`, `_n`, `_prior` |
+| 1f56fa2 | (e) heads-up raised pots: lower call margin against a small flop c-bet from the preflop raiser (optionally only against frequent c-bettors); c-bet bluffs scaled by the caller's observed fold-to-c-bet | `postflop.vs_cbet_margin`, `vs_cbet_max_pot`, `vs_cbet_min_rate`, `cbet_ftc_read`, `cbet_ftc_prior`, `cbet_ftc_max` |
+
+Profiler re-shove rates at <= 25 bb per "facing one open" spot, 60 tables (`scratch/aggr/rsrate.py`): top2 rival2 0.183,
+rival1 0.129, hero_tight 0.076, loose_aggro 0.056, tag 0.036, pushfold 0.024; realistic rival1 0.152, the rest <= 0.05.
+Per table (smoothed with 8 spots at 0.06) rival 2's 90th percentile is 0.21 and rival 1's 0.15: one table rarely
+tells them apart.
+
+## Step 3: screens
+
+Method: `tools/sweep.py` from a clean worktree of the commit under test, duplicate deals, strict, seed 7, 5 workers,
+paired deltas against the screen's base; `scratch/aggr/analyze.py` adds Hero-minus-rival gaps and the lone rival's
+delta in the "rival + 7 Heroes" field. Every screen's base sets `panic_after` 1,000,000: during the first launch
+another session ran a dozen busy-loop processes (load average 26 on 8 cores), and Hero's SafeBot went to panic
+mode (cheap path: no reads, no ICM) in hundreds of tables, which switches the levers off mid-table and measures
+the host. That launch was discarded. The final run uses the shipped defaults (panic on).
