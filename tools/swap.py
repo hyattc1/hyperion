@@ -19,7 +19,9 @@ which is how `joint` measures a combined route against its base. `--full` replay
 the final comparison ran. Rival 2's sampler reads the wall clock (it stops at 260 us, ~110 samples heads-up here, with a
 hard stop at 520 us): in these runs every rival 2 opponent draws a fixed `R2_SAMPLES` (110) and the rival 2 core member
 a fixed 32 (its `mc_max`), so fields with rival 2 replay exactly. Its import-time equity tables stop at 1500 boards or
-2.4 s: its clock is held still while it imports, so every process builds all 1500. That is a fixed-speed rival 2; the final measurement plays it as built.
+2.4 s: its clock is held still while it imports, so every process builds all 1500. The night persona
+`agent_montecarlo` samples on the wall clock too: here its clock advances AGENT_MC_STEP_US per read; `agent_pushfold`
+skips its heaviest jam EV after 260 us on the wall clock: here it never runs late. That is a fixed-speed rival 2; the final measurement plays it as built.
 
 The sample is one table seed (its eight rotations averaged), paired with the base on the same seed.
 """
@@ -48,6 +50,7 @@ DONORS = ("hero", "hybrid3", "r2x", "rival1", "rival3")  # the screen's donors (
 HYBRID_CONFIG = {"panic_after": 10 ** 9, "soft_us": 1e6, "mc_budget_us": 1e9, "mc_hard_us": 1e9}
 HERO_CONFIG = {"panic_after": 10 ** 9}
 R2_SAMPLES = 110
+AGENT_MC_STEP_US = 3.5  # agent_montecarlo's clock advances this much per read (the field agent's fixed-speed setting)
 SEED = 7
 CAND = "compose_cand"
 PAYOUTS = {"lin": None, "brief": (10, 7, 5, 4, 3, 2, 1, 0), "th": (50, 25, 12, 6, 3, 2, 1, 1)}
@@ -69,6 +72,15 @@ def setup_process(mode: str = "model", as_built: bool = False) -> None:
         for k in ("mc_budget_us", "mc_hard_us"):
             B.HYBRID_CONFIG.pop(k)
         return
+    if hasattr(B, "AgentMonteCarloBot"):  # the night persona whose sampler runs on the wall clock: fixed speed
+        B.AgentMonteCarloBot.STEP_US = AGENT_MC_STEP_US
+    if "agent_pushfold" in B.REGISTRY:  # its 260 us wall-clock guard before the heaviest jam EV: never late here
+        from hyperion.sim.field import load as _load_field
+
+        _pf = _load_field("agent_pushfold").Bot
+        if not getattr(_pf, "_swap_fixed", False):
+            _pf._el = lambda self: 0.0
+            _pf._swap_fixed = True
     if "hyperion.sim.rivals.rival2" in sys.modules or os.environ.get("SWAP_R2", "1") == "1":
         if "hyperion.sim.rivals.rival2" not in sys.modules:
             # its import-time equity tables stop at 1500 boards or after 2.4 s: hold its clock still while it imports,
