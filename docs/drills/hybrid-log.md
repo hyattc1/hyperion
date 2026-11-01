@@ -354,3 +354,36 @@ This is where rival 3's own dead-seat logic overlaps the layer. Rival 3 already 
 layer's fold-read steal fires a quarter as often on top of it, and the layer adds +0.16 to hybrid3 on realistic,
 against +0.27 to the rival 2 hybrid and +0.44 to Hero. Betting when checked to fires equally for every core. The
 layer only replaces passive actions, so nothing is done twice; it is worth less on a core that already takes those pots.
+
+## 06:07-06:25: the judge, measured once per candidate (rival 4, 0d660dc; 200 x 8, seed 7, model mode, panic off;
+load 27-49)
+
+Six candidates, each run once on each judge field, never tuned on: Hero 7e51197 (Hero HEAD with the three shipped
+layer keys off, which the exploit pass gives as 7e51197's behaviour), Hero HEAD (the layer shipped), hybrid,
+hybrid_x, hybrid3, hybrid3_x. The no-layer hybrids also run with their fallback Hero's layer off. `judge` = holdout
+with rival 4 in rival 3's seat; `judge_top` = hero, rival1-4, pushfold, tag, loose_aggro. Same deals for all six.
+
+`judge`:
+
+| candidate | points (rank) | - Hero 7e51197 | - Hero HEAD | candidate - rival4 | rival4 | load |
+|---|---|---|---|---|---|---|
+| Hero 7e51197 (no layer) | 5.707 ± 0.104 (1) | - | **-0.327 ± 0.078** | +0.032 ± 0.145 | 5.675 | 37-41 |
+| Hero HEAD (layer) | 6.034 ± 0.111 (1) | **+0.327 ± 0.078** | - | **+0.379 ± 0.153** | 5.655 | 41-35 |
+| hybrid | 5.505 ± 0.108 (2) | **-0.202 ± 0.126** | **-0.529 ± 0.133** | **-0.362 ± 0.144** | 5.867 | 27-34 |
+| hybrid_x | 5.657 ± 0.111 (2) | -0.050 ± 0.134 | **-0.377 ± 0.138** | -0.125 ± 0.152 | 5.781 | 27-41 |
+| hybrid3 | 6.094 ± 0.101 (1) | **+0.387 ± 0.133** | +0.060 ± 0.137 | **+0.501 ± 0.145** | 5.593 | 41-27 |
+| hybrid3_x | 6.210 ± 0.096 (1) | **+0.503 ± 0.124** | **+0.176 ± 0.133** | **+0.657 ± 0.138** | 5.553 | 35-27 |
+
+`judge_top`:
+
+| candidate | points (rank) | - Hero 7e51197 | - Hero HEAD | candidate - rival4 | rival4 | load |
+|---|---|---|---|---|---|---|
+| Hero 7e51197 (no layer) | 4.599 ± 0.111 (5) | - | **-0.215 ± 0.111** | -0.052 ± 0.156 | 4.651 | 34-49 |
+| Hero HEAD (layer) | 4.814 ± 0.111 (2) | **+0.215 ± 0.111** | - | **+0.165 ± 0.156** | 4.649 | 41-46 |
+| hybrid | 4.933 ± 0.103 (1) | **+0.334 ± 0.140** | +0.119 ± 0.142 | **+0.298 ± 0.149** | 4.635 | 47-47 |
+| hybrid_x | 5.128 ± 0.103 (1) | **+0.529 ± 0.134** | **+0.314 ± 0.128** | **+0.581 ± 0.144** | 4.548 | 47-44 |
+| hybrid3 | 4.869 ± 0.106 (3) | **+0.270 ± 0.138** | +0.055 ± 0.138 | **+0.289 ± 0.159** | 4.580 | 49-47 |
+| hybrid3_x | 4.927 ± 0.108 (2) | **+0.328 ± 0.134** | +0.113 ± 0.131 | **+0.404 ± 0.150** | 4.523 | 46-47 |
+
+Rival 2's sampler is on the wall clock, so at load 30-50 it, and the rival 2 hybrids, sampled less than on a quiet
+host in these runs. Model mode removes every other load effect.
