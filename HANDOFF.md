@@ -64,6 +64,13 @@ from its brief below and `git log`.
 - Rival 4 (the judge): integrated as `rival4`, fields `judge` and `judge_top`, hero seat swapped by `judge@hybrid3` etc.;
   never tuned on; measured once in the final comparison (decisions entry "Rival 4 in the pool (the judge)").
 
+- Ship hybrid3_x as the base: DONE. `hyperion/ship.py` (`SHIP = "hybrid3_x"`, `DIALS = {}`) names the shipped bot for the
+  entry, pack, gate, latency and `--field <field>@ship`; `--bot hero` restores Hero, `SHIP = "composite"` ships the
+  composite. Lazy imports (build 1.5 s -> 0.3 s), r3.* dials for rival 3's core (bit-identical at defaults, each checked
+  to move play), zip gated PASS on kit A. The kit B rehearsal found the gate failed every bot on kits with no action log;
+  fixed (`--kit-log`). Open: without a log hybrid3_x and Hero are level within noise, and both lose 0.6-0.9 points a
+  table; an adapter that infers the missing actions is the next lever (decisions entry "Ship hybrid3_x as the base").
+
 Agents commit as they finish tasks. If one was killed, `git log` shows what landed; the rest is below.
 
 ### 1. Timeout and dead-seat exploit pass: DONE (2026-11-01).

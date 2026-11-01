@@ -301,6 +301,14 @@ Step sizes: `r3.push_margin` is steep (0.01 cut short-stack shoves by 7 points, 
   shell, with the exploit layer) ahead of Hero on every field, beyond noise on the judge field (+0.14), realistic
   (+0.10), top (+0.14), top2 (+0.14) and timeouts (+0.11); both 23/23 READY; strict timeouts 0.007% vs 0.006%.
   The rival 2 hybrid wins strong rooms and loses the judge (-0.35) and realistic (-0.28). Which ships is the owner's call.
+- Base switch (2026-11-01): the owner chose hybrid3_x; `hyperion/ship.py` names it. Its zip on fake kit A: 854 KB,
+  import plus build 0.3-0.4 s from another directory, gate PASS -0.22 ± 0.48 (100 strict tables), latency p99 123 µs
+  (170 through the kit B adapter) at load 50. The kit B rehearsal (Stages 2 and 4) found that the gate failed every
+  bot on a kit with no action log (hybrid3_x -1.23, Hero -0.83 against in-sim bots fed the full log). Since then the
+  baseline sees what such a kit gives (`--kit-log no`, automatic on fake kits b, c, d), and the zip passes,
+  +0.31 ± 0.32. Without a log both bots lose 0.6-0.9 points a table and are level within noise (hybrid3_x - Hero
+  -0.14 ± 0.23 realistic, -0.12 ± 0.26 judge). With the log, hybrid3_x leads. Every r3.* dial moves play the stated
+  way; none gains points beyond noise on our fields; Hero's strong-field recipe loses on the core (-0.48 ± 0.33).
 
 **Unverified**
 - Track B spec v2 (step 0 rank map, steps 2b and 3b, the value-curve ICM, the p99 gate). Drill 3
@@ -369,6 +377,7 @@ The track is decided in Stage 0, never on the night.
 | 2026-11-01 | Drill 6 (Track A, kit A, toss_or_holdem, separate-subagent agent role): checkpoints 12/21/29/34 (drill 3: 4/9/17/19), classification right, 0 illegal tosses; the shipped Agent scored 3.39 vs Hero 5.90 because no reference adapter passed `obs.history` (fixed: 5.81). Prompt edits: 02 history, `variant_decide` routing, legal `native_safe` on discard-only decisions, pytest while packing, `--tables-dir tables`; 03 keeps a catalog variant set, never overwrites the 2-card tables; 04 `obs.history` check, latency.py's 2-card generator, `--tables-dir`; 05 no discard rule or one-step tightening when variant tables load | drill 6 report |
 | 2026-11-01 | Gate the packaged bot: `tools/gate.py` plays the zip itself (fresh `python -I`, kit interface, paired against in-sim Hero); Stage 2 runs it once on the cheap zip, the Stage 4 gate and hard rule 3 before every upload. Drill 6's upload fails it (-2.46 ± 0.76), the history-fixed repack passes (-0.22 ± 0.40). Conformance checks history; `pack.py` vendors the active variant's tables itself (`--tables-dir` is an override); `latency.py` deals the rules' cards | gate pass |
 | 2026-11-01 | Evidence: final core comparison; hybrid3_x leads Hero on every field, recommended, owner to decide | final comparison |
+| 2026-11-01 | Ship hybrid3_x as the base: section 0 "What we ship" (`hyperion/ship.py`, `--bot hero` restores Hero); Stage 2's entry builds `hyperion.ship.make_bot()` packed `--bot cheap`, so Stage 4 is a repack; sim lines `--field realistic@ship`; the gate pairs against the bot the zip records and, on a kit with no action log, gives the baseline what the kit gives (`--kit-log`); Stage 5 and 6 changes are dials dicts kept in `DIALS`; section 5 rewritten with the core's dials as checked, Hero's keys alongside, no dial for a strong tight field; section 6 evidence | base switch |
 
 ---
 
