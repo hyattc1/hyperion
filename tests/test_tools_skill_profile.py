@@ -1,6 +1,5 @@
-"""tools/profile.py: the Hero-seat tracer books every decision by section, its chip attribution sums to the bot's net
+"""tools/skill_profile.py: the Hero-seat tracer books every decision by section, its chip attribution sums to the bot's net
 chips, a job plays exactly the runner's tables, and the report ranks bots per section."""
-import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -12,11 +11,9 @@ from hyperion.sim import bestiary as B
 from hyperion.sim.engine import play_table
 from hyperion.sim.runner import run_tournament
 
-_PATH = Path(__file__).resolve().parents[1] / "tools" / "profile.py"
-_spec = importlib.util.spec_from_file_location("skill_profile", _PATH)  # not `profile`: that is the stdlib's
-P = importlib.util.module_from_spec(_spec)
-sys.modules["skill_profile"] = P
-_spec.loader.exec_module(P)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+
+import skill_profile as P  # noqa: E402
 
 NAMES = ["tag", "pushfold", "maniac", "station", "nit", "naive", "loose_aggro", "random"]
 

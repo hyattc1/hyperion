@@ -31,7 +31,7 @@ from its brief below and `git log`.
   docs/prompts/, PLAYBOOK.md, docs/packet/.
 - Field: a `night` field (each table draws 7 opponents from a weighted pool like a real regional's: one-hour
   agent-built bots, weak and broken archetypes, decent bots, rivals 1-3) and `night_hard`; the per-section skill
-  profile (tools/profile.py, docs/drills/skill-profile.md); rival 5 integrated as the second judge (`judge2`,
+  profile (tools/skill_profile.py, docs/drills/skill-profile.md); rival 5 integrated as the second judge (`judge2`,
   `judge2_night`). Decisions entry "Night field and skill profile". Owns hyperion/sim/bestiary.py, hyperion/sim/rivals/,
   hyperion/sim/field/, docs/drills/redteam/, docs/drills/field/.
 - Compose: sections (hyperion/compose/sections.py), a composite bot that routes each section to the best member

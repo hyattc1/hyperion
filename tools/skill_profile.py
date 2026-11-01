@@ -1,7 +1,7 @@
 """Skill profile: what each bot is good at, section by section of the game, not just one score.
 
-    python tools/profile.py run --field night --bots hybrid3_x,hero,rival3 --seeds 0:200 --out DIR [--workers 3]
-    python tools/profile.py report DIR [DIR ...] --out docs/drills/skill-profile.md [--fields night,realistic]
+    python tools/skill_profile.py run --field night --bots hybrid3_x,hero,rival3 --seeds 0:200 --out DIR [--workers 3]
+    python tools/skill_profile.py report DIR [DIR ...] --out docs/drills/skill-profile.md [--fields night,realistic]
 
 `run` seats each bot in Hero's seat of the field (`<field>@<bot>`, so every bot plays the same deals against the same
 opponents), plays duplicate tables (seed 7, all eight rotations) and records every decision the Hero seat makes, by the
@@ -45,11 +45,6 @@ from pathlib import Path
 from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[1]
-# This file's name is the standard library's `profile`, which cProfile imports (the runner imports cProfile): run as
-# a script, tools/ is first on sys.path and would shadow it. Drop tools/ and put the repo root there instead. Tests
-# load this file under another module name.
-_HERE = Path(__file__).resolve().parent
-sys.path[:] = [x for x in sys.path if Path(x or ".").resolve() != _HERE]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -453,7 +448,7 @@ def report(dirs: list, fields: Optional[list] = None, names: Optional[dict] = No
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="python tools/profile.py", description=__doc__.split("\n\n")[0])
+    p = argparse.ArgumentParser(prog="python tools/skill_profile.py", description=__doc__.split("\n\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run", help="play the bots in Hero's seat and record their decisions by section")
     r.add_argument("--field", required=True)

@@ -41,7 +41,7 @@ swap see the same seven opponents with the same seeds, in the same seats: `night
 as `judge@X - judge` is. A caller that seeds bots another way gets a deterministic draw, not the runner's.
 
 **Reports.** The runner aggregates by seat name, so `night.3` mixes whatever sat in slot 3. Read the Hero seat; for
-the opponents use `opponents()` here or tools/profile.py.
+the opponents use `opponents()` here or tools/skill_profile.py.
 """
 from __future__ import annotations
 
