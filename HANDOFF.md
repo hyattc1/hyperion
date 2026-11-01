@@ -32,6 +32,9 @@ Hero's, robust across the three payout tables. The owner makes the final call on
 - Hybrid candidate: DONE. `hybrid` (rival 2's core behind Hero's shell, `hyperion/hybrid/`) vs frozen Hero 7e51197:
   holdout -0.12 ± 0.13, realistic -0.11 ± 0.13, top +0.27, top2 +0.45; 1.5-3x Hero's timeouts. Recommendation: keep
   Hero, the switch is the owner's call (decisions entry "Hybrid candidate", log `docs/drills/hybrid-log.md`).
+- Hybrid 3 candidate: DONE. `hybrid3` / `hybrid3_x` (rival 3's core behind Hero's shell, without / with the layer)
+  vs Hero 0d660dc (current strategy) with the layer: hybrid3_x realistic +0.17, judge +0.18, top +0.18, top2 +0.22, 23/23
+  READY, 1.4x Hero's timeouts (hybrid3 1.0x). Provisional; the final comparison decides (decisions "Hybrid 3 candidate").
 - Rival 4 (the judge): integrated as `rival4`, fields `judge` and `judge_top`, hero seat swapped by `judge@hybrid3` etc.;
   never tuned on; measured once in the final comparison (decisions entry "Rival 4 in the pool (the judge)").
 

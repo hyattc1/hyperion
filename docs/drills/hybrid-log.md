@@ -467,3 +467,10 @@ Wrap-up (coordinator, 07:30): the shipped layer makes the comparisons against 7e
 decision; a separate agent runs the final comparison (Hero HEAD, hybrid_x, hybrid3_x, raw rival3, the judge fields).
 The two round-3 mirror jobs in flight finish; the last (rival2 + 7 hybrid_x) is not started; one strict timing run
 with every candidate at one table closes this out.
+
+## 07:45: written up
+
+docs/decisions.md "Hybrid 3 candidate" (rounds 2-3, raw rival 3, mirrors, twists, timing, the judge, the all-candidates
+table, verdict, provisional recommendation; it says which numbers are against pre-layer Hero); one line in HANDOFF.md.
+Not run, on the coordinator's wrap-up: rival2 + 7 hybrid_x, hybrid_x's matrix. The final comparison goes to a separate
+agent.

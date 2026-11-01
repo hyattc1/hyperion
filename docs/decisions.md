@@ -2192,3 +2192,293 @@ The rival 3 core already reads seats itself, and gains about half as much.
 - `test_hybrid3`'s check of `{}` was written against the old default: since `ExploitParams()` stopped being the
   shipped set, "{} = Hero's shipped params" means a layer exactly when `Config().exploit.active`. One line, 8a7af98.
 - The hybrid comparisons so far are against the frozen Hero 7e51197. Hero at 8a7af98 is that Hero plus this layer.
+
+## Hybrid 3 candidate (2026-11-01, builder: hybrid)
+
+The plan change (HANDOFF, 04:00): choose the best decision core behind Hero's shell. This entry adds rival 3's core as
+`hybrid3` and measures it against three bots: the frozen Hero (7e51197), Hero with the exploit layer as shipped
+(1957983), and the rival 2 hybrid. Each core runs with and without the layer, and each candidate is judged once on rival 4's fields.
+Which bot ships is the owner's decision. Running log with every table: `docs/drills/hybrid-log.md`.
+
+**Read this first.** Sections 1, 2 and 4-5's left halves, and the first numbers of the verdict, are against
+**pre-layer Hero**: the frozen 7e51197. Those comparisons are out of date for the core decision. The exploit layer has
+since shipped as Hero's default (1957983, 8a7af98; coordinator, 07:30: Hero - rival1 +0.50 on realistic, Hero - rival3
+on holdout from -0.41 to +0.15, 23/23 READY). Round 3 (section 3), the right halves of 4-5, timing (6) and the judge rows
+(7) are against Hero at 0d660dc. Its `hyperion/strategy` is unchanged at HEAD, so that is current Hero with the shipped
+layer, measured here in model mode with panic off. The core decision rests on the separate final comparison of Hero at
+HEAD, hybrid_x, hybrid3_x and raw rival3 on the same deals and the judge fields. These numbers do not depend on Hero's
+version: hybrid3 against raw rival3, the shell's behaviour on the twists, the layer's overlap with rival 3, and timing.
+
+### What it is (4973806, cb51fae)
+
+- **The core.** `hyperion/hybrid/core3.py`: `Rival3Core` subclasses rival 3's `Bot`; rival3.py is not edited.
+  - Rival 3's one ICM method, `_allin` (20 lines), is re-implemented with `Rules.payouts`. It uses rival 3's O(n)
+    closed form, generalised to any payouts linear from third place down (8..1 and the brief's table), and Hero's
+    exact `icm_me` otherwise (top_heavy).
+  - Its bust value comes from the same table.
+  - Rival 3's module globals are untouched, so a `rival3` opponent still plays as built (tested).
+- **Same shell as `hybrid`.** One router serves both cores (`HybridConfig.core`) through one adapter.
+  - The rival 2 hybrid's play is bit-identical across the refactor (563 decisions, same sha).
+  - Ranks are remapped before the core sees cards.
+  - 3-card and other unrepresentable tables go to Hero, as in v1.1, with counters.
+  - hand_end passes the hand's history in the kit's shape.
+  - A soft deadline falls back to Hero's cheap path, and SafeBot wraps it with Hero's settings.
+  - New route `hero:core_none`: rival 3 returns nothing when the move it wants is illegal (a shove with only call or
+    fold offered; as built it then folds). Hero decides those, about 1 per table.
+- **The exploit layer** (`HybridConfig.exploit`, off by default; `hybrid_x` and `hybrid3_x` carry Hero's shipped params).
+  - One `Exploit` instance sits in front of every decision, core or Hero. The fallback Hero's own copy is switched
+    off, so no decision is observed twice.
+  - The layer only replaces passive actions (a fold or check preflop, a check postflop). It cannot double an action
+    the core already took.
+  - Where rival 3's own exploitation overlaps the layer, the layer fires less and is worth less (below).
+- **Tests.** `tests/test_hybrid3.py`, 34 tests: legality, all 23 catalogue entries with the expected routing, the
+  rank-remap round trip, `icm_points` against `_icm1` and `icm_me`, payouts in `_allin`, the hand_end history, declines,
+  the soft deadline, the layer composing once, and timing. Full suite green at each commit (timing flakes at load 30+
+  re-run green).
+
+### How it was measured, and why the protocol changed from the "Hybrid candidate" entry
+
+- **Sample:** 200 duplicate seeds x 8 rotations, seed 7, paired per seed.
+- **Points:** engine mode "model" with SafeBot panic off, for every Hero, Hero clone and hybrid. Other sessions swung
+  the host from load 2 to 60 during these runs.
+  - In strict mode, load moves the field's Monte Carlo and timeout bots' timeouts and every bot's SafeBot panic, so
+    runs made at different times played different fields.
+  - Mode "model" (72440a6) folds those bots by a modelled cost instead; the exploit pass screens with it.
+  - Load still reaches rival 2's wall-clock sampler (in rival 2 and the rival 2 hybrids).
+- **Timing:** strict mode, all candidates seated at one table.
+- **Two worlds:**
+  - Round 2 = 4973806 with `hyperion/strategy` at 7e51197: Hero, its clones and every fallback without the layer.
+  - Round 3 = HEAD 0d660dc: Hero and its clones with the shipped layer.
+  - Pairs are taken within a world. Across worlds, pairs are used only where no Hero clone sits at the table
+    (realistic, the judge fields, the mirrors).
+
+**1. The fields and the payout tables, without the layer (round 2), against the frozen Hero.** Rank among the
+field's bot names in brackets.
+
+| field | Hero 7e51197 (rank) | hybrid3 (rank) | hybrid3 - Hero | hybrid (rank) | hybrid - Hero |
+|---|---|---|---|---|---|
+| realistic | 5.528 ± 0.092 (2) | 5.984 ± 0.102 (1) | **+0.456 ± 0.126** | 5.526 ± 0.105 (2) | -0.002 ± 0.118 |
+| top | 4.648 ± 0.102 (4) | 4.892 ± 0.100 (2) | **+0.244 ± 0.138** | 5.064 ± 0.111 (1) | **+0.415 ± 0.132** |
+| top2 | 4.474 ± 0.102 (4) | 4.871 ± 0.115 (2) | **+0.397 ± 0.135** | 5.055 ± 0.105 (1) | **+0.581 ± 0.151** |
+| strong | 5.132 ± 0.104 (1) | 5.458 ± 0.117 (1) | **+0.326 ± 0.143** | 5.129 ± 0.107 (1) | -0.003 ± 0.136 |
+| realistic, brief 10/7/5/4/3/2/1/0 | 5.575 ± 0.144 (2) | 6.202 ± 0.170 (1) | **+0.628 ± 0.197** | 5.503 ± 0.163 (2) | -0.072 ± 0.188 |
+| top, brief 10/7/5/4/3/2/1/0 | 4.281 ± 0.148 (3) | 4.448 ± 0.159 (2) | +0.167 ± 0.204 | 4.563 ± 0.147 (2) | **+0.282 ± 0.191** |
+| realistic, top_heavy | 20.891 ± 0.879 (2) | 24.725 ± 1.015 (1) | **+3.834 ± 1.243** | 20.336 ± 0.925 (2) | -0.555 ± 1.116 |
+| top, top_heavy | 13.600 ± 0.815 (3) | 14.724 ± 0.830 (3) | **+1.123 ± 1.097** | 14.753 ± 0.768 (3) | **+1.153 ± 1.055** |
+
+**2. Raw `rival3` in Hero's seat** (the bestiary bot, no shell: the brief's payouts in its ICM, displayed cards,
+folds where it declines; the kit adapter already passes it the hand's history), on the same deals as hybrid3:
+
+| field | raw rival3 in Hero's seat | hybrid3 | hybrid3 - rival3 (paired) | Hero 7e51197 | rival3 - Hero |
+|---|---|---|---|---|---|
+| realistic | 5.897 ± 0.109 | 5.984 ± 0.102 | **+0.087 ± 0.058** | 5.528 ± 0.092 | **+0.369 ± 0.128** |
+| top | 4.824 ± 0.104 | 4.892 ± 0.100 | +0.069 ± 0.098 | 4.648 ± 0.102 | **+0.175 ± 0.145** |
+| top2 | 4.728 ± 0.110 | 4.871 ± 0.115 | **+0.143 ± 0.114** | 4.474 ± 0.102 | **+0.254 ± 0.132** |
+| strong | 5.324 ± 0.125 | 5.458 ± 0.117 | **+0.134 ± 0.077** | 5.132 ± 0.104 | **+0.192 ± 0.146** |
+| realistic, brief | 6.207 ± 0.171 | 6.202 ± 0.170 | -0.005 ± 0.011 | 5.575 ± 0.144 | **+0.633 ± 0.198** |
+| top, brief | 4.493 ± 0.152 | 4.448 ± 0.159 | -0.045 ± 0.148 | 4.281 ± 0.148 | **+0.212 ± 0.200** |
+| realistic, top_heavy | 25.035 ± 1.048 | 24.725 ± 1.015 | -0.310 ± 0.699 | 20.891 ± 0.879 | **+4.144 ± 1.266** |
+| top, top_heavy | 14.710 ± 0.891 | 14.724 ± 0.830 | +0.014 ± 0.865 | 13.600 ± 0.815 | +1.109 ± 1.134 |
+
+What the shell adds on plain hold'em:
+- +0.07 to +0.14 on the default 8..1 table, beyond noise on realistic, top2 and strong;
+- nothing on the brief's table (-0.005 ± 0.011), where rival 3's ICM is already exact;
+- nothing measurable on top_heavy.
+
+On plain hold'em, rival 3 by itself and the rival 3 hybrid make nearly the same decisions: the gain is the payout
+correction. The shell's other value is the twists (section 5): rival 3 alone remaps no ranks and cannot play the 14
+tables Hero takes.
+
+**3. With the layer (round 3), against Hero HEAD.** The last three columns pair on realistic, where the deals and
+opponents match round 2.
+
+| field | Hero HEAD (rank) | hybrid3_x (rank) | hybrid3_x - Hero HEAD | hybrid_x (rank) | hybrid_x - Hero HEAD | Hero HEAD - Hero 7e51197 | hybrid3_x - hybrid3 | hybrid_x - hybrid |
+|---|---|---|---|---|---|---|---|---|
+| realistic | 5.967 (1) | 6.141 (1) | **+0.174 ± 0.128** | 5.790 (1) | **-0.177 ± 0.122** | **+0.439 ± 0.073** | **+0.157 ± 0.078** | **+0.265 ± 0.086** |
+| top | 4.765 (3) | 4.949 (2) | **+0.183 ± 0.135** | 5.124 (1) | **+0.358 ± 0.143** | (Hero clones differ) | (Hero clones differ) | (Hero clones differ) |
+| top2 | 4.653 (3) | 4.870 (2) | **+0.217 ± 0.136** | 5.160 (1) | **+0.507 ± 0.167** | (Hero clones differ) | (Hero clones differ) | (Hero clones differ) |
+| strong | 5.299 (2) | 5.363 (1) | +0.064 ± 0.145 | 5.560 (1) | **+0.262 ± 0.142** | (Hero clones differ) | (Hero clones differ) | (Hero clones differ) |
+| realistic, brief | 6.308 (1) | 6.514 (1) | +0.206 ± 0.213 | 5.946 (1) | **-0.363 ± 0.202** | **+0.734 ± 0.134** | **+0.312 ± 0.141** | **+0.443 ± 0.163** |
+| top, brief | 4.458 (3) | 4.672 (1) | +0.214 ± 0.215 | 4.817 (1) | **+0.359 ± 0.196** | (Hero clones differ) | (Hero clones differ) | (Hero clones differ) |
+| realistic, top_heavy | 25.818 (1) | 26.129 (1) | +0.311 ± 1.339 | 24.093 (1) | **-1.725 ± 1.171** | **+4.927 ± 0.966** | **+1.404 ± 0.946** | **+3.757 ± 1.006** |
+| top, top_heavy | 15.322 (3) | 16.033 (2) | +0.711 ± 1.118 | 16.594 (1) | **+1.272 ± 1.194** | (Hero clones differ) | (Hero clones differ) | (Hero clones differ) |
+
+How rival 3's own dead-seat logic overlaps the layer, in the layer's fires per table at the hybrid:
+
+| field | bot | bet_checked | steal_fold | steal |
+|---|---|---|---|---|
+| realistic | hybrid3_x | 3.1 | 1.6 | 0.1 |
+| realistic | hybrid_x | 3.1 | 6.7 | 0.7 |
+| top | hybrid3_x | 2.4 | 1.1 | 0.0 |
+| top | hybrid_x | 2.5 | 4.8 | 0.2 |
+| strong | hybrid3_x | 2.6 | 1.8 | 0.1 |
+| strong | hybrid_x | 2.8 | 8.0 | 0.8 |
+
+Rival 3 already steals against folders, so the layer's fold-read steal fires a quarter as often on top of it. The
+layer is worth +0.16 to hybrid3 on realistic, against +0.27 to the rival 2 hybrid and +0.44 to Hero. Betting when
+checked to fires equally for every core.
+
+**4. The mirrors** (uniform 4.50).
+
+| room | Hero 7e51197 | hybrid3 | hybrid | hybrid3 - Hero | hybrid - Hero |
+|---|---|---|---|---|---|
+| candidate + 7 rival3 (candidate's points) | 4.312 ± 0.111 | 4.467 ± 0.070 | 4.996 ± 0.112 | +0.155 ± 0.136 | +0.684 ± 0.158 |
+| rival3 + 7 candidates (rival3's points, lower is better) | 4.833 ± 0.101 | 4.531 ± 0.077 | 4.053 ± 0.111 | -0.301 ± 0.128 | -0.780 ± 0.148 |
+| candidate + 7 rival2 (candidate's points) | 3.714 ± 0.099 | 4.084 ± 0.112 | 4.585 ± 0.082 | +0.370 ± 0.138 | +0.871 ± 0.125 |
+| rival2 + 7 candidates (rival2's points, lower is better) | 5.108 ± 0.095 | 4.985 ± 0.111 | 4.437 ± 0.089 | -0.124 ± 0.144 | -0.671 ± 0.127 |
+
+With the layer (round 3, against Hero HEAD):
+
+| room (round 3, the layer on) | Hero HEAD | hybrid3_x | hybrid_x | hybrid3_x - Hero | hybrid_x - Hero |
+|---|---|---|---|---|---|
+| candidate + 7 rival3 (candidate's points) | 4.508 | 4.484 | 4.924 | -0.024 ± 0.139 | **+0.416 ± 0.148** |
+| rival3 + 7 candidates (rival3's points, lower is better) | 4.626 | 4.564 | 4.300 | -0.062 ± 0.137 | **-0.326 ± 0.151** |
+| candidate + 7 rival2 (candidate's points) | 3.689 | 4.005 | 4.381 | **+0.315 ± 0.132** | **+0.691 ± 0.141** |
+| rival2 + 7 candidates (rival2's points, lower is better) | 5.026 | 4.949 | not run | -0.077 ± 0.150 | - |
+
+**5. The 23 twists** (variant_matrix.py's rules, `--field realistic`, 200 unrotated tables per entry, seed 7, model
+mode, panic off; the candidate in Hero's seat of the same tables).
+- Without the layer:
+  - hybrid3: READY 22, PLAYS 1 (bounty, which is Hero's own table and row), first on 16.
+  - Hero 7e51197: READY 22, PLAYS 1 (bounty), first on 11.
+  - Core-routed rows, hybrid3 - Hero: permuted_ranks **+0.65 ± 0.37**, swap_holdem **+0.59 ± 0.38**, fast_schedule
+    **+0.41 ± 0.36**; antes +0.28, pot_limit +0.23, bonus_card +0.21, swap_one_turn +0.19 and top_heavy +1.12 ± 3.39
+    are inside noise, and straddle -0.18 ± 0.34.
+- With the layer:
+  - hybrid3_x and Hero HEAD are both READY 23, first on 22.
+  - Every core-routed row is inside noise: -0.18 (straddle) to +0.18 (permuted_ranks), with top_heavy -2.70 ± 3.68.
+- Every Hero-routed row is +0.00 ± 0.00 in both comparisons. With nothing reading the wall clock, the shell plays
+  those 14 tables bit for bit as Hero does.
+- The rival 2 hybrid's last matrix (v1.1 against Hero 7e51197, strict, load 5-35, "Hybrid candidate") was READY 23,
+  first on 13.
+
+**6. Timing, strict, every candidate at one table** (hybrid, hybrid3, Hero HEAD, hybrid3_x, rival1, rival2, pushfold,
+tag; 200 seeds x 8, SafeBot as shipped; load 34 -> 26 from other sessions, the same for every seat):
+
+| bot | p50 / p99 / mean us | over 1 ms | x Hero |
+|---|---|---|---|
+| Hero HEAD (layer) | 35 / 173 / 47.6 | 0.214% | 1.0 |
+| hybrid3 | 34 / 176 / 48.3 | 0.224% | **1.0** |
+| hybrid3_x | 43 / 223 / 60.9 | 0.289% | 1.4 |
+| hybrid (rival 2 core) | 28 / 243 / 56.5 | 0.264% | 1.2 |
+| rival1 | 25 / 121 / 35.1 | 0.164% | 0.8 |
+| rival2 as built | 136 / 1033 / 201.4 | 1.024% | 4.8 |
+
+Best-of-5 replay (each decision's minimum over five replays of the same recorded tables, the bot's own cost): hybrid3
+mean 22.8 / p99 42 us, hybrid3_x 29.2 / 49, Hero HEAD 20.9 / 38, the rival 2 hybrid 33.9 / 157. Rival 3's core costs
+what Hero's does; the layer in front of it adds ~6 us, which is the 1.4x. The wall-clock p99 test of hybrid3 that
+failed half the time under load was measuring the host; it is now a best-of-replay cost test plus a same-table
+timeout test (07:30 in the log). Panic in this run: every SafeBot here entered it in a few tables at this load (hybrid
+family 796 decisions to Hero's cheap path across the three of them).
+
+**7. The judge, once per candidate** (rival 4, 0d660dc; same protocol, load 27-49). `judge` = holdout with rival 4 in
+rival 3's seat; `judge_top` = hero, rival1-4, pushfold, tag, loose_aggro. "Hero 7e51197" here is Hero HEAD with the
+three shipped layer keys off (the exploit pass's stated equivalent), and the no-layer hybrids' fallback Hero runs
+with its layer off too.
+
+`judge`:
+
+| candidate | points (rank) | - Hero 7e51197 | - Hero HEAD | candidate - rival4 | rival4 | load |
+|---|---|---|---|---|---|---|
+| Hero 7e51197 (no layer) | 5.707 ± 0.104 (1) | - | **-0.327 ± 0.078** | +0.032 ± 0.145 | 5.675 | 37-41 |
+| Hero HEAD (layer) | 6.034 ± 0.111 (1) | **+0.327 ± 0.078** | - | **+0.379 ± 0.153** | 5.655 | 41-35 |
+| hybrid | 5.505 ± 0.108 (2) | **-0.202 ± 0.126** | **-0.529 ± 0.133** | **-0.362 ± 0.144** | 5.867 | 27-34 |
+| hybrid_x | 5.657 ± 0.111 (2) | -0.050 ± 0.134 | **-0.377 ± 0.138** | -0.125 ± 0.152 | 5.781 | 27-41 |
+| hybrid3 | 6.094 ± 0.101 (1) | **+0.387 ± 0.133** | +0.060 ± 0.137 | **+0.501 ± 0.145** | 5.593 | 41-27 |
+| hybrid3_x | 6.210 ± 0.096 (1) | **+0.503 ± 0.124** | **+0.176 ± 0.133** | **+0.657 ± 0.138** | 5.553 | 35-27 |
+
+`judge_top`:
+
+| candidate | points (rank) | - Hero 7e51197 | - Hero HEAD | candidate - rival4 | rival4 | load |
+|---|---|---|---|---|---|---|
+| Hero 7e51197 (no layer) | 4.599 ± 0.111 (5) | - | **-0.215 ± 0.111** | -0.052 ± 0.156 | 4.651 | 34-49 |
+| Hero HEAD (layer) | 4.814 ± 0.111 (2) | **+0.215 ± 0.111** | - | **+0.165 ± 0.156** | 4.649 | 41-46 |
+| hybrid | 4.933 ± 0.103 (1) | **+0.334 ± 0.140** | +0.119 ± 0.142 | **+0.298 ± 0.149** | 4.635 | 47-47 |
+| hybrid_x | 5.128 ± 0.103 (1) | **+0.529 ± 0.134** | **+0.314 ± 0.128** | **+0.581 ± 0.144** | 4.548 | 47-44 |
+| hybrid3 | 4.869 ± 0.106 (3) | **+0.270 ± 0.138** | +0.055 ± 0.138 | **+0.289 ± 0.159** | 4.580 | 49-47 |
+| hybrid3_x | 4.927 ± 0.108 (2) | **+0.328 ± 0.134** | +0.113 ± 0.131 | **+0.404 ± 0.150** | 4.523 | 46-47 |
+
+### All candidates
+
+| candidate | realistic | top | top2 | strong | judge | judge_top | realistic brief | realistic top_heavy | top brief | top top_heavy | alone among 7 rival2 | twists READY / PLAYS | p50 / p99 us, over 1 ms (x Hero), strict, one table |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Hero 7e51197 (no layer) | 5.53 | 4.65 | 4.47 | 5.13 | 5.71 | 4.60 | 5.57 | 20.89 | 4.28 | 13.60 | 3.71 | 22 / 1, first 11 | - |
+| Hero HEAD (layer) | 5.97 | 4.77 | 4.65 | 5.30 | 6.03 | 4.81 | 6.31 | 25.82 | 4.46 | 15.32 | 3.69 | 23 / 0, first 22 | 35 / 173, 0.214% |
+| hybrid (rival 2 core) | 5.53 | 5.06 | 5.06 | 5.13 | 5.50 | 4.93 | 5.50 | 20.34 | 4.56 | 14.75 | **4.59** | 23 / 0, first 13 (strict) | 28 / 243, 0.264% (1.2x) |
+| hybrid_x (+ layer) | 5.79 | **5.12** | **5.16** | **5.56** | 5.66 | **5.13** | 5.95 | 24.09 | **4.82** | **16.59** | 4.38 | - | - |
+| hybrid3 (rival 3 core) | 5.98 | 4.89 | 4.87 | 5.46 | 6.09 | 4.87 | 6.20 | 24.72 | 4.45 | 14.72 | 4.08 | 22 / 1, first 16 | 34 / 176, 0.224% (1.0x) |
+| hybrid3_x (+ layer) | **6.14** | 4.95 | 4.87 | 5.36 | **6.21** | 4.93 | **6.51** | **26.13** | 4.67 | 16.03 | 4.00 | 23 / 0, first 22 | 43 / 223, 0.289% (1.4x) |
+| raw rival3 (reference, no shell) | 5.90 | 4.82 | 4.73 | 5.32 | - | - | 6.21 | 25.03 | 4.49 | 14.71 | - | plays none of the 14 | - |
+
+Bold is the best of the six candidates in the column (the raw rival 3 row is a reference, not a candidate).
+Points are on each table's own scale (uniform 4.50; 4.00 for the brief's table; 12.5 for top_heavy), 200 seeds x 8,
+on the same deals. Every column but top, top2 and strong seats the same opponents for every candidate. In those three
+the Hero clones (hero_tight, hero_loose) are the candidate's own world: without the layer for the first, third and
+fifth rows, with it for the second, fourth and sixth. Read those three columns within a world (sections 1 and 3 give
+the paired deltas). Twists: READY / PLAYS on the 23 entries in model mode, except the rival 2 hybrid's, which is the
+strict run of "Hybrid candidate"; hybrid_x's matrix was not run.
+
+### Verdict
+
+**Rival 3's core is the better of the two cores behind Hero's shell, and the only candidate ahead of Hero by more than
+noise on the realistic room and on the judge.**
+
+Without the layer, hybrid3 against the frozen Hero:
+- realistic +0.46 ± 0.13, strong +0.33 ± 0.14, top +0.24 ± 0.14, top2 +0.40 ± 0.14;
+- judge +0.39 ± 0.13 (measured once); judge_top +0.27 ± 0.14;
+- realistic under the brief's table +0.63 ± 0.20, under top_heavy +3.8 ± 1.2;
+- first on 16 of the 23 twists against Hero's 11, and worse beyond noise on none.
+
+With the shipped layer on both sides, hybrid3_x against Hero HEAD:
+- realistic +0.17 ± 0.13, judge +0.18 ± 0.13, top +0.18 ± 0.14, top2 +0.22 ± 0.14;
+- strong +0.06, judge_top +0.11 and every payout row are inside noise but none below zero;
+- all 23 twists READY for both, first on 22 for both.
+
+The aggression pass and the exploit layer closed most of the gap. Hero HEAD is +0.44 over the frozen Hero on realistic and
++0.33 on the judge, and the layer is worth less on top of rival 3 (+0.16), because rival 3 already steals from folders.
+
+The rival 2 hybrid is the strongest bot in the rival rooms: top +0.36, top2 +0.51, judge_top +0.31 against Hero HEAD,
+with the layer. It also holds uniform alone among seven rival 2s or seven rival 3s. But it loses realistic (-0.18 ±
+0.12) and the judge (-0.38 ± 0.14) to Hero HEAD, and it times out 1.2x as often as Hero at one table here (1.5-3x in round 1).
+
+Raw rival 3 against hybrid3 answers the owner's question. On plain hold'em they make nearly the same decisions. The
+shell's correct payouts add +0.07 to +0.14 on the default table and nothing on the brief's, which is rival 3's own.
+The shell also lets rival 3's core play all 23 twists, 14 of them as Hero.
+
+On timing, at one table in strict mode, hybrid3 times out as often as Hero HEAD (1.0x), hybrid3_x 1.4x, the rival 2
+hybrid 1.2x, and rival 2 as built 4.8x. Best-of-replay costs: hybrid3 23 us mean, Hero 21.
+
+**The comparisons against the frozen 7e51197 are out of date for the core decision.** Round 3 and the judge rows are
+against current Hero code (0d660dc, unchanged at HEAD) with the shipped layer. The separate final comparison (Hero at
+HEAD, hybrid_x, hybrid3_x, raw rival3, the judge fields, on the same deals) is the one the decision should rest on.
+
+### Recommendation (the decision is the owner's)
+
+If the owner switches cores, the measurements point to **hybrid3_x**: rival 3's core with the shipped exploit layer
+behind Hero's shell.
+
+Against the plan's criteria (HANDOFF, 04:00):
+- **Best on realistic:** yes. 6.14 against Hero HEAD's 5.97 and hybrid_x's 5.79.
+- **Best on the rival-4 field:** yes on `judge` (6.21; +0.18 over Hero HEAD). On `judge_top` it is level with Hero HEAD
+  (+0.11 ± 0.13), and hybrid_x leads there.
+- **Best on top:** no. hybrid_x leads top (5.12 against 4.95), though hybrid3_x is ahead of Hero HEAD there (+0.18).
+- **All 23 variants READY:** yes, first on 22, the same as Hero HEAD.
+- **Robust across the three payout tables:** yes. At or above Hero HEAD on all six payout rows, and best of the six
+  candidates on both realistic payout tables.
+- **Timeouts no worse than Hero's:** hybrid3 yes (1.0x Hero at the same table); hybrid3_x no, by a little
+  (1.4x: the layer's ~6 us in front of the core). If that matters, the layer's observe/override is the cost to trim.
+
+No candidate meets every criterion. hybrid_x wins the rival rooms but loses realistic and the judge to Hero HEAD.
+
+Switching is a one-name change: the entry builds `hyperion.hybrid.make_bot(overrides={"core": "rival3", "exploit":
+"hero"})`, and tools/pack.py already copies `hyperion/hybrid/` and `hyperion/sim/rivals/rival3.py`. One cost to remove first:
+`hyperion.hybrid` imports both cores today, so hybrid3 also pays rival 2's import (its import-time Monte Carlo, ~1.2 s
+quiet and up to ~6 s on a loaded host, and a process-wide `gc.freeze()`). Rival 3 alone imports in ~20 ms. Splitting
+the kit helpers out of `hybrid/core.py` and importing each core lazily fixes that without touching a decision. Before
+an upload, tools/gate.py should play that zip; it has not been run with any hybrid.
+
+The alternative is to keep Hero HEAD. It is 0.17-0.22 behind hybrid3_x on realistic, top, top2 and the judge, level
+elsewhere, and its decisions are the ones the team has tuned and understands. That trade is the owner's call.
+
+This recommendation is provisional: the separate final comparison decides between Hero HEAD, hybrid_x and hybrid3_x on
+current code. Only round 3 and the judge rows here are against current Hero.
