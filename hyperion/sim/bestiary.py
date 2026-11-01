@@ -793,6 +793,22 @@ class Rival2Bot(RivalBot):
     MODULE = "rival2"
 
 
+class Rival3Bot(RivalBot):
+    """Red-team rival 3 (hyperion.sim.rivals.rival3), unchanged, behind the same kit adapter; the holdout,
+    never tuned against. Built blind against the same brief, it reads the same act() fields as rivals 1 and 2
+    and only `n_players` from new_table. Unlike them it learns in hand_end: it replays `history` there, in the
+    kit's (seat, (kind, amount)) shape, to count the actions that came after its last decision, so this
+    adapter passes the hand's history as the rival's own engine did (without it the rival scored ~0.3 lower
+    there; docs/drills/redteam/redteam-3.md section 5). It imports in ~20 ms, has no wall-clock time box and
+    seeds its one RNG at construction, so its play is bit-reproducible."""
+
+    MODULE = "rival3"
+
+    def hand_end(self, result: HandResult) -> None:
+        self.impl.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas,
+                            "history": [(s, (a.kind.value, a.amount)) for s, a in result.history]})
+
+
 REGISTRY: dict[str, type] = {
     "crasher": Crasher,
     "timeout": TimeoutBot,
@@ -813,6 +829,7 @@ REGISTRY: dict[str, type] = {
     "hero_loose": HeroLoose,
     "rival1": RivalBot,  # red-team drill 1's bot through the kit adapter; `naive` stays available by name
     "rival2": Rival2Bot,  # red-team drill 2's computation-first bot through the same adapter
+    "rival3": Rival3Bot,  # red-team drill 3's exploitation-first bot: the holdout, never tuned against
 }
 
 # Opponents that need something from outside this repo. Each is registered only when its environment
@@ -855,6 +872,12 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "top": ("hero", "rival1", "rival1", "pushfold", "tag", "hero_tight", "loose_aggro", "rival2"),
     # the same room weighted the other way: rival 2 twice, rival 1 once
     "top2": ("hero", "rival1", "rival2", "rival2", "pushfold", "tag", "hero_tight", "loose_aggro"),
+    # the strong room with each of the three rivals once
+    "top3": ("hero", "rival1", "rival2", "rival3", "pushfold", "tag", "hero_tight", "loose_aggro"),
+    # the holdout: `realistic` with rival 3 in rival 1's seat. Hero is never tuned on rival 3 or on this field;
+    # it is where a gain measured against rivals 1 and 2 shows whether it generalises
+    "holdout": ("hero", "rival3", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "tag",
+                "timeout_then_recover"),
     # the table that busts itself: Hero's job is to survive it and be there at the end
     "chaos": ("hero", "crasher", "random", "allin", "station", "montecarlo", "maniac", "timeout_then_recover"),
 }
