@@ -17,7 +17,7 @@ Routing, per table from Rules and per decision from the observation:
          late when the core's expensive part would start: Hero's cheap path); `hero:core_none` (the core declined:
          rival 3 returns nothing when the move it wants is not legal, e.g. a shove with only call or fold offered, and
          would then fold); `hero:core_error` (the core raised or its answer was unreadable); `hero:panic` (SafeBot saw repeated overruns: Hero's cheap path for the rest of the
-         table).
+         table); `hero:cheap` (the `cheap` dial: every decision Hero's cheap path).
 Variant decisions (discard, swap, buy a card) are always Hero's `variant_decide`.
 
 Exploit layer (`HybridConfig.exploit`, off by default): hyperion/strategy/exploit.py observes every decision and may
@@ -37,6 +37,7 @@ from ..core.cards import is_identity_order, remap
 from ..core.types import Action, HandResult, Observation, Rules
 from ..strategy.hero import Config, HeroCore, config_from_dict
 from ..strategy.safe import SafeBot
+from .dials import Rival3Knobs
 from .kit import KitView, SoftDeadline, from_kit
 
 # HybridConfig.core -> (module, class) of the decision core behind the shell. Imported on first use, so a package that
@@ -82,19 +83,66 @@ class HybridConfig:
     # Hero: None = off; an ExploitParams; or "hero" = the params Hero's Config ships by default at this commit. When it
     # is on, the fallback Hero's own copy is switched off, so one layer sees every decision and none is counted twice.
     exploit: object = None
+    # rival 3's core dials (hyperion/hybrid/dials.py; dials key `r3.<name>`); the rival 2 core ignores them
+    r3: Rival3Knobs = field(default_factory=Rival3Knobs)
+    # every decision Hero's cheap path (push/fold and a tight chart, no reads, no layer): the night's timeout dial,
+    # the same as Hero's `Config.cheap`
+    cheap: bool = False
     seed: int | None = None
 
 
 def hybrid_config(overrides: dict | None = None, hero_overrides: dict | None = None,
                   seed: int | None = None) -> HybridConfig:
-    """A HybridConfig with flat overrides ({"mc_max": 48}) and Hero's dotted Config overrides for the fallback."""
-    cfg = HybridConfig(hero=config_from_dict(hero_overrides, seed=seed), seed=seed)
-    for k, v in (overrides or {}).items():
-        if not hasattr(cfg, k) or k == "hero":
+    """A HybridConfig from a dials dict, plus Hero's dotted Config overrides for the fallback (`hero_overrides`).
+
+    The dials (the night's `--dials`, hyperion/ship.py): flat HybridConfig fields ({"mc_max": 48, "exploit": None,
+    "cheap": True}); `r3.<name>` for rival 3's core (hyperion/hybrid/dials.py); `exploit.<field>` for the layer's
+    params, on top of the layer `exploit` names (Hero's shipped params for "hero", none for off); `hero.<key>` for the
+    fallback Hero's Config (`hero.preflop.open_frac`), applied after `hero_overrides`. Any other key is an error:
+    a Hero key such as `preflop.open_frac` would move only the decisions Hero takes, so it must say `hero.`."""
+    overrides = dict(overrides or {})
+    hero = dict(hero_overrides or {})
+    r3, layer = {}, {}
+    for k in list(overrides):
+        head, dot, rest = k.partition(".")
+        if not dot:
+            continue
+        v = overrides.pop(k)
+        if head == "hero":
+            hero[rest] = v
+        elif head == "r3":
+            if rest not in Rival3Knobs.__dataclass_fields__:
+                raise KeyError(f"unknown rival 3 dial {k!r}; known: {', '.join(Rival3Knobs.__dataclass_fields__)}")
+            r3[rest] = v
+        elif head == "exploit":
+            layer[rest] = v
+        else:
+            raise KeyError(f"{k!r} is not a hybrid dial: `hero.{k}` reaches only the decisions Hero takes (the 14 "
+                           f"Hero tables, ~0.1 a table elsewhere); the core's dials are r3.* (hyperion/hybrid/dials.py)")
+    if overrides.get("cheap"):
+        hero["cheap"] = True
+    cfg = HybridConfig(hero=config_from_dict(hero, seed=seed), seed=seed)
+    for k, v in overrides.items():
+        if not hasattr(cfg, k) or k in ("hero", "r3"):
             raise KeyError(f"unknown HybridConfig field {k!r}")
         setattr(cfg, k, v)
+    if r3:
+        cfg.r3 = replace(cfg.r3, **r3)
+    if layer:
+        cfg.exploit = _layer_with(cfg.exploit, layer)
     cfg.exploit = exploit_params(cfg.exploit)
     return cfg
+
+
+def _layer_with(spec, fields: dict):
+    """The layer `spec` names (see exploit_params; off = the neutral params) with `fields` set on top."""
+    from ..strategy.exploit import ExploitParams
+
+    base = exploit_params(spec)
+    for name in fields:
+        if name not in ExploitParams.__dataclass_fields__:
+            raise KeyError(f"unknown exploit dial 'exploit.{name}'; known: {', '.join(ExploitParams.__dataclass_fields__)}")
+    return replace(base if base is not None else ExploitParams(), **fields)
 
 
 def exploit_params(spec):
@@ -152,6 +200,10 @@ class HybridCore:
         self.cfg = cfg = config or HybridConfig()
         cfg.exploit = exploit_params(cfg.exploit)
         self.ex = None
+        self._cheap = bool(cfg.cheap)
+        if cfg.cheap:  # Hero's cheap path decides everything and, as in Hero, nothing reads the seats
+            cfg.exploit = None
+            cfg.hero.cheap = True
         if cfg.exploit is not None:
             from ..strategy.exploit import Exploit, ExploitParams
 
@@ -222,6 +274,8 @@ class HybridCore:
         t0 = perf_counter()
         if self.panic:
             return self._hero(obs, "hero:panic")
+        if self._cheap:
+            return self._hero(obs, "hero:cheap")
         if self._table_why is not None:
             return self._hero(obs, "hero:table:" + self._table_why)
         street = obs.street
