@@ -412,7 +412,8 @@ def parse_dials(dials: dict | None) -> tuple:
       route          "section=donor,..." (default SHIP_ROUTE)
       r3.<name>      rival 3's core in the base (hyperion/hybrid/dials.py)
       exploit.<f>    the layer's params on top of Hero's shipped set; "exploit": None for no layer
-      hero.<key>     Hero's Config for the hero member (the sections routed to `hero`)
+      hero.<key>     Hero's Config wherever Hero plays: the hero member (sections routed to `hero`) and the base's
+                     fallback Hero (the tables it plays whole), as `hero.<key>` reaches hybrid3_x's fallback Hero
       base.<key>     any other dial for the base (`base.hero.<key>`: its fallback Hero; flat HybridConfig fields)
       cheap          every decision the base's cheap path (Hero's), no other member
       late_us, deadline_ms, panic_after, panic_rate   the shell's clocks"""
@@ -429,8 +430,9 @@ def parse_dials(dials: dict | None) -> tuple:
             base[k] = v
         elif head == "exploit":
             layer[rest] = v
-        elif head == "hero":
+        elif head == "hero":  # Hero wherever it plays: the hero member and the base's fallback Hero (variant tables)
             hero[rest] = v
+            base[k] = v
         elif head == "base":
             base[rest] = v
         else:
