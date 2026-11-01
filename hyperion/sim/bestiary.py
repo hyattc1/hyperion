@@ -826,8 +826,12 @@ class RivalBot(_Base):
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
         super().new_table(rules, seat, n_players)
         self._hist, self._hist_n, self._hist_hand = [], 0, -1
-        self.impl.new_table({"starting_stack": rules.starting_stack, "hand_cap": rules.max_hands,
-                             "n_players": n_players, "blinds": rules.blind_levels}, seat, n_players)
+        self.impl.new_table(self.kit_rules(rules, n_players), seat, n_players)
+
+    def kit_rules(self, rules: Rules, n_players: int) -> dict:
+        """The rules dict the kit passes to new_table ("may be partial")."""
+        return {"starting_stack": rules.starting_stack, "hand_cap": rules.max_hands, "n_players": n_players,
+                "blinds": rules.blind_levels}
 
     def to_kit(self, obs: Observation) -> _KitObs:
         """Our Observation as the kit's. History is converted incrementally: the engine hands out a
@@ -895,6 +899,28 @@ class Rival3Bot(RivalBot):
     seeds its one RNG at construction, so its play is bit-reproducible."""
 
     MODULE = "rival3"
+
+    def hand_end(self, result: HandResult) -> None:
+        self.impl.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas,
+                            "history": [(s, (a.kind.value, a.amount)) for s, a in result.history]})
+
+
+class Rival4Bot(RivalBot):
+    """Red-team rival 4 (hyperion.sim.rivals.rival4), unchanged, behind the same kit adapter; the judge: no candidate
+    core is measured against it or tuned on it before the one final comparison. Built blind against the same brief
+    with no assigned philosophy, it reads the same act() fields as rivals 1 to 3. Two differences, both things the
+    brief's kit may pass: new_table's rules dict carries `payouts` (Rules.payouts), which the rival reads, so its exact
+    ICM prices every all-in on the table that scores it rather than the brief's 10/7/5/4/3/2/1/0 (exact for any table
+    whose places from third down are equal steps, 8..1 included; docs/drills/redteam/redteam-4.md section 3); and
+    hand_end passes the hand's history in the kit's (seat, (kind, amount)) shape, as rival 3's does, from which it
+    counts each seat's VPIP, raises and shoves. Its own engine passed neither. It imports in ~15 ms, has no wall-clock
+    time box and seeds its one RNG at construction, so its play is bit-reproducible. It has no cost model, so the
+    engine's mode "model" never folds it for time."""
+
+    MODULE = "rival4"
+
+    def kit_rules(self, rules: Rules, n_players: int) -> dict:
+        return {**super().kit_rules(rules, n_players), "payouts": list(rules.payouts)}
 
     def hand_end(self, result: HandResult) -> None:
         self.impl.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas,
@@ -979,6 +1005,7 @@ REGISTRY: dict[str, type] = {
     "rival1": RivalBot,  # red-team drill 1's bot through the kit adapter; `naive` stays available by name
     "rival2": Rival2Bot,  # red-team drill 2's computation-first bot through the same adapter
     "rival3": Rival3Bot,  # red-team drill 3's exploitation-first bot: the holdout, never tuned against
+    "rival4": Rival4Bot,  # red-team drill 4's bot (no assigned philosophy): the judge of the final comparison
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
@@ -1031,6 +1058,12 @@ FIELDS: dict[str, tuple[str, ...]] = {
     # it is where a gain measured against rivals 1 and 2 shows whether it generalises
     "holdout": ("hero", "rival3", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "tag",
                 "timeout_then_recover"),
+    # the judge: `holdout` with rival 4 in rival 3's seat (so `realistic`'s bots with rival 4 for rival 1), and the
+    # strong room with each of the four rivals once.
+    # Rival 4 decides between the candidate cores in one final comparison: until then no candidate sits here beyond
+    # smoke tests, and nobody tunes on it. `judge@hybrid3` etc. (below, and field_names) seat a candidate in Hero's seat
+    "judge": ("hero", "rival4", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "tag", "timeout_then_recover"),
+    "judge_top": ("hero", "rival1", "rival2", "rival3", "rival4", "pushfold", "tag", "loose_aggro"),
     # the hybrid candidate in Hero's seat, everything else as in realistic, top, top2 and holdout: the same seating
     # and the same duplicate deals seed for seed, so hybrid(X_h) - hero(X) is a paired comparison
     "realistic_h": ("hybrid", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "rival1", "tag",
@@ -1061,15 +1094,47 @@ for _name, _members in OPTIONAL_FIELDS.items():
     if all(m in REGISTRY for m in _members):
         FIELDS[_name] = _members
 
+# `<field>@<bot>`: the field with <bot> in Hero's seat and every other seat as it is. The runner shuffles a field's
+# seating with the table seed alone, so the bot sits where Hero sat, with the same deals and the same opponents' seeds:
+# `judge@hybrid3` - `judge` is paired seed for seed. Any field with one `hero` and any registered bot not already
+# seated works through field_names(); the candidate cores' judge swaps are also listed in FIELDS so that
+# `python -m hyperion.sim --field judge@hybrid3` accepts them. Hero with the exploit layer is `hero` with dotted
+# overrides (`--hero-config`, run_tournament's hero_config), in Hero's own seat.
+JUDGE_CANDIDATES = tuple(c for c in ("hybrid", "hybrid_x", "hybrid3", "hybrid3_x") if c in REGISTRY)
+
+
+def _hero_swap(base: str, bot: str) -> list[str]:
+    members = field_names(base)
+    if bot == "hero":
+        return members
+    if bot not in REGISTRY and bot not in _BY_CLASS:
+        if bot in OPTIONAL_BOTS:
+            raise _unavailable(bot)
+        raise KeyError(f"unknown bot {bot!r} for {base}@{bot}; known: {', '.join(REGISTRY)}")
+    if members.count("hero") != 1:
+        raise KeyError(f"field {base!r} has {members.count('hero')} hero seats; {base}@{bot} needs exactly one")
+    if bot in members:
+        raise KeyError(f"{bot!r} already sits in {base!r}: its two seats would merge in the report")
+    members[members.index("hero")] = bot
+    return members
+
 
 def field_names(name: str) -> list[str]:
     key = name.strip().lower()
+    if key not in FIELDS and "@" in key:
+        base, _, bot = key.partition("@")
+        return _hero_swap(base.strip(), bot.strip())
     if key not in FIELDS:
         if key in OPTIONAL_FIELDS:
             missing = [m for m in OPTIONAL_FIELDS[key] if m not in REGISTRY]
             raise BotUnavailable(f"field {name!r} is disabled: {_unavailable(missing[0])}")
         raise KeyError(f"unknown field {name!r}; known: {', '.join(FIELDS)}")
     return list(FIELDS[key])
+
+
+for _name in ("judge", "judge_top"):
+    for _cand in JUDGE_CANDIDATES:
+        FIELDS[f"{_name}@{_cand}"] = tuple(_hero_swap(_name, _cand))
 
 
 def make_bot(name: str, seed: Optional[int] = None):
