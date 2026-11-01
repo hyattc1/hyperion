@@ -102,6 +102,9 @@ class Profiler:
         self.opens = [[0, 0] for _ in range(n)]
         # heads-up flops after a preflop raise: the raiser's first flop action with no bet in front (a c-bet chance)
         # and the other player's answer to that c-bet
+        # the preflop opener facing a re-raise (3-bet or re-shove), its first answer: how often it folds its open
+        self.oft_opp = z()
+        self.oft_fold = z()
         self.cb_opp = z()
         self.cbets = z()
         self.fcb_opp = z()
@@ -134,6 +137,8 @@ class Profiler:
         self.pre_limped = False
         self.pre_behind = [0] * n  # players dealt in who act after each seat preflop
         self.pre_order_known = False  # False in the degraded hand_end pass (no observation, no button)
+        self.pre_opener = -1
+        self.oft_done = False
         self.cb_state = 0  # this hand's flop: 0 nothing yet, 1 the raiser c-bet, 2 answered or not a c-bet spot
 
     def _start_hand(self, obs: Observation) -> None:
@@ -270,6 +275,11 @@ class Profiler:
                         depth = (self.cur_bet if self.cur_bet < ch else ch) / (self.last_bb or 1)
                         self.faced_shove_exp[seat] += cp(depth)
             first_ctx = 0
+            if pre and seat == self.pre_opener and self.pre_raises >= 2 and facing_raise and not self.oft_done:
+                self.oft_done = True
+                self.oft_opp[seat] += 1
+                if kind is _FOLD:
+                    self.oft_fold[seat] += 1
             if self.tstreet == 1 and self.cb_state < 2:
                 self._cbet_obs(seat, kind)
             if not pre:
@@ -325,6 +335,8 @@ class Profiler:
                         self.pfr_mask |= bit
                         self.pfr[seat] += 1
                     self.pre_raiser = seat
+                    if self.pre_raises == 0:
+                        self.pre_opener = seat
                     self.pre_raises += 1
                 else:
                     self.post_aggr[seat] += 1
@@ -378,6 +390,10 @@ class Profiler:
     # ------------------------------------------------------------------ rates
     def cbet_rate(self, s: int, prior: float = 0.65, n0: float = 4.0) -> float:
         return (self.cbets[s] + prior * n0) / (self.cb_opp[s] + n0)
+
+    def open_fold_to_reraise(self, s: int, prior: float = 0.75, n0: float = 5.0) -> float:
+        """How often seat s folds its open to a re-raise, smoothed toward `prior` with n0 answers."""
+        return (self.oft_fold[s] + prior * n0) / (self.oft_opp[s] + n0)
 
     def fold_to_cbet(self, s: int, prior: float = 0.5, n0: float = 4.0) -> float:
         return (self.fcb_fold[s] + prior * n0) / (self.fcb_opp[s] + n0)

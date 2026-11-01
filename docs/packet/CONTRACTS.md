@@ -173,6 +173,11 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 | `pushfold.exploit_expected_norm` | True |
 | `pushfold.reshove_w_observed` | False |
 | `pushfold.reshove_w_n0` | 6.0 |
+| `pushfold.reshove_exploit` | False |
+| `pushfold.reshove_fold_prior` | 0.75 |
+| `pushfold.reshove_fold_n` | 5.0 |
+| `pushfold.reshove_fold_max` | 0.9 |
+| `pushfold.reshove_exploit_min_rank` | 0.35 |
 | `pushfold.fi_threshold_bb` | 0.0 |
 | `pushfold.fi_late_threshold_bb` | 0.0 |
 | `pushfold.fi_late_behind` | 2 |

@@ -92,6 +92,16 @@ class PushFoldParams:
     # bb_open_prior[its seat] with reshove_w_n0 spots. Off = bb_open_prior times its PFR over the prior.
     reshove_w_observed: bool = False
     reshove_w_n0: float = 6.0
+    # exploitative re-shoves over one open (any depth the re-shove paths reach): shove when the ICM EV beats folding
+    # with the opener folding at its observed rate F (fold of its open to a re-raise, smoothed toward
+    # reshove_fold_prior with reshove_fold_n answers, capped at reshove_fold_max) and calling with the top (1 - F) x w
+    # of hands (w = opener_width), players behind calling at the solved re-shove table's frequencies; hands below
+    # reshove_exploit_min_rank (heads-up rank) never re-shove on fold equity alone. Off = the solved set + gate.
+    reshove_exploit: bool = False
+    reshove_fold_prior: float = 0.75
+    reshove_fold_n: float = 5.0
+    reshove_fold_max: float = 0.9
+    reshove_exploit_min_rank: float = 0.35
     # the first-in shove zone: an unopened pot above threshold_bb is still push/fold (the solved first-in table
     # with its ICM gate) up to fi_threshold_bb effective, and up to fi_late_threshold_bb with at most fi_late_behind
     # players behind. Hands the table does not shove fold, or with fi_rest_open fall through to the preflop chart's
@@ -650,7 +660,8 @@ class PushFold:
         raiser = spot.raiser
         if raiser < 0 or raiser == spot.me or obs.stacks[raiser] <= 0:
             return None
-        wi = _mw.nearest_w(mw, self.opener_width(spot, prof, raiser))
+        w = self.opener_width(spot, prof, raiser)
+        wi = _mw.nearest_w(mw, w)
         m = len(callers) - 1  # the opener is one of the callers
         if m < 0:
             m = 0
@@ -660,6 +671,8 @@ class PushFold:
         for c in rs["p_bcall"][wi][m][S] or ():
             if c is not None and c > 0.5:
                 return None  # a short-stack cell on the no-overcall model's gamble branch (see multiway.py): not used
+        if self.p.reshove_exploit and self.pre is not None and self.pre.req is not None:
+            return self._reshove_exploit(spot, prof, rs, cls, raiser, w, wi, m, S)
         f = rs["p_push"][wi][m][S]
         if prof is not None:
             f *= self._clamp(prof.fold_to_bet_pre(raiser) / Profiler.P_FTB)
@@ -697,6 +710,45 @@ class PushFold:
         if mw is None or i < 0 or not self.p.use_reshove_table:
             return None
         return self._reshove_table(spot, prof, mw, cls, i, self._callers(spot, prof))
+
+    def _reshove_exploit(self, spot: Spot, prof: Profiler | None, rs: dict, cls: str, raiser: int, w: float, wi: int,
+                         m: int, S: int):
+        """Exploitative re-shove EV through the ICM curve (see PushFoldParams.reshove_exploit)."""
+        p = self.p
+        if self.rank.get(cls, 0.0) < p.reshove_exploit_min_rank:
+            return False
+        req = self.pre.req
+        prior = p.reshove_fold_prior
+        F = prof.open_fold_to_reraise(raiser, prior, p.reshove_fold_n) if prof is not None else prior
+        if F > p.reshove_fold_max:
+            F = p.reshove_fold_max
+        x = (1.0 - F) * w
+        e_o = req.eq(cls, 0.01 if x < 0.01 else x)
+        if e_o is None:
+            return None
+        none_behind = 1.0
+        q_b = 0.0
+        if m > 0:
+            for q in rs["p_bcall"][wi][m][S] or ():
+                if q:
+                    none_behind *= 1.0 - q
+                    if q > q_b:
+                        q_b = q
+        e_b = req.eq(cls, q_b if q_b > 0.01 else 0.01) if none_behind < 1.0 else e_o
+        obs = spot.obs
+        v = self.curve.value
+        behind = obs.stacks[spot.me]
+        pot = spot.pot_total + spot.bounty_bonus
+        risk = min(behind, spot.max_opp_total)
+        v_win, v_lose = v(behind + pot + risk), v(behind - risk)
+        if spot.ko_points and self.curve.points:
+            v_win += spot.ko_points * spot.cover_frac
+        ev = none_behind * (F * v(behind + pot) + (1.0 - F) * (e_o * v_win + (1.0 - e_o) * v_lose)) \
+            + (1.0 - none_behind) * (e_b * v_win + (1.0 - e_b) * v_lose)
+        if ev > v(behind) + p.icm_epsilon:
+            self.last = "reshove_exploit"
+            return True
+        return False
 
     def _push_ev_ok(self, spot: Spot, pc_any: float, e: float, cover: float = 0.0) -> bool:
         obs = spot.obs

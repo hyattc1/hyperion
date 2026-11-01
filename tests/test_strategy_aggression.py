@@ -262,3 +262,35 @@ def test_opens_tighten_against_a_reshove_threat_behind(tables):
     assert pre.act(spot, threat) == F
     off = core_with(tables, {}, seat=7).preflop
     assert off.act(spot, threat).kind is ActionKind.RAISE
+
+
+def test_profiler_counts_how_often_an_opener_folds_to_a_reraise():
+    prof = Profiler(8)
+    prof.reset(8, 0)
+    prof.observe(preflop_obs("Ah Kh", 0, button=7, actions=FOLDS(2, 3, 4, 5, 6) + [(7, R(50))], hand_no=3))
+    prof.hand_end(HandResult(3, [0] * 8, {}, (), FOLDS(2, 3, 4, 5, 6) + [(7, R(50)), (0, F), (1, R(2000)), (7, F)]))
+    assert (prof.oft_opp[7], prof.oft_fold[7]) == (1, 1)
+    assert prof.oft_opp[1] == 0  # the re-raiser is not the opener
+    assert prof.open_fold_to_reraise(7) == pytest.approx((1 + 0.75 * 5) / 6)
+
+
+def test_exploitative_reshove_reads_the_openers_fold_rate(tables):
+    """18 bb in the big blind against a button min-raise: against an opener that folds 18 of 20 opens to a re-raise
+    J7o re-shoves on fold equity; against one that folds 4 of 20 it folds, and 72o never re-shoves."""
+    core = core_with(tables, {"preflop.reshove_mid_bb": 25, "pushfold.reshove_exploit": True})
+    folder, caller = Profiler(8), Profiler(8)
+    for prof, k in ((folder, 18), (caller, 4)):
+        prof.reset(8, 1)
+        prof.oft_opp[7], prof.oft_fold[7] = 20, k
+
+    def act(hole, prof):
+        obs = preflop_obs(hole, 1, button=7, stacks=[360] * 8, actions=BTN_OPEN)
+        return core.preflop.act(Spot(obs, obs.hole), prof)
+
+    assert act("Jh 7c", folder).kind is ActionKind.RAISE and core.pushfold.last == "reshove_exploit"
+    assert act("Jh 7c", caller) == F
+    assert act("7h 2c", folder) == F
+    assert act("Ah 8c", caller).kind is ActionKind.RAISE  # a real hand still re-shoves against callers
+    table_only = core_with(tables, {"preflop.reshove_mid_bb": 25})
+    obs = preflop_obs("Jh 7c", 1, button=7, stacks=[360] * 8, actions=BTN_OPEN)
+    assert table_only.preflop.act(Spot(obs, obs.hole), folder) == F
