@@ -263,3 +263,19 @@ def test_hero_preflop_raise_flag_follows_the_action_taken():
     h._pre_aggr = True
     _resync_hero(h, (3, True), o(0, [10, 20]), Action.check())  # a new hand starts unraised
     assert h._pre_aggr is False
+
+
+def test_the_composite_ships_as_measured():
+    """`composite` with no dials is the final composite F: P's route, the layer's fold read 0.4, Hero's call margin 0.2."""
+    from hyperion import ship
+
+    c = ship.make_bot("composite", {}).core
+    assert c.names == ["base", "hero"]
+    assert [c.donors[SECTIONS.index(s)] for s in ("pre_raised_short", "post_hu_bet", "post_hu_chk", "post_mw")] == \
+        ["hero"] * 4
+    assert all(c.donors[i] == "base" for i, s in enumerate(SECTIONS) if s not in
+               ("pre_raised_short", "post_hu_bet", "post_hu_chk", "post_mw"))
+    assert c.ex.p.bet_min_fold == 0.4 and c.ex.p.bet_checked and c.ex.p.steal
+    assert c.members[1].cfg.postflop.call_margin == 0.2
+    assert c.light[0] is not None  # light shadows as shipped
+    assert ship.make_bot("composite", {"route": ""}).core.names == ["base"]  # dials on top of the defaults

@@ -495,7 +495,10 @@ def make_bot(route=None, seed: int | None = None, config: ComposeConfig | None =
 
 
 # ---------------------------------------------------------------------------------------------- shipping
-SHIP_ROUTE = ""  # the route the composite ships with when the dials name none (docs/drills/compose-log.md)
+SHIP_ROUTE = "post=hero,pre_raised_short=hero"  # the route the composite ships with when the dials name none
+# ... and its other dials: the guarded climb's accepted step (docs/drills/compose-log.md, "climb round 2"). ship() puts the
+# dials it is given on top of these, so `hyperion.ship.make_bot("composite", {})` is the composite as measured ("F")
+SHIP_DIALS: dict = {"route": SHIP_ROUTE, "exploit.bet_min_fold": 0.4, "hero.postflop.call_margin": 0.2}
 
 
 def parse_dials(dials: dict | None) -> tuple:
@@ -554,9 +557,13 @@ def parse_dials(dials: dict | None) -> tuple:
 
 
 def ship(dials: dict, seed: int | None = None) -> Composite:
-    """hyperion/ship.py's builder: the composite from one flat dials dict (parse_dials), with light shadows unless the
-    dials say {"light": false} (the same play; tests/test_compose.py)."""
-    route, kw = parse_dials(dials)
+    """hyperion/ship.py's builder: the composite from one flat dials dict (parse_dials) on top of SHIP_DIALS, with light
+    shadows unless the dials say {"light": false} (the same play; tests/test_compose.py)."""
+    dials = dict(dials or {})
+    base = dict(SHIP_DIALS)
+    if "exploit" in dials and dials["exploit"] is None:  # the layer off: its default params go with it
+        base = {k: v for k, v in base.items() if not k.startswith("exploit.")}
+    route, kw = parse_dials({**base, **dials})
     kw.setdefault("light", True)
     return make_bot(route, seed=seed, **kw)
 
@@ -630,5 +637,5 @@ def register(name: str, route=None, dials: dict | None = None, **kw) -> type:
     return _Seat
 
 
-__all__ = ["COUNTS", "Composite", "CompositeCore", "ComposeConfig", "DONORS", "KitMember", "MEMBERS", "SHIP_ROUTE",
+__all__ = ["COUNTS", "Composite", "CompositeCore", "ComposeConfig", "DONORS", "KitMember", "MEMBERS", "SHIP_DIALS", "SHIP_ROUTE",
            "compose_config", "make_bot", "parse_dials", "register", "register_member", "ship", "variant_member"]
