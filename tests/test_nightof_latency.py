@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from hyperion.core.types import ActionKind
+from hyperion.core.types import ActionKind, Rules
 from hyperion.drills.adapter import KitBAdapter, KitCAdapter, KitDAdapter
 from hyperion.drills.cheapbot import CheapBot
 from hyperion.drills.conformance import check_observation
@@ -110,3 +110,27 @@ def test_kit_d_builder_round_trips_through_the_reference_adapter():
             assert getattr(back, f) == want, (f, o, back)
         reply = adapter.decide(native)
         assert type(reply).__name__ in {c.__name__ for c in native[1].legal_actions()}, reply
+
+
+def test_generator_deals_the_rules_cards():
+    """Drill 6: a 3-card game was timed on 2-card hands its tables do not hold (468 SafeBot errors)."""
+    from hyperion.drills import variants
+
+    lat = load_latency()
+    toss = variants.get("toss_or_holdem").rules
+    obs = lat.observations(200, 3, 8, 0, toss)
+    assert all(len(o.hole) == (3 if o.street == 0 else 2) for o in obs)
+    assert all(len(o.board) == toss.board_sizes[o.street] for o in obs)
+    assert all(check_observation(o, toss) == [] for o in obs)
+    short = variants.get("short_deck").rules
+    removed = set(short.extras["removed_ranks"])
+    assert all((c >> 2) not in removed for o in lat.observations(100, 3, 8, 0, short) for c in o.hole + o.board)
+    plain = lat.observations(30, 7, 8, 0, Rules(payouts=(10, 7, 5, 4, 3, 2, 1, 0)))
+    assert [o.hole for o in plain] == [o.hole for o in lat.observations(30, 7, 8, 0)]  # hold'em keeps the deal
+    assert lat.load_rules(None, "toss_or_holdem").hole_cards == 3
+
+
+def test_variant_flag_times_three_card_decisions_without_safebot_errors():
+    r = run_latency("--bot", "hero", "--n", "300", "--warm", "30", "--variant", "toss_or_holdem", "--p99-us", "5000")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "hole cards 3" in r.stdout and "SafeBot errors 0" in r.stdout, r.stdout

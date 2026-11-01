@@ -3,7 +3,7 @@
 
     python tools/latency.py --bot hero|cheap|module:attr --n 2000
                             [--adapter module:Class --native kit_a|kit_b|kit_c|kit_d|module:func]
-                            [--rules rules_tonight.json] [--seed 2026] [--p99-us 500]
+                            [--rules rules_tonight.json] [--variant NAME] [--seed 2026] [--p99-us 500]
 
 Prints mean, p50, p99 and max in µs, the count over 1 ms, wall versus process CPU time for the run,
 garbage collections during it, and the timer floor. Exit 1 if p99 exceeds --p99-us (default 500) for
@@ -12,7 +12,10 @@ built before the clock starts and every call is timed alone into a preallocated 
 adds only the timer read, which is printed as the floor. `--native` is what turns an Observation back
 into the kit's state: the four fake kits are built in (`kit_d_native` is the template for a kit with
 namedtuple states); for the real kit write a 10-line `build(obs) -> native` and pass `module:build`.
-Stdlib only, plus tests/strategy_helpers.py's generator.
+The cards follow the rules (--rules, else --variant's): the hole-card count (the kept count after a discard
+street), the board sizes and the deck (removed ranks left out), so a three-card game is timed on three-card
+decisions and its variant tables, not on hold'em hands its tables do not hold (drill 6: 468 SafeBot errors).
+Stdlib only, plus tests/strategy_helpers.py's generator for the betting state.
 """
 from __future__ import annotations
 
@@ -50,37 +53,68 @@ def load_bot(spec: str):
     return obj() if callable(obj) else obj
 
 
-def load_rules(path: str | None) -> Rules:
-    if not path:
-        return Rules()
-    from hyperion.tablegen import rules_from_dict
-    with open(path) as f:
-        return rules_from_dict(json.load(f))
+def load_rules(path: str | None, variant: str | None = None) -> Rules:
+    """--rules wins; else the catalog variant's Rules; else the default game."""
+    if path:
+        from hyperion.tablegen import rules_from_dict
+        with open(path) as f:
+            return rules_from_dict(json.load(f))
+    if variant:
+        from hyperion.drills import variants
+        return variants.get(variant).rules
+    return Rules()
 
 
-def observations(n: int, seed: int, n_players: int, seat: int) -> list[Observation]:
-    """n random decision points for `seat` (the adapter's fixed seat), from tests/strategy_helpers."""
+def deal_for(rules: Rules, street: int, rng: random.Random) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """(hole, board) for `street` under the rules: rules.hole_cards before a discard street and extras["keep"]
+    from it on, rules.board_sizes[street] board cards, from the rules' deck without removed ranks."""
+    from hyperion.core.cards import deck_for
+
+    ex = rules.extras or {}
+    removed = set(ex.get("removed_ranks") or ())
+    deck = [c for c in deck_for(rules) if (c >> 2) not in removed]
+    rng.shuffle(deck)
+    holes = rules.hole_cards
+    if "discard_street" in ex and street >= int(ex["discard_street"]):
+        holes = int(ex.get("keep", holes - 1))
+    board = rules.board_sizes[min(street, len(rules.board_sizes) - 1)]
+    return tuple(deck[:holes]), tuple(deck[holes:holes + board])
+
+
+def observations(n: int, seed: int, n_players: int, seat: int, rules: Rules | None = None) -> list[Observation]:
+    """n random decision points for `seat` (the adapter's fixed seat): the betting state from
+    tests/strategy_helpers, the cards dealt for `rules` (default hold'em keeps the generator's own)."""
     try:
         from tests.strategy_helpers import random_obs
     except ImportError as e:  # pragma: no cover - the repo layout guarantees it
         raise SystemExit(f"generator tests/strategy_helpers.random_obs not importable from {ROOT}: {e}")
     rng = random.Random(seed)
+    redeal = rules is not None and not _holdem_cards(rules)
     out: list[Observation] = []
     while len(out) < n:
         o = random_obs(rng, n_players)
-        if o.seat == seat:
-            out.append(o)
+        if o.seat != seat:
+            continue
+        if redeal:
+            street = min(o.street, len(rules.board_sizes) - 1)
+            o.hole, o.board = deal_for(rules, street, rng)
+            o.street = street
+        out.append(o)
     return out
 
 
+def _holdem_cards(rules: Rules) -> bool:
+    """True when the card rules are hold'em's (another payout or schedule does not change the deal)."""
+    ex = rules.extras or {}
+    return (rules.hole_cards == 2 and tuple(rules.board_sizes) == (0, 3, 4, 5) and not ex.get("removed_ranks")
+            and "discard_street" not in ex)
+
+
 def obs_to_state(obs: Observation) -> dict:
-    """The fake kits' dealer state dict (hyperion/drills/fakekits/_table.py) for an Observation."""
-    return {
-        "hole": tuple(obs.hole), "board": tuple(obs.board), "street": obs.street, "seat": obs.seat,
-        "button": obs.button, "stacks": list(obs.stacks), "bets": list(obs.bets), "in_hand": list(obs.in_hand),
-        "pot": obs.pot, "to_call": obs.to_call, "min_raise": obs.min_raise, "max_raise": obs.max_raise,
-        "legal": {k.value for k in obs.legal}, "hand_no": obs.hand_no, "blinds": tuple(obs.blinds), "history": [],
-    }
+    """The fake kits' dealer state dict (hyperion/drills/fakekits/_table.py) for an Observation, history
+    included (hyperion.drills.adapter.dealer_state)."""
+    from hyperion.drills.adapter import dealer_state
+    return dealer_state(obs)
 
 
 def kit_d_native(obs: Observation) -> tuple:
@@ -170,14 +204,15 @@ def main(argv=None) -> int:
     p.add_argument("--adapter", help="module:Class, an Adapter subclass to time the round trip through")
     p.add_argument("--native", default="kit_b", help="kit_a | kit_b | kit_c | kit_d | module:func building the kit state")
     p.add_argument("--rules", help="Rules JSON (default Rules())")
+    p.add_argument("--variant", help="a catalog variant whose Rules to use when --rules is not given")
     p.add_argument("--seed", type=int, default=2026)
     p.add_argument("--seat", type=int, default=0, help="our seat in every observation (default 0)")
     p.add_argument("--p99-us", type=float, default=500.0, help="exit 1 above this p99 (default 500)")
     a = p.parse_args(argv)
 
-    rules = load_rules(a.rules)
+    rules = load_rules(a.rules, a.variant)
     bot = load_bot(a.bot)
-    obs = observations(a.n, a.seed, rules.n_players, a.seat)
+    obs = observations(a.n, a.seed, rules.n_players, a.seat, rules)
     warm = obs[: min(a.warm, len(obs))]
     bot.new_table(rules, a.seat, rules.n_players)
     for o in warm:
@@ -193,7 +228,8 @@ def main(argv=None) -> int:
             adapter.decide(x)
         runs.append(("adapter.decide", measure(adapter.decide, natives)))
 
-    print(f"bot {a.bot}  rules {a.rules or 'default'}  seed {a.seed}  seat {a.seat}  warm {len(warm)}")
+    print(f"bot {a.bot}  rules {a.rules or (a.variant and 'variant ' + a.variant) or 'default'}  "
+          f"hole cards {rules.hole_cards}  seed {a.seed}  seat {a.seat}  warm {len(warm)}")
     for label, m in runs:
         print(line(label, m))
     fl = stats(floor["times"])
