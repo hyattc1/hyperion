@@ -491,9 +491,9 @@ def report(dirs: list, fields: Optional[list] = None, names: Optional[dict] = No
                 r = s["rows"][nm]
                 if not r["dec"] and not r["chips_bb"]:
                     continue
+                bb = _fmt(r["bb_dec"], digits=3) if nm != "blinds" else "%+.0f total" % r["chips_bb"]
                 lines.append(f"| {nm} | {_fmt(r['share'], True)} | {_fmt(r['vpip'], True)} | {_fmt(r['pfr'], True)} | "
-                             f"{_fmt(r['agg'])} | {_fmt(r['allin'], True)} | "
-                             f"{_fmt(r['bb_dec'], digits=3) if nm != 'blinds' else f'{r['chips_bb']:+.0f} total'} | "
+                             f"{_fmt(r['agg'])} | {_fmt(r['allin'], True)} | {bb} | "
                              f"{_fmt(r['sd_win'], True)} | {r['busts']:.0f} |")
             e = s["engine"]
             lines.append("")

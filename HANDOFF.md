@@ -34,6 +34,11 @@ from its brief below and `git log`.
   profile (tools/skill_profile.py, docs/drills/skill-profile.md); rival 5 integrated as the second judge (`judge2`,
   `judge2_night`). Decisions entry "Night field and skill profile". Owns hyperion/sim/bestiary.py, hyperion/sim/rivals/,
   hyperion/sim/field/, docs/drills/redteam/, docs/drills/field/.
+  **DONE (15:10).** night / night_hard / night0, the four persona bots, both Track B bots, and rival 5 with judge2 and
+  judge2_night are in. Model mode is fixed-speed, so every night run replays exactly. Night ranking at 200 x 8: Hero
+  5.75, hybrid3_x 5.75 (-0.01), hybrid_x 5.60, rival3 5.54. night_hard: Hero 5.39, hybrid_x 5.38, hybrid3_x 5.23
+  (-0.17 ± 0.13, lost to rivals 1-3 equally, not to the untuned persona bots). Profile and chip-flow tables:
+  docs/drills/skill-profile.md.
 - Compose: sections (hyperion/compose/sections.py), a composite bot that routes each section to the best member
   (all members shadow every decision), the section swap matrix, greedy combination, a guarded hill climb, one final
   measurement on both judges, ship only if it beats hybrid3_x. Log docs/drills/compose-log.md; entry "Composite bot".

@@ -2753,3 +2753,133 @@ its `hero.*` dials reach its Hero member.
 - `test_bots_survive_a_three_card_variant_with_permuted_ranks`. The bestiary grew to 33 bots, so its half-field
   tables now seat 17 at three hole cards: 56 cards, more than the deck holds. That one is for the bestiary's
   owner.
+
+## Night field and skill profile (2026-11-01, builder: field)
+
+Scope: hyperion/sim/bestiary.py, hyperion/sim/field/ (new), hyperion/sim/rivals/rival5.py, docs/drills/field/ (new),
+docs/drills/redteam/ (rival 5), tools/skill_profile.py (new), docs/drills/skill-profile.md (new), and their tests.
+Commits: `072a674` night and the Track B bots; `654ad45`, `abb3404`, `003ca48` the four persona bots; `0038639`
+rival 5; `fbbac19` fixed-speed model mode; `3784948`, `9e3bb9d`, `16b81dc`, `2dacc75` the profile tool; then the
+docs commit.
+
+**The `night` field.** No fixed 8-bot field looks like the real room: whatever the student teams build in the hour,
+seated eight at a time at random. So `night` is Hero's seat plus seven seats (`night.1` .. `night.7`). Each seat draws
+a distinct bot from a weighted pool, using the table seed alone. The weights are a guess, stated so they can be argued
+with (hyperion/sim/field/night.py has the reasoning):
+
+| group | `night` | `night_hard` | members |
+|---|---|---|---|
+| one-hour agent builds | 40% | 45% | the four persona bots, the two Track B bots (persona bots weigh 2x in `night_hard`) |
+| weak or broken | 30% | 10% | Monte Carlo bots that time out (heaviest), bots that break mid-table, station, random, maniac, nit, all-in, crashers |
+| decent | 15% | 15% | tag, pushfold, loose_aggro |
+| strong teams | 15% | 30% | rivals 1, 2 and 3 |
+
+- *Why these shares.* Nearly every team has a coding agent and one hour, so agent builds are the room: 2.8 seats a
+  table. The 1 ms clock and the hour break about two seats a table: pure-Python Monte Carlo overruns, state grows,
+  placeholders ship. Teams with poker knowledge are about one seat, and so are competent chart bots.
+- *The draw.* For each seat, pick a group by weight among the groups with an undrawn member, then a member by weight;
+  no bot is drawn twice. Realised seats per table over 20,000 tables:
+  - `night`: 2.81 / 2.11 / 1.05 / 1.03;
+  - `night_hard`: 3.26 / 0.72 / 1.08 / 1.94 (strong runs short of 2.1 because the group has only three bots).
+- *Pairing.* A pool seat reads the table seed from the seat seed the runner gives every bot. So every rotation and
+  every `night@<bot>` swap sees the same seven opponents with the same seeds, in the same seats. Tests check this
+  through the runner, plus the same draw in another process with another hash seed.
+- *What is never in a pool:* Hero, its presets, the hybrids and composites, rivals 4 and 5, and `micro`.
+- `night0` is the version shipped before the persona bots froze (only the two Track B bots in the agent group). It is
+  kept so runs made on it can be repeated.
+- The runner reports by seat name, so `night.3` mixes whatever sat in slot 3. Read the Hero seat. For the opponents,
+  use `night.opponents()` or the profile tool.
+
+**New bots in the pool.** All are our own agents' code, read first: none uses the network, a subprocess, exec or file
+writes. Each is a frozen copy below an origin header, with the original archived in docs/drills/field/ and an md5 test.
+- `agent_default` (md5 `cd47da88`, minute 45): what an agent builds when told only "build the strongest bot you can".
+  A rule-based TAG.
+- `agent_montecarlo` (`653c9c29`, minute 46): the Monte Carlo equity team. A 0.18 ms sampler, no charts, no ICM.
+- `agent_charts` (`8d684a43`, minute 17): the live chart player. TAG charts from memory, no ICM, no reads.
+- `agent_pushfold` (`d221bdd6`, minute 46): the ICM push/fold quants. Exact ICM, push charts from memory.
+- `trackb3`, `trackb5`: drills 3 and 5's Track B uploads (`b40150c0`, `aeb14d3b`), on fake kits A and B.
+- The builders' logs are docs/drills/field/agent_*.md.
+
+**Adaptations.** Each one exists because we run every bot in one process.
+- The persona bots play through `PersonaBot`, the red-team adapter, with the payouts and the hand's history passed
+  (the brief allows both).
+- `hyperion.sim.field.load` makes the brief's kit importable as `kit` while a persona loads (agent_default imports it
+  with no fallback). It also turns the garbage collector back on after agent_montecarlo's `gc.disable()`.
+- agent_montecarlo samples from its own seeded RNG per seat, not the global `random`.
+- trackb3 plays with its bounty patch off, since plain hold'em pays no bounty.
+- trackb5 reads its rank map from `Rules.rank_order`, so it is right on plain hold'em and under any permutation. It
+  keeps its module-level state per seat.
+- Two event-name words were dropped from the Track B docstrings for the public export; the export check reports 0
+  hits.
+
+**Rival 5, the second judge.** Built blind by a fresh team against the brief and kit (md5 `c0af68a4`, archived with
+its builder's log), played through rival 4's adapter.
+- Fields: `judge2` is `judge` with rival 5 in rival 4's seat (realistic-shaped, rival 5 in the holdout seat).
+  `judge2_night` is Hero's seat, rival 5, and six drawn from the night pool. The candidate swaps are listed.
+- Never tuned on and not measured here. The tests check legality, timing (skipped on an oversubscribed host), wiring
+  and conservation. The compose agent measures it once, at the end.
+
+**Mode `model` is now fixed-speed, so night replays exactly.** Five bots' play follows the wall clock: rival 2's
+sampler, rival 5's sampler, agent_montecarlo's sampler, agent_pushfold's 260 µs guard, and rival 2's import-time
+tables. On a host at load 40-60, that made fields with them differ run to run. `bestiary._FixedSpeedInModel` uses the
+engine's existing `use_cost_model(True)` call at table start in mode "model" as the switch; strict and measure play
+everything as built. `last_cost_ns` stays None, so these bots are never folded for time.
+- rival 2: a fixed 110 samples, no budget, no hard stop (tools/swap.py's setting). It is also always imported with its
+  clock held still, so its tables are the full 1500 boards at any load.
+- rival 5: a clock that advances 4.0 µs per read.
+- agent_montecarlo: a clock that advances 3.5 µs per read. Each value is the CPU time of the work between two clock
+  reads on this box.
+- agent_pushfold: its guard reads 0.
+- **This changes the protocol:** model-mode runs on `top`, `top2` and `judge_top` used to play rival 2 with its
+  wall-clock sampler. Tests show night and night_hard replaying exactly, every seat and rotation.
+
+**Sanity check: the candidates on the night fields.** 200 seeds × 8 rotations, mode model, code at `00efa2c`. Each bot
+sits in Hero's seat of the same deals. Paired deltas against Hero, ± 95%.
+
+| field | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|
+| `night` | Hero 5.75 | hybrid3_x 5.75 (−0.01 ± 0.12) | hybrid_x 5.60 (**−0.16 ± 0.12**) | rival3 5.54 (**−0.21 ± 0.13**) |
+| `night_hard` | Hero 5.39 | hybrid_x 5.38 (−0.01 ± 0.13) | hybrid3_x 5.23 (**−0.17 ± 0.13**) | rival3 5.17 (**−0.23 ± 0.15**) |
+| `realistic` (100 seeds) | hybrid3_x 6.09 (+0.11 ± 0.18) | Hero 5.98 | rival3 5.91 (−0.07) | hybrid_x 5.71 (**−0.27 ± 0.18**) |
+
+hybrid3_x leads Hero on `realistic`, as the final comparison found. It ties Hero on `night` and is behind beyond noise
+on `night_hard`. A chip-flow split shows where (docs/drills/skill-profile.md has the tables). Each hand's net chips
+for the bot in Hero's seat go to the opponents on the other side of it.
+- On `night`, hybrid3_x wins +3.2 ± 2.7 bb a table more than Hero from the weak or broken seats (the two Monte Carlo
+  bots). It wins −3.0 ± 2.4 less from the one-hour agent builds (mostly trackb3). Against the strong teams the
+  difference is +1.4 ± 1.7. The two effects cancel.
+- On `night_hard`, its gap is the strong teams: −4.9 ± 2.0 bb a table, about equally from rival 1 (−2.4), rival 2
+  (−2.9) and rival 3 (−2.3). Against the persona and Track B bots it is −2.4 ± 2.8, inside noise.
+- So it is not an effect of rivals 1 and 2, which Hero was tuned against. Rival 3 was never a Hero tuning target, and
+  hybrid3_x gives up as much to it.
+- hybrid_x is level with Hero on `night_hard` and ahead at tables with all three rivals (+0.27 ± 0.22).
+- **Tuning caveat.** Hero was tuned against rivals 1 and 2 and most of the bestiary. The hybrids' exploit layer was
+  screened on the same bestiary. Nobody tuned on the persona bots, the Track B bots or the judges. That is about 40% of
+  the `night` seats, untuned for every candidate.
+
+**The skill profile.** `tools/skill_profile.py` (named so, because `tools/profile.py` shadowed the standard library's
+`profile` for every tool script; renamed in `9e3bb9d`) seats each bot in Hero's seat and books every decision to one
+of the compose agent's twelve sections.
+- Per section: share, VPIP, raise rate, aggression, all-in rate, showdown win rate, bust sections, and bb won per
+  decision. A hand's net is split over the decisions that put chips in, pro rata; the rows add up to the net exactly.
+  Each figure carries a 95% interval, with the seed as the unit.
+- Ranked lists per section and per group are in docs/drills/skill-profile.md. They are descriptive, not causal: the
+  swap test is the causal measure.
+
+Headlines on `night`:
+- *Deep preflop:* 1. hybrid3_x, 2. agent_montecarlo, 3. hybrid_x. Hero is 10th of 12.
+- *Short stack:* 1. rival1, 2. agent_montecarlo, 3. rival2, 4. hybrid_x. Hero is 7th.
+- *Endgame:* 1. hybrid3_x, 2. rival1, 3. rival3, 4. Hero.
+- *After the flop:* 1. rival2, 2. hybrid_x, 3. agent_pushfold. Hero is 6th.
+- Hero's plainest leak is facing a raise with 20+ bb, 17-19% of its decisions. It is last on both fields: −0.11 bb a
+  decision on `night`, −0.17 on `realistic`. hybrid3_x is at +0.02 there.
+- The owner's other bot was profiled from a snapshot as a black box, numbers only: `night` 4.86, 11th of 13;
+  `realistic` 4.85, 12th of 13. Its run was at load 35-60, and it reads the wall clock.
+
+**Also fixed.** `test_bots_survive_a_three_card_variant_with_permuted_ranks` now plays eight-seat tables. With 33 bots
+registered, its two half-tables seated 17, which is 56 cards at three hole cards.
+
+**Not done.**
+- No measurement of anything against rival 5.
+- No strict-mode night run: the host was at load 40-60 throughout, so strict timeouts would have measured the host.
+- The pool weights are a guess. Re-weigh them when the regional's field is known.

@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from hyperion.core.types import ActionKind, Rules, parse_cards
@@ -39,8 +41,25 @@ def test_each_bot_in_a_mixed_field_stays_under_budget(name):
     st = res.stats[0]
     assert st.exceptions == 0, st.last_error
     assert st.illegal == 0
-    if st.calls:
+    if st.calls and st.percentile_us(0.99) >= 1000:
+        # wall-clock p99: on an oversubscribed host a fixed 30 us loop overruns too, and then the host is measured
+        host = _host_p99_us()
+        if host >= 300:
+            pytest.skip(f"host oversubscribed: {name} p99 {st.percentile_us(0.99):.0f} us, a 30 us loop p99 {host:.0f} us")
         assert st.percentile_us(0.99) < 1000
+
+
+def _host_p99_us(us: int = 30, n: int = 3000) -> float:
+    """p99 wall time, in microseconds, of a fixed `us`-microsecond busy loop in this process."""
+    times = []
+    for _ in range(n):
+        t0 = time.perf_counter_ns()
+        end = t0 + us * 1000
+        while time.perf_counter_ns() < end:
+            pass
+        times.append((time.perf_counter_ns() - t0) / 1000)
+    times.sort()
+    return times[int(0.99 * n)]
 
 
 def test_bots_survive_a_three_card_variant_with_permuted_ranks():
@@ -49,8 +68,11 @@ def test_bots_survive_a_three_card_variant_with_permuted_ranks():
     # optional outside bots (bestiary.OPTIONAL_BOTS, e.g. microholdem's MicroAgent) are two-card engines
     # that raise on three hole cards; this guarantee is for the bestiary's own bots
     own = [n for n in NAMES if n not in B.OPTIONAL_BOTS]
-    half = (len(own) + 1) // 2  # two tables: 16+ bots x 3 hole cards no longer fit one 52-card deck
-    for names in (own[:half], own[half:]):
+    # eight-seat tables, the target format (15 seats at most fit one deck at three hole cards: 15 x 3 + 5 = 50)
+    tables = [own[i:i + 8] for i in range(0, len(own), 8)]
+    if len(tables[-1]) < 2:
+        tables[-2:] = [tables[-2] + tables[-1]]
+    for names in tables:
         bots = [B.make_bot(n, seed=s) for s, n in enumerate(names)]
         res = play_table(bots, rules, seed=5)
         for st in res.stats:

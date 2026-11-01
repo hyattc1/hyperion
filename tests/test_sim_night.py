@@ -302,13 +302,13 @@ def _flop_obs():
                        blinds=(10, 20), history=[])
 
 
-def test_agent_pushfold_skips_its_wall_clock_guard_in_model_mode_only():
+def test_agent_pushfold_skips_its_wall_clock_guard_in_model_mode_only(monkeypatch):
+    monkeypatch.setattr(B.AgentPushFoldBot, "FIXED_SPEED", False)
     bot = B.make_bot("agent_pushfold", 1)
     bot.use_cost_model(True)
-    assert bot.impl._el() == 0.0
+    assert "_el" in bot.impl.__dict__ and bot.impl._el() == 0.0  # this seat's guard reads 0
     bot.use_cost_model(False)
-    bot.impl._t0 = time.perf_counter() - 1.0
-    assert bot.impl._el() > 1e5  # as built: microseconds since its act() began
+    assert "_el" not in bot.impl.__dict__  # as built: the class's own _el (wall-clock microseconds since act began)
 
 
 def test_rival2_plays_a_fixed_sampler_in_model_mode_and_as_built_otherwise():
