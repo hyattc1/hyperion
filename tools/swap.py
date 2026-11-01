@@ -534,7 +534,7 @@ def _spec_bot(name: str, spec: dict) -> str:
     """The simulator name for a spec: a registered bot ({"bot": "hybrid3_x"}) or a composite (route and dials)."""
     if "bot" in spec:
         return spec["bot"]
-    nm = "cmp_" + name
+    nm = "cmp_" + name.lower()  # field_names lower-cases every bot name
     if "dials" in spec:
         CB.register(nm, dials=dict(spec["dials"]))
         return nm
