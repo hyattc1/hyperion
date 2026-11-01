@@ -131,6 +131,9 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 | `preflop.reshove_mid_opener_max_behind` | 7 |
 | `preflop.reshove_mid_max_open_bb` | 4.0 |
 | `preflop.reshove_mid_min_w` | 0.0 |
+| `preflop.reshove_threat` | 0.0 |
+| `preflop.reshove_threat_bb` | 25.0 |
+| `preflop.reshove_threat_min` | 0.5 |
 | `preflop.reraise_margin` | 0.15 |
 | `preflop.reraise_tight_pfr` | 0.0 |
 | `preflop.raise_or_fold_bb` | 25.0 |

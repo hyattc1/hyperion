@@ -107,6 +107,13 @@ class PreflopParams:
     reshove_mid_opener_max_behind: int = 7  # 3 = cutoff, button and small blind opens
     reshove_mid_max_open_bb: float = 4.0
     reshove_mid_min_w: float = 0.0
+    # opens against a re-shove threat: at <= reshove_threat_bb effective, the open fraction is multiplied by
+    # ((1 - R) / (1 - R0)) ** reshove_threat, where R is the chance that at least one player behind re-shoves (each
+    # at its smoothed re-shove rate at <= 25 bb, shove_ctx_auto_prior / _n) and R0 the same at the prior; only
+    # ever tightens, floored at reshove_threat_min. 0 = off.
+    reshove_threat: float = 0.0
+    reshove_threat_bb: float = 25.0
+    reshove_threat_min: float = 0.5
     reraise_margin: float = 0.15  # 4-bet / 5-bet shoves: equity vs random is discounted by this (a 3-bettor is not random)
     reraise_tight_pfr: float = 0.0  # ... plus this much more when the re-raiser's PFR is below the prior (0 = off)
     raise_or_fold_bb: float = 25.0  # below this depth, no speculative flats
@@ -239,6 +246,8 @@ class Preflop:
                 frac *= self._steal_mult(spot, prof)
             if spot.exposed:
                 frac *= self._exposed_steal_mult(spot)
+            if p.reshove_threat > 0.0 and prof is not None and spot.eff_bb <= p.reshove_threat_bb:
+                frac *= self.reshove_threat_mult(spot, prof)
             if rank >= 1.0 - frac:
                 self.last = "open"
                 return self._raise_to(spot, self.open_size(spot))
@@ -263,6 +272,19 @@ class Preflop:
             self.last = "overlimp"
             return _CALL
         return _CHECK if can_check else _FOLD
+
+    def reshove_threat_mult(self, spot: Spot, prof: Profiler) -> float:
+        """How much to shrink an open when the players behind re-shove more often than the prior (<= 1)."""
+        p = self.p
+        q, q0 = 1.0, 1.0
+        pri, n0 = p.shove_ctx_auto_prior, p.shove_ctx_auto_n
+        for s in spot.opps:
+            k = prof.vo_shove_b[s][0] + prof.vo_shove_b[s][1]
+            n = prof.vo_opp_b[s][0] + prof.vo_opp_b[s][1]
+            q *= 1.0 - (k + pri * n0) / (n + n0)
+            q0 *= 1.0 - pri
+        m = (q / q0) ** p.reshove_threat if q0 > 0.0 else 1.0
+        return 1.0 if m > 1.0 else p.reshove_threat_min if m < p.reshove_threat_min else m
 
     def _exposed_steal_mult(self, spot: Spot) -> float:
         """Every opponent still in an unopened pot acts after me; each one showing a high card shrinks the steal."""

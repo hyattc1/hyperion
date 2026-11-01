@@ -241,3 +241,24 @@ def test_cbet_bluffs_follow_the_callers_fold_to_cbet():
     for name, prof in (("folder", folder), ("sticky", sticky)):
         counts[name] = sum(read.act(spot, obs.hole, prof, True).kind is ActionKind.RAISE for _ in range(300))
     assert counts["folder"] > 200 and counts["sticky"] < 60
+
+
+def test_opens_tighten_against_a_reshove_threat_behind(tables):
+    """15 bb on the button: blinds that re-shove 40% of the opens they face shrink the open range (K5o folds),
+    blinds at the prior do not, and the multiplier never widens."""
+    core = core_with(tables, {"preflop.reshove_threat": 2.0}, seat=7)
+    pre = core.preflop
+    obs = _btn_first_in("Kh 5c", 15)
+    spot = Spot(obs, obs.hole)
+    calm, threat = Profiler(8), Profiler(8)
+    for prof in (calm, threat):
+        prof.reset(8, 7)
+    for s in (0, 1):
+        threat.vo_opp_b[s][1], threat.vo_shove_b[s][1] = 30, 12
+        calm.vo_opp_b[s][1], calm.vo_shove_b[s][1] = 30, 0
+    assert pre.reshove_threat_mult(spot, calm) == 1.0
+    assert pre.reshove_threat_mult(spot, threat) < 0.8
+    assert pre.act(spot, calm).kind is ActionKind.RAISE
+    assert pre.act(spot, threat) == F
+    off = core_with(tables, {}, seat=7).preflop
+    assert off.act(spot, threat).kind is ActionKind.RAISE
