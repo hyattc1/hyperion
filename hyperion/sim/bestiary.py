@@ -209,6 +209,25 @@ class _CostModel:
         return int(ns * self.cost_rng.lognormvariate(0.0, COST_SIGMA)) if COST_SIGMA > 0 else int(ns)
 
 
+class _FixedSpeedInModel:
+    """For bots whose play follows the wall clock (a sampler that stops on a time budget, a guard that skips work when
+    late): in engine mode "model" they play at a fixed speed, so every model-mode run replays exactly, whatever the
+    host's load; in strict and measure modes they play as built. The engine calls use_cost_model(True) on each bot that
+    has it at table start (mode "model" only, False otherwise); `last_cost_ns` stays None, so the timeout model never
+    folds them. FIXED_SPEED, when True, forces the fixed speed in every mode. Subclasses implement _set_speed(fixed)."""
+
+    FIXED_SPEED = False
+    fixed_speed = False
+    last_cost_ns = None
+
+    def use_cost_model(self, on: bool) -> None:
+        self.fixed_speed = bool(on) or self.FIXED_SPEED
+        self._set_speed(self.fixed_speed)
+
+    def _set_speed(self, fixed: bool) -> None:
+        raise NotImplementedError
+
+
 # ----- the archetypes --------------------------------------------------------------------------
 
 
@@ -880,16 +899,42 @@ class RivalBot(_Base):
         self.impl.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas})
 
 
-class Rival2Bot(RivalBot):
+class Rival2Bot(_FixedSpeedInModel, RivalBot):
     """Red-team rival 2 (hyperion.sim.rivals.rival2), unchanged, behind the same kit adapter as rival 1.
     Built blind against the same brief, so it reads the same fields (hole, board, street, seat, button,
     stacks, bets, in_hand, pot, to_call, min/max_raise, legal as strings, 1-based hand_no, blinds,
     history as (seat, (kind, amount))) and only `hand_no` from hand_end; it ignores the rules dict.
     Importing it costs ~1.2 s (import-time Monte Carlo, push/fold solve) and ends in gc.freeze(),
-    which applies to the whole process. Its postflop sampler is time-boxed, so its play is not
-    bit-reproducible run to run the way every other bot here is."""
+    which applies to the whole process. Its import-time equity tables stop at 1500 boards or after 2.4 s; the adapter
+    imports it with its clock held still, so every process builds all 1500 (what a quiet host does) at any load. Its
+    postflop sampler stops on the wall clock (260 us, a hard stop at 520 us), so as built its play follows the host.
+    In mode "model" it plays at a fixed speed (_FixedSpeedInModel): no time budget, no hard stop, a fixed
+    MODEL_SAMPLES (110: what it draws heads-up here on a quiet host, as tools/swap.py's R2_SAMPLES), so model-mode
+    runs replay exactly; strict and measure play it as built."""
 
     MODULE = "rival2"
+    MODEL_SAMPLES = 110
+
+    def __init__(self, seed: Optional[int] = None):
+        if "hyperion.sim.rivals.rival2" not in sys.modules:
+            real = time.perf_counter
+            time.perf_counter = lambda: 0.0  # its import-time tables then always build all 1500 boards
+            try:
+                from .rivals import rival2  # noqa: F401
+            finally:
+                time.perf_counter = real
+        super().__init__(seed)
+
+    def _set_speed(self, fixed: bool) -> None:
+        im = self.impl
+        if fixed:
+            wall = type(im).equity_mc
+            im.MC_BUDGET_US, im.MC_MAX = 1e9, self.MODEL_SAMPLES
+            im.equity_mc = lambda hole, board, cuts, deadline, fits=None, hard=None: wall(
+                im, hole, board, cuts, deadline, fits, deadline + 1.0)
+        else:
+            for k in ("MC_BUDGET_US", "MC_MAX", "equity_mc"):
+                im.__dict__.pop(k, None)
 
 
 class Rival3Bot(RivalBot):
@@ -930,19 +975,20 @@ class Rival4Bot(RivalBot):
                             "history": [(s, (a.kind.value, a.amount)) for s, a in result.history]})
 
 
-class Rival5Bot(Rival4Bot):
-    """Red-team rival 5 (hyperion.sim.rivals.rival5), unchanged, behind the same kit adapter as rival 4: payouts with the
-    rules, the hand's history at hand_end. The second judge: built blind by a fresh team against the same brief and kit
-    (docs/drills/redteam/rival5_bot.py), never tuned on; the compose agent measures the candidates on it once, at the end,
-    in `judge2` and `judge2_night`. Smoke tests check only that it plays legally and in time. It reads `hand_cap` from
-    the rules and builds its per-seat counts from the history it sees in act(); its ICM is the brief's table, hard-coded.
+class Rival5Bot(_FixedSpeedInModel, Rival4Bot):
+    """Red-team rival 5 (hyperion.sim.rivals.rival5), unchanged, behind the same kit adapter as rival 4: payouts with
+    the rules, the hand's history at hand_end. The second judge: built blind by a fresh team against the same brief and
+    kit (docs/drills/redteam/rival5_bot.py), never tuned on; the compose agent measures the candidates on it once, at
+    the end, in `judge2` and `judge2_night`. Smoke tests check only that it plays legally and in time. It reads
+    `hand_cap` from the rules and builds its per-seat counts from the history it sees in act(); its ICM is the brief's
+    table, hard-coded.
     Its postflop sampler stops on the wall clock (130 us, checked every four trials), so its play follows the host,
-    as rival 2's does. STEP_US, when set, gives it a clock that advances STEP_US per read, so it samples a fixed amount
-    and replays exactly: 4.0 us is the CPU time of four trials against two opponents on this box (2.9 heads-up, 6.8
-    against three). Off by default: the judge plays as built."""
+    as rival 2's does. In mode "model" it plays at a fixed speed (_FixedSpeedInModel): its clock advances STEP_US per
+    read, so it samples a fixed amount and replays exactly; 4.0 us is the CPU time of four trials against two opponents
+    on this box (2.9 heads-up, 6.8 against three). Strict and measure modes play the judge as built."""
 
     MODULE = "rival5"
-    STEP_US: Optional[float] = None
+    STEP_US = 4.0
 
     def __init__(self, seed: Optional[int] = None):
         super().__init__(seed)
@@ -954,8 +1000,11 @@ class Rival5Bot(Rival4Bot):
         self._now += self.STEP_US * 1e-6
         return self._now
 
+    def _set_speed(self, fixed: bool) -> None:
+        pass  # read at every act()
+
     def act(self, obs: Observation) -> Action:
-        self.mod.time = self._clock_ns if self.STEP_US is not None else time
+        self.mod.time = self._clock_ns if self.fixed_speed else time
         return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
 
 
@@ -1179,7 +1228,7 @@ class AgentChartsBot(PersonaBot):
     MODULE = "agent_charts"
 
 
-class AgentMonteCarloBot(PersonaBot):
+class AgentMonteCarloBot(_FixedSpeedInModel, PersonaBot):
     """Persona `agent_montecarlo`: a three-person team that insisted on Monte Carlo equity against the players still in
     the hand, compared with pot odds, as fast as pure Python allows. Preflop from equity tables simulated at import
     (seeded); postflop a sampler with a 0.18 ms wall-clock budget and an early stop; no charts, no ICM, no bluffs.
@@ -1188,13 +1237,13 @@ class AgentMonteCarloBot(PersonaBot):
       tournament it runs alone in its process);
     - its sampler draws from the global `random.random`, shared here with everything else in the process; each seat
       gets its own generator seeded from the seat seed, bound into the module before each decision;
-    - its clock is the wall clock (as built). STEP_US, when set, replaces it with a clock that advances STEP_US per
-      read, so its sample counts no longer follow the host: 3.5 us is the CPU time of one four-trial block between
-      its clock checks on this box (0.8-1.1 us a trial, 1-3 opponents), so it then samples as on a quiet host and
-      replays exactly. Off by default."""
+    - its clock is the wall clock as built (strict and measure modes). In mode "model" it plays at a fixed speed
+      (_FixedSpeedInModel): its clock advances STEP_US per read, so its sample counts no longer follow the host;
+      3.5 us is the CPU time of one four-trial block between its clock checks on this box (0.8-1.1 us a trial, 1-3
+      opponents), so it samples as on a quiet host and replays exactly."""
 
     MODULE = "agent_montecarlo"
-    STEP_US: Optional[float] = None
+    STEP_US = 3.5
 
     def __init__(self, seed: Optional[int] = None):
         super().__init__(seed)  # hyperion.sim.field.load turns the garbage collector back on after the import
@@ -1206,23 +1255,31 @@ class AgentMonteCarloBot(PersonaBot):
         self._now += self.STEP_US * 1e-6
         return self._now
 
+    def _set_speed(self, fixed: bool) -> None:
+        pass  # read at every act()
+
     def act(self, obs: Observation) -> Action:
         m = self.mod
         m._rand = self._rand
-        if self.STEP_US is not None:
-            m._perf = self._clock
-        elif m._perf is not time.perf_counter:
-            m._perf = time.perf_counter
+        m._perf = self._clock if self.fixed_speed else time.perf_counter
         return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
 
 
-class AgentPushFoldBot(PersonaBot):
+class AgentPushFoldBot(_FixedSpeedInModel, PersonaBot):
     """Persona `agent_pushfold`: an ICM push/fold quant team. Exact Malmuth-Harville ICM (the brief's 10/7/5/4/3/2/1/0,
     hard-coded), push charts typed from memory of Nash charts with a bubble-factor adjustment, ICM-required equity to
     call shoves from an embedded 169-class equity table, tiered postflop. Frozen at minute 46. Reads no rules and
-    nothing at hand_end; one RNG with a fixed seed; a 260 us wall-clock guard before its heaviest jam EV."""
+    nothing at hand_end; one RNG with a fixed seed. A 260 us wall-clock guard (its _el()) skips its heaviest jam EV
+    when late, so as built its play follows the host; in mode "model" it plays at a fixed speed (_FixedSpeedInModel):
+    _el() reads 0, the guard never fires and model-mode runs replay exactly."""
 
     MODULE = "agent_pushfold"
+
+    def _set_speed(self, fixed: bool) -> None:
+        if fixed:
+            self.impl._el = lambda: 0.0
+        else:
+            self.impl.__dict__.pop("_el", None)
 
 
 class AgentDefaultBot(PersonaBot):

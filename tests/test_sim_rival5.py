@@ -84,23 +84,22 @@ def test_rival5_timeout_rate_in_strict_mode_is_under_one_percent_on_a_quiet_host
     assert rate < 0.01, (over, calls)
 
 
-def test_rival5_has_no_cost_model_so_mode_model_never_folds_it_and_step_us_makes_it_replay_exactly(monkeypatch):
+def test_rival5_plays_at_a_fixed_speed_in_model_mode_never_folded_and_as_built_otherwise():
     bot = B.make_bot("rival5", seed=1)
-    assert not hasattr(bot, "use_cost_model") and getattr(bot, "last_cost_ns", None) is None
+    assert getattr(bot, "last_cost_ns", None) is None  # no modelled cost: mode "model" never folds it for time
     names = ["rival5", "tag", "pushfold", "loose_aggro", "nit", "station", "maniac", "montecarlo"]
 
-    def once():
-        r = play_table([B.make_bot(n, seed=s) for s, n in enumerate(names)], Rules(), seed=3, mode="model")
+    def once(mode):
+        r = play_table([B.make_bot(n, seed=s) for s, n in enumerate(names)], Rules(), seed=3, mode=mode)
         return r.points, r.hands, r.stacks, r.stats[0].over_budget
 
-    monkeypatch.setattr(B.Rival5Bot, "STEP_US", 4.0)
-    a = once()
-    assert a == once() and a[3] == 0  # a fixed-speed sampler replays exactly; never folded for time
+    a = once("model")
+    assert a == once("model") and a[3] == 0  # a fixed-speed sampler replays exactly
     from hyperion.sim.rivals import rival5
 
-    monkeypatch.setattr(B.Rival5Bot, "STEP_US", None)
-    once()
-    assert rival5.time is __import__("time")  # as built, it reads the real clock
+    assert rival5.time is not __import__("time")
+    once("measure")
+    assert rival5.time is __import__("time")  # strict and measure: it reads the real clock, as built
 
 
 def test_adapter_passes_the_hand_cap_and_payouts():

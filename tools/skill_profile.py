@@ -28,10 +28,12 @@ the push-or-fold sections), so a section's numbers mix skill with how the bot go
 means its decisions there won the most chips per decision in the spots it reached. The causal measure is the compose
 agent's swap test: the same bot with one section's decisions replaced, paired on the same deals.
 
-Mode `model` (the default) is the deterministic timeout model; as in the final comparison, Hero's SafeBot panic and the
-hybrids' soft deadline are off there (`panic_after` 10^9, `soft_us` 10^6), so nothing reads the wall clock but rival 2's
-sampler. Rival 2 is imported with its clock held still, so its import-time tables are complete at any load
-(steady_rival2). `--mode strict` plays everything as shipped. At most `--workers` processes (default 3).
+Mode `model` (the default) is the deterministic timeout model, and every bot in it plays at a fixed speed, so a run
+replays exactly at any host load: Hero's SafeBot panic and the hybrids' soft deadline are off (`panic_after` 10^9,
+`soft_us` 10^6), the rival 2 core inside hybrid_x has no time budget (`mc_budget_us`, `mc_hard_us` 10^9: a fixed
+`mc_max` 32 samples, as tools/swap.py runs it), and the opponents whose play follows the wall clock (rival 2, rival 5,
+agent_montecarlo, agent_pushfold) switch to their fixed speed in mode "model" by themselves (bestiary
+_FixedSpeedInModel). `--mode strict` plays everything as shipped. At most `--workers` processes (default 3).
 """
 from __future__ import annotations
 
@@ -83,7 +85,7 @@ GROUPS = (  # plain-language groups of sections for the summary leaderboards
     ("play after the flop", ("post_hu_bet", "post_hu_chk", "post_mw")),
 )
 MODEL_HERO_CONFIG = {"panic_after": 10 ** 9}
-MODEL_HYBRID_CONFIG = {"panic_after": 10 ** 9, "soft_us": 1e6}
+MODEL_HYBRID_CONFIG = {"panic_after": 10 ** 9, "soft_us": 1e6, "mc_budget_us": 1e9, "mc_hard_us": 1e9}
 
 
 def _new_counts() -> dict:
@@ -300,11 +302,9 @@ def _merge(old: Optional[dict], new: dict) -> dict:
 
 
 def steady_rival2() -> None:
-    """Import rival 2 with its clock held still. Its import-time equity tables stop at 1500 boards or after 2.4 s,
-    whichever comes first, so on a loaded host each process would build different tables; held still, every process
-    builds all 1500, as a quiet host does (the compose agent's tools/swap.py does the same). Its sampler at decision
-    time keeps its wall-clock budget, as built and as the final comparison played it. Called once before the workers
-    fork, so they share the module."""
+    """Import rival 2 once before the workers fork, so they share it. The bestiary's Rival2Bot imports it with its
+    clock held still (its import-time equity tables stop at 1500 boards or after 2.4 s, so on a loaded host processes
+    would differ); this does the same, for runs where no Rival2Bot is built first."""
     import sys as _sys
 
     if "hyperion.sim.rivals.rival2" in _sys.modules:

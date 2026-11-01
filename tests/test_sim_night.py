@@ -267,7 +267,7 @@ def test_persona_bots_play_legal_poker_with_their_exceptions_let_through(name, m
     assert bot.kit_rules(Rules(), 8)["payouts"] == list(Rules().payouts)
 
 
-def test_agent_montecarlo_leaves_the_collector_on_samples_from_its_own_seat_rng_and_can_replay_exactly(monkeypatch):
+def test_agent_montecarlo_leaves_the_collector_on_samples_from_its_own_seat_rng_and_replays_in_model_mode():
     import gc
 
     from hyperion.sim.field import agent_montecarlo as m
@@ -281,11 +281,14 @@ def test_agent_montecarlo_leaves_the_collector_on_samples_from_its_own_seat_rng_
         r = play_table(bots, Rules(), seed=11, mode="model")
         return r.points, r.hands, r.stacks
 
-    monkeypatch.setattr(B.AgentMonteCarloBot, "STEP_US", 3.5)
-    assert once() == once()  # its clock advances 3.5 us a read: sample counts no longer follow the host
+    assert once() == once()  # mode "model": its clock advances 3.5 us a read, sample counts no longer follow the host
+    bot.use_cost_model(True)  # what the engine does at table start in mode "model"
     bot.new_table(Rules(), 0, 8)
     bot.act(_flop_obs())
     assert m._rand == bot._rand and m._perf == bot._clock  # bound into the module before its decision
+    bot.use_cost_model(False)  # strict and measure: the wall clock, as built
+    bot.act(_flop_obs())
+    assert m._perf is time.perf_counter
 
 
 def _flop_obs():
@@ -297,3 +300,35 @@ def _flop_obs():
                        min_raise=20, max_raise=1900, legal=frozenset({ActionKind.FOLD, ActionKind.CHECK,
                                                                       ActionKind.RAISE}), hand_no=3,
                        blinds=(10, 20), history=[])
+
+
+def test_agent_pushfold_skips_its_wall_clock_guard_in_model_mode_only():
+    bot = B.make_bot("agent_pushfold", 1)
+    bot.use_cost_model(True)
+    assert bot.impl._el() == 0.0
+    bot.use_cost_model(False)
+    bot.impl._t0 = time.perf_counter() - 1.0
+    assert bot.impl._el() > 1e5  # as built: microseconds since its act() began
+
+
+def test_rival2_plays_a_fixed_sampler_in_model_mode_and_as_built_otherwise():
+    from hyperion.sim.rivals import rival2 as R2
+
+    bot = B.make_bot("rival2", 1)
+    assert R2.MC_N == R2.MC_BOARDS  # imported with its clock held still: complete tables at any load
+    bot.use_cost_model(True)
+    assert (bot.impl.MC_BUDGET_US, bot.impl.MC_MAX) == (1e9, B.Rival2Bot.MODEL_SAMPLES)
+    bot.use_cost_model(False)
+    assert (bot.impl.MC_BUDGET_US, bot.impl.MC_MAX) == (R2.Bot.MC_BUDGET_US, R2.Bot.MC_MAX)
+    assert "equity_mc" not in bot.impl.__dict__
+
+
+@pytest.mark.parametrize("field", ["night", "night_hard"])
+def test_night_fields_replay_exactly_in_model_mode(field):
+    # every seat, every rotation: two runs of the same seeds give the same points, places and hands
+    def once():
+        rep = run_tournament(B.field_names(f"{field}@hero"), tables=2, seed=7, rotate=True, mode="model",
+                             hero_config={"panic_after": 10 ** 9}, table_offset=11)
+        return rep.hands, {nm: (b.samples, b.places, b.busts) for nm, b in rep.bots.items()}
+
+    assert once() == once()
