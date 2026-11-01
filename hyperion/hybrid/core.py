@@ -9,7 +9,7 @@ three things, all from here:
     (outside the decision clock: rival 2 built it inside the first decision of each hand, ~115 us p50 and
     ~500 us p99 at eight seats) and handed to the core when the next hand starts. Its module globals are
     untouched, so a `rival2` opponent in the same process still plays as built.
-  - the sampler: `MC_MAX` samples (rival 2: 160, normally cut by its 260 us clock at ~110 heads-up), a wall
+  - the sampler: `MC_MAX` samples (32 here; rival 2: 160, normally cut by its 260 us clock at ~110 heads-up), a wall
     budget from the start of the decision, and a hard stop; all three per instance.
   - a soft deadline: if the decision has already used `soft_us` when the sampler would start (the process was
     preempted), `SoftDeadline` is raised and the caller answers with Hero's cheap path instead.
@@ -128,7 +128,7 @@ class Rival2Core(R2.Bot):
     Hero instead of rival 2's own check-or-fold."""
 
     payouts = (8, 7, 6, 5, 4, 3, 2, 1)
-    mc_max = 64
+    mc_max = 32
     mc_min = 16
     budget_us = 200.0
     hard_us = 450.0

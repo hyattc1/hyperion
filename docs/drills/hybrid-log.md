@@ -24,3 +24,22 @@ version and never tuned on.
   expected routing, the rank-remap round trip on a recorded table, payouts in the curve with rival 2's globals
   untouched, the fallbacks, timing). Full suite 570 passed, 1 skipped.
 - Smoke, measure mode, top2_h, 3 seeds x 8: hybrid p50 25 us, p99 226 us.
+
+## 01:35-01:42: the sampler budget (100 seeds x 8, strict, seed 7, pinned worktree d3616b1; 2 runs at a time, load 4-8)
+
+Hybrid's own paired deltas between sampler settings (same seeds). "built" is rival 2's own sampler: 160 samples,
+260 us budget, 520 us hard stop.
+
+| field | mc 32 | mc 64 | built | 64 - 32 | built - 32 | built - 64 |
+|---|---|---|---|---|---|---|
+| top2_h | 4.954 ± 0.147 | 5.058 ± 0.148 | 4.941 ± 0.145 | +0.104 ± 0.167 | -0.013 ± 0.180 | -0.117 ± 0.164 |
+| realistic_h | 5.513 ± 0.151 | 5.443 ± 0.154 | 5.452 ± 0.150 | -0.070 ± 0.159 | -0.061 ± 0.168 | +0.008 ± 0.158 |
+
+No measurable difference. Timing in the same runs (top2_h, load 4-5): mc 32 p50 27 / p99 296 us, 0.264% over
+1 ms (hero_tight in the same run 0.155%); mc 64 p99 314, 0.282% (hero_tight 0.168%); built p99 492 and its 0.5 ms
+overruns pushed SafeBot into panic (Hero's cheap path) for 3,901 decisions. Earlier, on a quieter host (load 3-6,
+40 seeds, hybrid and Hero in one field): mc 32 p99 240 us, 0.070% over 1 ms vs Hero 0.041%; mc 64 p99 293, 0.170%
+vs Hero 0.072%. **v1 ships mc_max 32.** Where the time goes (measure mode, top2_h): postflop is 17% of decisions
+and ~47% of the hybrid's time (mean ~226 us at mc 64); preflop p50 22-32 us, like Hero's ~20. Timeouts follow
+mean time per decision, and the core's preflop alone costs about what Hero's whole decision does, so no sampler
+budget brings the hybrid's timeout rate under Hero's at the same load: it runs ~1.7x Hero's.

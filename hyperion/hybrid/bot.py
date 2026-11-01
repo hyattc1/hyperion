@@ -38,7 +38,7 @@ _SHOWDOWN_KEYS = ("lowball", "wild_rank", "category_order", "hi_lo")
 class HybridConfig:
     hero: Config = field(default_factory=Config)  # the Hero that takes every decision the core does not
     # the core's postflop sampler (rival 2 as built: 160 / 48 / 260 us budget / 520 us hard stop)
-    mc_max: int = 64  # samples (heads-up: one runout per two samples)
+    mc_max: int = 32  # samples (heads-up: one runout per two samples); 32 v 64 v as built: no measurable difference
     mc_min: int = 16  # samples before the wall budget may stop it (rival 2 divides this by the opponents sampled)
     mc_budget_us: float = 200.0  # wall budget from the start of the decision
     mc_hard_us: float = 450.0  # stop regardless (only binds when the process was preempted mid-sample)
