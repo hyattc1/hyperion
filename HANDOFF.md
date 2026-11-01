@@ -22,6 +22,27 @@ stops being a holdout; rival 4 (built blind, no assigned philosophy, scratchpad 
 judge. Winner = best on realistic, top and the rival-4 field, all 23 variants READY, timeouts no worse than
 Hero's, robust across the three payout tables. The owner makes the final call on what ships.
 
+**Running as of 2026-11-01 13:45 ET (owner: "fully execute everything end-to-end").** Goal: the best possible base
+for the night. Eight agents launched from the coordinating session; each commits per step. Relaunch any that died
+from its brief below and `git log`.
+- Base switch: make hybrid3_x the shipped bot (lazy core imports, one ship switch used by pack/gate/latency/adapter,
+  Hero one flag away, night-of dials working on the rival 3 core, rehearsal on a fake kit). Decisions entry "Ship
+  hybrid3_x as the base". Owns hyperion/hybrid/, tools/pack.py, tools/gate*.py, tools/latency.py, hyperion/drills/,
+  docs/prompts/, PLAYBOOK.md, docs/packet/.
+- Field: a `night` field (each table draws 7 opponents from a weighted pool like a real regional's: one-hour
+  agent-built bots, weak and broken archetypes, decent bots, rivals 1-3) and `night_hard`; the per-section skill
+  profile (tools/profile.py, docs/drills/skill-profile.md); rival 5 integrated as the second judge (`judge2`,
+  `judge2_night`). Decisions entry "Night field and skill profile". Owns hyperion/sim/bestiary.py, hyperion/sim/rivals/,
+  hyperion/sim/field/, docs/drills/redteam/, docs/drills/field/.
+- Compose: sections (hyperion/compose/sections.py), a composite bot that routes each section to the best member
+  (all members shadow every decision), the section swap matrix, greedy combination, a guarded hill climb, one final
+  measurement on both judges, ship only if it beats hybrid3_x. Log docs/drills/compose-log.md; entry "Composite bot".
+- Scratch builds (session scratchpad, no repo access): four bots built the way typical teams will build them
+  (`field/f1_default`, `f2_montecarlo`, `f3_charts`, `f4_pushfold`, 60 minutes each) and rival 5, a fresh blind judge
+  (`redteam5/`). Each is frozen when FROZEN.md5 appears; the field agent brings them into the repo.
+- The owner's other bot is tested only as a black box from snapshot copies; it never enters the repo, and a section it
+  wins is reported to the owner, not shipped.
+
 **Running as of 2026-11-01 00:30 ET (three Opus agents, launched from the coordinating session):**
 - Timeout and dead-seat exploit pass: DONE (section 1). The aggression pass before it is DONE too (entry "Mid-phase aggression pass").
 - Rival 3: integrated as `rival3`, the holdout (never tuned on); on `holdout` Hero - rival3 -0.74 ± 0.16.
