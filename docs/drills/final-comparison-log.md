@@ -133,3 +133,28 @@ number, and 5.967 over the first 200 is the hybrid agent's round 3. hybrid3_x is
 **hybrid3_x +0.100 ± 0.087 over Hero, just outside noise** (first 200 seeds +0.166 ± 0.128, all 400 smaller). Without
 the layer the rival 3 core is level-to-behind (-0.067), raw rival 3 behind (-0.133 ± 0.090), and **hybrid_x behind,
 -0.283 ± 0.094**. The layer is worth +0.17 to the rival 3 core here (hybrid3_x - hybrid3, same deals).
+
+## 07:51-07:57: `top`, model mode, 400 seeds x 8
+
+hero, rival1, rival1, pushfold, tag, hero_tight, loose_aggro, rival2. hero_tight is a Hero clone with the shipped layer for every candidate.
+
+| # | candidate | pts ± 95% | - Hero (paired) | rank in field | 1st % | bust % | gaps (paired) | load |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hybrid_x | 5.097 ± 0.077 | +0.305 ± 0.101 | 1 of 7 (leader hybrid_x 5.10) | 23 | 70 | - rival1 +0.481 ± 0.103; - rival2 +0.091 ± 0.114 | 25-31 |
+| 2 | hybrid3_x | 4.934 ± 0.077 | +0.141 ± 0.099 | 2 of 7 (leader rival2 5.05) | 20 | 75 | - rival1 +0.283 ± 0.103; - rival2 -0.117 ± 0.118 | 25-31 |
+| 3 | hybrid3 (no layer) | 4.835 ± 0.074 | +0.042 ± 0.093 | 3 of 7 (leader rival2 5.01) | 17 | 77 | - rival1 +0.160 ± 0.105; - rival2 -0.174 ± 0.113 | 26-31 |
+| 4 | rival3 (raw, reference) | 4.800 ± 0.072 | +0.007 ± 0.095 | 3 of 7 (leader rival2 4.97) | 19 | 76 | - rival1 +0.121 ± 0.098; - rival2 -0.168 ± 0.115 | 26-31 |
+| 5 | Hero | 4.793 ± 0.073 | - | 3 of 7 (leader rival2 4.92) | 21 | 75 | - rival1 +0.145 ± 0.104; - rival2 -0.124 ± 0.117 | 26-31 |
+
+| candidate | decisions | p50 / p99 us | wall >= 1 ms | engine timeouts | panicked tables | exc / ill / safe_err | routes and layer fires per table |
+|---|---|---|---|---|---|---|---|
+| Hero | 533,568 | 29 / 109 | 657 (0.123%) | 0 (0.000%) | 0 | 0 / 0 / 0 |  |
+| hybrid_x | 509,403 | 36 / 236 | 968 (0.190%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 95.65%; exploit:steal_fold 4.63, exploit:bet_checked 2.43, exploit:steal 0.22 |
+| hybrid3_x | 511,359 | 43 / 179 | 836 (0.163%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 97.83%; exploit:bet_checked 2.40, exploit:steal_fold 1.09, exploit:steal 0.03, hero:core_none 0.03 |
+| rival3 (raw, reference) | 499,288 | 30 / 129 | 563 (0.113%) | 0 (0.000%) | 0 | 0 / 0 / 0 |  |
+| hybrid3 (no layer) | 509,333 | 34 / 137 | 747 (0.147%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 99.98%; hero:core_none 0.03 |
+
+
+**hybrid_x +0.305 ± 0.101 and hybrid3_x +0.141 ± 0.099 over Hero, both outside noise**; hybrid3 +0.042 and raw rival 3
++0.007 level. Rival 2 leads the room unless hybrid_x sits in it. (First 200 seeds: Hero 4.743 here against 4.765 in
+round 3 on the same deals; rival 2's sampler reads the wall clock.)
