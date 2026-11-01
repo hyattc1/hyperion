@@ -136,3 +136,40 @@ Read:
 The screen's top base run was redone after the determinism fixes (14:10). Every later run uses a frozen worktree of
 the tree at 80e3dd7, so other agents' edits cannot reach a run halfway. Realistic re-verified there: 10 base and 10
 replayed rotations identical.
+
+## 14:59: the screen on night (the primary field; 200 x 8, seeds 0-199, the final night field 003ca48)
+
+Base hybrid3_x 5.748 ± 0.116 (the field agent's number on the same field: 5.75). The night fields replay exactly once
+agent_montecarlo and agent_pushfold run at fixed speed (swap.py; fbbac19 makes it the engine's model mode, the same
+settings).
+
+| section | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| pre_open_40 | hybrid3 -0.020 | rival3 -0.020 | hero -0.034 | r2x -0.078 | rival1 -0.097 (worse) |
+| pre_open_20 | hybrid3 -0.020 | rival3 -0.020 | rival1 -0.034 | hero -0.037 | r2x -0.087 (worse) |
+| pre_open_10 | hybrid3 +0.002 | rival3 +0.002 | r2x -0.003 | hero -0.005 | rival1 -0.009 |
+| pre_open_short | hero -0.003 | hybrid3 -0.004 | r2x -0.013 | rival3 -0.016 | rival1 -0.066 (worse) |
+| pre_raised_deep | hybrid3 0 | rival3 -0.006 | r2x -0.073 | rival1 -0.114 | hero -0.135 (worse) |
+| pre_raised_short | hero +0.063 ± 0.070 | hybrid3 0 | rival3 -0.003 | rival1 -0.007 | r2x -0.041 |
+| pre_allin | hybrid3 0 | rival3 -0.022 | r2x -0.025 | rival1 -0.042 | hero -0.069 (worse) |
+| pre_3way | rival3 -0.005 | hybrid3 -0.007 | r2x -0.020 | rival1 -0.032 (worse) | hero -0.033 (worse) |
+| pre_hu | rival3 -0.001 | hybrid3 -0.002 | hero -0.011 | r2x -0.029 (worse) | rival1 -0.040 (worse) |
+| post_hu_bet | **hero +0.086 ± 0.086** | hybrid3 0 | rival3 -0.004 | r2x -0.005 | rival1 -0.094 (worse) |
+| post_hu_chk | r2x -0.020 | hero -0.021 | rival1 -0.072 | rival3 -0.157 (worse) | hybrid3 -0.162 (worse) |
+| post_mw | hero +0.013 | rival3 +0.009 | hybrid3 +0.007 | r2x -0.004 | rival1 -0.044 |
+
+The same two Hero swaps lead as on realistic: facing a heads-up postflop bet (+0.09, just outside noise) and facing a
+raise short (+0.06, inside). Everywhere else the base is first or level. The layer is worth +0.16 when checked to.
+
+**Hero ties hybrid3_x on night overall (field agent: -0.01 ± 0.12), yet Hero's single-section swaps sum to about
+-0.19 here.** The sections do not add up: Hero's deep preflop ranges (-0.14 facing a raise) are built to go with its own
+postflop play. So the matrix is also being run with Hero as the base (every section Hero; each section swapped to the
+hybrid3_x base, hybrid3, r2x, rival1, rival3, or Hero without the layer), on night and night_hard. Greedy combining
+then starts from whichever base the two matrices favour.
+
+**The ship rule has changed (coordinator, 14:50).** The composite must beat both hybrid3_x and Hero beyond noise on
+night. It must not be worse than either beyond noise on night_hard, realistic and top. It must not lose to either on the
+judge fields, measured once at the end. If no composite clears that, the log reports which of Hero and hybrid3_x is
+better on night and the judges, and no composite ships. night_hard carries ~1.9 strong seats a table, mostly rivals 1-2,
+which Hero was tuned on, so it partly favours Hero by construction. Where night and night_hard disagree, night and
+judge2_night (untuned opponents) weigh more.
