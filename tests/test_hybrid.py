@@ -56,7 +56,8 @@ def test_hybrid_plays_300_hands_legally_with_no_error_swallowed():
 
 
 HERO_ONLY = {"short_deck", "lowball", "wild_deuces", "flush_over_full_house", "omaha_four", "exposed_card",
-             "two_boards", "bounty", "knockout_bounty", "hi_lo", "fixed_raise"}
+             "two_boards", "bounty", "knockout_bounty", "hi_lo", "fixed_raise", "toss_or_holdem",
+             "three_card_blind_discard", "three_card_keep"}
 
 
 @pytest.mark.parametrize("name", V.catalog_names())
@@ -209,11 +210,12 @@ def test_a_core_failure_is_heros_decision_not_a_forced_fold():
     assert hb.safe.errors == 0
 
 
-def test_three_card_games_use_the_best_two_preflop_and_heros_discard():
+def test_three_card_games_with_the_core_use_its_best_two_preflop_and_heros_discard():
     v = V.get("toss_or_holdem")
     bots = [B.make_bot(n, seed=80 + s) for s, n in enumerate(FAST_FIELD)]
     asked = []
     hb = bots[0].impl
+    hb.core.cfg.hero_on_three_cards = False  # the default gives Hero the whole table
     orig = hb.core.variant_decide
 
     def spy(prompt):

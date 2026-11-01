@@ -99,3 +99,55 @@ fourth on top, 0.85 behind rival 2 and level with tag; the hybrid is second, 0.2
 
 On top, Hero is 3.4-3.7 behind both rivals under top_heavy; the hybrid is level with them (-0.6). Routes: realistic
 core 241,388, soft deadline 54, panic 49; top core 239,508, soft deadline 37, panic 95.
+
+## 02:26-02:38: variant readiness, all 23 entries (tools/variant_matrix.py style: `--field realistic`, 200 tables per
+entry, seed 7, strict, no rotation; the hybrid in Hero's seat of the same tables, so per-table deltas are paired;
+one worker each, load 5.0-5.7)
+
+Verdicts as variant_matrix.py (READY = top 2 with VPIP >= 10%, PLAYS = rank 3-4). "Over 1 ms" and p99 include
+variant_decide calls.
+
+| variant | axis | Hero pts, rank, verdict | hybrid pts, rank, verdict | hybrid - Hero (paired) | hybrid routes | hybrid over 1 ms (Hero) | hybrid p99 us (Hero) |
+|---|---|---|---|---|---|---|---|
+| permuted_ranks | ranking | 6.03 ± 0.29, 1, READY | 6.03 ± 0.29, 1, READY | -0.00 ± 0.37 | core 99% | 0.40% (0.18%) | 329 (142) |
+| short_deck | ranking | 5.80 ± 0.26, 1, READY | 5.87 ± 0.26, 1, READY | +0.07 ± 0.16 | core 0%; table:deck 100% | 0.04% (0.05%) | 97 (101) |
+| lowball | ranking | 7.78 ± 0.14, 1, READY | 7.77 ± 0.14, 1, READY | -0.01 ± 0.12 | core 0%; table:showdown 100% | 0.05% (0.05%) | 102 (93) |
+| wild_deuces | ranking | 7.12 ± 0.27, 1, READY | 6.98 ± 0.29, 1, READY | -0.14 ± 0.17 | core 0%; table:showdown 100% | 0.06% (0.06%) | 126 (116) |
+| flush_over_full_house | ranking | 5.42 ± 0.29, 2, READY | 5.67 ± 0.29, 1, READY | **+0.26 ± 0.22** | core 0%; table:showdown 100% | 0.07% (0.07%) | 93 (91) |
+| toss_or_holdem | information | 6.10 ± 0.24, 1, READY | 5.65 ± 0.29, 2, READY | **-0.45 ± 0.33** | core 100% | 0.24% (0.07%) | 268 (114) |
+| three_card_blind_discard | information | 6.04 ± 0.22, 1, READY | 5.69 ± 0.26, 2, READY | **-0.35 ± 0.32** | core 100% | 0.26% (0.12%) | 298 (117) |
+| three_card_keep | information | 6.06 ± 0.25, 1, READY | 5.43 ± 0.27, 2, READY | **-0.63 ± 0.32** | core 63%; extra_hole 37% | 0.24% (0.24%) | 175 (186) |
+| omaha_four | information | 6.74 ± 0.20, 1, READY | 6.73 ± 0.20, 1, READY | -0.01 ± 0.05 | core 0%; table:must_use 100% | 0.25% (0.23%) | 173 (148) |
+| swap_holdem | information | 5.32 ± 0.29, 3, PLAYS | 5.49 ± 0.29, 2, READY | +0.17 ± 0.38 | core 100% | 0.32% (0.13%) | 289 (117) |
+| swap_one_turn | information | 5.76 ± 0.29, 1, READY | 5.66 ± 0.30, 2, READY | -0.10 ± 0.36 | core 100% | 0.25% (0.11%) | 272 (106) |
+| exposed_card | information | 5.49 ± 0.30, 2, READY | 5.58 ± 0.30, 2, READY | +0.09 ± 0.20 | core 0%; table:exposed 100% | 0.05% (0.05%) | 108 (98) |
+| two_boards | information | 5.28 ± 0.27, 2, READY | 5.26 ± 0.26, 2, READY | -0.02 ± 0.23 | core 0%; table:showdown 100% | 0.02% (0.02%) | 96 (87) |
+| bonus_card | information | 5.59 ± 0.29, 1, READY | 5.66 ± 0.30, 1, READY | +0.07 ± 0.30 | core 77%; extra_hole 23% | 0.02% (0.01%) | 97 (75) |
+| bounty | payoff | 5.48 ± 0.30, 2, READY | 5.37 ± 0.31, 2, READY | -0.12 ± 0.24 | core 0%; table:bounty 100% | 0.02% (0.01%) | 84 (85) |
+| knockout_bounty | payoff | 6.91 ± 0.47, 1, READY | 6.88 ± 0.48, 2, READY | -0.03 ± 0.35 | core 0%; table:bounty 100% | 0.02% (0.03%) | 84 (86) |
+| top_heavy | payoff | 20.91 ± 2.63, 2, READY | 18.38 ± 2.65, 2, READY | -2.53 ± 3.16 | core 100% | 0.07% (0.01%) | 246 (92) |
+| hi_lo | payoff | 5.49 ± 0.30, 2, READY | 5.65 ± 0.29, 2, READY | +0.16 ± 0.22 | core 0%; table:showdown 100% | 0.05% (0.05%) | 109 (108) |
+| pot_limit | betting | 5.61 ± 0.29, 2, READY | 5.58 ± 0.30, 2, READY | -0.02 ± 0.33 | core 100% | 0.06% (0.04%) | 236 (95) |
+| antes_from_level_3 | betting | 5.69 ± 0.30, 1, READY | 5.35 ± 0.32, 3, PLAYS | -0.33 ± 0.35 | core 100% | 0.07% (0.03%) | 239 (93) |
+| fixed_raise | betting | 5.61 ± 0.28, 2, READY | 5.72 ± 0.28, 2, READY | +0.10 ± 0.19 | core 0%; table:fixed_limit 100% | 0.01% (0.03%) | 98 (98) |
+| fast_schedule | betting | 5.39 ± 0.30, 2, READY | 5.20 ± 0.29, 3, PLAYS | -0.19 ± 0.37 | core 100% | 0.17% (0.15%) | 284 (187) |
+| straddle | betting | 5.54 ± 0.32, 2, READY | 5.71 ± 0.32, 1, READY | +0.17 ± 0.31 | core 32%; straddle 67%, panic 1% | 0.55% (0.18%) | 475 (183) |
+
+
+**Hybrid READY 21, PLAYS 2 (antes_from_level_3, fast_schedule), first on 8; Hero READY 22, PLAYS 1 (swap_holdem),
+first on 12.** 0 exceptions, 0 illegal, 0 swallowed errors, 0 core errors for either. The 11 Hero-routed entries
+play Hero's code with Hero's seed, so their deltas are a null check: strict-mode timeouts are host events, and one
+different decision changes the rest of a table. They spread -0.14 to +0.26 (flush_over_full_house's +0.26 ± 0.22 is
+the one outside its interval). Of the core-routed entries the three 3-card games are the real cost: toss_or_holdem
+-0.45 ± 0.33, three_card_blind_discard -0.35 ± 0.32, three_card_keep -0.63 ± 0.32. There the core plays preflop from
+its best two cards and Hero plays from 3-card variant tables. Antes -0.33 ± 0.35 (rival 2's push/fold solve has no
+antes; the antes reach it only as dead money). Everything else is level within noise. top_heavy here is 200
+unrotated tables (± 3); the 1,600-table payout runs above are the better read.
+
+## 02:39: v1.1, three hole cards go to Hero (`hero_on_three_cards`, default on)
+
+The brief's mechanism (the core plays a 3-card hand preflop from its best two, Hero discards) measured 0.35-0.63
+worse than Hero on the three 3-card games, where Hero plays from 3-card variant tables. Mixing within a hand (Hero
+preflop, the core after the discard) would leave the core parsing preflop history as if it were the flop, so the
+whole table goes to Hero instead. Only tables with `Rules.hole_cards == 3` change: every 2-card result above stands
+as measured. The best-two path stays available (`hero_on_three_cards` false) and tested.

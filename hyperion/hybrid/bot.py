@@ -1,14 +1,14 @@
 """HybridCore routes each decision to rival 2's core or to Hero; Hybrid is the SafeBot shell around it.
 
 Routing, per table from Rules and per decision from the observation:
-  core   plain hold'em as rival 2 models it: two hole cards (or three before a discard: the core sees its best
-         two), a 52-card deck, board 3/4/5, best five of seven, no-limit or pot-limit (the core's all-in is
+  core   plain hold'em as rival 2 models it: two hole cards (three before a discard only with
+         hero_on_three_cards off: the core then sees its best two), a 52-card deck, board 3/4/5, best five of seven, no-limit or pot-limit (the core's all-in is
          `max_raise`, the pot-limit cap), antes (they are in `pot`, which the core reads as dead money), any blind
          schedule (it reads the current blinds each decision; it has no place for future levels), any payout
          table (its ICM curve is built from `Rules.payouts`), any rank order (cards are remapped first).
   hero   what the core cannot represent, named by a counter: `hero:table:<why>` for a whole table (short deck,
-         lowball, wild cards, category order, hi/lo, two boards, must-use-two, fixed limit, bounties, knockout
-         points, exposed cards); `hero:straddle` (preflop with a straddle: the core reads it as an open raise);
+         lowball, wild cards, category order, hi/lo, two boards, must-use-two, three hole cards, fixed limit,
+         bounties, knockout points, exposed cards); `hero:straddle` (preflop with a straddle: the core reads it as an open raise);
          `hero:extra_hole` (postflop with more than two hole cards); `hero:soft_deadline` (already late when
          the core's sampler would start: Hero's cheap path); `hero:core_error` (the core raised or returned
          nothing); `hero:panic` (SafeBot saw repeated overruns: Hero's cheap path for the rest of the table).
@@ -51,6 +51,9 @@ class HybridConfig:
     # payoff and information terms the core has no place for: Hero plays those tables
     hero_on_bounty: bool = True
     hero_on_exposed: bool = True
+    # three hole cards: Hero plays the table from its 3-card variant tables. False = the core plays preflop from its
+    # best two (and postflop once a discard leaves two): measured 0.35-0.63 worse than Hero on the three 3-card games
+    hero_on_three_cards: bool = True
     seed: int | None = None
 
 
@@ -74,6 +77,8 @@ def table_reason(rules: Rules, cfg: HybridConfig) -> str | None:
         return "must_use"
     if rules.hole_cards > 3:
         return "hole_cards"
+    if rules.hole_cards == 3 and cfg.hero_on_three_cards:
+        return "three_cards"
     for k in _SHOWDOWN_KEYS:
         if k in ex:
             return "showdown"
