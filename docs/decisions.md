@@ -2698,3 +2698,58 @@ In-sim, model mode, 400 unrotated tables (seed 7), both bots in Hero's seat:
   dial, and more to the shipped bot than to Hero.
 - A larger package-against-package run (400+ tables a kit) to resolve the ±0.45 above.
 - `hyperion/sim/runner.py` took a four-line change; its owner, if any, should know.
+
+## Ship hybrid3_x as the base: addendum (2026-11-01, builder: base switch)
+
+**The switch is provisional.** On the new night-like fields (the field agent's measurements), hybrid3_x ties Hero
+on `night` (-0.01 ± 0.12) and trails on `night_hard` (-0.17 ± 0.13). It still leads on realistic and the judges.
+`SHIP` stays `hybrid3_x` for now, marked provisional in `hyperion/ship.py`, and the compose agent's final
+measurement sets it: Hero, hybrid3_x or the composite. Nothing in PLAYBOOK or the prompts says which bot ships;
+they say "the ship bot (see the switch)". The entry above is the record of the mechanism and of the measurements,
+not of a settled choice.
+
+**Both paths are gated.** Fake kit A, 100 strict tables, seed 11, each zip paired against the bot it records:
+
+| zip | package | in-sim | paired | gate |
+|---|---|---|---|---|
+| hybrid3_x | 5.81 | 6.03 | -0.22 ± 0.48 | PASS |
+| Hero (`--bot hero`) | 5.99 | 6.15 | -0.16 ± 0.40 | PASS |
+
+Both had 0 exceptions and 0 illegal actions. The Hero package timed out on 0.09% of decisions, p99 169 µs, at
+load 42.
+
+**The window dials are recipes, so the prompts are right whatever the switch says.**
+- `hyperion/ship.py` RECIPES names six: `survival`, `passive`, `dead_seats`, `strong_field`, `latency` and
+  `timeouts`.
+- `--dials <names>` on the sim, pack, gate and latency resolves them for the bot the switch (or `--bot`) names.
+  Names stack with `+`.
+  - On rival 3's core (hybrid3_x, hybrid3, the composite's base) a recipe is the core's dials, plus Hero's recipe
+    as `hero.<key>` for the tables (or sections) Hero plays there.
+  - On Hero it is Hero's Config keys.
+- `python -m hyperion.ship` prints the switch; `--set <recipes>` keeps dials in it.
+- Every recipe builds on hybrid3_x, Hero and the composite (`tests/test_ship.py`).
+- Hero's recipes, checked the same way (paired, model mode, 200 tables):
+
+| recipe | Hero keys | what moved | points | busts |
+|---|---|---|---|---|
+| `survival` (realistic) | `preflop.patience_deep` 0.3, `postflop.icm_margin` 0.15, `postflop.big_value_tier` 7, `preflop.three_bet_frac` 0.02 | 3-bets 4.5% -> 3.5% | -0.00 ± 0.16 | -0.5 ± 4.7 |
+| `passive` (realistic) | `preflop.open_frac` 2 / 3 behind -> 0.66 / 0.48, `postflop.cbet_freq_ip_dry` 0.7 | late opens 52.5% -> 55.7%, opens +1.7 | -0.01 ± 0.15 | 0 ± 5.0 |
+| `dead_seats` (`timeouts`) | `exploit.steal_min_fold` 0.5, `profiler_blend_n` 4 | opens 48.6% -> 58.2%, late opens 55.9% -> 70.0% | +0.10 ± 0.16 | -3.5 ± 5.3 |
+| `strong_field` (`top`) | `preflop.open_frac_mult` 0.9, `profiler_prior_n` 1 | opens 46.5% -> 43.1%, late opens 62.3% -> 57.7% | +0.23 ± 0.24 | -5.0 ± 6.9 |
+| previous dead-seat keys (`timeouts`) | `profiler_blend_n` 4, `profiler_dial_strength` 1.5 | nothing over 0.4 points | -0.06 ± 0.11 | +3.0 ± 3.7 |
+| previous strong-field keys (`top`) | `preflop.open_frac_default` 0.08, `profiler_prior_n` 1 | nothing over 0.8 points | +0.02 ± 0.12 | -1.0 ± 3.1 |
+
+- The old PLAYBOOK dials for those two signals barely moved Hero: `preflop.open_frac_default` applies only past
+  seven seats behind. They are replaced.
+- `strong_field` on rival 3's core stays empty: Hero's recipe measured -0.48 ± 0.33 there.
+
+**Shipping the composite** is the one line `SHIP = "composite"` (`python -m hyperion.ship --bot composite`).
+Its builder is registered, and the recipes resolve for it as for hybrid3_x. Its `r3.*` dials reach its base and
+its `hero.*` dials reach its Hero member.
+
+**Suite.** 771 passed, 2 skipped, 5 failed, none in files this pass touched:
+- three p99-under-1 ms budget tests, whose failing bot changes from run to run at load 41-45;
+- a night-field wall-clock test, which passed on re-run;
+- `test_bots_survive_a_three_card_variant_with_permuted_ranks`. The bestiary grew to 33 bots, so its half-field
+  tables now seat 17 at three hole cards: 56 cards, more than the deck holds. That one is for the bestiary's
+  owner.

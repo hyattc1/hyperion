@@ -64,12 +64,14 @@ from its brief below and `git log`.
 - Rival 4 (the judge): integrated as `rival4`, fields `judge` and `judge_top`, hero seat swapped by `judge@hybrid3` etc.;
   never tuned on; measured once in the final comparison (decisions entry "Rival 4 in the pool (the judge)").
 
-- Ship hybrid3_x as the base: DONE. `hyperion/ship.py` (`SHIP = "hybrid3_x"`, `DIALS = {}`) names the shipped bot for the
-  entry, pack, gate, latency and `--field <field>@ship`; `--bot hero` restores Hero, `SHIP = "composite"` ships the
-  composite. Lazy imports (build 1.5 s -> 0.3 s), r3.* dials for rival 3's core (bit-identical at defaults, each checked
-  to move play), zip gated PASS on kit A. The kit B rehearsal found the gate failed every bot on kits with no action log;
-  fixed (`--kit-log`). Open: without a log hybrid3_x and Hero are level within noise, and both lose 0.6-0.9 points a
-  table; an adapter that infers the missing actions is the next lever (decisions entry "Ship hybrid3_x as the base").
+- The ship switch: DONE; the choice is PROVISIONAL. `hyperion/ship.py` (`SHIP = "hybrid3_x"` for now, `DIALS = {}`)
+  names the ship bot for the entry, pack, gate, latency and `--field <field>@ship`; `--bot hero` restores Hero;
+  `SHIP = "composite"` ships the composite. The compose agent's final measurement sets SHIP (hybrid3_x ties Hero on
+  `night`, trails on `night_hard`, leads on realistic and the judges). Lazy imports (build 1.5 s -> 0.3 s), r3.* dials
+  for rival 3's core (bit-identical at defaults), window recipes that resolve for whichever bot the switch names,
+  hybrid3_x and Hero zips both gated PASS on kit A. The kit B rehearsal found that the gate failed every bot on kits with
+  no action log; fixed (`--kit-log`). Open: without a log both bots lose 0.6-0.9 points a table; an adapter that infers
+  the missing actions is the next lever (decisions entries "Ship hybrid3_x as the base" and its addendum).
 
 Agents commit as they finish tasks. If one was killed, `git log` shows what landed; the rest is below.
 
