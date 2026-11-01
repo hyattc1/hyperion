@@ -234,3 +234,56 @@ hero, montecarlo, montecarlo30, timeout_then_recover, timeout_burst, tag, pushfo
 
 Hero 6.439 is the exploit pass's final model-mode number on these deals, exactly. **hybrid3_x +0.112 ± 0.085 over Hero,
 outside noise; hybrid_x -0.405 ± 0.089**, its worst field: the rival 2 core loses the most where the field is weakest.
+
+## 09:00-09:16: strict mode (wall clock, everything as shipped: SafeBot panic on, soft deadline on), realistic and judge, 400 seeds x 8, six workers
+
+The coordinator switched accounts after a usage-limit cutoff and reported the host quiet (load 0.06), so the strict runs went first, on six workers. `realistic` ran at load 1-4. `judge` started at load 2; other sessions started eight-process jobs at 09:12 and it finished at load 25. The judge is reported as it came out, not re-run.
+
+### realistic.strict.lin.400  (09:00-09:07, 7 min, load 1 -> 2)
+
+| # | candidate | pts ± 95% | - Hero (paired) | rank in field | 1st % | bust % | gaps (paired) | load |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hybrid3_x | 6.094 ± 0.072 | +0.127 ± 0.091 | 1 of 8 (leader hybrid3_x 6.09) | 46 | 51 | - rival1 +0.546 ± 0.113 | 1-4 |
+| 2 | hybrid3 (no layer) | 5.969 ± 0.072 | +0.002 ± 0.092 | 1 of 8 (leader hybrid3 5.97) | 41 | 55 | - rival1 +0.341 ± 0.114 | 1-3 |
+| 3 | Hero | 5.967 ± 0.072 | - | 1 of 8 (leader hero 5.97) | 43 | 53 | - rival1 +0.423 ± 0.116 | 1-3 |
+| 4 | rival3 (raw, reference) | 5.882 ± 0.070 | -0.085 ± 0.094 | 1 of 8 (leader rival3 5.88) | 40 | 56 | - rival1 +0.242 ± 0.110 | 1-4 |
+| 5 | hybrid_x | 5.696 ± 0.073 | -0.271 ± 0.095 | 1 of 8 (leader hybrid_x 5.70) | 38 | 59 | - rival1 +0.039 ± 0.110 | 1-4 |
+
+| candidate | decisions | p50 / p99 us | wall >= 1 ms | engine timeouts | panicked tables | exc / ill / safe_err | routes and layer fires per table |
+|---|---|---|---|---|---|---|---|
+| Hero | 564,224 | 27 / 73 | 33 (0.006%) | 33 (0.006%) | 0 | 0 / 0 / 0 |  |
+| hybrid_x | 486,918 | 34 / 220 | 60 (0.012%) | 60 (0.012%) | 0 | 0 / 0 / 0 | core 93.88%; exploit:steal_fold 6.52, exploit:bet_checked 2.90, exploit:steal 0.56, hero:soft_deadline 0.00 |
+| hybrid3_x | 525,241 | 37 / 94 | 38 (0.007%) | 38 (0.007%) | 0 | 0 / 0 / 0 | core 97.20%; exploit:bet_checked 2.90, exploit:steal_fold 1.62, exploit:steal 0.13, hero:core_none 0.10, hero:soft_deadline 0.01 |
+| rival3 (raw, reference) | 514,549 | 25 / 69 | 42 (0.008%) | 42 (0.008%) | 0 | 0 / 0 / 0 |  |
+| hybrid3 (no layer) | 526,598 | 29 / 79 | 29 (0.006%) | 29 (0.006%) | 0 | 0 / 0 / 0 | core 99.94%; hero:core_none 0.09, hero:soft_deadline 0.01 |
+
+
+### judge.strict.lin.400  (09:07-09:16, 9 min, load 2 -> 25)
+
+| # | candidate | pts ± 95% | - Hero (paired) | rank in field | 1st % | bust % | gaps (paired) | load |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hybrid3_x | 6.209 ± 0.075 | +0.068 ± 0.095 | 1 of 8 (leader hybrid3_x 6.21) | 54 | 44 | - rival4 +0.659 ± 0.109 | 2-26 |
+| 2 | Hero | 6.141 ± 0.078 | - | 1 of 8 (leader hero 6.14) | 52 | 44 | - rival4 +0.548 ± 0.109 | 2-26 |
+| 3 | hybrid3 (no layer) | 6.076 ± 0.073 | -0.065 ± 0.093 | 1 of 8 (leader hybrid3 6.08) | 48 | 48 | - rival4 +0.433 ± 0.109 | 2-26 |
+| 4 | rival3 (raw, reference) | 6.011 ± 0.074 | -0.130 ± 0.094 | 1 of 8 (leader rival3 6.01) | 48 | 49 | - rival4 +0.375 ± 0.108 | 2-26 |
+| 5 | hybrid_x | 5.776 ± 0.080 | -0.365 ± 0.100 | 2 of 8 (leader rival4 5.78) | 44 | 53 | - rival4 -0.002 ± 0.111 | 2-26 |
+
+| candidate | decisions | p50 / p99 us | wall >= 1 ms | engine timeouts | panicked tables | exc / ill / safe_err | routes and layer fires per table |
+|---|---|---|---|---|---|---|---|
+| Hero | 577,953 | 29 / 111 | 505 (0.087%) | 511 (0.088%) | 1 | 0 / 0 / 0 |  |
+| hybrid_x | 494,143 | 36 / 248 | 950 (0.192%) | 954 (0.193%) | 25 | 0 / 0 / 0 | core 93.06%; exploit:steal_fold 7.11, exploit:bet_checked 3.34, exploit:steal 0.64, hero:panic 0.44, hero:soft_deadline 0.03 |
+| hybrid3_x | 531,865 | 40 / 171 | 814 (0.153%) | 824 (0.155%) | 17 | 0 / 0 / 0 | core 96.54%; exploit:bet_checked 3.59, exploit:steal_fold 1.65, hero:panic 0.32, hero:soft_deadline 0.17, exploit:steal 0.14, hero:core_none 0.11 |
+| rival3 (raw, reference) | 528,365 | 27 / 122 | 575 (0.109%) | 582 (0.110%) | 0 | 0 / 0 / 0 |  |
+| hybrid3 (no layer) | 541,484 | 32 / 137 | 679 (0.125%) | 685 (0.127%) | 7 | 0 / 0 / 0 | core 99.73%; hero:soft_deadline 0.20, hero:panic 0.17, hero:core_none 0.10 |
+
+
+In strict mode "engine timeouts" are the decisions the engine folded or checked for going over 1 ms on the wall
+clock (they match "wall >= 1 ms" up to the first call of each table). "Panicked tables" are tables where SafeBot gave
+the rest of the table to Hero's cheap path, of 3,200 per candidate.
+
+- **realistic, quiet host:** hybrid3_x +0.127 ± 0.091 over Hero, outside noise (model mode: +0.100 ± 0.087); hybrid_x
+  -0.271 ± 0.095. Everyone's timeouts are near zero: Hero 0.006%, hybrid3 0.006%, hybrid3_x 0.007%, rival3 0.008%,
+  hybrid_x 0.012%. No table panicked.
+- **judge, load 2 -> 25:** hybrid3_x +0.068 ± 0.095, inside noise (model mode +0.135 ± 0.097); hybrid_x -0.365 ± 0.100.
+  Once the load rose, the hybrids timed out about twice as often as Hero (hybrid3_x 0.155%, hybrid_x 0.193%, Hero
+  0.088%) and panicked on more tables (17 and 25 against Hero's 1).
