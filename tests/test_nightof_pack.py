@@ -50,9 +50,11 @@ def test_pack_builds_verifies_zips_and_logs(tmp_path):
     assert "agent.py" in names and "hyperion/__init__.py" in names and "tables/meta.json" in names
     night = (tmp_path / "NIGHT.md").read_text()
     rows = [line for line in night.splitlines() if sha in line]
-    assert len(rows) == 1 and "| hybrid3_x: cheap bot |" in rows[0] and "import 0." in rows[0]
+    from hyperion import ship
+
+    assert len(rows) == 1 and f"| {ship.SHIP}: cheap bot |" in rows[0] and "import 0." in rows[0]
     assert night.index(sha) < night.index("## Windows"), "row goes under Submissions, not at the end"
-    assert "bot      hybrid3_x  dials {}" in r.stdout and "bot built in" in r.stdout
+    assert f"bot      {ship.SHIP}  dials {{}}" in r.stdout and "bot built in" in r.stdout
 
 
 def test_pack_records_the_bot_and_dials_it_packed(tmp_path):

@@ -80,9 +80,11 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 
 ## The ship bot (`hyperion/ship.py`, the switch)
 
-`SHIP = 'hybrid3_x'` (provisional: the compose agent's final measurement sets it), `DIALS = {}`. The submission entry builds it with `hyperion.ship.make_bot()`; `tools/pack.py` records the bot and dials it packed in the package's copy of that file and `tools/gate.py` pairs the zip against the same bot in-sim; `tools/latency.py` and `python -m hyperion.sim --field <field>@ship` measure it. Every tool takes `--bot NAME` and `--dials JSON`; `--bot hero` restores Hero, `--bot cheap` is Stage 2's Hero.cheap(). Names: `hybrid3_x`, `hybrid3`, `hero`, `cheap`, `composite`.
+`SHIP = 'composite'`, `DIALS = {}`. The submission entry builds it with `hyperion.ship.make_bot()`; `tools/pack.py` records the bot and dials it packed in the package's copy of that file and `tools/gate.py` pairs the zip against the same bot in-sim; `tools/latency.py` and `python -m hyperion.sim --field <field>@ship` measure it. Every tool takes `--bot NAME` and `--dials JSON`; `--bot hero` restores Hero, `--bot cheap` is Stage 2's Hero.cheap(). Names: `hybrid3_x`, `hybrid3`, `hero`, `cheap`, `composite`.
 
 hybrid3_x (and the composite's base) is rival 3's decision core plus the exploit layer behind Hero's shell (adapter, Rules, rank remap, variant decisions, SafeBot). The core makes about 97% of plain hold'em decisions; Hero plays the 14 tables the core cannot represent (short deck, lowball, wild cards, hi/lo, two boards, must-use, three or more hole cards, fixed limit, bounties, exposed cards) and the straddle preflop. So Hero's Config keys move hybrid3_x only there: on hybrid3_x they are written `hero.<key>`, and a bare Hero key is an error.
+
+The composite (`hyperion/compose/`, the ship bot since the decisions entry "Composite bot") plays that base preflop and Hero postflop and when it faces a raise short (under 20 bb effective, four or more players), with the layer in front of both; with no dials it is the measured composite (`hyperion.compose.bot.SHIP_DIALS`: the route, `exploit.bet_min_fold` 0.4, `hero.postflop.call_margin` 0.2). Its dials: `route` ("section=donor,..."), `r3.<name>` for the base's core, `exploit.<field>`, `hero.<key>` (the hero member and the base's fallback Hero, as on hybrid3_x), `cheap`, `light`.
 
 ## Recipes (the night's dials by name: `--dials survival`, stacked `survival+passive`)
 

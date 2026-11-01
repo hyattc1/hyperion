@@ -281,7 +281,9 @@ def test_a_ship_package_is_gated_against_the_ship_bot_in_sim(tmp_path):
     cfg = gate.Config(pkg=pkg, entry="submission.py", kit="a", kit_dir=kit_dir, scratch=str(scratch))
     bot, _ = gate.baseline_bot(pkg, None, None, None, None)
     pkg2, base2 = gate.play(cfg, bestiary.field_names("realistic"), 3, 3, Rules(), None, "measure", "sim", bot=bot)
-    assert base2.label == "hybrid3_x (sim)" and base2.stats.calls > 0
+    from hyperion import ship
+
+    assert base2.label == f"{ship.SHIP} (sim)" and base2.stats.calls > 0
     assert pkg2.stats.exceptions == pkg2.stats.illegal == 0 and pkg2.decisions > 0
 
 

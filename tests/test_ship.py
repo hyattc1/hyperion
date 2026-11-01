@@ -61,9 +61,16 @@ def _digest(dials: dict, table: int, as_built: bool = False, names: list | None 
 
 
 def test_ship_names_one_bot_and_make_bot_builds_it():
+    from hyperion.compose import Composite
+
     assert ship.SHIP in ship.BUILDERS and ship.DIALS == {}
-    bot = ship.make_bot()
-    assert isinstance(bot, Hybrid) and ship.SHIP == "hybrid3_x"
+    bot = ship.make_bot()  # the composite as measured (decisions entry "Composite bot")
+    assert isinstance(bot, Composite) and ship.SHIP == "composite"
+    assert bot.core.names == ["base", "hero"]
+    cfg = bot.core.members[0].cfg  # its base: rival 3's core at its defaults, the layer in front of the composite
+    assert cfg.core == "rival3" and cfg.exploit is None and cfg.r3 == Rival3Knobs() and bot.core.ex is not None
+    bot = ship.make_bot("hybrid3_x")
+    assert isinstance(bot, Hybrid)
     cfg = bot.core.cfg
     assert cfg.core == "rival3" and cfg.exploit is not None and cfg.r3 == Rival3Knobs()
     assert isinstance(ship.make_bot("hero"), Hero) and ship.make_bot("cheap").config.cheap
@@ -101,7 +108,7 @@ def test_dials_route_to_the_part_that_decides():
 
 
 def test_cheap_dial_sends_every_decision_to_heros_cheap_path():
-    bot = ship.make_bot(dials={**QUIET, "cheap": True}, seed=3)
+    bot = ship.make_bot("hybrid3_x", dials={**QUIET, "cheap": True}, seed=3)  # the composite: tests/test_compose.py
     assert bot.core.ex is None and bot.core.hero.cfg.cheap
     names = B.field_names("realistic")
     bots = [B.make_bot(nm, seed=s) for s, nm in enumerate(names)]
@@ -113,7 +120,7 @@ def test_cheap_dial_sends_every_decision_to_heros_cheap_path():
 
 def test_ship_seats_in_the_simulator_with_its_dials():
     try:
-        assert ship.register_sim({"r3.open_scale": 1.1}) == "hybrid3_x dials {'r3.open_scale': 1.1}"
+        assert ship.register_sim({"r3.open_scale": 1.1}, "hybrid3_x") == "hybrid3_x dials {'r3.open_scale': 1.1}"
         names = B.field_names("realistic@ship")
         assert names[0] == "ship" and names[1:] == B.field_names("realistic")[1:]
         seat = B.make_bot("ship", seed=1)

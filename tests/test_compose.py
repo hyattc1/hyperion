@@ -279,3 +279,23 @@ def test_the_composite_ships_as_measured():
     assert c.members[1].cfg.postflop.call_margin == 0.2
     assert c.light[0] is not None  # light shadows as shipped
     assert ship.make_bot("composite", {"route": ""}).core.names == ["base"]  # dials on top of the defaults
+
+
+def test_the_shipped_composite_takes_the_nights_cheap_dial_and_seats_in_the_simulator(sim):
+    from hyperion import ship
+    from hyperion.core.types import Rules
+    from hyperion.sim.engine import play_table
+
+    bot = ship.make_bot("composite", {"panic_after": 10 ** 9, "soft_us": 1e6, "cheap": True}, seed=3)
+    assert bot.core.names == ["base"] and bot.core.ex is None and bot.core.members[0].hero.cfg.cheap
+    names = B.field_names("realistic")
+    bots = [B.make_bot(nm, seed=s) for s, nm in enumerate(names)]
+    bots[0] = bot
+    play_table(bots, Rules(), seed=5, mode="model")
+    assert set(bot.core.members[0].counts) == {"hero:cheap"}
+    try:
+        assert ship.register_sim({"r3.open_scale": 1.1}) == "composite dials {'r3.open_scale': 1.1}"
+        seat = B.make_bot("ship", seed=1)
+        assert seat.impl.core.members[0].cfg.r3.open_scale == 1.1 and seat.impl.core.names == ["base", "hero"]
+    finally:
+        B.REGISTRY.pop("ship", None)

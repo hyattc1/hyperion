@@ -117,7 +117,7 @@ def render() -> str:
               "settle; with only our chip change it holds the hand end for the next hand's first state "
               "(`defer_hand_end`, `hold_all`). The sim seat that sees what such a kit gives is `InferSeat(bot)`.", ""]
     parts += ["## The ship bot (`hyperion/ship.py`, the switch)", "",
-              f"`SHIP = {ship.SHIP!r}` (provisional: the compose agent's final measurement sets it), "
+              f"`SHIP = {ship.SHIP!r}`, "
               f"`DIALS = {ship.DIALS!r}`. The submission entry builds it with "
               "`hyperion.ship.make_bot()`; `tools/pack.py` records the bot and dials it packed in the package's copy "
               "of that file and `tools/gate.py` pairs the zip against the same bot in-sim; `tools/latency.py` and "
@@ -130,7 +130,13 @@ def render() -> str:
               "the 14 tables the core cannot represent (short deck, lowball, wild cards, hi/lo, two boards, "
               "must-use, three or more hole cards, fixed limit, bounties, exposed cards) and the straddle preflop. "
               "So Hero's Config keys move hybrid3_x only there: on hybrid3_x they are written `hero.<key>`, and a "
-              "bare Hero key is an error.", ""]
+              "bare Hero key is an error.", "",
+              "The composite (`hyperion/compose/`, the ship bot since the decisions entry \"Composite bot\") plays that "
+              "base preflop and Hero postflop and when it faces a raise short (under 20 bb effective, four or more "
+              "players), with the layer in front of both; with no dials it is the measured composite "
+              "(`hyperion.compose.bot.SHIP_DIALS`: the route, `exploit.bet_min_fold` 0.4, `hero.postflop.call_margin` "
+              "0.2). Its dials: `route` (\"section=donor,...\"), `r3.<name>` for the base's core, `exploit.<field>`, "
+              "`hero.<key>` (the hero member and the base's fallback Hero, as on hybrid3_x), `cheap`, `light`.", ""]
     parts += ["## Recipes (the night's dials by name: `--dials survival`, stacked `survival+passive`)", "",
               "Each resolves for the bot the switch names: on rival 3's core (" + ", ".join(ship.CORE_BOTS) + ") the "
               "core's dials plus Hero's as `hero.<key>`; on Hero its Config keys.", "",

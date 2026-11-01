@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from importlib import import_module
 
-SHIP = "hybrid3_x"  # provisional: the compose agent's final measurement on the night-like fields sets it
+SHIP = "composite"  # the composite (decisions entry "Composite bot"); hybrid3_x and hero are one word away
 DIALS: dict = {}
 
 BUILDERS = {
@@ -32,7 +32,7 @@ BUILDERS = {
     "hybrid3": "hyperion.ship:hybrid3",  # the same without the layer
     "hero": "hyperion.ship:hero",  # Hero alone, default Config: the base until 2026-11-01
     "cheap": "hyperion.ship:cheap",  # Hero.cheap(): Stage 2's bot
-    "composite": "hyperion.compose.bot:ship",  # sections routed to donors (hyperion/compose/); not measured as a ship yet
+    "composite": "hyperion.compose.bot:ship",  # rival 3's core preflop, Hero postflop and short facing a raise (compose)
 }
 
 

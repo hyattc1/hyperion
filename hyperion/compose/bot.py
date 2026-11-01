@@ -533,9 +533,10 @@ def parse_dials(dials: dict | None) -> tuple:
             base[rest] = v
         else:
             raise KeyError(f"unknown composite dial {k!r}")
-    if d.pop("cheap", False):
+    if d.pop("cheap", False):  # as on hybrid3_x: every decision Hero's cheap path, no reads, no layer
         base["cheap"] = True
         route = ""
+        exploit, layer = None, {}
     if layer:
         if exploit is None:
             raise KeyError("exploit.* dials with the layer off")
