@@ -1284,3 +1284,28 @@ rivals' edge is the volume of uncontested preflop pots they take in the 10-25 bb
 what moved it was reading re-shoves per opportunity (calling rival 2's re-shoves at the right width) and the
 call-down cap (not paying off rival 1's value bets). (4) The hand cap is not an edge here: rival 1's cap mode is
 worth nothing to it.
+
+## Drill 5 follow-ups (2026-11-01, builder: drill 5 follow-ups)
+
+- **Track B step 3b pushes on chip EV, not the ICM curve (spec v2.1).** The v2 rule (p·V(S + blinds) + (1 − p)·
+  (e·V(2S + blinds) + (1 − e)·V(0)) > V(S) + 0.1 bb, c = 0.12 per seat, e vs the top 12%) failed its own sanity
+  check: at 8 equal 10 bb stacks under 10/7/5/4/3/2/1/0, 22 on the button is 3.85 points against 4.02 for folding
+  and the rule pushes 5% of hands from the button. Exact ICM in place of the 5-point curve gives 3.92 against 4.03,
+  so the static ICM model is the cause, not the interpolation; an orbit of blinds charged to the fold flips it to
+  all-or-nothing (100% button, 5% UTG). Replaced by p·B + (1 − p)·(e·(2S + B) − S) > 0 in bb with c = 0.2 per live
+  opponent (0.3 maniac, 0.1 nit, 0 dead) and e vs the top 20%: on `tables/hu_matrix.json` that is 38% from the button
+  at 10 bb (solved chart 32%) with 22 in at +0.74 bb, 12% from UTG at 12 bb (chart 9%) with 72o at −3.7 bb, and
+  monotone in S and opponents. It is wider than the chart at 6–8 bb from the last two seats and pushes any two from
+  the small blind, because a fixed caller does not widen against a wide shover. ICM stays on calls and re-shoves.
+  Sim check with drill 5's own bot (standard ranks, realistic field, 500 tables, seed 11, strict, loaded box): step 3
+  percentiles 4.25 ± 0.22, v2 ICM rule forced on 4.44, chip EV c 0.2 4.50, c 0.25 4.38; all inside each other's
+  intervals, so the change is for correctness of the sanity checks, not a measured gain.
+- **No-history kits (spec v2.1).** The profiler diffs each seat's active flag and committed chips between our
+  observations (against the previous street's last when the street changed) under kit A's one-per-hand limits; the
+  exploits are unchanged and seats that never flag get the charts. This is what drill 5's agent built for kit B.
+- **`python -m hyperion.sim --variant-seed N`** sets a seeded variant's permutation; without it the table seed
+  still does, as before.
+- **tag, nit and pushfold remap `rank_order`** through `bestiary.strength_view`; the other archetypes stay naive.
+  permuted_ranks re-measured (variant_matrix, realistic, 300 tables, seed 7): Hero 5.95 ± 0.23, first, READY, next
+  rival1 5.52 (was 6.34 / 5.66); tag 4.96 → 5.44 and pushfold 4.74 → 5.34 in that field.
+- CONTRACTS.md unchanged: nothing it covers moved.

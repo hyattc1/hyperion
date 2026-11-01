@@ -64,11 +64,14 @@ kit looks like. Copy nothing into this repo. microholdem's solver output is a cr
    core behind Hero's adapter, tables and Config shell. Not before.
 3. Optional: a third red-team rival with a third philosophy (exploitative maniac-hunter), and one drill on
    kit A with an information-axis twist (toss_or_holdem) now that Hero plays it.
-4. Drill 5 follow-ups (small): Track B spec step 3b's push-EV formula fails its own sanity check (22 on
+4. ~~Drill 5 follow-ups (small): Track B spec step 3b's push-EV formula fails its own sanity check (22 on
    the button at 10 bb: push EV below fold), fix the calibration (edit 16 in the drill 5 report); add a
    spec clause for kits with no action history at all; add `--variant-seed` to `python -m hyperion.sim` so
    the permutation is not derived from the table seed; make tag/nit/pushfold remap `rank_order` so they
-   are honest yardsticks under permuted ranks (only Hero and rival1 do today).
+   are honest yardsticks under permuted ranks (only Hero and rival1 do today).~~ DONE 2026-11-01: step 3b
+   is chip EV (c 0.2, e vs top 20%) and the no-history clause is in step 2, spec v2.1 (8515fc5);
+   `--variant-seed` in `hyperion/sim/runner.py` (fa43da8); `bestiary.strength_view` for tag/nit/pushfold,
+   PLAYBOOK §4b re-measured (be14544); why and numbers in docs/decisions.md, "Drill 5 follow-ups".
 5. Re-run the competition research on Nov 7: the Menlo Park variant and kit interface will be known.
 
 ## Decisions already made (do not reopen without the owner)
