@@ -11,6 +11,7 @@ NAMES = [n for n in B.REGISTRY if n not in ("crasher", "timeout")]
 # bots that spend the budget on purpose (Monte Carlo rollouts, modeled timeouts)
 SLOW = ("montecarlo", "montecarlo30", "timeout_then_recover", "timeout_burst")
 FAST = [n for n in NAMES if n not in SLOW]
+CHEAP = ("station", "random", "allin", "nit", "maniac", "naive", "tag", "pushfold", "loose_aggro")  # a few us a call
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -42,10 +43,13 @@ def test_each_bot_in_a_mixed_field_stays_under_budget(name):
     assert st.exceptions == 0, st.last_error
     assert st.illegal == 0
     if st.calls and st.percentile_us(0.99) >= 1000:
-        # wall-clock p99: on an oversubscribed host a fixed 30 us loop overruns too, and then the host is measured
+        # wall-clock p99: on an oversubscribed host the trivial bots at the same table, timed at the same moments,
+        # overrun too (and a fixed 30 us loop does now), and then the test measures the host, not the bot
+        control = max((res.stats[s].percentile_us(0.99) for s, n in enumerate(names) if n in CHEAP and s), default=0)
         host = _host_p99_us()
-        if host >= 300:
-            pytest.skip(f"host oversubscribed: {name} p99 {st.percentile_us(0.99):.0f} us, a 30 us loop p99 {host:.0f} us")
+        if control >= 200 or host >= 300:
+            pytest.skip(f"host oversubscribed: {name} p99 {st.percentile_us(0.99):.0f} us; trivial bots at the table "
+                        f"p99 {control:.0f} us, a 30 us loop p99 {host:.0f} us")
         assert st.percentile_us(0.99) < 1000
 
 
