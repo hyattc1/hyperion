@@ -14,6 +14,14 @@ fake kits, tooling, five drills) is in good shape; Track A (bring the repo) is t
 
 ## What was running when this was written, and how to relaunch each
 
+**Plan change, 2026-11-01 04:00 ET (owner asked "why not just switch to the rival's code?").** Stop tuning
+Hero's decision core for 0.1-point gains. Choose the best *core* behind Hero's shell (adapter, `Rules`,
+23 variant hooks, SafeBot, tooling) and ship that. Candidates: Hero; hybrid with rival 2's core (built,
+being measured); hybrid with rival 3's core (next, by the hybrid agent once v1 is written up). Rival 3 then
+stops being a holdout; rival 4 (built blind, no assigned philosophy, scratchpad `redteam4/`) becomes the
+judge. Winner = best on realistic, top and the rival-4 field, all 23 variants READY, timeouts no worse than
+Hero's, robust across the three payout tables. The owner makes the final call on what ships.
+
 **Running as of 2026-11-01 00:30 ET (three Opus agents, launched from the coordinating session):**
 - Mid-phase aggression pass: Hero's 10–25 bb preflop volume (steals by fold-to-steal read, light 3-bets
   from the blinds, per-seat re-shove read), rival 2 the main target. Running log, committed per screen:
@@ -23,6 +31,9 @@ fake kits, tooling, five drills) is in good shape; Track A (bring the repo) is t
 - Gate the packaged bot: DONE. `tools/gate.py` plays the upload zip itself, paired against in-sim Hero, and
   the Stage 2 and Stage 4 gates run it before every upload. Drill 6's upload fails it (-2.46 ± 0.76), and so
   do drills 1, 2 and 4's (decisions entry "Gate the packaged bot").
+- Hybrid candidate: DONE. `hybrid` (rival 2's core behind Hero's shell, `hyperion/hybrid/`) vs frozen Hero 7e51197:
+  holdout -0.12 ± 0.13, realistic -0.11 ± 0.13, top +0.27, top2 +0.45; 1.5-3x Hero's timeouts. Recommendation: keep
+  Hero, the switch is the owner's call (decisions entry "Hybrid candidate", log `docs/drills/hybrid-log.md`).
 
 Agents commit as they finish tasks. If one was killed, `git log` shows what landed; the rest is below.
 
