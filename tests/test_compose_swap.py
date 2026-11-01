@@ -32,9 +32,13 @@ def test_shortcut_matches_full_replay(tmp_path):
     from hyperion.sim import bestiary as B
     from hyperion.sim.runner import run_tournament
 
-    sw.setup_process()
-    rep = run_tournament(B.field_names("realistic@hybrid3_x"), 2, seed=7, rotate=True, mode="model",
-                         hero_config=sw.HERO_CONFIG)
+    saved = (B.HYBRID_CONFIG, B.HERO_CONFIG)
+    try:
+        sw.setup_process()
+        rep = run_tournament(B.field_names("realistic@hybrid3_x"), 2, seed=7, rotate=True, mode="model",
+                             hero_config=sw.HERO_CONFIG)
+    finally:
+        B.HYBRID_CONFIG, B.HERO_CONFIG = saved  # this process's later tests see the bestiary as they found it
     assert rep.bots["hybrid3_x"].samples == sw.per_seed(pts, range(2))
     for c in cells.split(","):
         s, dn = c.split(":")

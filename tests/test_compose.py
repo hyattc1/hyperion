@@ -21,12 +21,14 @@ HYB = {"panic_after": 10 ** 9, "soft_us": 1e6}
 
 @pytest.fixture
 def sim():
-    saved = (B.HYBRID_CONFIG, dict(B.REGISTRY))
+    saved = (B.HYBRID_CONFIG, dict(B.REGISTRY), dict(B._BY_CLASS), B.HERO_CONFIG)
     B.HYBRID_CONFIG = dict(HYB)
     yield
-    B.HYBRID_CONFIG = saved[0]
+    B.HYBRID_CONFIG, B.HERO_CONFIG = saved[0], saved[3]
     B.REGISTRY.clear()
     B.REGISTRY.update(saved[1])
+    B._BY_CLASS.clear()
+    B._BY_CLASS.update(saved[2])
 
 
 def _traced(cls, sink):

@@ -15,13 +15,11 @@ rotation where a donor agrees with the base at every decision of its section fol
 disagreeing rotations are replayed. The same holds for any set of swaps (the union of their disagreeing rotations),
 which is how `joint` measures a combined route against its base. `--full` replays every rotation (the check).
 
-**Determinism.** Mode "model", SafeBot panic off, the hybrids' soft deadline off and the composite's `late_us` off, as
-the final comparison ran. Rival 2's sampler reads the wall clock (it stops at 260 us, ~110 samples heads-up here, with a
-hard stop at 520 us): in these runs every rival 2 opponent draws a fixed `R2_SAMPLES` (110) and the rival 2 core member
-a fixed 32 (its `mc_max`), so fields with rival 2 replay exactly. Its import-time equity tables stop at 1500 boards or
-2.4 s: its clock is held still while it imports, so every process builds all 1500. The night persona
-`agent_montecarlo` samples on the wall clock too: here its clock advances AGENT_MC_STEP_US per read; `agent_pushfold`
-skips its heaviest jam EV after 260 us on the wall clock: here it never runs late. That is a fixed-speed rival 2 (`--as-built` keeps the wall clock).
+**Determinism.** Mode "model": SafeBot panic, the hybrids' soft deadline and the composite's `late_us` off, as the final
+comparison ran. Since fbbac19 the engine's model mode runs every bot whose play follows the wall clock at a fixed speed
+(rival 2 at 110 samples with its import-time tables complete, rival 5, agent_montecarlo, agent_pushfold); here the
+rival 2 core member samples a fixed 32 (its `mc_max`, budget lifted). So every field replays exactly.
+`--as-built` keeps the rival 2 core's wall-clock budget.
 
 The sample is one table seed (its eight rotations averaged), paired with the base on the same seed.
 """
@@ -49,9 +47,6 @@ from hyperion.compose.sections import SECTIONS, parse_route  # noqa: E402
 DONORS = ("hero", "hybrid3", "r2x", "rival1", "rival3")  # the screen's donors (the brief's list); `base` is the base
 HYBRID_CONFIG = {"panic_after": 10 ** 9, "soft_us": 1e6, "mc_budget_us": 1e9, "mc_hard_us": 1e9}
 HERO_CONFIG = {"panic_after": 10 ** 9}
-R2_SAMPLES = 110
-AGENT_MC_STEP_US = 3.5  # agent_montecarlo's clock advances this much per read (the field agent's fixed-speed setting)
-RIVAL5_STEP_US = 4.0  # rival 5's (the second judge's), likewise
 SEED = 7
 CAND = "compose_cand"
 PAYOUTS = {"lin": None, "brief": (10, 7, 5, 4, 3, 2, 1, 0), "th": (50, 25, 12, 6, 3, 2, 1, 1)}
@@ -59,8 +54,10 @@ PAYOUTS = {"lin": None, "brief": (10, 7, 5, 4, 3, 2, 1, 0), "th": (50, 25, 12, 6
 
 # --------------------------------------------------------------------------------------------- deterministic setup
 def setup_process(mode: str = "model", as_built: bool = False) -> None:
-    """Model mode: panic, soft deadlines and `late_us` off. `as_built`: rival 2 (opponent and core) keeps its wall-clock
-    sampler. Strict mode: everything as shipped."""
+    """Model mode: panic, soft deadlines and `late_us` off, and the rival 2 core member's sampler at its fixed 32
+    samples (the engine's model mode puts every wall-clock opponent at a fixed speed itself, fbbac19). `as_built`: the
+    rival 2 core keeps its wall-clock budget. Strict mode: everything as shipped. Sets the bestiary's HYBRID_CONFIG and
+    HERO_CONFIG only; nothing is patched on a class."""
     from hyperion.sim import bestiary as B
 
     if mode == "strict":
@@ -72,45 +69,6 @@ def setup_process(mode: str = "model", as_built: bool = False) -> None:
     if as_built:
         for k in ("mc_budget_us", "mc_hard_us"):
             B.HYBRID_CONFIG.pop(k)
-        return
-    if hasattr(B, "AgentMonteCarloBot"):  # the night persona whose sampler runs on the wall clock: fixed speed
-        B.AgentMonteCarloBot.STEP_US = AGENT_MC_STEP_US
-    if hasattr(B, "Rival5Bot"):  # the second judge: its postflop sampler stops at 130 us on the wall clock
-        B.Rival5Bot.STEP_US = RIVAL5_STEP_US
-    if "agent_pushfold" in B.REGISTRY:  # its 260 us wall-clock guard before the heaviest jam EV: never late here
-        from hyperion.sim.field import load as _load_field
-
-        _pf = _load_field("agent_pushfold").Bot
-        if not getattr(_pf, "_swap_fixed", False):
-            _pf._el = lambda self: 0.0
-            _pf._swap_fixed = True
-    if "hyperion.sim.rivals.rival2" in sys.modules or os.environ.get("SWAP_R2", "1") == "1":
-        if "hyperion.sim.rivals.rival2" not in sys.modules:
-            # its import-time equity tables stop at 1500 boards or after 2.4 s: hold its clock still while it imports,
-            # so every process builds all 1500 (what a quiet host does) whatever the load
-            real = time.perf_counter
-            time.perf_counter = lambda: 0.0
-            try:
-                from hyperion.sim.rivals import rival2  # noqa: F401
-            finally:
-                time.perf_counter = real
-        from hyperion.sim.rivals import rival2 as R2
-
-        R2.Bot.MC_BUDGET_US = 1e9
-        R2.Bot.MC_MAX = R2_SAMPLES
-        if not getattr(R2.Bot, "_swap_fixed", False):  # its postflop call also passes a hard stop at t0 + 520 us
-            wall = R2.Bot.equity_mc
-
-            def equity_mc(self, hole, board, cuts, deadline, fits=None, hard=None):
-                return wall(self, hole, board, cuts, deadline, fits, deadline + 1.0)
-
-            R2.Bot.equity_mc = equity_mc
-            R2.Bot._swap_fixed = True
-        # its import-time equity tables stop at 1500 boards or 2.4 s, whichever comes first: on a host slow enough for
-        # the clock to bind, processes differ, so say so
-        if R2.MC_N != R2.MC_BOARDS:
-            print(f"warning: rival 2's import-time tables stopped at {R2.MC_N} of {R2.MC_BOARDS} boards in this "
-                  "process: fields with rival 2 do not replay exactly", file=sys.stderr)
 
 
 def route_str(route: dict) -> str:
