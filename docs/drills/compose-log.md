@@ -342,3 +342,35 @@ default for kit b, so the adapter rebuilds the log and defers the hand end). Qui
 The kit B path with the rebuild and the deferred hand end (55-80 us of hand-end work inside a hand's first decision)
 adds ~75 us to P's p99 over hybrid3_x's: 313 against 239 us, a third of the budget, max 803 us. On the same 60 deals
 the P package scored 5.99 and the hybrid3_x package 5.47.
+
+## 16:26-16:40: the guarded climb from P, screen (night, fresh seeds 4000-4199, 200 x 8)
+
+54 one-dial trials on top of P, each paired with P on the same deals. The base run shadowed every rival 3 core copy
+and recorded where each dial would change a decision; only those rotations were replayed (exact; Hero dials in full).
+- rival 3's core, 21 trials: open widths, push/fold depth and margin, commit depth, call margin, 3-bet range, read
+  prior, dead-seat hands. Its postflop dials (bluff_scale, call_edge, raise_shift) change nothing in P, because Hero
+  plays every postflop decision, so they replay nothing (+0.000).
+- the layer's read-time params, 16 trials.
+- Hero, 17 trials, in the sections Hero plays: postflop calls, raises, c-bets, value tiers, ICM margin; re-shove calls.
+
+Not tried: raising `r3.push_margin` and the strong-field tightening, both known bad directions (base-switch entry).
+
+Ranked, best first (Δ vs P; bold = beyond the 95% interval):
+
+| # | dial | Δ | # | dial | Δ |
+|---|---|---|---|---|---|
+| 1 | exploit.bet_min_fold 0.4 | +0.050 ± 0.064 | 12 | exploit.dead_streak_pre 16 | +0.013 ± 0.019 |
+| 2 | r3.open_scale 1.1 | +0.044 ± 0.056 | 13 | r3.call_margin -0.01 | +0.013 ± 0.025 |
+| 3 | hero.postflop.vs_cbet_margin 0.0 | **+0.035 ± 0.030** | 14 | exploit.bet_max_stack_frac 0.35 | +0.013 ± 0.016 |
+| 4 | hero.postflop.call_margin 0.2 | +0.029 ± 0.042 | ... | (31 more within ± 0.03, every interval spanning 0) | |
+| 5 | exploit.isolate on | +0.026 ± 0.040 | 50 | hero.postflop.icm_margin 0.05 | **-0.044 ± 0.034** |
+| 6 | exploit.steal_min_fold 0.6 | +0.025 ± 0.048 | 51 | exploit.post_streak 2 | **-0.058 ± 0.057** |
+| 7 | r3.prior_scale 0.7 | +0.023 ± 0.069 | 52 | exploit.post_streak 0 | **-0.069 ± 0.058** |
+| 8 | r3.prior_scale 1.4 | +0.022 ± 0.065 | 53 | hero.postflop.call_margin 0.1 | **-0.086 ± 0.060** |
+| 9 | r3.open_scale 0.9 | +0.018 ± 0.059 | 54 | exploit.bet_min_fold 0.6 | **-0.091 ± 0.050** |
+| 10 | hero.postflop.icm_margin 0.15 | +0.018 ± 0.033 | | | |
+| 11 | exploit.dead_streak_pre 8 | +0.017 ± 0.030 | | | |
+
+One trial of 54 is beyond noise upward, and five are beyond noise downward. About one in forty would clear the interval by
+chance, so the screen alone proves nothing. The four best go to confirmation at 400 x 8 on fresh seeds 6000-6399 (night,
+plus realistic and top as guards).
