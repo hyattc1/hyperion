@@ -409,3 +409,39 @@ three dials alone (round 1). Rejected at the screen: the other 50 trials (table 
 "hero.postflop.call_margin": 0.2}`. Next, run once: its 23 variants, then the judges (judge, judge_top, judge2,
 judge2_night, seeds 0-399) and the held-out seeds 5000-5399 on night, night_hard, realistic and top. F, hybrid3_x and Hero
 are measured on the same deals.
+
+## 17:07-17:27: the final measurement, once (code 731e3d5 in a frozen worktree; 400 x 8, model mode at fixed speed)
+
+F = the final composite. hybrid3_x and Hero are measured on the same deals. Judges on seeds 0-399, never screened or tuned on;
+the guard fields on held-out seeds 5000-5399, used only here.
+
+| field | F | hybrid3_x | Hero | F - hybrid3_x | F - Hero | hybrid3_x - Hero |
+|---|---|---|---|---|---|---|
+| judge (rival 4) | 6.474 | 6.176 | 6.041 | **+0.298 ± 0.079** | **+0.433 ± 0.087** | **+0.135 ± 0.097** |
+| judge_top (rivals 1-4) | 5.004 | 4.917 | 4.838 | +0.087 ± 0.093 | **+0.166 ± 0.095** | +0.079 ± 0.102 |
+| judge2 (rival 5) | 6.572 | 6.242 | 6.157 | **+0.330 ± 0.078** | **+0.415 ± 0.086** | +0.085 ± 0.090 |
+| judge2_night (rival 5 + night pool) | 5.894 | 5.667 | 5.628 | **+0.227 ± 0.079** | **+0.266 ± 0.087** | +0.039 ± 0.089 |
+| night, held out | 6.047 | 5.766 | 5.719 | **+0.281 ± 0.082** | **+0.328 ± 0.084** | +0.047 ± 0.088 |
+| night_hard, held out | 5.571 | 5.284 | 5.250 | **+0.287 ± 0.086** | **+0.321 ± 0.091** | +0.034 ± 0.101 |
+| realistic, held out | 6.426 | 6.144 | 6.004 | **+0.282 ± 0.078** | **+0.422 ± 0.079** | **+0.140 ± 0.092** |
+| top, held out | 5.130 | 4.967 | 4.779 | **+0.163 ± 0.089** | **+0.352 ± 0.094** | **+0.188 ± 0.096** |
+
+hybrid3_x and Hero on `judge` reproduce the final core comparison exactly (6.176, 6.041), the same deals with no wall-clock
+bot in that field.
+
+Latency in these runs (model, load ~5): F p50 / p99 67-71 / 161-173 us, hybrid3_x 37-41 / 103-109, Hero 27-31 / 77-83;
+no engine timeouts. These runs measure F with full shadows. The shipped F uses light shadows, and on four night seeds
+its play is bit-identical to the measured F.
+
+**Variants, F** (vm.py, as at 16:15): 23 of 23 READY, first on 22, zero errors. The two dials now reach the 14 Hero
+tables too: there F is ahead of hybrid3_x by more than noise on bounty (+0.32 ± 0.22), toss_or_holdem (+0.19 ± 0.14),
+antes (+0.48 ± 0.32), pot_limit (+0.39 ± 0.33) and top_heavy (+3.6 ± 3.0); lowball -0.07 ± 0.07 is the only minus,
+at the edge of noise; every other entry is level or ahead.
+
+**Gate** on the shipped switch (SHIP = "composite", DIALS {}): kit B, night, 60 tables strict, the log rebuilt: **PASS**
+-0.063 ± 0.444, p50 / p99 / max 182 / 329 / 629 us, 0 timeouts (zip sha256 c85565a9...). Kit A, realistic: **PASS** +0.022 ±
+0.491, p99 318 us.
+
+**The ship rule (coordinator, 14:50) is met.** F beats both hybrid3_x and Hero beyond noise on night, both on the
+held-out seeds and on the climb's seeds. It is ahead of both, beyond noise, on night_hard, realistic and top. It loses
+to neither on any judge field; on judge_top it is +0.09 ± 0.09 over hybrid3_x, inside noise. **Shipped: d32d629.**
