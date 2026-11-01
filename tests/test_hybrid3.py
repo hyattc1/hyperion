@@ -222,54 +222,73 @@ def test_soft_deadline_answers_with_heros_cheap_path():
     assert not hb.core.hero.panic
 
 
-def _host_overrun_rate(us: int = 30, n: int = 3000) -> float:
-    over = 0
-    for _ in range(n):
-        t0 = perf_counter_ns()
-        end = t0 + us * 1000
-        while perf_counter_ns() < end:
-            pass
-        over += perf_counter_ns() - t0 > 1_000_000
-    return over / n
+def _best_of_replay(over: dict, seeds=range(3), n: int = 3) -> list[int]:
+    """Each decision's cost as the minimum over `n` replays of the same recorded table (ns): what the bot itself
+    costs, with the host's preemptions and cache misses taken out."""
+    names = ["rival2", "rival1", "tag", "pushfold", "loose_aggro", "hero", "station"]
+    out: list[int] = []
+    for seed in seeds:
+        log = []
+        bot = make_bot(seed=seed, overrides=over)
+
+        class Rec:
+            def new_table(self, r, s, k):
+                bot.new_table(r, s, k)
+
+            def act(self, o):
+                log.append(("a", o))
+                return bot.act(o)
+
+            def hand_end(self, r):
+                log.append(("e", r))
+                bot.hand_end(r)
+
+        play_table([Rec()] + [B.make_bot(nm, seed=seed * 8 + i) for i, nm in enumerate(names, 1)], Rules(), seed=seed,
+                   mode="measure")
+        best = None
+        for _ in range(n):
+            b = make_bot(seed=seed, overrides=over)
+            b.new_table(Rules(), 0, 8)
+            ts = []
+            for kind, x in log:
+                if kind == "a":
+                    t0 = perf_counter_ns()
+                    b.act(x)
+                    ts.append(perf_counter_ns() - t0)
+                else:
+                    b.hand_end(x)
+            best = ts if best is None else [min(u, v) for u, v in zip(best, ts)]
+        out += best
+    return out
 
 
-def _host_p99_overhead(us: int = 100, n: int = 2000) -> float:
-    xs = []
-    for _ in range(n):
-        t0 = perf_counter_ns()
-        end = t0 + us * 1000
-        while perf_counter_ns() < end:
-            pass
-        xs.append((perf_counter_ns() - t0) / 1000)
-    xs.sort()
-    return xs[int(0.99 * n)]
+def test_hybrid3_decision_cost_best_of_replay_is_heros_order():
+    # Rival 3 has no sampler: a history replay and table lookups. On this box, best of 5: mean 23 us, p99 42 us
+    # (Hero 21 / 38). Wall-clock percentiles on a loaded host measure the host (a strict-mode p99 test failed half
+    # the time at load 30+), so the cost is read from the best of three replays of the same recorded tables.
+    xs = sorted(_best_of_replay({"core": "rival3", "soft_us": 1e6, "panic_after": 10 ** 9}))
+    n = len(xs)
+    assert n > 300
+    assert sum(xs) / n < 60_000, sum(xs) / n
+    assert xs[int(0.99 * n)] < 150_000, xs[int(0.99 * n)]
 
 
-def test_hybrid3_decision_p99_is_under_300_us_and_strict_timeouts_under_one_percent():
-    # Rival 3 has no sampler: a history replay and table lookups (~30 us p50); on a loaded host a busy loop decides
-    # whether a miss is the host's, as the other timing tests do.
+def test_hybrid3_strict_timeouts_are_heros_order_at_the_same_load():
+    # Strict mode, hybrid3 and Hero at the same tables, so they share whatever load the host has: hybrid3's share of
+    # decisions over 1 ms must stay within 3x Hero's (plus 0.2 points of slack for small counts), or under 1%.
     names = ["hybrid3", "rival2", "rival1", "tag", "pushfold", "loose_aggro", "hero", "station"]
     stats = [BotStats(n) for n in names]
     for seed in range(4):
         bots = [B.make_bot(n, seed=seed * 8 + s) for s, n in enumerate(names)]
         play_table(bots, Rules(), seed=seed, mode="strict", stats=stats)
-    st = stats[0]
+    st, hero = stats[0], stats[6]
     assert st.exceptions == 0, st.last_error
     assert st.illegal == 0
-    calls, over = st.calls + st.first_calls, st.over_budget
+    calls = st.calls + st.first_calls
     assert calls >= 300
-    rate = over / calls
-    if rate >= 0.01:
-        host = _host_overrun_rate()
-        if host >= 0.002:
-            pytest.skip(f"host oversubscribed: hybrid3 {rate:.2%} over 1 ms, a fixed 30 us loop {host:.2%}")
-    assert rate < 0.01, (over, calls)
-    p99 = st.percentile_us(0.99)
-    if p99 >= 300:
-        host = _host_p99_overhead()
-        if host >= 160:
-            pytest.skip(f"host oversubscribed: hybrid3 p99 {p99:.0f} us, a fixed 100 us loop's p99 {host:.0f} us")
-    assert p99 < 300, p99
+    rate = st.over_budget / calls
+    hero_rate = hero.over_budget / (hero.calls + hero.first_calls)
+    assert rate < 0.01 or rate <= 3 * hero_rate + 0.002, (rate, hero_rate)
 
 
 def test_the_exploit_layer_composes_in_front_of_every_decision_and_only_once():

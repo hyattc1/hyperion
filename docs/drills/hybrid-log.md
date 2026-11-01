@@ -453,3 +453,17 @@ worse beyond noise; permuted_ranks +0.65, swap_holdem +0.59 and fast_schedule +0
 **Both READY 23, first on 22** (the layer lifts Hero from first on 11 to 22). The 14 Hero-routed rows are identical
 again; the nine core-routed rows are all inside noise (top_heavy -2.70 ± 3.68 on 200 unrotated tables; the payout
 runs are the read).
+
+## 07:30: hybrid3's timing test, load or slowdown? Load.
+
+The exploit agent saw hybrid3's under-1-ms test fail about half the time under load at HEAD. Best-of-5 replay of the same
+recorded tables (each decision's minimum over five replays: the bot's own cost with preemption taken out), 4 tables,
+load ~25: hybrid3 mean 22.8 / p50 21 / p99 42 / max 67 us; hybrid3_x 29.2 / 28 / 49 / 89; the rival 2 hybrid (32
+samples, count-capped) 33.9 / 18 / 157 / 238; Hero HEAD 20.9 / 20 / 38 / 48. hybrid3 costs what Hero costs. The
+wall-clock test was measuring the host. Replaced by two tests: the best-of-3 replay cost (mean < 60 us, p99 < 150 us),
+and strict timeouts within 3x Hero's at the same tables (or under 1%). Both are stable at load 25-30 (3 of 3 runs).
+
+Wrap-up (coordinator, 07:30): the shipped layer makes the comparisons against 7e51197 out of date for the core
+decision; a separate agent runs the final comparison (Hero HEAD, hybrid_x, hybrid3_x, raw rival3, the judge fields).
+The two round-3 mirror jobs in flight finish; the last (rival2 + 7 hybrid_x) is not started; one strict timing run
+with every candidate at one table closes this out.
