@@ -10,7 +10,8 @@ spec.json:
      "settings": {"gate30": {"postflop.icm_gate_frac": 0.3, "postflop.icm_margin": 0.1}}}  # named combos
 
 Every (setting, field) plays `--tables` seeds times eight rotations, split into `--chunks` contiguous
-slices so the pool stays busy. The sample unit is one table seed (its rotations averaged), the same
+slices so the pool stays busy; jobs are queued chunk by chunk with every setting side by side, so a shift in
+host load mid-sweep does not fall on the settings queued last. The sample unit is one table seed (its rotations averaged), the same
 seeds for every setting, so the delta against the base is paired: mean of per-seed differences, with
 its own 95% interval. "Keep" a lever when its paired delta is positive on every field.
 """
@@ -158,9 +159,11 @@ def main(argv=None) -> int:
     jobs = []
     per = max(1, a.tables // a.chunks)
     offsets = list(range(0, a.tables, per))
-    for name, cfg in settings.items():
+    # chunk-major order: every setting of one (chunk, field) runs at about the same time, so a change in host load
+    # during a long sweep (other processes, other agents) lands on all settings alike instead of on the last ones
+    for off in offsets:
         for field, names in fields.items():
-            for off in offsets:
+            for name, cfg in settings.items():
                 jobs.append((name, field, names, min(per, a.tables - off), a.seed, off, cfg))
     print(f"{len(settings)} settings x {len(fields)} fields x {len(offsets)} chunks = {len(jobs)} jobs on {a.workers} workers",
           file=sys.stderr)
