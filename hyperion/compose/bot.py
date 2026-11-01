@@ -507,7 +507,9 @@ def parse_dials(dials: dict | None) -> tuple:
                      fallback Hero (the tables it plays whole), as `hero.<key>` reaches hybrid3_x's fallback Hero
       base.<key>     any other dial for the base (`base.hero.<key>`: its fallback Hero; flat HybridConfig fields)
       cheap          every decision the base's cheap path (Hero's), no other member
-      late_us, deadline_ms, panic_after, panic_rate   the shell's clocks"""
+      late_us, deadline_ms, panic_after, panic_rate   the shell's clocks
+      light          light shadows (ship() turns them on)
+      soft_us, mc_max, ...   any flat HybridConfig field: every hybrid member (the base's soft deadline ...)"""
     d = dict(dials or {})
     route = d.pop("route", SHIP_ROUTE)
     exploit = d.pop("exploit", "hero")
@@ -537,10 +539,18 @@ def parse_dials(dials: dict | None) -> tuple:
         from ..hybrid.bot import _layer_with
 
         exploit = _layer_with(exploit, layer)
-    for k in d:
-        if k not in ComposeConfig.__dataclass_fields__ or k in ("route", "exploit", "base_overrides", "hero_member"):
-            raise KeyError(f"unknown composite dial {k!r}")
-    return route, {"exploit": exploit, "base_overrides": base, "hero_member": hero, **d}
+    from ..hybrid.bot import HybridConfig
+
+    hyb = {}
+    for k in list(d):
+        if k in ComposeConfig.__dataclass_fields__ and k not in ("route", "exploit", "base_overrides", "hero_member",
+                                                                 "hybrid_overrides", "hero_overrides"):
+            continue
+        if k in HybridConfig.__dataclass_fields__ and k not in ("hero", "r3", "exploit", "core", "seed"):
+            hyb[k] = d.pop(k)  # a flat hybrid field (soft_us, mc_max ...): every hybrid member, as on hybrid3_x
+            continue
+        raise KeyError(f"unknown composite dial {k!r}")
+    return route, {"exploit": exploit, "base_overrides": base, "hero_member": hero, "hybrid_overrides": hyb, **d}
 
 
 def ship(dials: dict, seed: int | None = None) -> Composite:
