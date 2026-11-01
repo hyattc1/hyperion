@@ -1309,3 +1309,20 @@ worth nothing to it.
   permuted_ranks re-measured (variant_matrix, realistic, 300 tables, seed 7): Hero 5.95 ± 0.23, first, READY, next
   rival1 5.52 (was 6.34 / 5.66); tag 4.96 → 5.44 and pushfold 4.74 → 5.34 in that field.
 - CONTRACTS.md unchanged: nothing it covers moved.
+
+## Drill 6: adapters pass action history (2026-11-01, builder: drill 6)
+
+- **Every reference adapter now gives Hero a history.** Drill 6 played its shipped kit-A Agent in the real sim
+  (300 tables, realistic, toss_or_holdem): 3.39 against pinned Hero's 5.90. The cause was `obs.history` being
+  empty behind every reference adapter. Hero reads who raised (`Spot.n_raises`, `Spot.raiser`, the opener and
+  shove reads) only from history; stripped of it, Hero scores 3.21 on standard hold'em (5.50 with it, 100
+  tables).
+  - `KitAAdapter` now parses kit A's `action_log`.
+  - `make_observation` rebuilds the current street's raises from the bets when a kit gives none: 5.20, which
+    loses the earlier streets and the re-raise count.
+  - With this, the shipped Agent scores 5.81 measure and 5.93 strict.
+- **Still open, for the strategy owner:** `Spot` should infer at least one raise from `max(bets)` above the
+  street's base when history is empty.
+- **Still open, for drills:** a `shipped_sim.py` that gates the packaged entry rather than the bestiary Hero.
+  Prompt 04 now prints `obs.history` after a raise until it exists.
+- Report and prompt edits: `docs/drills/prompt-drill-6.md`.
