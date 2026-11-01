@@ -185,3 +185,28 @@ hybrid_x is the only candidate ahead of rival 2 here (+0.18 ± 0.10).
 
 (A usage-limit cutoff hit after this stage; the driver had already finished top2, strong and timeouts and written their
 samples to disk, so these three entries are written from those files, nothing re-run.)
+
+## 08:06-08:10: `strong`, model mode, 400 seeds x 8
+
+hero, pushfold, pushfold, tag, hero_tight, hero_loose, nit, loose_aggro. The two Hero clones carry the shipped layer for every candidate.
+
+| # | candidate | pts ± 95% | - Hero (paired) | rank in field | 1st % | bust % | gaps (paired) | load |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hybrid_x | 5.510 ± 0.085 | +0.166 ± 0.108 | 1 of 7 (leader hybrid_x 5.51) | 37 | 56 |  | 16-22 |
+| 2 | hybrid3_x | 5.414 ± 0.088 | +0.070 ± 0.104 | 1 of 7 (leader hybrid3_x 5.41) | 33 | 61 |  | 16-22 |
+| 3 | Hero | 5.344 ± 0.076 | - | 1 of 7 (leader hero 5.34) | 33 | 61 |  | 16-22 |
+| 4 | hybrid3 (no layer) | 5.137 ± 0.084 | -0.207 ± 0.100 | 3 of 7 (leader hero_loose 5.37) | 27 | 67 |  | 14-20 |
+| 5 | rival3 (raw, reference) | 5.079 ± 0.085 | -0.265 ± 0.101 | 3 of 7 (leader hero_loose 5.36) | 29 | 66 |  | 15-22 |
+
+| candidate | decisions | p50 / p99 us | wall >= 1 ms | engine timeouts | panicked tables | exc / ill / safe_err | routes and layer fires per table |
+|---|---|---|---|---|---|---|---|
+| Hero | 555,215 | 24 / 89 | 136 (0.024%) | 0 (0.000%) | 0 | 0 / 0 / 0 |  |
+| hybrid_x | 518,755 | 34 / 225 | 215 (0.041%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 93.44%; exploit:steal_fold 7.98, exploit:bet_checked 2.72, exploit:steal 0.75 |
+| hybrid3_x | 526,286 | 40 / 145 | 196 (0.037%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 97.18%; exploit:bet_checked 2.72, exploit:steal_fold 1.86, exploit:steal 0.11, hero:core_none 0.10 |
+| rival3 (raw, reference) | 509,082 | 28 / 94 | 140 (0.028%) | 0 (0.000%) | 0 | 0 / 0 / 0 |  |
+| hybrid3 (no layer) | 520,954 | 33 / 107 | 162 (0.031%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 99.95%; hero:core_none 0.08 |
+
+
+hybrid_x +0.166 ± 0.108 (outside noise), hybrid3_x +0.070 ± 0.104 (level). Without the layer the rival 3 core loses
+this room to Hero (-0.207 ± 0.100), and raw rival 3 by more (-0.265): the two layered Hero clones take pots from it.
+The layer is worth +0.28 to the rival 3 core here, the most of any field.
