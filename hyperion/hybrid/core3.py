@@ -22,7 +22,7 @@ from time import perf_counter
 from ..core.types import HandResult, Rules
 from ..sim.rivals import rival3 as R3
 from ..strategy.hero import icm_me
-from .core import SoftDeadline
+from .kit import SoftDeadline
 
 
 def _linear_from(pays) -> tuple[float, float, int] | None:
@@ -100,6 +100,20 @@ class Rival3Core(R3.Bot):
 
     def legalize(self, ans, kit):
         return self._legalize(ans, kit)
+
+    @staticmethod
+    def best_two(hole: tuple) -> tuple:
+        """The two hole cards (canonical) rival 3's own preflop ranking values most (lowest `PCT` percentile)."""
+        if len(hole) <= 2:
+            return hole
+        best, best_p = hole[:2], 2.0
+        n = len(hole)
+        for i in range(n):
+            for j in range(i + 1, n):
+                p = R3.PCT[R3._cls((hole[i], hole[j]))]
+                if p < best_p:
+                    best_p, best = p, (hole[i], hole[j])
+        return best
 
     def end(self, result: HandResult) -> None:
         self.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas,

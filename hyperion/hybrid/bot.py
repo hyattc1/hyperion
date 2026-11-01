@@ -30,16 +30,27 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field, replace
+from importlib import import_module
 from time import perf_counter
 
 from ..core.cards import is_identity_order, remap
 from ..core.types import Action, HandResult, Observation, Rules
 from ..strategy.hero import Config, HeroCore, config_from_dict
 from ..strategy.safe import SafeBot
-from .core import KitView, Rival2Core, SoftDeadline, best_two, from_kit
-from .core3 import Rival3Core
+from .kit import KitView, SoftDeadline, from_kit
 
-CORES = {"rival2": Rival2Core, "rival3": Rival3Core}  # HybridConfig.core -> the decision core behind the shell
+# HybridConfig.core -> (module, class) of the decision core behind the shell. Imported on first use, so a package that
+# ships one core never loads the other: rival 2's module runs a Monte Carlo and gc.freeze() at import (1.2 s on a quiet
+# host, up to 6 s loaded); rival 3's imports in ~20 ms.
+CORES = {"rival2": (".core", "Rival2Core"), "rival3": (".core3", "Rival3Core")}
+
+
+def core_class(name: str):
+    """The decision core class HybridConfig.core names, imported now."""
+    if name not in CORES:
+        raise KeyError(f"unknown hybrid core {name!r}; known: {', '.join(CORES)}")
+    mod, cls = CORES[name]
+    return getattr(import_module(mod, __package__), cls)
 
 COUNTS: Counter = Counter()  # every HybridCore in this process adds its routes here
 
@@ -148,9 +159,7 @@ class HybridCore:
             if hasattr(cfg.hero, "exploit"):  # one layer in front of every decision: Hero's own copy stays off
                 cfg.hero.exploit = ExploitParams()
         self.hero = HeroCore(cfg.hero)
-        if cfg.core not in CORES:
-            raise KeyError(f"unknown hybrid core {cfg.core!r}; known: {', '.join(CORES)}")
-        self.core = CORES[cfg.core]()
+        self.core = core_class(cfg.core)()
         self.kit = KitView()
         self.counts: Counter = Counter()
         self.panic = False
@@ -226,7 +235,7 @@ class HybridCore:
         if len(hole) != 2:
             if street > 0 or len(hole) < 2:
                 return self._hero(obs, "hero:extra_hole")
-            hole = best_two(hole)
+            hole = self.core.best_two(hole)
             route = "core:best_two"
         self._core_hand = obs.hand_no
         try:

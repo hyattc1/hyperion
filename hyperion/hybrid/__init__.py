@@ -1,15 +1,16 @@
-"""The hybrid candidate: red-team rival 2's decision core behind Hero's shell.
+"""The hybrids: a red-team rival's decision core behind Hero's shell.
 
-Rival 2 (hyperion/sim/rivals/rival2.py, our own team's drill bot) decides plain hold'em. Hero supplies
-everything around it: the Bot protocol, Rules, the rank remap, variant decisions (discards, swaps, buying a
-card), the SafeBot guard, and every decision the core cannot represent. It is a candidate measured against
-Hero, not a replacement; which bot ships is the owner's decision (docs/decisions.md, "Hybrid candidate").
+The core (`HybridConfig.core`) decides plain hold'em: rival 3's ("rival3", core3.py, the shipped base `hybrid3_x`)
+or rival 2's ("rival2", core.py). Hero supplies everything around it: the Bot protocol, Rules, the rank remap,
+variant decisions (discards, swaps, buying a card), the SafeBot guard, and every decision the core cannot represent.
+Each core is imported on first use (bot.CORES), so a hybrid3 package never loads rival 2's module. Which bot ships is
+named once, in hyperion/ship.py.
 
     from hyperion.hybrid import make_bot
-    bot = make_bot(seed=7)                 # Hybrid: SafeBot around HybridCore
-    bot.core.counts                        # decisions by route: core, hero:<reason>
+    bot = make_bot(overrides={"core": "rival3", "exploit": "hero"})   # hybrid3_x
+    bot.core.counts                        # decisions by route: core, hero:<reason>, exploit:<spot>
 
-Simulator name: `hybrid` (hyperion.sim.bestiary), fields realistic_h, top_h, top2_h, holdout_h.
+Simulator names: `hybrid`, `hybrid_x`, `hybrid3`, `hybrid3_x` (hyperion.sim.bestiary).
 """
 from .bot import COUNTS, Hybrid, HybridConfig, HybridCore, hybrid_config, make_bot
 

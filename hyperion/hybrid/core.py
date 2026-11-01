@@ -19,73 +19,11 @@ from __future__ import annotations
 
 from time import perf_counter
 
-from ..core.types import Action, Observation
 from ..sim.rivals import rival2 as R2
 from ..strategy.hero import icm_value
+from .kit import KitObs, KitView, SoftDeadline, from_kit  # noqa: F401 - re-exported for older imports
 
-_KIT_ACTIONS = {"fold": Action.fold(), "check": Action.check(), "call": Action.call()}
-_KIT_LEGAL: dict = {}  # frozenset[ActionKind] -> set of strings, memoized
 KNOTS = (0.5, 0.9, 1.0, 1.1, 2.0)  # rival 2's curve knots, multiples of my hand-start chips
-
-
-class SoftDeadline(Exception):
-    """The decision is already late when the core's sampler would start: answer with Hero's cheap path."""
-
-
-class KitObs:
-    """The observation shape rival 2 was built against (red-team brief, kit.py): our fields with `legal` a set of
-    strings, `history` a list of (seat, (kind, amount)) and `hand_no` 1-based."""
-
-    __slots__ = ("hole", "board", "street", "seat", "button", "stacks", "bets", "in_hand", "pot",
-                 "to_call", "min_raise", "max_raise", "legal", "hand_no", "blinds", "history")
-
-
-class KitView:
-    """Converts our Observation to KitObs. History is converted incrementally (the prefix never changes within a
-    hand). `hole` and `board` are passed in already mapped to canonical strength."""
-
-    __slots__ = ("_hist", "_hist_n", "_hist_hand")
-
-    def __init__(self):
-        self.reset()
-
-    def reset(self) -> None:
-        self._hist, self._hist_n, self._hist_hand = [], 0, -1
-
-    def __call__(self, obs: Observation, hole: tuple, board: tuple) -> KitObs:
-        k = KitObs()
-        k.hole, k.board, k.street, k.seat, k.button = hole, board, obs.street, obs.seat, obs.button
-        k.stacks, k.bets, k.in_hand, k.pot = obs.stacks, obs.bets, obs.in_hand, obs.pot
-        k.to_call, k.min_raise, k.max_raise = obs.to_call, obs.min_raise, obs.max_raise
-        k.hand_no, k.blinds = obs.hand_no + 1, obs.blinds
-        legal = _KIT_LEGAL.get(obs.legal)
-        if legal is None:
-            legal = _KIT_LEGAL[obs.legal] = {kind.value for kind in obs.legal}
-        k.legal = legal
-        src = obs.history
-        n = len(src)
-        if obs.hand_no != self._hist_hand or n < self._hist_n:
-            self._hist, self._hist_n, self._hist_hand = [], 0, obs.hand_no
-        if n > self._hist_n:
-            self._hist.extend((s, (a.kind.value, a.amount)) for s, a in src[self._hist_n:])
-            self._hist_n = n
-        k.history = self._hist
-        return k
-
-
-def from_kit(answer, obs: Observation) -> Action | None:
-    """('kind', raise-to total) -> a legal Action; None when the answer is unreadable."""
-    try:
-        kind, amount = answer
-    except (TypeError, ValueError):
-        return None
-    if kind == "raise":
-        try:
-            return Action.raise_to(int(amount)).clamp(obs)
-        except (TypeError, ValueError):
-            return None
-    a = _KIT_ACTIONS.get(kind)
-    return a.clamp(obs) if a is not None else None
 
 
 def build_curve(totals, me: int, payouts) -> R2.Curve:
@@ -186,6 +124,11 @@ class Rival2Core(R2.Bot):
                 self.inline_curves += 1
             self._pending = None
         return self._act(kit)
+
+    @staticmethod
+    def best_two(hole: tuple) -> tuple:
+        """The two hole cards rival 2's own preflop ranking values most (`best_two` below)."""
+        return best_two(hole)
 
     def equity_mc(self, hole, board, cuts, deadline, fits=None, hard=None):
         t0 = self._t0

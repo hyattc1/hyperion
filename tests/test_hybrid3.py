@@ -312,3 +312,19 @@ def test_the_exploit_layer_composes_in_front_of_every_decision_and_only_once():
 
     assert (make_bot(seed=4, overrides={**NO_PANIC, "exploit": {}}).core.ex is not None) == Config().exploit.active
     assert B.make_bot("hybrid3_x", seed=1).impl.config.core == "rival3"
+
+
+def test_a_rival3_hybrid_never_imports_rival2s_core():
+    """Rival 2's module runs a Monte Carlo and gc.freeze() at import (1.2-6 s): a hybrid3 package must not pay it."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    probe = ("import sys; sys.path.insert(0, sys.argv[1]); from hyperion.hybrid import make_bot; "
+             "make_bot(overrides={'core': 'rival3', 'exploit': 'hero'}); "
+             "print('hyperion.sim.rivals.rival2' in sys.modules, 'hyperion.sim.rivals.rival3' in sys.modules)")
+    out = subprocess.run([sys.executable, "-I", "-B", "-c", probe, str(root)], capture_output=True, text=True,
+                         cwd=str(root.parent), timeout=120)
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.split() == ["False", "True"], out.stdout
