@@ -6,7 +6,8 @@ the night without editing adapter.py.
 
 `check_observation(obs, rules)` returns human-readable violations, one per broken rule, prefixed by a
 short rule name (`raise_total: ...`). `checked(adapter)` wraps one Adapter *instance* so every `decide`
-call checks the Observation it produced and records violations (count and the first five examples per
+call checks the Observation it produced (and, for a kit with no or a partial log, the history the inference rebuilt
+for the bot) and records violations (count and the first five examples per
 rule) in `adapter.conformance`; it also counts translation errors, which `Adapter.decide` otherwise
 turns silently into the kit's check/fold, and the action kinds sent back, which is the "folds, calls
 and raises at least once" check. `maybe_checked(adapter)` does that only when `HYPERION_CHECK=1` and
@@ -169,7 +170,9 @@ class ConformanceReport:
         self.examples: dict[str, list[str]] = {}
         self.actions: Counter = Counter()
         self.keep = examples
-        self.history_source = history_source  # "log" or "bets", as the adapter declares (Adapter.history_source)
+        self.history_source = history_source  # "log", "partial" or "bets", as the adapter declares
+        self.inference = None  # the adapter's HistoryInference (hyperion/drills/infer_history.py), for the summary
+        self._inf_hist: tuple[int, list] | None = None  # hand_no, the last rebuilt history
         self._seat: int | None = None
         self._last: tuple[int, int, int] | None = None  # hand_no, chip total, button
         self._hist: tuple[int, list] | None = None  # hand_no, the last observation's history as (seat, kind, amount)
@@ -216,7 +219,7 @@ class ConformanceReport:
                 out.append(f"button_changed: button {b} -> {obs.button} within hand {obs.hand_no}")
         self._last = (obs.hand_no, total, obs.button)
         hist = [(s, a.kind.value, a.amount) for s, a in obs.history]
-        if self.history_source != "bets" and self._hist is not None and self._hist[0] == obs.hand_no:
+        if self.history_source == "log" and self._hist is not None and self._hist[0] == obs.hand_no:
             prev = self._hist[1]
             if hist[: len(prev)] != prev:
                 out.append(f"history_prefix: hand {obs.hand_no}: this decision's history does not extend the last one "
@@ -226,17 +229,58 @@ class ConformanceReport:
         self._hist = (obs.hand_no, hist)
         return out
 
+    GAP_RATE = 0.05  # more of the hands than this with a gap: the state the adapter builds disagrees with the betting
+
+    def check_history(self, obs: Observation, rules: Rules | None = None) -> list[str]:
+        """The history the bot reads on a kit with no or a partial log (Adapter.with_history): the inference's log must
+        explain the bets unless it stopped at a gap, and must only grow within a hand."""
+        if self.history_source == "log":
+            return []
+        v: list[str] = []
+        try:
+            gap = bool(obs.extras and obs.extras.get("history_gap"))
+            if not gap:
+                miss = _check_raise_in_history(obs, rules or Rules())
+                v += [x.replace("history_raise:", "history_infer:", 1) for x in miss]
+            hist = [(s, a.kind.value, a.amount) for s, a in obs.history]
+            prev = self._inf_hist
+            if prev is not None and prev[0] == obs.hand_no and hist[: len(prev[1])] != prev[1]:
+                v.append(f"history_infer: hand {obs.hand_no}: the rebuilt history does not extend the last decision's")
+            self._inf_hist = (obs.hand_no, hist)
+        except Exception as e:  # noqa: BLE001
+            v.append(f"checker: {type(e).__name__}: {e}")
+        self.record(v)
+        return v
+
+    def gap_finding(self) -> str | None:
+        """A violation line when the inference stopped at a gap in too many hands (it should almost never)."""
+        inf = self.inference
+        if inf is None or self.history_source == "log" or inf.hands < 20 or inf.gaps <= self.GAP_RATE * inf.hands:
+            return None
+        return (f"history_gap: the rebuilt log stopped at a gap in {inf.gaps} of {inf.hands} hands: the stacks, bets, "
+                f"in-hand flags or pot this adapter builds disagree with the betting (pot with this street's bets "
+                f"in it? a folded seat still in hand? blinds posted by other seats than the engine's?)")
+
     def summary(self) -> str:
         lines = []
+        gap = self.gap_finding()
+        if gap is not None and "history_gap" not in self.counts:
+            self.record([gap])
         for rule, count in self.counts.most_common():
             lines.append(f"  {rule} x{count}")
             lines.extend(f"    {ex}" for ex in self.examples[rule])
         acts = " ".join(f"{k} {self.actions[k]}" for k in ("fold", "check", "call", "raise"))
         lines.append(f"conformance: {self.observations} observations checked, {self.total} violations"
                      f"{' in ' + str(len(self.counts)) + ' rules' if self.counts else ''}; actions {acts}")
-        lines.append("history: the kit's action log" if self.history_source != "bets" else
-                     "history: rebuilt from the bets each decision (the adapter says the kit has no log); "
-                     "this street's raises only, earlier streets' are lost")
+        inf = self.inference
+        rebuilt = (f"; rebuilt from the states (hyperion/drills/infer_history.py): {inf.gaps} of {inf.hands} hands "
+                   f"stopped at a gap" if inf is not None else
+                   "; rebuilt from the bets each decision (no inference attached): this street's raises only, "
+                   "earlier streets' are lost")
+        lines.append({"log": "history: the kit's action log; hand end adds our last reply",
+                      "partial": "history: the kit's entries merged into the log" + rebuilt,
+                      "bets": "history: the kit has no log" + rebuilt}.get(self.history_source,
+                                                                           "history: " + str(self.history_source)))
         return "\n".join(lines)
 
 
@@ -247,6 +291,8 @@ def checked(adapter: Any, rules: Rules | None = None, report: ConformanceReport 
         return adapter
     report = report or ConformanceReport(history_source=getattr(adapter, "history_source", "log"))
     to_obs, from_act = adapter.to_observation, adapter.from_action
+    with_hist = getattr(adapter, "with_history", None)
+    report.inference = getattr(adapter, "inference", None)
 
     def to_observation(native: Any) -> Observation:
         try:
@@ -266,8 +312,15 @@ def checked(adapter: Any, rules: Rules | None = None, report: ConformanceReport 
         report.actions[action.kind.value] += 1
         return out
 
+    def with_history(obs: Observation) -> Observation:
+        out = with_hist(obs)
+        report.check_history(out, rules if rules is not None else adapter.rules)
+        return out
+
     adapter.to_observation = to_observation
     adapter.from_action = from_action
+    if with_hist is not None:
+        adapter.with_history = with_history
     adapter.conformance = report
     return adapter
 

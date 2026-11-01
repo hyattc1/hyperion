@@ -65,22 +65,32 @@ STREET_BY_BOARD = {0: 0, 3: 1, 4: 2, 5: 3}
 #   message, or only in the kit's schedule (then compute from hand_no; antes are NOT blinds).
 #   Test: obs.blinds == (10, 20) on the first hand and it changes at the kit's first level boundary.
 
-# TODO 7b HISTORY -> obs.history = [(seat, Action)] for the whole hand so far, in order, from the kit's action
-#   log: map each entry to (their seat as our seat, Action(kind, raise-TO total)) and pass history=... to
-#   make_observation; skip entries that are not bets (discards, card swaps). Hero reads who raised and how
-#   often from history: drill 6's adapters passed none and the uploaded bot lost 2.5 points a table.
-#   No log at all (kits B and C): leave history out, make_observation rebuilds this street's raises from the
-#   bets (one RAISE per bet level, earlier streets lost), and set history_source = "bets" below so
-#   conformance expects the rebuild. Test: HYPERION_CHECK=1 reports 0 history_raise and 0 history_prefix
-#   violations; tools/gate.py on the zip PASSes.
+# TODO 7b HISTORY -> obs.history = [(seat, Action)] for the whole hand so far, in order. Hero, the exploit layer and
+#   rival 3's core read who folded, called, checked and raised from it: drill 6's adapters passed none and the
+#   uploaded bot lost 2.5 points a table; a kit with no log cost 0.6-0.9 more until the inference. Which kit is it?
+#   - A full log (every action this hand): map each entry to (their seat as our seat, Action(kind, raise-TO total)),
+#     pass history=history(native) to make_observation, skip entries that are not bets (blind posts, discards,
+#     card swaps). history_source = "log".
+#   - Some actions (this street only, the last few, a per-player last action turned into entries): pass them the
+#     same way and set history_source = "partial": Adapter.decide merges them into the log it rebuilds.
+#   - No log (kits B, C, D): leave history out and set history_source = "bets". Adapter.decide rebuilds the hand's
+#     log from the states (hyperion/drills/infer_history.py: each seat's in_hand, stack and bet between our
+#     decisions, replayed through the betting order; every entry true, a state it cannot explain ends the log for
+#     the hand). It needs TODO 2-7 right: pot without this street's bets, folded seats out of in_hand, stacks
+#     behind, the button the kit's dealer.
+#   Test: HYPERION_CHECK=1 reports 0 history_raise, history_prefix and history_infer violations and no
+#   history_gap finding ("N of M hands stopped at a gap" near 0); tools/gate.py on the zip PASSes.
 
 # TODO 8  PER-TABLE INIT -> Adapter.start(seat, n_players, rules) -> bot.new_table. Call it from the kit's
 #   table-start hook if one exists (outside the 1 ms budget); otherwise Adapter.decide calls it lazily on
 #   the first decision, so everything heavy (tables, evaluator warm-up) must happen at import instead.
 #   Test: python tools/pack.py ... prints the import time (budget 5 s); kit sim first decision under 1 ms.
-#   HAND END -> Adapter.hand_end(hand_no, my_delta, n_players, history=..., deltas=...): if the kit's hand-end
-#   signal carries the hand's actions or every seat's chip change, pass them (history through history() above);
-#   rival 3's core (hybrid3_x, the composite) reads the actions after our last decision from them.
+#   HAND END -> Adapter.hand_end(hand_no, my_delta, n_players, history=..., deltas=..., showdown=..., board=...):
+#   pass what the kit's hand-end signal carries: the hand's actions (history() above), every seat's chip change
+#   (deltas=, or final_stacks=), the hands at showdown (showdown={seat: cards}, {} when none; only if the kit
+#   shows every hand still in). The bot's hand end then holds the folds after our last decision (rival 3's core
+#   reads them). If the signal has only my_delta, Adapter holds the hand end until the next hand's first state,
+#   whose stacks settle them (defer_hand_end); nothing to write.
 
 # TODO 9  native_safe -> what the kit gets when translation itself blows up: ITS check if legal, else ITS
 #   fold, built from the raw native state and never raising, even on garbage.
@@ -90,7 +100,7 @@ STREET_BY_BOARD = {0: 0, 3: 1, 4: 2, 5: 3}
 class TonightAdapter(Adapter):
     """Kit <name>: <one line on the native state and action format, from the rule sheet>."""
 
-    history_source = "log"  # TODO 7b: "log" when history= carries the kit's action log, "bets" when it has none
+    history_source = "log"  # TODO 7b: "log" (the kit's full log), "partial" (some actions), "bets" (none: inferred)
 
     def to_observation(self, native: Any) -> Observation:
         # TODO 2-7b, in that order; return make_observation(hole=..., board=..., street=..., seat=..., button=...,

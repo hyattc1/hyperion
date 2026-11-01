@@ -116,7 +116,8 @@ def test_template_passes_the_log_and_documents_the_bets_path():
     src = (ROOT / "hyperion" / "drills" / "adapter_template.py").read_text()
     assert src.index("TODO 7  BLINDS") < src.index("TODO 7b HISTORY") < src.index("TODO 8  PER-TABLE INIT")
     assert "history=history(native)" in src and 'history_source = "log"' in src
-    assert "rebuilds this street's raises from the" in src and 'history_source = "bets"' in src
+    assert "rebuilds the hand's" in src and 'history_source = "bets"' in src and 'history_source = "partial"' in src
+    assert "infer_history.py" in src and "history_gap" in src and "defer_hand_end" in src
     assert "tools/gate.py" in src
     from hyperion.drills.adapter_template import TonightAdapter, history
 

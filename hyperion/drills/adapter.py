@@ -18,18 +18,31 @@ KIND_BY_NAME = {"fold": ActionKind.FOLD, "check": ActionKind.CHECK, "call": Acti
 class Adapter:
     """Base class. Subclasses implement the three translation hooks; decide() does the rest safely.
 
-    `history_source` says where obs.history comes from, and conformance holds the adapter to it: "log" (the
-    kit's action log, so within a hand every decision's history extends the last one) or "bets" (the kit
-    has no log; make_observation rebuilds this street's raises from the bets, and earlier streets' are lost).
+    `history_source` says where obs.history comes from, and conformance holds the adapter to it:
+      "log"      the kit's action log, the whole hand so far, so within a hand every decision's history extends the
+                 last one. It is used as it is.
+      "partial"  the kit shows some actions (this street only, the last few, ...): the rebuilt log below, extended
+                 by the kit's entries where they agree with it.
+      "bets"     the kit has no log (make_observation's raises-from-bets stand-in is dropped).
+    For "partial" and "bets", decide() rebuilds the hand's log from the states the kit shows
+    (hyperion/drills/infer_history.py: each seat's in-hand flag, stack and bet between our decisions; every entry
+    true, a gap ends it). For every source, hand_end() adds our last reply and, when the kit shows how the hand
+    ended (every seat's chips or deltas, the hands at showdown), the folds after it.
     """
 
     history_source = "log"
 
     def __init__(self, bot: Bot, rules: Rules | None = None):
+        from hyperion.drills.infer_history import HistoryInference
+
         self.bot = bot
         self.rules = rules or Rules()
         self.seat = 0
         self.started = False
+        self.inference = HistoryInference(self.rules)
+        self._last_hist: list = []
+        self._last_hand = None
+        self._pending = None  # a hand end waiting for the next hand's first state (defer_hand_end)
 
     # -- translation hooks ------------------------------------------------------------
     def to_observation(self, native: Any) -> Observation:
@@ -49,35 +62,100 @@ class Adapter:
         self.seat = seat
         self.n_players = n_players
         self.started = True
+        self._pending = None
+        self.inference.new_table(self.rules)
         try:
             self.bot.new_table(self.rules, seat, n_players)
         except Exception:  # noqa: BLE001 - never let a bot bug reach the kit
             pass
+
+    def with_history(self, obs: Observation) -> Observation:
+        """obs with the history the bot reads (history_source above). The inference runs on every decision, so its
+        walk is in step for the hand end whatever the source; on a log kit it only watches."""
+        kit = [] if (obs.extras and obs.extras.get("history_from_bets")) else obs.history
+        if self.history_source == "log" and kit:
+            self.inference.history(obs)
+            out = obs
+        else:
+            out = self.inference.observe(obs, kit if self.history_source == "partial" else None)
+        self._last_hist, self._last_hand = out.history, obs.hand_no
+        return out
 
     def decide(self, native: Any) -> Any:
         try:
             obs = self.to_observation(native)
             if not self.started:
                 self.start(obs.seat, obs.n_players)
+            if self._pending is not None:
+                self._deliver(obs)
+            try:
+                obs = self.with_history(obs)
+            except Exception:  # noqa: BLE001 - the bot still decides, on the history make_observation gave
+                pass
             action = self.bot.act(obs).clamp(obs)
+            self.inference.acted(action)
             return self.from_action(action, obs, native)
         except Exception:  # noqa: BLE001
             return self.native_safe(native)
 
-    def hand_end(self, hand_no: int, delta: int, n_players: int | None = None, history=None, deltas=None) -> None:
-        """The hand is over; pass the kit's `history` and every seat's `deltas` too when its signal has them.
+    def hand_end(self, hand_no: int, delta: int, n_players: int | None = None, history=None, deltas=None,
+                 final_stacks=None, showdown=None, board=()) -> None:
+        """The hand is over; pass whatever the kit's hand-end signal has.
 
-        `history` is [(seat, Action)] for the whole hand, `deltas` every seat's chip change. The shipped bot's core
-        (rival 3) replays the hand's history here to read the actions after our last decision, as the simulator
-        gives it."""
+        `history` the kit's [(seat, Action)] for the hand; `deltas` every seat's chip change (or `final_stacks`,
+        every seat's chips after it); `showdown` {seat: hole cards} for every hand still in at showdown ({} when
+        there was none; leave it None when the kit does not say). Without a history the rebuilt one goes to the bot:
+        the hand's log up to our last decision, our reply, and the folds after it that the deltas and showdown
+        settle. When the signal has none of deltas, final_stacks or showdown (`defer_hand_end`), the bot's hand end
+        waits for the next hand's first state, whose stacks give every seat's chips after this hand: it is delivered
+        at the top of that decision. Rival 3's core (hybrid3_x, the composite) replays the hand's history here, as
+        the simulator gives it."""
         try:
-            if deltas is None:
-                deltas = [0] * (n_players or getattr(self, "n_players", 0) or max(1, self.seat + 1))
-                deltas[self.seat] = delta
-            self.bot.hand_end(HandResult(hand_no=hand_no, deltas=list(deltas), showdown={}, board=(),
-                                         history=list(history or [])))
+            if self._pending is not None:  # two hand ends with no decision between them (a walk in our big blind)
+                self._deliver(None)
+            if deltas is None and final_stacks is None and showdown is None and self.defer_hand_end:
+                self._pending = (hand_no, delta, n_players, history, board)
+                return
+            self._end(hand_no, delta, n_players, history, deltas, final_stacks, showdown, board)
         except Exception:  # noqa: BLE001
             pass
+
+    defer_hand_end = True
+
+    def _deliver(self, obs: Observation | None) -> None:
+        """The waiting hand end, settled by `obs` when it is the next hand's first state."""
+        from hyperion.drills.infer_history import finals_from_next
+
+        hand_no, delta, n_players, history, board = self._pending
+        self._pending = None
+        finals = deltas = None
+        if obs is not None and obs.hand_no == hand_no + 1 and self.inference.hand_no == hand_no:
+            finals = finals_from_next(obs, self.rules)
+            start = self.inference.start_stacks() if finals is not None else None
+            if start is not None and len(start) == len(finals):
+                deltas = [f - b for f, b in zip(finals, start)]
+            else:
+                finals = None
+        self._end(hand_no, delta, n_players, history, deltas, finals, None, board)
+
+    def _end(self, hand_no, delta, n_players, history, deltas, final_stacks, showdown, board) -> None:
+        try:
+            n = n_players or getattr(self, "n_players", 0) or max(1, self.seat + 1)
+            shown = None if showdown is None else dict(showdown)
+            hist = self.inference.hand_end(final_stacks=final_stacks, deltas=deltas, shown=shown, hand_no=hand_no)
+            seen = self._last_hist if self._last_hand == hand_no else []
+            hist = self.inference.merge(hist, list(seen))
+            kit = list(history or [])
+            if kit:
+                hist = kit if self.history_source == "log" else self.inference.merge(hist, kit)
+            if deltas is None:
+                deltas = [0] * n
+                deltas[self.seat] = delta
+            self.bot.hand_end(HandResult(hand_no=hand_no, deltas=list(deltas), showdown=dict(showdown or {}),
+                                         board=tuple(board or ()), history=hist))
+        except Exception:  # noqa: BLE001
+            pass
+        self._last_hist, self._last_hand = [], None
 
 
 def history_from_bets(street: int, button: int, stacks, bets, big_blind: int) -> list[tuple[int, Action]]:
@@ -103,10 +181,11 @@ def history_from_bets(street: int, button: int, stacks, bets, big_blind: int) ->
 
 
 class NoLogSeat:
-    """A bot fed what a kit with no action log gives it through a reference adapter: each decision's history is this
-    street's raises rebuilt from the bets (make_observation's rule, flagged in extras), and each hand end carries
-    only its own chip change. tools/gate.py seats the in-sim baseline this way for such kits, so the gate measures
-    the adapter, not the log the kit never had."""
+    """A bot fed what a kit with no action log gives it through an adapter that infers nothing: each decision's history
+    is this street's raises rebuilt from the bets (make_observation's rule, flagged in extras), and each hand end
+    carries only its own chip change. What the reference adapters gave before the inference
+    (hyperion/drills/infer_history.py InferSeat is the seat with it); tools/gate.py --kit-log bets seats the in-sim
+    baseline this way, for a package whose adapter predates the inference."""
 
     def __init__(self, bot: Bot):
         self.bot = bot
@@ -412,7 +491,7 @@ class KitDAdapter(Adapter):
     legal_actions() is a set of action classes (no FoldAction when a check is free); raise_bounds() are
     raise-to totals. Replies are instances of the classes found in the legal set, so no kit import."""
 
-    history_source = "bets"  # previous_state holds the hand, but this adapter does not walk it
+    history_source = "bets"  # previous_state holds the hand, but this adapter does not walk it: the inference does
 
     def __init__(self, bot: Bot, rules: Rules | None = None):
         super().__init__(bot, rules)
@@ -455,11 +534,13 @@ class KitDAdapter(Adapter):
         return cls() if cls is not None else None
 
     def round_over(self, game_state: Any, terminal_state: Any, active: int) -> None:
+        """Every seat's delta and the hands shown at showdown: the inference settles the folds after our last reply."""
         try:
             last = terminal_state.previous_state
             shown = {s: tuple(parse_card(c) for c in h) for s, h in enumerate(last.hands) if h and s != active}
-            self.bot.hand_end(HandResult(hand_no=int(game_state.round_num) - 1, deltas=list(terminal_state.deltas),
-                                         showdown=shown, board=tuple(parse_card(c) for c in last.board), history=[]))
+            deltas = list(terminal_state.deltas)
+            self.hand_end(int(game_state.round_num) - 1, deltas[active], len(deltas), deltas=deltas, showdown=shown,
+                          board=tuple(parse_card(c) for c in last.board))
         except Exception:  # noqa: BLE001
             pass
 

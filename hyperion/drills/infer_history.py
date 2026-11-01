@@ -123,8 +123,9 @@ class HistoryInference:
 
     def merge(self, mine: list, kit: list) -> list:
         """The kit's own entries with the rebuilt ones: the kit's log when the rebuilt prefix starts it; the rebuilt
-        prefix extended by the kit's entries where they overlap its end (a log of this street, or the last few
-        actions); the rebuilt prefix when they disagree (a translation bug: counted in `conflicts`)."""
+        prefix extended by the kit's entries where they overlap its end by at least one entry (a log of this street,
+        or the last few actions; the longest overlap wins); the rebuilt prefix when they do not line up (a kit
+        log that starts after our prefix ends cannot be placed; one that disagrees is counted in `conflicts`)."""
         if not kit:
             return mine
         n, k = len(mine), len(kit)
@@ -134,7 +135,7 @@ class HistoryInference:
             return kit
         if _same(mine[:k], kit):
             return mine
-        for off in range(1, n + 1):  # kit = a suffix of the true log, overlapping the end of ours or just after it
+        for off in range(1, n):  # kit = a suffix of the true log that overlaps the end of ours by one entry or more
             tail = mine[off:]
             if len(tail) <= k and _same(kit[:len(tail)], tail):
                 if k > len(tail):

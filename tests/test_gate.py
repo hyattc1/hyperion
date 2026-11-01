@@ -59,10 +59,19 @@ class Agent(KitAAgent):
 DROPS_HISTORY = PRELUDE + '''
 
 class NoHistory(KitAAdapter):
-    def to_observation(self, s):
-        obs = super().to_observation(s)
-        obs.history = []  # drill 6: no action log passed and nothing rebuilt
+    """drill 6: no action log reaches the bot and nothing is rebuilt (since the inference, an adapter that drops
+    the kit's log still gets the rebuilt one, so the drop is after it, and the hand end carries nothing)."""
+
+    def with_history(self, obs):
+        obs.history = []
         return obs
+
+    def hand_end(self, hand_no, delta, *args, **kw):
+        from hyperion.core.types import HandResult
+
+        deltas = [0] * self.n_players
+        deltas[self.seat] = delta
+        self.bot.hand_end(HandResult(hand_no=hand_no, deltas=deltas, showdown={}, board=(), history=[]))
 
 
 class Agent(KitAAgent):
@@ -277,8 +286,10 @@ def test_a_ship_package_is_gated_against_the_ship_bot_in_sim(tmp_path):
 
 
 def test_a_kit_without_a_log_gives_the_baseline_no_log(tmp_path):
-    """--kit-log no (auto for fake kits b, c, d): the in-sim baseline sits behind NoLogSeat, the package does not."""
+    """--kit-log no (auto for fake kits b, c, d): the in-sim baseline sees the bare states through the inference
+    (InferSeat), the package does not sit behind any wrapper; --kit-log bets is the older NoLogSeat baseline."""
     from hyperion.drills.adapter import NoLogSeat
+    from hyperion.drills.infer_history import InferSeat
     from hyperion.sim import bestiary
 
     seen = []
@@ -286,7 +297,7 @@ def test_a_kit_without_a_log_gives_the_baseline_no_log(tmp_path):
 
     class Spy(real):
         def __init__(self, bots, *a, **kw):
-            seen.append(any(isinstance(b, NoLogSeat) for b in bots))
+            seen.append(next((type(b).__name__ for b in bots if isinstance(b, (NoLogSeat, InferSeat))), None))
             super().__init__(bots, *a, **kw)
 
     gate.GateTable = Spy
@@ -300,7 +311,10 @@ def test_a_kit_without_a_log_gives_the_baseline_no_log(tmp_path):
         cfg = gate.Config(pkg=pkg, entry="submission.py", kit="b", kit_dir=kit_dir, scratch=str(scratch))
         p, b = gate.play(cfg, bestiary.field_names("realistic"), 1, 3, Rules(), None, "measure", "sim",
                          bot=("hybrid3_x", {}), no_log=True)
+        gate.play(cfg, bestiary.field_names("realistic"), 1, 3, Rules(), None, "measure", "sim",
+                  bot=("hybrid3_x", {}), no_log="bets", base=None)
     finally:
         gate.GateTable = real
-    assert seen == [False, True], seen  # the package's table: no wrapper; the baseline's: the baseline wrapped
+    # the package's tables: no wrapper; the baselines': the inference, then (--kit-log bets) the bets alone
+    assert seen == [None, "InferSeat", None, "NoLogSeat"], seen
     assert p.stats.exceptions == p.stats.illegal == 0 and b.stats.calls > 0

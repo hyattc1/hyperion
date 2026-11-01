@@ -35,11 +35,13 @@ paired against Hero. `--bot` / `--dials` replace the record; `--hero-config JSON
 package's own ship bot behind no adapter instead, for a package built from older code (it reads the package's
 tables too, so a missing variant set hides from it).
 
-A kit with no action log (`--kit-log no`; the default `auto` says no for fake kits b, c and d, whose reference
-adapters rebuild the raises from the bets, and yes for a and a seat file) gives the baseline what the kit gives
-the package: each decision's history rebuilt from the bets and a hand end with only its own chip change
-(hyperion.drills.adapter.NoLogSeat). Fed the full log, the in-sim bot is a bar no package on such a kit can
-reach (kit B: Hero -0.83 +- 0.46, hybrid3_x -1.23 +- 0.71 at 60 tables), so every upload would fail.
+A kit with no action log (`--kit-log no`; the default `auto` says no for fake kits b, c and d and yes for a and a
+seat file) gives the baseline what the kit gives the package, through the same inference the adapters run
+(hyperion.drills.infer_history.InferSeat): each decision's log rebuilt from the bare states, and a hand end that
+waits for the next hand's first state (kit d: one with every seat's chip change and the hands at showdown). Fed
+the full log, the in-sim bot is a bar no package on such a kit can reach (kit B before the inference: Hero
+-0.83 +- 0.46, hybrid3_x -1.23 +- 0.71 at 60 tables); fed the bets alone (`--kit-log bets`, NoLogSeat, the
+baseline before the inference) it no longer catches an adapter that drops the inference (worth 0.4-0.8 points).
 
 FAIL (exit 1) when the package trails the baseline by more than the paired 95% interval, raises, sends
 an illegal action, never imports, or times out on more than --max-tmo-pct of its decisions (a warning
@@ -74,6 +76,7 @@ if str(ROOT) not in sys.path:
 from hyperion import ship  # noqa: E402
 from hyperion.core.types import Action, ActionKind, Observation, Rules  # noqa: E402
 from hyperion.drills.adapter import NoLogSeat, dealer_state, history_rows  # noqa: E402
+from hyperion.drills.infer_history import InferSeat  # noqa: E402
 from hyperion.sim import bestiary  # noqa: E402
 from hyperion.sim.engine import BUDGET_NS, BotStats, Table  # noqa: E402
 
@@ -709,11 +712,14 @@ def seating_for(names: list[str], n: int, table_seed: int) -> list[str]:
 
 def play(cfg: Config, names: list[str], tables: int, seed: int, rules: Rules, variant, mode: str,
          baseline: str, progress=None, base: Side | None = None,
-         bot: tuple[str, dict] | None = None, no_log: bool = False) -> tuple[Side, Side]:
+         bot: tuple[str, dict] | None = None, no_log: bool | str = False) -> tuple[Side, Side]:
     """Each table seed with the package in the hero seat, then with the baseline there. A `base` from an
     earlier call with the same field, seeds and rules is reused instead of replayed. `bot` = (name, dials) for
     hyperion.ship.make_bot in the baseline seat; None = the bestiary's `hero` (with bestiary.HERO_CONFIG).
-    `no_log`: the in-sim baseline sees what a kit with no action log gives (NoLogSeat)."""
+    `no_log`: the in-sim baseline sees what a kit with no action log gives: "next" (or True) through an adapter that
+    infers the log (InferSeat; its hand end waits for the next hand's first state), "shown" the same with a hand end
+    that lists every seat's chip change and the hands at showdown (kit D), "bets" through one that infers nothing
+    (NoLogSeat, for packages from before the inference)."""
     pkg = Side("package")
     sides = [(pkg, cfg.kit)]
     label = bot[0] if bot is not None else "hero"
@@ -733,7 +739,8 @@ def play(cfg: Config, names: list[str], tables: int, seed: int, rules: Rules, va
             elif bot is not None:
                 bots[g] = ship.make_bot(bot[0], bot[1], seed=table_seed * 64 + g)
             if proxy is None and no_log and baseline == "sim":
-                bots[g] = NoLogSeat(bots[g])
+                mode_ = "next" if no_log is True else no_log
+                bots[g] = NoLogSeat(bots[g]) if mode_ == "bets" else InferSeat(bots[g], final=mode_)
             stats = [BotStats(nm) for nm in seating]
             stats[g] = side.stats
             hooks = variant.new_hooks() if variant is not None else None
@@ -881,9 +888,11 @@ def main(argv=None) -> int:
                                          "every other Hero seat), JSON or file, or `cheap` for Hero.cheap()")
     p.add_argument("--baseline", choices=("sim", "package"), default="sim")
     p.add_argument("--max-tmo-pct", type=float, default=0.3, help="timeouts as a share of decisions (default 0.3)")
-    p.add_argument("--kit-log", choices=("auto", "yes", "no"), default="auto",
-                   help="does the kit give an action log? no = the in-sim baseline sees the raises rebuilt from the "
-                        "bets, as the package does (auto: no for fake kits b, c, d; yes for a and a seat file)")
+    p.add_argument("--kit-log", choices=("auto", "yes", "no", "bets"), default="auto",
+                   help="does the kit give an action log? no = the in-sim baseline sees the bare states with the log "
+                        "inferred from them, as the package's adapter does (hyperion/drills/infer_history.py); bets = "
+                        "the raises rebuilt from the bets only, for a package from before the inference (auto: no for "
+                        "fake kits b, c, d; yes for a and a seat file)")
     a = p.parse_args(argv)
 
     from hyperion.sim.runner import load_hero_config, load_rules
@@ -928,9 +937,16 @@ def main(argv=None) -> int:
         print(f"      kit {a.kit}, {field_label}, {a.tables} tables {a.mode}, seed {a.seed}, rules {a.rules}"
               f"{', variant ' + a.variant if a.variant else ''}, baseline {a.baseline}"
               f"{', hero-config ' + a.hero_config if a.hero_config else ''}")
-        no_log = a.kit_log == "no" or (a.kit_log == "auto" and kit in ("b", "c", "d"))
-        print(f"      baseline bot {bot[0]} dials {bot[1]} ({where})"
-              f"{'; it sees what a kit with no action log gives (--kit-log no)' if no_log else ''}")
+        no_log: bool | str = False
+        if a.kit_log == "bets":
+            no_log = "bets"
+        elif a.kit_log == "no" or (a.kit_log == "auto" and kit in ("b", "c", "d")):
+            no_log = "shown" if kit == "d" else "next"
+        seen = {"bets": "; it sees what a kit with no log gives an adapter that infers nothing (--kit-log bets)",
+                "next": "; it sees what a kit with no log gives, the log inferred from the states (--kit-log no)",
+                "shown": "; it sees what a kit with no log gives, the log inferred from the states and the hand "
+                         "ends' deltas and showdowns (--kit-log no, kit d)"}
+        print(f"      baseline bot {bot[0]} dials {bot[1]} ({where}){seen.get(no_log, '') if no_log else ''}")
         t0 = time.perf_counter()
 
         def progress(done, pk, bs):
