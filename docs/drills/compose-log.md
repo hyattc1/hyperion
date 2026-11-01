@@ -265,7 +265,7 @@ P beats both bases beyond noise on all four fields. Its gain on night (+0.20) is
 selection bias. Latency in these model runs (load 3-8): P p50 / p99 69 / 257 us, hybrid3_x 39 / 154, Hero 29 / 111. P
 runs both members on every decision. Strict-mode timing and the variant matrix come next, then the climb from P.
 
-## 16:10-16:25: timing, and light shadows
+## 16:00-16:12: timing, and light shadows
 
 P runs both members on every decision. **Light shadows** (`ComposeConfig.light`, on in `ship()`): a member that is not
 chosen keeps its state from the observation without deciding, where its decision changes nothing it keeps.
@@ -301,7 +301,7 @@ observations, all streets):
 
 P's p99 through the kit-B adapter is 127 us, a quarter of tools/latency.py's 500 us bar and an eighth of the budget.
 
-## 16:30: the 23 variants (P with light shadows; variant_matrix.py's rules, realistic, 200 unrotated tables each, seed 7, model mode)
+## 16:15: the 23 variants (P with light shadows; variant_matrix.py's rules, realistic, 200 unrotated tables each, seed 7, model mode)
 
 **P: 23 of 23 READY, first on 22** (second on fixed_raise, as hybrid3_x), zero exceptions or inner errors. hybrid3_x on the
 same tables: the same 23 / 22.
@@ -314,3 +314,31 @@ same tables: the same 23 / 22.
   - permuted_ranks +0.08, bonus_card +0.03, swap_one_turn -0.01;
   - top_heavy +3.35 ± 3.29 (on its 12.5-point scale).
 - p99 81-109 us (top_heavy 212: its exact ICM).
+
+## 16:17-16:30: no action log (the rebuild), pack and gate
+
+**Kit with no action log** (hyperion.drills.infer_eval's cases through `InferSeat`, the adapters' rebuild with the hand
+end held to the next state; fresh seeds 3000-3199 x 8, model mode, code a4aa16f; the three bots on the same deals):
+
+| field, case | P | Hero | hybrid3_x | P - hybrid3_x | P - Hero |
+|---|---|---|---|---|---|
+| night, log rebuilt (`infer`) | 5.897 | 5.713 | 5.677 | **+0.219 ± 0.121** | **+0.184 ± 0.112** |
+| night, full log | 5.975 | 5.763 | 5.792 | **+0.183 ± 0.110** | **+0.213 ± 0.105** |
+| realistic, log rebuilt | 6.272 | 5.942 | 5.907 | **+0.365 ± 0.116** | **+0.330 ± 0.124** |
+| realistic, full log | 6.266 | 6.038 | 6.095 | **+0.172 ± 0.110** | **+0.229 ± 0.118** |
+
+P keeps its lead when the log has to be rebuilt. On realistic it loses nothing to the missing log (6.27 against 6.27),
+while hybrid3_x loses 0.19.
+
+**Packed and gated** (`tools/pack.py --bot composite --dials '{"route": "post=hero,pre_raised_short=hero"}'` with a
+kit B entry, `make_kit_b_module()`; `tools/gate.py --kit b --field night --tables 60`, strict, `--kit-log no` by
+default for kit b, so the adapter rebuilds the log and defers the hand end). Quiet host (load 1-3):
+
+| package | gate | package - in-sim | package p50 / p99 / max us | timeouts |
+|---|---|---|---|---|
+| P (zip sha256 75c437dc...) | **PASS** | -0.251 ± 0.390 | 153 / 313 / 803 | 0 of 11,304 |
+| hybrid3_x, same entry | PASS | +0.034 ± 0.353 | 131 / 239 / 3225 (one preemption) | 1 of 9,794 |
+
+The kit B path with the rebuild and the deferred hand end (55-80 us of hand-end work inside a hand's first decision)
+adds ~75 us to P's p99 over hybrid3_x's: 313 against 239 us, a third of the budget, max 803 us. On the same 60 deals
+the P package scored 5.99 and the hybrid3_x package 5.47.
