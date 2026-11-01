@@ -34,6 +34,10 @@ import time
 from multiprocessing import Pool
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_HERE = os.path.dirname(os.path.abspath(__file__))
+# tools/ is not a package: a tool named like a stdlib module (tools/profile.py) must not shadow it (cProfile imports
+# `profile`, and the runner imports cProfile)
+sys.path[:] = [p for p in sys.path if os.path.abspath(p or os.curdir) != _HERE]
 sys.path.insert(0, ROOT)
 
 from hyperion.compose import bot as CB  # noqa: E402
@@ -49,11 +53,21 @@ PAYOUTS = {"lin": None, "brief": (10, 7, 5, 4, 3, 2, 1, 0), "th": (50, 25, 12, 6
 
 
 # --------------------------------------------------------------------------------------------- deterministic setup
-def setup_process() -> None:
+def setup_process(mode: str = "model", as_built: bool = False) -> None:
+    """Model mode: panic, soft deadlines and `late_us` off. `as_built`: rival 2 (opponent and core) keeps its wall-clock
+    sampler. Strict mode: everything as shipped."""
     from hyperion.sim import bestiary as B
 
+    if mode == "strict":
+        B.HYBRID_CONFIG = None
+        B.HERO_CONFIG = None
+        return
     B.HYBRID_CONFIG = dict(HYBRID_CONFIG)
     B.HERO_CONFIG = dict(HERO_CONFIG)
+    if as_built:
+        for k in ("mc_budget_us", "mc_hard_us"):
+            B.HYBRID_CONFIG.pop(k)
+        return
     if "hyperion.sim.rivals.rival2" in sys.modules or os.environ.get("SWAP_R2", "1") == "1":
         from hyperion.sim.rivals import rival2 as R2
 
@@ -139,10 +153,10 @@ class Recorder:
 _REG: dict = {}
 
 
-def _register(route: dict, shadow_all: bool, name: str = CAND):
-    key = (route_str(route), shadow_all, name)
+def _register(route: dict, shadow: tuple = (), name: str = CAND):
+    key = (route_str(route), tuple(shadow), name)
     if _REG.get(name) != key:
-        CB.register(name, dict(route), shadow_all=shadow_all)
+        CB.register(name, dict(route), shadow=tuple(shadow))
         _REG[name] = key
 
 
@@ -152,7 +166,7 @@ def _job_base(args):
     from hyperion.core.types import Rules
 
     rules = Rules(payouts=PAYOUTS[pay]) if PAYOUTS[pay] else None
-    _register(route, True)
+    _register(route, tuple(dict.fromkeys(CB.DONORS[d][0] for d in donors)))
     rec = Recorder(donors)
     out = []
     t0 = time.time()
@@ -180,7 +194,7 @@ def _job_play(args):
     from hyperion.core.types import Rules
 
     rules = Rules(payouts=PAYOUTS[pay]) if PAYOUTS[pay] else None
-    _register(route, False)
+    _register(route)
     out = []
     t0 = time.time()
     for t, rot in keys:
@@ -381,9 +395,105 @@ def cmd_report(a):
         json.dump(res, fh, indent=1)
 
 
+# --------------------------------------------------------------------------------------------- full paired runs
+def _spec_bot(name: str, spec: dict) -> str:
+    """The simulator name for a spec: a registered bot ({"bot": "hybrid3_x"}) or a composite (route and dials)."""
+    if "bot" in spec:
+        return spec["bot"]
+    nm = "cmp_" + name
+    CB.register(nm, spec.get("route", ""), exploit=spec.get("exploit", "hero"),
+                base_overrides=dict(spec.get("base_overrides", {})), hero_overrides=dict(spec.get("hero_overrides", {})))
+    return nm
+
+
+def _job_paired(args):
+    field, name, spec, off, n, pay, mode, as_built = args
+    setup_process(mode, as_built)
+    from hyperion.core.types import Rules
+    from hyperion.sim import bestiary as B
+    from hyperion.sim.runner import run_tournament
+
+    rules = Rules(payouts=PAYOUTS[pay]) if PAYOUTS[pay] else None
+    CB.COUNTS.clear()
+    nm = _spec_bot(name, spec)
+    l0 = os.getloadavg()[0]
+    t0 = time.time()
+    rep = run_tournament(B.field_names(f"{field}@{nm}"), n, seed=SEED, rotate=True, mode=mode, rules=rules,
+                         hero_config=B.HERO_CONFIG, table_offset=off)
+    b = rep.bots[nm]
+    st = b.stats
+    return name, off, {"samples": b.samples, "places": b.places, "seats": b.seats, "busts": b.busts,
+                       "hist": st.hist, "calls": st.calls, "tmo": st.over_budget, "exc": st.exceptions,
+                       "ill": st.illegal, "counts": dict(CB.COUNTS), "load": [l0, os.getloadavg()[0]],
+                       "secs": time.time() - t0, "tables": rep.tables}
+
+
+def cmd_paired(a):
+    with open(a.specs) as fh:
+        specs = json.load(fh)
+    names = list(specs)
+    lo, hi = (int(x) for x in a.seeds.split(":"))
+    path = os.path.join(a.out, f"paired.{a.field}.{a.payouts}.{a.mode}.{lo}-{hi}.{a.tag}.json")
+    os.makedirs(a.out, exist_ok=True)
+    done = {}
+    if os.path.exists(path) and not a.force:
+        with open(path) as fh:
+            done = json.load(fh)["res"]
+    jobs = [(a.field, nm, specs[nm], off, min(a.chunk, hi - off), a.payouts, a.mode, a.as_built)
+            for off in range(lo, hi, a.chunk) for nm in names if str(off) not in done.get(nm, {})]
+    res = {nm: dict(done.get(nm, {})) for nm in names}
+    t0 = time.time()
+    if jobs:
+        with Pool(a.workers) as p:
+            for nm, off, o in p.imap_unordered(_job_paired, jobs):
+                res[nm][str(off)] = o
+    with open(path + ".tmp", "w") as fh:
+        json.dump({"field": a.field, "seeds": a.seeds, "payouts": a.payouts, "mode": a.mode, "specs": specs,
+                   "as_built": a.as_built, "res": res, "secs": time.time() - t0}, fh)
+    os.replace(path + ".tmp", path)
+    print(paired_table(path))
+
+
+def _flat(r, key="samples"):
+    return [x for off in sorted(r, key=int) for x in r[off][key]]
+
+
+def paired_table(path: str) -> str:
+    from hyperion.sim.engine import BotStats
+
+    with open(path) as fh:
+        d = json.load(fh)
+    names = list(d["specs"])
+    ref = names[0]
+    rx = _flat(d["res"][ref])
+    loads = [x for nm in names for off in d["res"][nm] for x in d["res"][nm][off]["load"]]
+    out = [f"{d['field']} ({d['payouts']}, {d['mode']}{', as built' if d['as_built'] else ''}), seeds {d['seeds']} x 8, "
+           f"load {min(loads):.0f}-{max(loads):.0f}; paired against {ref}", "",
+           "| # | candidate | points ± 95% | - " + ref + " (paired) | p50 / p99 us | timeouts | exc / ill |",
+           "|---|---|---|---|---|---|---|"]
+    rows = []
+    for nm in names:
+        r = d["res"][nm]
+        xs = _flat(r)
+        m, h = ci(xs)
+        dm, dh = ci([x - y for x, y in zip(xs, rx)]) if nm != ref else (0.0, 0.0)
+        st = BotStats(nm)
+        st.hist = [sum(r[off]["hist"][i] for off in r) for i in range(len(next(iter(r.values()))["hist"]))]
+        st.calls = sum(r[off]["calls"] for off in r)
+        tmo = sum(r[off]["tmo"] for off in r)
+        exc = sum(r[off]["exc"] for off in r)
+        ill = sum(r[off]["ill"] for off in r)
+        rows.append((m, nm, h, dm, dh, st.percentile_us(0.5), st.percentile_us(0.99), tmo, st.calls, exc, ill))
+    for i, (m, nm, h, dm, dh, p50, p99, tmo, calls, exc, ill) in enumerate(sorted(rows, key=lambda x: -x[0]), 1):
+        dd = "-" if nm == ref else f"{dm:+.3f} ± {dh:.3f}" + (" **" if abs(dm) > dh else "")
+        out.append(f"| {i} | {nm} | {m:.3f} ± {h:.3f} | {dd} | {p50:.0f} / {p99:.0f} | {tmo} ({100 * tmo / max(1, calls):.3f}%) "
+                   f"| {exc} / {ill} |")
+    return "\n".join(out)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser()
-    p.add_argument("cmd", choices=("base", "cells", "joint", "report"))
+    p.add_argument("cmd", choices=("base", "cells", "joint", "report", "paired", "table"))
     p.add_argument("--field", required=True)
     p.add_argument("--seeds", default="0:200")
     p.add_argument("--payouts", default="lin", choices=sorted(PAYOUTS))
@@ -396,8 +506,16 @@ def main(argv=None):
     p.add_argument("--chunk", type=int, default=16)
     p.add_argument("--full", action="store_true", help="replay every rotation (checks the shortcut)")
     p.add_argument("--force", action="store_true")
+    p.add_argument("--specs", help="paired: JSON file {name: {bot | route, exploit, base_overrides, hero_overrides}}; "
+                                   "the first is the reference")
+    p.add_argument("--tag", default="run", help="paired: names the output file")
+    p.add_argument("--mode", default="model", choices=("model", "strict"))
+    p.add_argument("--as-built", action="store_true", help="paired: rival 2 keeps its wall-clock sampler")
     a = p.parse_args(argv)
-    {"base": cmd_base, "cells": cmd_cells, "joint": cmd_joint, "report": cmd_report}[a.cmd](a)
+    if a.cmd == "table":
+        print(paired_table(a.specs))
+        return
+    {"base": cmd_base, "cells": cmd_cells, "joint": cmd_joint, "report": cmd_report, "paired": cmd_paired}[a.cmd](a)
 
 
 if __name__ == "__main__":

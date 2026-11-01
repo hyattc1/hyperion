@@ -177,6 +177,7 @@ class ComposeConfig:
     hybrid_overrides: dict = field(default_factory=dict)  # flat HybridConfig overrides for the hybrid members (soft_us ...)
     base_overrides: dict = field(default_factory=dict)  # ... for the base only (rival 3 core knobs, once exposed)
     shadow_all: bool = False  # run every registered member, not only the route's (tests, timing)
+    shadow: tuple = ()  # ... or these members as well as the route's (tools/swap.py: the donors it records)
     late_us: float = 700.0  # the chosen member already used this much: shadows skip this decision
     deadline_ms: float = 0.5  # SafeBot, as Hero sets it
     panic_after: int = 5
@@ -209,8 +210,8 @@ class CompositeCore:
             m = DONORS[d][0]
             if m not in names:
                 names.append(m)
-        if cfg.shadow_all:
-            names += [m for m in MEMBERS if m not in names]
+        extra = list(MEMBERS) if cfg.shadow_all else list(cfg.shadow)
+        names += [m for m in extra if m not in names]
         self.names = names
         self.members = [MEMBERS[n](cfg, cfg.seed) for n in names]
         self.base = self.members[0]

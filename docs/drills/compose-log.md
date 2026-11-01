@@ -5,7 +5,7 @@ The compose phase (HANDOFF, 13:45): for each section of the game, find whether a
 Ship only if the composite beats hybrid3_x beyond noise on night and realistic and is not worse on any judge field.
 Summary goes to docs/decisions.md, "Composite bot".
 
-## 14:10 ET: the sections (hyperion/compose/sections.py)
+## 13:20 ET: the sections (hyperion/compose/sections.py)
 
 Twelve sections, read from the Observation alone in about 1 us (0.87-1.0 us per call on this box, best of five passes
 over 20,000 recorded decisions). Axes in the order they are read:
@@ -40,7 +40,7 @@ Shares of hybrid3_x's decisions, model mode, 50 seeds x 8, in Hero's seat (%):
 Every section holds at least 1.3% of decisions on every field. Decision share is not points share: a section's weight in
 the swap matrix shows up as the size of its paired delta. Tests: tests/test_compose_sections.py.
 
-## 14:50: the composite bot (hyperion/compose/bot.py) and the swap tool (tools/swap.py)
+## 13:50: the composite bot (hyperion/compose/bot.py) and the swap tool (tools/swap.py)
 
 **Members and donors.** A route maps each section to a donor: a member bot and whether the exploit layer acts there.
 
