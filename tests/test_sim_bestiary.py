@@ -7,7 +7,7 @@ from tests.sim_helpers import Auditor
 
 NAMES = [n for n in B.REGISTRY if n not in ("crasher", "timeout")]
 # bots that spend the budget on purpose (Monte Carlo rollouts, modeled timeouts)
-SLOW = ("montecarlo", "montecarlo30", "timeout_then_recover")
+SLOW = ("montecarlo", "montecarlo30", "timeout_then_recover", "timeout_burst")
 FAST = [n for n in NAMES if n not in SLOW]
 
 

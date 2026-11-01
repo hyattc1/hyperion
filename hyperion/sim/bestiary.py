@@ -170,6 +170,43 @@ class _Base:
         pass
 
 
+# ----- the deterministic timeout model (engine mode "model") -----------------------------------
+# In strict mode the engine times each call on the wall clock, so how often the Monte Carlo and timeout bots overrun
+# follows the host's load, and a strict screen's timeouts drift with whatever else the box runs. In mode "model" the
+# engine calls use_cost_model(True) on each bot that has it, and folds (or checks) a bot only when the decision's
+# modelled cost, `last_cost_ns`, is over the 1 ms budget; a bot with no model is never folded for time. Modelled bots
+# skip their sleeps but do the same work and draw the same random numbers as in strict mode, so the two modes differ
+# only where a timeout differs. Per-rollout costs of MonteCarloBot.equity, medians on the dev box at load ~2.7 of 8
+# cores (scratch calibration, docs/drills/exploit-pass-log.md); 200 honest rollouts heads-up land at ~1.0 ms, so with
+# the spread below half of them time out, as they did there, and with two or more opponents all of them do.
+MC_SHUFFLE_NS = (4_000, 500)  # deck.shuffle rollouts: 4.0 us + 0.5 us per hand evaluated (opponents + 1)
+MC_SAMPLE_NS = (1_040, 790)  # rng.sample rollouts: 1.04 us + 0.79 us per opponent
+MC_ACT_NS = 5_000  # the rest of a postflop act()
+COST_SIGMA = 0.05  # per-decision lognormal spread (the sd of log time of 200 honest rollouts there)
+
+
+class _CostModel:
+    """Mixin for bots that can say what a decision costs. `last_cost_ns` is set on every act() while the model is
+    on (None = no cost worth modelling); `_sleep` sleeps only while it is off."""
+
+    cost_model = False
+    last_cost_ns: Optional[int] = None
+    cost_rng: Optional[random.Random] = None
+
+    def use_cost_model(self, on: bool) -> None:
+        self.cost_model = bool(on)
+        if on and self.cost_rng is None:
+            # its own stream: the noise never moves the bot's decision RNG
+            self.cost_rng = random.Random((getattr(self, "seed", None) or 0) * 2_654_435_761 + 97)
+
+    def _sleep(self, seconds: float) -> None:
+        if not self.cost_model:
+            time.sleep(seconds)
+
+    def _noisy(self, ns: float) -> int:
+        return int(ns * self.cost_rng.lognormvariate(0.0, COST_SIGMA)) if COST_SIGMA > 0 else int(ns)
+
+
 # ----- the archetypes --------------------------------------------------------------------------
 
 
@@ -180,7 +217,7 @@ class Crasher(_Base):
         raise RuntimeError("Crasher always crashes")
 
 
-class TimeoutBot(_Base):
+class TimeoutBot(_CostModel, _Base):
     """Sleeps past the budget, then shoves. In strict mode its shove never lands."""
 
     def __init__(self, seed: Optional[int] = None, sleep_s: float = 0.002):
@@ -188,7 +225,9 @@ class TimeoutBot(_Base):
         self.sleep_s = sleep_s
 
     def act(self, obs: Observation) -> Action:
-        time.sleep(self.sleep_s)
+        self._sleep(self.sleep_s)
+        if self.cost_model:
+            self.last_cost_ns = int(self.sleep_s * 1e9)
         return _raise_or_call(obs, obs.max_raise)
 
 
@@ -369,7 +408,7 @@ class Hero(_Base):
 # ----- the field: one-hour agent-assisted builds under a 1 ms clock ------------------------------
 
 
-class MonteCarloBot(_Base):
+class MonteCarloBot(_CostModel, _Base):
     """What most students actually write: Chen preflop, Monte Carlo equity postflop, bet when
     equity beats pot odds by a margin. The rollouts genuinely take the time (200 of them cost
     1-3 ms in pure Python), so in strict mode almost every postflop decision is auto-folded and
@@ -388,6 +427,7 @@ class MonteCarloBot(_Base):
                  fast_samples: int = 30, margin: float = 0.05, bet_eq: float = 0.6, raise_eq: float = 0.75,
                  sleep_s: float = 0.002):
         super().__init__(seed)
+        self.seed = seed
         self.samples, self.timeout_frac, self.fast_samples = samples, timeout_frac, fast_samples
         self.margin, self.bet_eq, self.raise_eq, self.sleep_s = margin, bet_eq, raise_eq, sleep_s
         self.deck = list(deck_for(self.rules))
@@ -426,16 +466,29 @@ class MonteCarloBot(_Base):
             acc += 1.0 if mine > best else (1.0 / ties if mine == best else 0.0)
         return acc / samples
 
+    def model_cost_ns(self, samples: int, n_opp: int, fast: bool) -> float:
+        """What `samples` rollouts against n_opp opponents cost on the calibration host, before the spread."""
+        n_opp = max(1, n_opp)
+        a, b = MC_SAMPLE_NS if fast else MC_SHUFFLE_NS
+        per = a + b * (n_opp if fast else n_opp + 1)
+        return MC_ACT_NS + samples * per
+
     def act(self, obs: Observation) -> Action:
         if obs.street == 0:
+            self.last_cost_ns = None
             return chen_preflop(obs)
         n_opp = obs.active - 1
         if self.timeout_frac is not None:
-            if self.rng.random() < self.timeout_frac:
-                time.sleep(self.sleep_s)
-            eq = self.equity(obs.hole, obs.board, n_opp, min(self.samples, self.fast_samples), True)
+            slept = self.rng.random() < self.timeout_frac
+            if slept:
+                self._sleep(self.sleep_s)
+            samples, fast = min(self.samples, self.fast_samples), True
         else:
-            eq = self.equity(obs.hole, obs.board, n_opp, self.samples, False)
+            slept, samples, fast = False, self.samples, False
+        if self.cost_model:
+            cost = self._noisy(self.model_cost_ns(samples, n_opp, fast))
+            self.last_cost_ns = cost + (int(self.sleep_s * 1e9) if slept else 0)
+        eq = self.equity(obs.hole, obs.board, n_opp, samples, fast)
         pot = obs.total_pot
         if obs.to_call == 0:
             if eq >= self.bet_eq and RAISE in obs.legal:
@@ -613,7 +666,7 @@ class LooseAggroStudent(_Base):
         return Action.call()
 
 
-class TimeoutThenRecover(_Base):
+class TimeoutThenRecover(_CostModel, _Base):
     """Plays an inner bot (naive by default) for the first N hands, then sleeps past the budget on
     every decision: state that grows, a cache that fills, a leak. N is drawn per table from
     [first_fail_lo, first_fail_hi] (30..120). Recovery is not modeled; the name is the archetype's
@@ -631,13 +684,52 @@ class TimeoutThenRecover(_Base):
         self.fail_from = self.rng.randint(self.lo, self.hi)
         self.inner.new_table(rules, seat, n_players)
 
+    def failing(self, hand_no: int) -> bool:
+        return hand_no >= self.fail_from
+
     def act(self, obs: Observation) -> Action:
-        if obs.hand_no >= self.fail_from:
-            time.sleep(self.sleep_s)
-        return self.inner.act(obs)
+        fail = self.failing(obs.hand_no)
+        if fail:
+            self._sleep(self.sleep_s)
+        a = self.inner.act(obs)
+        if self.cost_model:
+            self.last_cost_ns = int(self.sleep_s * 1e9) if fail else getattr(self.inner, "last_cost_ns", None)
+        return a
 
     def hand_end(self, result: HandResult) -> None:
         self.inner.hand_end(result)
+
+
+class TimeoutBurst(TimeoutThenRecover):
+    """TimeoutThenRecover with recovery: from hand N (30..120) it times out for an outage of `outage` hands (10..30),
+    plays normally for `uptime` hands (20..50), and repeats; every length is drawn per table. A cache rebuilt now and
+    then, a leak that a restart clears. It is the field's check that a read lets go of a seat that came back."""
+
+    def __init__(self, seed: Optional[int] = None, inner: str = "naive", first_fail_lo: int = 30,
+                 first_fail_hi: int = 120, sleep_s: float = 0.002, outage: tuple = (10, 30), uptime: tuple = (20, 50)):
+        self.outage, self.uptime = outage, uptime
+        super().__init__(seed, inner, first_fail_lo, first_fail_hi, sleep_s)
+        self._windows = self._draw_windows()
+
+    def _draw_windows(self) -> list:
+        out, h = [], self.fail_from
+        while h < 1000:
+            n = self.rng.randint(*self.outage)
+            out.append((h, h + n))
+            h += n + self.rng.randint(*self.uptime)
+        return out
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self._windows = self._draw_windows()
+
+    def failing(self, hand_no: int) -> bool:
+        for lo, hi in self._windows:
+            if hand_no < lo:
+                return False
+            if hand_no < hi:
+                return True
+        return False
 
 
 class HeroClone(_Base):
@@ -855,6 +947,7 @@ REGISTRY: dict[str, type] = {
     "pushfold": PushFoldBot,
     "loose_aggro": LooseAggroStudent,
     "timeout_then_recover": TimeoutThenRecover,
+    "timeout_burst": TimeoutBurst,  # times out in outages of 10..30 hands, recovering in between
     "hero_tight": HeroTight,
     "hero_loose": HeroLoose,
     "rival1": RivalBot,  # red-team drill 1's bot through the kit adapter; `naive` stays available by name
@@ -917,6 +1010,11 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "top2_h": ("hybrid", "rival1", "rival2", "rival2", "pushfold", "tag", "hero_tight", "loose_aggro"),
     "holdout_h": ("hybrid", "rival3", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "tag",
                   "timeout_then_recover"),
+    # timeout-heavy: the four timeout-prone bots (honest Monte Carlo, Monte Carlo timing out 30% postflop, one that
+    # breaks for good, one that breaks in outages and recovers) with the three competent students. Screened with the
+    # deterministic timeout model (mode "model") so its timeouts do not follow the host
+    "timeouts": ("hero", "montecarlo", "montecarlo30", "timeout_then_recover", "timeout_burst", "tag", "pushfold",
+                 "loose_aggro"),
     # the table that busts itself: Hero's job is to survive it and be there at the end
     "chaos": ("hero", "crasher", "random", "allin", "station", "montecarlo", "maniac", "timeout_then_recover"),
 }

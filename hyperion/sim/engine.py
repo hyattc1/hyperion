@@ -43,6 +43,11 @@ Conventions, also recorded in docs/decisions.md:
 - must_use_hole = 2: showdown is the best 2 of the hole with 3 of the board (Omaha); other values
   of must_use_hole evaluate every k-subset of the hole with (5 - k) of the board.
 - Rules.extras["removed_ranks"] (displayed ranks) are left out of the deck (short deck).
+- Modes: "strict" folds (or checks) a call over the 1 ms budget on the wall clock; "measure" times it and lets it
+  through; "model" is the deterministic timeout model: no bot is timed out on the wall clock, and a bot that
+  reports a modelled cost for the decision in `last_cost_ns` (the bestiary's Monte Carlo and timeout bots, told by
+  `use_cost_model(True)` at table start) is folded or checked when that cost is over the budget. Default off
+  (strict), so earlier numbers stay comparable; with it on, a screen's timeouts no longer drift with host load.
 """
 from __future__ import annotations
 
@@ -103,8 +108,9 @@ class BotStats:
     def new_table(self) -> None:
         self._fresh = True
 
-    def record(self, ns: int) -> None:
-        if ns > BUDGET_NS:
+    def record(self, ns: int, over: Optional[bool] = None) -> None:
+        """`over`: whether the call counts as over budget (the timeout model decides it); None = ns > budget."""
+        if (ns > BUDGET_NS) if over is None else over:
             self.over_budget += 1
         if self._fresh:
             self._fresh = False
@@ -318,8 +324,8 @@ class Table:
         stats: Optional[Sequence[BotStats]] = None,
         stacks: Optional[Sequence[int]] = None,
     ):
-        if mode not in ("strict", "measure"):
-            raise ValueError(f"mode must be strict or measure, got {mode!r}")
+        if mode not in ("strict", "measure", "model"):
+            raise ValueError(f"mode must be strict, measure or model, got {mode!r}")
         self.bots = list(bots)
         self.n = n = len(self.bots)
         if n < 2:
@@ -327,6 +333,7 @@ class Table:
         self.rules = rules = rules if rules is not None else Rules()
         self.rotation = rotation % n
         self.strict = mode == "strict"
+        self.model = mode == "model"  # the deterministic timeout model (see the module docstring)
         if rules.betting not in ("nolimit", "potlimit", "fixedlimit"):
             raise ValueError(f"Rules.betting must be nolimit, potlimit or fixedlimit, got {rules.betting!r}")
         self.betting = ("nolimit", "potlimit", "fixedlimit").index(rules.betting)
@@ -360,6 +367,9 @@ class Table:
         self.done = self.alive_count <= 1
         self._harvested = False
         for s, bot in enumerate(self.bots):
+            hook = getattr(bot, "use_cost_model", None)
+            if callable(hook):
+                hook(self.model)
             try:
                 bot.new_table(rules, s, n)
             except Exception as e:  # noqa: BLE001 - enforcement boundary
@@ -593,8 +603,14 @@ class Table:
             st.exceptions += 1
             st.last_error = repr(e)
         dt = perf_counter_ns() - t0
-        st.record(dt)
-        if failed or (self.strict and dt > BUDGET_NS):
+        if self.model:
+            cost = None if failed else getattr(self.bots[s], "last_cost_ns", None)
+            over = cost is not None and cost > BUDGET_NS
+            st.record(dt, over)
+        else:
+            over = self.strict and dt > BUDGET_NS
+            st.record(dt)
+        if failed or over:
             return A_CHECK if CHECK in obs.legal else A_FOLD
         if type(a) is not Action:
             st.illegal += 1
@@ -642,7 +658,7 @@ class Table:
             st.exceptions += 1
             st.last_error = repr(e)
         dt = perf_counter_ns() - t0
-        st.record(dt)
+        st.record(dt, False if self.model else None)  # no bot models a variant decision's cost
         if self.strict and dt > BUDGET_NS:
             return None
         return ans

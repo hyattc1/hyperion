@@ -301,7 +301,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                    help="a named 8-bot field from the bestiary; replaces --bots (optional fields such as `public` "
                         "need their bots enabled, e.g. HYPERION_MICROHOLDEM for `micro`)")
     p.add_argument("--rotate", action="store_true", help="play all rotations of each deal (duplicate)")
-    p.add_argument("--mode", choices=("strict", "measure"), default="strict")
+    p.add_argument("--mode", choices=("strict", "measure", "model"), default="strict",
+                   help="strict: fold calls over 1 ms on the wall clock; measure: never; model: the deterministic timeout "
+                        "model (bots that report a modelled cost are folded by it, nothing by the wall clock)")
     p.add_argument("--rules", default="default", help="'default' or a json file of Rules fields")
     p.add_argument("--variant", default=None, metavar="NAME",
                    help="a hyperion.drills.variants catalog entry: plays its Rules (unless --rules is a file) and hooks")
