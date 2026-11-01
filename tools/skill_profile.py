@@ -30,7 +30,8 @@ agent's swap test: the same bot with one section's decisions replaced, paired on
 
 Mode `model` (the default) is the deterministic timeout model; as in the final comparison, Hero's SafeBot panic and the
 hybrids' soft deadline are off there (`panic_after` 10^9, `soft_us` 10^6), so nothing reads the wall clock but rival 2's
-sampler. `--mode strict` plays everything as shipped. At most `--workers` processes (default 3).
+sampler. Rival 2 is imported with its clock held still, so its import-time tables are complete at any load
+(steady_rival2). `--mode strict` plays everything as shipped. At most `--workers` processes (default 3).
 """
 from __future__ import annotations
 
@@ -298,10 +299,30 @@ def _merge(old: Optional[dict], new: dict) -> dict:
     return old
 
 
+def steady_rival2() -> None:
+    """Import rival 2 with its clock held still. Its import-time equity tables stop at 1500 boards or after 2.4 s,
+    whichever comes first, so on a loaded host each process would build different tables; held still, every process
+    builds all 1500, as a quiet host does (the compose agent's tools/swap.py does the same). Its sampler at decision
+    time keeps its wall-clock budget, as built and as the final comparison played it. Called once before the workers
+    fork, so they share the module."""
+    import sys as _sys
+
+    if "hyperion.sim.rivals.rival2" in _sys.modules:
+        return
+    real = time.perf_counter
+    time.perf_counter = lambda: 0.0
+    try:
+        from hyperion.sim.rivals import rival2  # noqa: F401
+    finally:
+        time.perf_counter = real
+
+
 def run(field: str, bots: list, lo: int, hi: int, out: Path, workers: int = 3, mode: str = "model",
         chunk: int = 25, payouts=None, seed: int = 7) -> None:
     """Each bot in Hero's seat for seeds lo..hi, chunks of `chunk` seeds interleaved across bots so all bots of a run
     play at the same host load. Results merge into out/<field>/<bot>.json as chunks finish."""
+    if mode == "model":
+        steady_rival2()
     d = out / field
     d.mkdir(parents=True, exist_ok=True)
     jobs = [(field, b, s, min(s + chunk, hi), mode, list(payouts) if payouts else None, seed)
