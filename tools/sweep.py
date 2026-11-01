@@ -2,6 +2,7 @@
 same duplicate-dealt seed set across several fields, in parallel, with paired deltas against the base.
 
     .venv/bin/python tools/sweep.py spec.json --tables 100 --seed 7 --workers 8 --out scratch/sweep.json
+    .venv/bin/python tools/sweep.py spec.json --mode model ...   # the deterministic timeout model (engine.py)
 
 spec.json:
     {"base": {"preflop.patience_deep": 0.1},                    # dotted hero Config overrides for every run
@@ -42,7 +43,8 @@ def rules_from(overrides: dict | None) -> Rules | None:
 def _job(args):
     setting, field, names, tables, seed, offset, config = args[:7]
     rules = rules_from(args[7]) if len(args) > 7 else None
-    rep = run_tournament(names.split(","), tables, seed, rotate=True, mode="strict", hero_config=config,
+    mode = args[8] if len(args) > 8 else "strict"
+    rep = run_tournament(names.split(","), tables, seed, rotate=True, mode=mode, hero_config=config,
                          table_offset=offset, rules=rules)
     out = {}
     for nm, b in rep.bots.items():
@@ -160,6 +162,8 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=os.cpu_count() or 4)
     ap.add_argument("--chunks", type=int, default=4, help="slices per (setting, field) for the pool")
     ap.add_argument("--out", default=None, help="write raw results json here")
+    ap.add_argument("--mode", choices=("strict", "measure", "model"), default="strict",
+                    help="engine mode: strict (wall-clock timeouts), measure, or model (the deterministic timeout model)")
     ap.add_argument("--rival", default="tag", help="bots (comma-separated) to report the paired hero-minus-rival delta against")
     a = ap.parse_args(argv)
     with open(a.spec) as f:
@@ -175,8 +179,9 @@ def main(argv=None) -> int:
         for field, names in fields.items():
             for name, cfg in settings.items():
                 jobs.append((name, field, names, min(per, a.tables - off), a.seed, off, cfg,
-                             spec.get("field_rules", {}).get(field)))
-    print(f"{len(settings)} settings x {len(fields)} fields x {len(offsets)} chunks = {len(jobs)} jobs on {a.workers} workers",
+                             spec.get("field_rules", {}).get(field), a.mode))
+    print(f"{len(settings)} settings x {len(fields)} fields x {len(offsets)} chunks = {len(jobs)} jobs on {a.workers} workers, "
+          f"mode {a.mode}",
           file=sys.stderr)
     t0 = time.perf_counter()
     parts: dict[tuple, list] = {}
@@ -194,7 +199,7 @@ def main(argv=None) -> int:
     print(f"{time.perf_counter() - t0:.0f}s", file=sys.stderr)
     if a.out:
         with open(a.out, "w") as f:
-            json.dump({"spec": spec, "tables": a.tables, "seed": a.seed, "results": results}, f)
+            json.dump({"spec": spec, "tables": a.tables, "seed": a.seed, "mode": a.mode, "results": results}, f)
     return 0
 
 

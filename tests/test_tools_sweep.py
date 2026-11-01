@@ -35,3 +35,9 @@ def test_field_rules_override_the_payouts():
     r = sweep.rules_from({"payouts": [10, 7, 5, 4, 3, 2, 1, 0]})
     assert r.payouts == (10, 7, 5, 4, 3, 2, 1, 0) and r.n_players == 8
     assert sweep.rules_from(None) is None
+
+
+def test_a_job_runs_in_the_mode_it_is_given():
+    names = "hero,timeout,timeout,timeout,tag,tag,tag,tag"
+    _, _, _, out, _ = sweep._job(("base", "f", names, 1, 7, 0, {}, None, "model"))
+    assert out["timeout"]["tmo"] > 0 and out["hero"]["tmo"] == 0  # the model folds the timeout bots, and only them
