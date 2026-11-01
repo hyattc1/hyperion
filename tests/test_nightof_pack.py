@@ -103,3 +103,26 @@ def test_minute_and_night_row_helpers(tmp_path):
     lines = night.read_text().splitlines()
     assert lines.index("| 2 | b.zip | t | 1 KB | n | |") == lines.index("| 1 | a.zip | s | 1 KB | n | |") + 1
     assert lines.count("## Submissions") == 1
+
+
+def test_the_active_variant_tables_are_vendored_without_a_flag(tmp_path):
+    """Drill 6 shipped without tables/variants/toss_or_holdem because --tables-dir was not passed."""
+    pack = load_pack()
+    (tmp_path / "rules_tonight.json").write_text('{"hole_cards": 3, "extras": {"variant": "toss_or_holdem", '
+                                                 '"discard_street": 1, "keep": 2}}')
+    (tmp_path / "agent.py").write_text("X = 1\n")
+    r = run_pack(tmp_path, "--entry", "agent.py", "--out", "dist", "--extra", "rules_tonight.json")
+    assert r.returncode == 0, r.stdout + r.stderr
+    tables = tmp_path / "dist" / "submission" / "tables"
+    assert (tables / "variants" / "toss_or_holdem" / "meta.json").exists() and (tables / "preflop_rank.json").exists()
+    assert not (tables / "variants" / "omaha_four").exists()
+    assert "tables   default + variants/toss_or_holdem" in r.stdout
+    entry, extras = tmp_path / "agent.py", []
+    assert pack.find_rules(entry, extras, None) == tmp_path / "rules_tonight.json"  # beside the entry
+    assert pack.active_variant(tmp_path / "rules_tonight.json") == ("toss_or_holdem", True)
+    (tmp_path / "rules_bounty.json").write_text('{"extras": {"variant": "bounty"}}')
+    assert pack.active_variant(tmp_path / "rules_bounty.json") == ("bounty", False)
+    what = pack.build(tmp_path / "b", entry, [], False, None, "bounty")
+    assert what == "default"  # no set needed, none shipped, no warning
+    what = pack.build(tmp_path / "c", entry, [], False, None, "made_up_three_card", needs_variant=True)
+    assert "WARN" in what and "label tables" in what

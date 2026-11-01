@@ -2,11 +2,15 @@
 """One-command submission packager (stdlib only).
 
     python tools/pack.py --entry submission/agent.py --out dist/ [--extra submission/adapter.py ...]
-                         [--slim] [--tables-dir DIR] [--note "what changed"] [--night NIGHT.md]
+                         [--slim] [--rules rules_tonight.json] [--tables-dir DIR] [--note "what changed"]
+                         [--night NIGHT.md]
 
 Builds <out>/submission/: hyperion/ (never tests, docs or caches; with --slim also without
-drills/fakekits and the sim bestiary), tables/ (the default tables only, or all of --tables-dir), the
-entry file and any --extra files or directories beside it. Then, from a fresh Python started in another
+drills/fakekits and the sim bestiary), tables/ (the default tables, plus tables/variants/<name>/ when the
+rules name a variant; --tables-dir DIR packages all of DIR instead), the entry file and any --extra files
+or directories beside it. The rules are --rules, else the first --extra JSON with Rules keys, else
+rules_tonight.json beside the entry; their extras["variant"] is the active variant (drill 6 shipped
+without its variant set because --tables-dir was not passed). Then, from a fresh Python started in another
 directory with PYTHONPATH cleared, imports the entry module with <out>/submission first on sys.path,
 checks that `hyperion` resolved from there, and times the import (fail over --import-budget seconds).
 Checks the size against --max-mb, zips to <out>/submission.zip with the entry at the top level, prints
@@ -18,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -54,25 +59,76 @@ def _ignore(slim: bool):
     return ignore
 
 
-def build(dest: Path, entry: Path, extras: list[Path], slim: bool, tables_dir: Path | None) -> None:
+RULES_KEYS = {"hole_cards", "board_sizes", "rank_order", "payouts", "blind_levels", "extras", "n_players"}
+
+
+def find_rules(entry: Path, extras: list[Path], explicit: Path | None) -> Path | None:
+    """The rules JSON the package plays: --rules, else the first --extra JSON with Rules keys, else
+    rules_tonight.json beside the entry."""
+    if explicit is not None:
+        return explicit
+    for x in extras:
+        if x.is_file() and x.suffix == ".json":
+            try:
+                raw = json.loads(x.read_text())
+            except (OSError, ValueError):
+                continue
+            if isinstance(raw, dict) and RULES_KEYS & set(raw):
+                return x
+    beside = entry.parent / "rules_tonight.json"
+    return beside if beside.is_file() else None
+
+
+def active_variant(rules_path: Path | None) -> tuple[str | None, bool]:
+    """(extras["variant"], whether the card rules need a variant table set: more hole cards, removed ranks or
+    must-use, the cases hyperion.strategy.tables.needs_variant_tables names)."""
+    if rules_path is None:
+        return None, False
+    try:
+        raw = json.loads(rules_path.read_text())
+    except (OSError, ValueError) as e:
+        raise SystemExit(f"FAIL rules {rules_path} unreadable: {e}")
+    if not isinstance(raw, dict):
+        return None, False
+    ex = raw.get("extras") or {}
+    needs = int(raw.get("hole_cards", 2) or 2) != 2 or bool(ex.get("removed_ranks")) or bool(raw.get("must_use_hole"))
+    return (str(ex["variant"]) if ex.get("variant") else None), needs
+
+
+def build(dest: Path, entry: Path, extras: list[Path], slim: bool, tables_dir: Path | None,
+          variant: str | None = None, tables_root: Path | None = None, needs_variant: bool = False) -> str:
+    """Write the package; returns a one-line description of the tables it carries."""
+    tables_root = tables_root or ROOT / "tables"
     if dest.exists():
         shutil.rmtree(dest)
     shutil.copytree(ROOT / "hyperion", dest / "hyperion", ignore=_ignore(slim))
     if tables_dir is not None:
         shutil.copytree(tables_dir, dest / "tables", ignore=shutil.ignore_patterns("__pycache__"))
+        what = f"all of {tables_dir} (--tables-dir)"
     else:
         (dest / "tables").mkdir()
-        files = sorted((ROOT / "tables").glob("*.json"))
+        files = sorted(tables_root.glob("*.json"))
         if not files:
-            raise SystemExit(f"no tables in {ROOT / 'tables'}; run tools/gen_tables.py first")
+            raise SystemExit(f"no tables in {tables_root}; run tools/gen_tables.py first")
         for f in files:
             shutil.copy2(f, dest / "tables" / f.name)
+        what = "default"
+        if variant:
+            vdir = tables_root / "variants" / variant
+            if vdir.is_dir():
+                shutil.copytree(vdir, dest / "tables" / "variants" / variant,
+                                ignore=shutil.ignore_patterns("__pycache__"))
+                what += f" + variants/{variant}"
+            elif needs_variant:
+                what += (f"; WARN the rules name variant {variant!r} and change the cards, but {vdir} does not "
+                         f"exist: Hero plays label tables (Stage 3 writes tables/variants/<name>/)")
     shutil.copy2(entry, dest / entry.name)
     for x in extras:
         if x.is_dir():
             shutil.copytree(x, dest / x.name, ignore=_ignore(slim))
         else:
             shutil.copy2(x, dest / x.name)
+    return what
 
 
 def verify_import(dest: Path, module: str, budget_s: float, python: str = sys.executable) -> tuple[bool, str, float]:
@@ -163,7 +219,10 @@ def main(argv=None) -> int:
     p.add_argument("--out", default="dist", help="output directory (default dist/)")
     p.add_argument("--extra", nargs="*", default=[], help="files or directories to copy beside the entry")
     p.add_argument("--slim", action="store_true", help="drop drills/fakekits and the sim bestiary")
-    p.add_argument("--tables-dir", help="package this whole directory as tables/ (default: tables/*.json)")
+    p.add_argument("--rules", help="the rules JSON whose extras.variant picks tables/variants/<name>/ (default: "
+                                   "the first --extra JSON with Rules keys, else rules_tonight.json beside the entry)")
+    p.add_argument("--tables-dir", help="override: package this whole directory as tables/ (default: tables/*.json "
+                                        "plus the active variant's set)")
     p.add_argument("--name", default="submission", help="package directory and zip base name")
     p.add_argument("--note", default="", help="'what changed' for the NIGHT.md row")
     p.add_argument("--night", default="NIGHT.md", help="log file; a row is appended only if it exists")
@@ -184,11 +243,14 @@ def main(argv=None) -> int:
     out.mkdir(parents=True, exist_ok=True)
     dest = out / a.name
     tables_dir = Path(a.tables_dir).resolve() if a.tables_dir else None
-    build(dest, entry, extras, a.slim, tables_dir)
+    rules_path = find_rules(entry, extras, Path(a.rules).resolve() if a.rules else None)
+    variant, needs = active_variant(rules_path)
+    tables = build(dest, entry, extras, a.slim, tables_dir, variant, needs_variant=needs)
 
     ok, detail, secs = verify_import(dest, entry.stem, a.import_budget)
     size, count = tree_size(dest)
     print(f"package  {dest}  ({count} files, {human(size)})")
+    print(f"tables   {tables}  (rules {rules_path or 'none found'})")
     print(f"import   {'ok' if ok else 'FAIL'} {secs:.2f} s  {detail}")
     if not ok:
         return 1
