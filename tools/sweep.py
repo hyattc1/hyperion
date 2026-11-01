@@ -7,7 +7,8 @@ spec.json:
     {"base": {"preflop.patience_deep": 0.1},                    # dotted hero Config overrides for every run
      "fields": {"base": "hero,tag,nit,naive,station,maniac,random,allin", "weak": "hero,station,..."},
      "sweep": {"preflop.three_bet_frac": [0.03, 0.08], "postflop.value_tier": [5]},   # one lever at a time
-     "settings": {"gate30": {"postflop.icm_gate_frac": 0.3, "postflop.icm_margin": 0.1}}}  # named combos
+     "settings": {"gate30": {"postflop.icm_gate_frac": 0.3, "postflop.icm_margin": 0.1}},  # named combos
+     "field_rules": {"weak": {"payouts": [10, 7, 5, 4, 3, 2, 1, 0]}}}   # optional Rules overrides per field
 
 Every (setting, field) plays `--tables` seeds times eight rotations, split into `--chunks` contiguous
 slices so the pool stays busy; jobs are queued chunk by chunk with every setting side by side, so a shift in
@@ -27,13 +28,22 @@ from multiprocessing import Pool
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from hyperion.core.types import Rules  # noqa: E402
 from hyperion.sim.runner import run_tournament  # noqa: E402
 
 
+def rules_from(overrides: dict | None) -> Rules | None:
+    """Rules with a field's overrides ({"payouts": [...], ...}); lists become tuples. None = the default game."""
+    if not overrides:
+        return None
+    return Rules(**{k: tuple(v) if isinstance(v, list) else v for k, v in overrides.items()})
+
+
 def _job(args):
-    setting, field, names, tables, seed, offset, config = args
+    setting, field, names, tables, seed, offset, config = args[:7]
+    rules = rules_from(args[7]) if len(args) > 7 else None
     rep = run_tournament(names.split(","), tables, seed, rotate=True, mode="strict", hero_config=config,
-                         table_offset=offset)
+                         table_offset=offset, rules=rules)
     out = {}
     for nm, b in rep.bots.items():
         out[nm] = {"samples": b.samples, "seats": b.seats, "busts": b.busts, "places": b.places,
@@ -164,7 +174,8 @@ def main(argv=None) -> int:
     for off in offsets:
         for field, names in fields.items():
             for name, cfg in settings.items():
-                jobs.append((name, field, names, min(per, a.tables - off), a.seed, off, cfg))
+                jobs.append((name, field, names, min(per, a.tables - off), a.seed, off, cfg,
+                             spec.get("field_rules", {}).get(field)))
     print(f"{len(settings)} settings x {len(fields)} fields x {len(offsets)} chunks = {len(jobs)} jobs on {a.workers} workers",
           file=sys.stderr)
     t0 = time.perf_counter()

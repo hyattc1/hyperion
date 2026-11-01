@@ -29,3 +29,9 @@ def test_report_pairs_hero_against_each_rival_and_the_lone_bot_in_a_mirror():
     assert top2[10] == "+0.200" and top2[12] == "+0.250"  # the gap to rival1 and to rival2 closed by that much
     mirror = next(ln for ln in out if ln.startswith("x") and " r2h7 " in ln)
     assert "-0.200" in mirror  # the lone rival2 lost 0.2 among seven Heroes
+
+
+def test_field_rules_override_the_payouts():
+    r = sweep.rules_from({"payouts": [10, 7, 5, 4, 3, 2, 1, 0]})
+    assert r.payouts == (10, 7, 5, 4, 3, 2, 1, 0) and r.n_players == 8
+    assert sweep.rules_from(None) is None
