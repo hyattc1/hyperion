@@ -309,3 +309,48 @@ Readings. hybrid3 beats Hero on every room above, by more than noise on realisti
 second to the rival 2 hybrid on top and top2. The rival 2 hybrid is level with Hero on realistic and strong and ahead
 in the rival rooms (top +0.42, top2 +0.58), as in round 1. Against rival 3 copies the rival 2 hybrid is the strongest
 bot here (5.00 alone among seven rival 3s; rival 3 alone among seven of it, 4.05).
+
+## 05:39-05:49: raw rival 3 in Hero's seat, the same deals as hybrid3 (round-2 protocol)
+
+`rival3` is the bestiary bot with no shell: rival 3 as built behind the kit adapter, which already passes it the
+hand's history at hand_end, pricing every all-in with the brief's 10/7/5/4/3/2/1/0, seeing displayed cards, and
+folding where it declines. hybrid3 differs by the payouts in its all-in prices, the rank remap, Hero on the
+declined decisions and on the tables it cannot represent, the soft deadline and SafeBot.
+
+| field | raw rival3 in Hero's seat | hybrid3 | hybrid3 - rival3 (paired) | Hero 7e51197 | rival3 - Hero |
+|---|---|---|---|---|---|
+| realistic | 5.897 ± 0.109 | 5.984 ± 0.102 | **+0.087 ± 0.058** | 5.528 ± 0.092 | **+0.369 ± 0.128** |
+| top | 4.824 ± 0.104 | 4.892 ± 0.100 | +0.069 ± 0.098 | 4.648 ± 0.102 | **+0.175 ± 0.145** |
+| top2 | 4.728 ± 0.110 | 4.871 ± 0.115 | **+0.143 ± 0.114** | 4.474 ± 0.102 | **+0.254 ± 0.132** |
+| strong | 5.324 ± 0.125 | 5.458 ± 0.117 | **+0.134 ± 0.077** | 5.132 ± 0.104 | **+0.192 ± 0.146** |
+| realistic, brief | 6.207 ± 0.171 | 6.202 ± 0.170 | -0.005 ± 0.011 | 5.575 ± 0.144 | **+0.633 ± 0.198** |
+| top, brief | 4.493 ± 0.152 | 4.448 ± 0.159 | -0.045 ± 0.148 | 4.281 ± 0.148 | **+0.212 ± 0.200** |
+| realistic, top_heavy | 25.035 ± 1.048 | 24.725 ± 1.015 | -0.310 ± 0.699 | 20.891 ± 0.879 | **+4.144 ± 1.266** |
+| top, top_heavy | 14.710 ± 0.891 | 14.724 ± 0.830 | +0.014 ± 0.865 | 13.600 ± 0.815 | +1.109 ± 1.134 |
+
+What the shell adds on plain hold'em: +0.07 to +0.14 on the default 8..1 table (outside noise on realistic, top2,
+strong), nothing on the brief's table (-0.005 ± 0.011: there rival 3's own ICM is already exact and the bots are
+nearly the same), nothing measurable on top_heavy. So "rival 3 by itself" and "the rival 3 hybrid" make nearly the
+same decisions on plain hold'em; the gain is the payout correction. The shell's other value is everywhere rival 3
+cannot go: rank remaps, the 14 tables Hero plays, timing guards (variant matrix and timing below).
+
+## 05:49-06:07: round 3, the exploit layer shipped (1957983): Hero HEAD, hybrid3_x, hybrid_x (worktree at 0d660dc;
+model mode, panic off; load 13-50 from other sessions)
+
+`hybrid3_x` / `hybrid_x` carry the layer with Hero's shipped params (bet when checked to by folders, the dead-seat
+steal, the steal by fold reads). Paired against Hero HEAD on the same seeds; on realistic, which seats no Hero clone,
+also against round 2's runs (same deals, same opponents).
+
+| field | Hero HEAD (rank) | hybrid3_x (rank) | hybrid3_x - Hero HEAD | hybrid_x (rank) | hybrid_x - Hero HEAD | Hero HEAD - Hero 7e51197 | hybrid3_x - hybrid3 | hybrid_x - hybrid |
+|---|---|---|---|---|---|---|---|---|
+| realistic | 5.967 (1) | 6.141 (1) | **+0.174 ± 0.128** | 5.790 (1) | **-0.177 ± 0.122** | **+0.439 ± 0.073** | **+0.157 ± 0.078** | **+0.265 ± 0.086** |
+| top | 4.765 (3) | 4.949 (2) | **+0.183 ± 0.135** | 5.124 (1) | **+0.358 ± 0.143** | (Hero clones differ) | (Hero clones differ) | (Hero clones differ) |
+| top2 | 4.653 (3) | 4.870 (2) | **+0.217 ± 0.136** | 5.160 (1) | **+0.507 ± 0.167** | (Hero clones differ) | (Hero clones differ) | (Hero clones differ) |
+| strong | 5.299 (2) | 5.363 (1) | +0.064 ± 0.145 | 5.560 (1) | **+0.262 ± 0.142** | (Hero clones differ) | (Hero clones differ) | (Hero clones differ) |
+
+The layer's fires per table (counted at the hybrid): realistic, hybrid3_x bet_checked 3.1, steal_fold 1.6, steal 0.1;
+hybrid_x 3.1, 6.7, 0.7. Top: 2.4 / 1.1 / 0.0 against 2.5 / 4.8 / 0.2. Strong: 2.6 / 1.8 / 0.1 against 2.8 / 8.0 / 0.8.
+This is where rival 3's own dead-seat logic overlaps the layer. Rival 3 already steals against folders, so the
+layer's fold-read steal fires a quarter as often on top of it, and the layer adds +0.16 to hybrid3 on realistic,
+against +0.27 to the rival 2 hybrid and +0.44 to Hero. Betting when checked to fires equally for every core. The
+layer only replaces passive actions, so nothing is done twice; it is worth less on a core that already takes those pots.
