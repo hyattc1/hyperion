@@ -173,3 +173,37 @@ judge fields, measured once at the end. If no composite clears that, the log rep
 better on night and the judges, and no composite ships. night_hard carries ~1.9 strong seats a table, mostly rivals 1-2,
 which Hero was tuned on, so it partly favours Hero by construction. Where night and night_hard disagree, night and
 judge2_night (untuned opponents) weigh more.
+
+## 15:31: the screen with Hero as the base (night, 200 x 8, seeds 0-199)
+
+Every section on Hero (bit-identical to Hero: 5.754 ± 0.113; hybrid3_x 5.748 on the same deals). Each cell swaps one
+section to a donor: `base` = the hybrid3_x core with the layer, `hybrid3` = without it, `hero_nl` = Hero without the
+layer.
+
+| section | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| pre_open_40 | **r2x +0.114 ± 0.083** | base +0.026 | rival1 +0.003 | rival3 -0.001 | hybrid3 -0.001 | hero_nl -0.019 |
+| pre_open_20 | base -0.011 | hero_nl -0.026 | rival3 -0.027 | hybrid3 -0.027 | rival1 -0.029 | r2x -0.029 |
+| pre_open_10 | base +0.021 | rival1 +0.010 | hybrid3 +0.007 | rival3 +0.007 | r2x -0.007 | hero_nl -0.036 |
+| pre_open_short | rival1 +0.015 | hybrid3 +0.008 | r2x +0.007 | base +0.005 | hero_nl +0.002 | rival3 +0.001 |
+| pre_raised_deep | **base +0.138 ± 0.110** | **hybrid3 +0.138** | **rival3 +0.116** | rival1 +0.054 | hero_nl 0 | r2x -0.027 |
+| pre_raised_short | rival1 +0.004 | hero_nl 0 | r2x -0.036 | rival3 -0.040 | hybrid3 -0.041 | base -0.041 |
+| pre_allin | r2x +0.045 | base +0.027 | hybrid3 +0.027 | rival1 +0.004 | rival3 +0.002 | hero_nl 0 |
+| pre_3way | base +0.019 | hybrid3 +0.003 | rival3 +0.002 | r2x -0.002 | rival1 -0.018 | hero_nl -0.027 (worse) |
+| pre_hu | base +0.008 | rival3 +0.005 | hybrid3 +0.002 | hero_nl -0.013 (worse) | r2x -0.026 (worse) | rival1 -0.038 (worse) |
+| post_hu_bet | hero_nl 0 | r2x -0.123 (worse) | base -0.185 (worse) | hybrid3 -0.185 (worse) | rival3 -0.213 (worse) | rival1 -0.253 (worse) |
+| post_hu_chk | r2x -0.016 | base -0.056 | rival1 -0.093 (worse) | rival3 -0.172 (worse) | hybrid3 -0.172 (worse) | hero_nl -0.203 (worse) |
+| post_mw | r2x +0.001 | hero_nl 0 | rival1 -0.013 | base -0.014 | rival3 -0.016 | hybrid3 -0.019 |
+
+**The two matrices agree on the two biggest sections.**
+- Facing a deep preflop raise, rival 3's core beats Hero by about 0.14 from either base (+0.138 here, -0.135 the
+  other way).
+- Facing a heads-up postflop bet, Hero beats it: +0.086 from the hybrid3_x base, +0.185 here.
+- Facing a raise short, Hero is ahead of the core from both bases (+0.06 there, +0.04 here).
+
+Rival 2's deep opens help only behind Hero's postflop play (+0.11 here, -0.08 behind the core's). Opening ranges and
+the postflop play behind them go together, which is why single swaps do not add up.
+
+**The owner's other bot as a donor** (black box, scratch only, the snapshot matching its current dist md5 07f2f6ed,
+night, hybrid3_x base): it wins no section. It is worse beyond noise in 7 of 12 sections (pre_raised_deep -0.20,
+post_hu_bet -0.24, post_hu_chk -0.27) and level in the other five. Nothing of it is shipped or combined.
