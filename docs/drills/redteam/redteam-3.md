@@ -39,6 +39,8 @@ see section 4.
 | Head-to-head with its own snapshots, rival's engine, 600 tables | final 5.14, snap_m15 4.91, snap_m30 4.82, then nit 3.84, shark 3.77; second field final 6.72, snap_m30 6.19 |
 | hand_end history withheld (frozen file, rival's engine, 600 tables) | F2 6.71 (7.15 with it), F3 6.68 (7.01): 0.33-0.44 lower |
 | Engine wall-clock > 1 ms (counted, not folded), frozen file | 12-80 per 1,000-table run (0.008-0.056% of decisions), two processes |
+| **In our engine** (`rival3`, 1,600 duplicate tables, strict, seed 7; `docs/decisions.md`, "Rival 3 in the pool") | `holdout`: rival 3 first at 6.11 ± 0.10, Hero 5.37, Hero - rival3 **-0.74 ± 0.16** paired (rival 1 in that seat on the same seeds: -0.14 ± 0.16). `top3`: rival2 5.03, rival3 4.93, rival1 4.82 (each pair within noise), Hero 4.45, Hero - rival3 -0.48 ± 0.16. One rival 3 among seven Heroes 5.00 ± 0.11; Hero among seven rival 3s 4.11 ± 0.11 (uniform 4.50) |
+| Latency and timeouts in our engine | p50 29-32 us, p99 150-330 us through the adapter; 0 exceptions, 0 illegal in 3.87 million decisions; over 1 ms 0.2-0.7% depending on host load (Hero 0.1-0.5%, rival 2 3.1% in the same runs) |
 
 The rival's fields (`ab.sh`; seven archetypes from its own `field.py` plus the bot): F1 nit, tag, maniac, station,
 random, pusher, crash (a dead seat); F2 nit, tag, lag, shark (push/fold to 20 bb), pusher, mctimeout (sane preflop,
@@ -400,7 +402,9 @@ Operator additions, from reading the code and the log:
 3. The postflop rule table is coarse: one equity proxy per made-hand category, with no range model. Its fields
    contained archetypes that bet when they connect, and against those that is enough. A thinking opponent that
    bets air into it and checks strength will be misread the same way as by rival 2.
-4. The exact O(n) ICM is specific to 10/7/5/4/3/2/1/0. Any other payout table makes `_icm1` wrong silently.
+4. The exact O(n) ICM is specific to 10/7/5/4/3/2/1/0. Any other payout table makes `_icm1` wrong silently. Our
+   simulator's default is linear 8..1, so in every run in our engine it prices all-ins with the brief's table
+   rather than the one that scores it. Rivals 1 and 2 share the mismatch.
 5. Its validation is its own archetypes in its own 230-line engine, as with rivals 1 and 2. None of its fields
    contained a computed short-stack player like rival 2 or Hero.
 
@@ -447,4 +451,7 @@ rival 2's strength is.
 so it is the rival most likely to find a tendency that Hero's tuning against rivals 1 and 2 introduced. If a
 Hero change gains against rival 1 and rival 2 but loses against rival 3, the change was fitted to the two
 rivals rather than to the game. Hero is never tuned on it, and the numbers against it are reported, not
-optimised. Measurements in our engine are in `docs/decisions.md`, "Rival 3 in the pool".
+optimised. Measurements in our engine are in `docs/decisions.md`, "Rival 3 in the pool". In short, it is the
+strongest bot on `holdout` (6.11, first at half the tables, 0.74 ahead of Hero, where rival 1 in that seat is 0.14
+ahead). It is level with rivals 1 and 2 on `top3`, and it beats Hero in both mirrors. Its holdout edge halves in
+measure mode (-0.36), where bots that overrun are no longer folded for it to steal from.

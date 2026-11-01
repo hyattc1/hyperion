@@ -18,8 +18,7 @@ fake kits, tooling, five drills) is in good shape; Track A (bring the repo) is t
 - Mid-phase aggression pass: Hero's 10–25 bb preflop volume (steals by fold-to-steal read, light 3-bets
   from the blinds, per-seat re-shove read), rival 2 the main target. Running log, committed per screen:
   `docs/drills/aggression-pass-log.md`. Owns `hyperion/strategy/*`, `tools/sweep.py`. Relaunch from the log.
-- Red-team rival 3 (exploitation-first, built blind in 60 minutes) in the session scratchpad `redteam3/`;
-  integration as `rival3` (a holdout, never tuned on) follows once it freezes.
+- Rival 3: integrated as `rival3`, the holdout (never tuned on); on `holdout` Hero - rival3 -0.74 ± 0.16.
 - Drill 5 follow-ups (item 4 below), then drill 6: Track A on kit A with toss_or_holdem, on a pinned copy.
 
 Agents commit as they finish tasks. If one was killed, `git log` shows what landed; the rest is below.
@@ -82,6 +81,8 @@ kit looks like. Copy nothing into this repo. microholdem's solver output is a cr
 - Tool on the night: Claude Code with Opus 5.5 fast mode if allowed, else Codex with Astra; effort xhigh
   for prompts 01 and 05, medium/high for 02 to 04.
 - The owner wants the big picture, not micro-narration, and no punny names.
+- Rival 3 (`rival3`, fields `holdout` and `top3`) is the holdout: Hero is never tuned against it, and no Hero
+  leak analysis is done against it. It checks whether gains against rivals 1 and 2 generalise.
 
 ## Open items only the owner can answer
 

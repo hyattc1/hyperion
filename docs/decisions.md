@@ -1326,3 +1326,123 @@ worth nothing to it.
 - **Still open, for drills:** a `shipped_sim.py` that gates the packaged entry rather than the bestiary Hero.
   Prompt 04 now prints `obs.history` after a raise until it exists.
 - Report and prompt edits: `docs/drills/prompt-drill-6.md`.
+
+## Rival 3 in the pool (2026-11-01)
+
+**What landed** (`91abdb8` archive, `2fd22df` report, `2fc1b90` adapter, fields and tests). Red-team drill 3's bot
+(`docs/drills/redteam/redteam-3.md`: an exploitation-first team, built blind in 35 minutes against the same brief and
+kit as rivals 1 and 2, with no access to this repo or to either rival; 724 lines, stdlib only) is in the simulator as
+`rival3`. **It is the holdout: Hero is never tuned against `rival3` or on the `holdout` field.** They exist to show
+whether a gain measured against rivals 1 and 2 generalises, so numbers against them are reported, never optimised.
+No leak analysis of Hero against rival 3 is done either: once a holdout is studied for leaks it stops being a
+holdout. `hyperion/sim/rivals/rival3.py` is the frozen file (md5 `4b36e812...`) below a six-line origin header.
+`bestiary.Rival3Bot` is `RivalBot` with `MODULE = "rival3"` and one difference: `hand_end` passes the hand's history
+in the kit's `(seat, (kind, amount))` shape, as the rival's own engine did. Rival 3 replays it there to count the
+actions that came after its last decision. Rivals 1 and 2 read only `hand_no` there and are unchanged. On `holdout`,
+same seeds, that history is worth +0.22 ± 0.11 to rival 3 (5.88 without it); the rival measured 0.33-0.44 in its own
+engine. Fields: `top3` = hero, rival1, rival2, rival3, pushfold, tag, hero_tight, loose_aggro; `holdout` =
+`realistic` with rival 3 in rival 1's seat. No other field changed. `tests/test_sim_rival3.py` has 8 tests:
+- 300 hands of eight copies, with its exception swallowing unwrapped;
+- the strict timeout rate (< 1%; skips if a fixed 30-us loop overruns too);
+- the adapter round trip, including the hand_end history;
+- push/fold sanity;
+- run-to-run reproducibility;
+- the field seats, and 12 strict tables per field.
+
+**A payout mismatch every rival shares.** Our default `Rules` pay 8..1 (linear, uniform 4.50). Rivals 1, 2 and 3
+hard-code the brief's 10/7/5/4/3/2/1/0 (uniform 4.00). Rival 3's closed-form ICM is exact for the brief's table, so
+in our engine it prices every all-in with a more top-heavy table than the one that scores it. It was measured as
+built.
+
+**Measurements.** 1,600 duplicate tables each (`--tables 200 --rotate --seed 7 --mode strict`) at HEAD `2fc1b90`, run
+from a clean worktree, so Hero is the committed `hyperion/strategy` without the aggression pass's uncommitted edits.
+Two ran at a time while the aggression pass's sweeps ran, at load average 8.5-15.8 on 8 cores. Uniform is 4.50.
+Paired deltas are means of per-seed differences, with 95% intervals. Script: `rival3_measure/measure3.py` in the
+session scratchpad (run_tournament plus paired deltas); raw output and per-seed samples are beside it.
+
+`--field holdout`:
+```
+bot                      n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill safe_err safe_over  p50us  p99us  maxus  1st_us
+rival3                 200  6.105 0.101    50    7    7    8   11    8    5    3   47.7  1692     0     0        0         0     30    323  43919   29799
+hero                   200  5.369 0.096    21   14   15   16   14    8    7    4   69.6  1189     0     0        0      1475     22    197  31883   10895
+tag                    200  5.213 0.084     4   24   23   18   11    8    6    5   82.2   193     0     0        0         0      4     27  29997    9541
+pushfold               200  5.091 0.091     7   23   18   19   10    9    7    7   80.4   235     0     0        0         0      5     36  28450    4185
+loose_aggro            200  4.738 0.106    16   16   12   10   11   11   11   12   74.6   177     0     0        0         0      3     20  27152    5760
+timeout_then_recover   200  3.173 0.091     0    7   13   10    9   11   20   30   96.8 46383     0     0        0         0      3   6814  31542    6172
+montecarlo             200  3.163 0.067     0    2    5   11   20   26   21   15   98.9 50593     0     0        0         0      2   9291  50357    4041
+montecarlo30           200  3.148 0.093     3    6    6    8   13   17   22   24   93.9 19360     0     0        0         0      2   8060  35350    4278
+```
+Paired: hero - rival3 **-0.736 ± 0.155**, rival3 - tag +0.892 ± 0.141, hero - tag +0.157 ± 0.132.
+
+`--field top3`:
+```
+bot             n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill safe_err safe_over  p50us  p99us  maxus  1st_us
+rival2        200  5.032 0.098    20   16   11   11   11   11   11    8   69.8  7924     0     0        0         0    131   4316  43502   27974
+rival3        200  4.925 0.107    24   11    9   11   13   10   11   11   70.2  1697     0     0        0         0     31    308  31201   12165
+rival1        200  4.821 0.109    24   14    8    8    7   12   14   12   68.2  1389     0     0        0         0     24    215  34810   16389
+tag           200  4.543 0.085     2   15   18   19   15   12    9    9   87.6   235     0     0        0         0      4     28  16494    4089
+hero_tight    200  4.477 0.085     6   13   14   14   17   16   13    7   85.3  1055     0     0        0      1224     20    164  28266    9955
+hero          200  4.446 0.102    13   10   12   12   14   15   13   10   80.9  1259     0     0        0      1434     21    178  39318    4193
+pushfold      200  4.207 0.097     2   13   17   15   13   13   13   13   88.4   276     0     0        0         0      5     31  22330    8037
+loose_aggro   200  3.548 0.117     8    8   10    9    9   10   17   28   85.6   171     0     0        0         0      3     21  10457    8051
+```
+Paired: hero - rival3 **-0.479 ± 0.159**, hero - rival1 -0.374 ± 0.177, hero - rival2 -0.585 ± 0.157. The rivals head
+to head: rival3 - rival1 **+0.105 ± 0.169**, rival3 - rival2 **-0.106 ± 0.153**, rival1 - rival2 -0.211 ± 0.142.
+
+Mirrors (uniform 4.50):
+- rival3 + 7 hero: rival3 **4.998 ± 0.106** (23% firsts); paired rival3 - hero +0.569 ± 0.121.
+- hero + 7 rival3: hero **4.112 ± 0.108** (6% firsts, 28% seventh or eighth, busts in 90% of seats); paired
+  hero - rival3 -0.443 ± 0.123.
+
+The rival 2 entry measured these mirrors for rivals 1 and 2 against Hero at `fd8a3fa`, before the deep pass (one
+rival among seven Heroes: rival 2 +0.69 over uniform, rival 1 +0.28). They were not re-measured here, so they do not
+rank rival 3 against the current Hero.
+
+Context, on the same seeds and HEAD:
+- `--field realistic` (rival 1 in that seat): rival1 5.661, hero 5.524, hero - rival1 -0.137 ± 0.162.
+- `--field holdout --mode measure`: rival3 5.931 ± 0.100, hero 5.569 ± 0.093, hero - rival3 -0.362 ± 0.141. Nothing
+  is folded for time in this mode, which also stops the Monte Carlo bots and timeout_then_recover folding when they
+  overrun.
+
+**Latency and timeouts in our engine.** Through the adapter, rival 3 decides in p50 29-32 us (21 us in the field of
+seven copies), p99 150-330 us. It had 0 exceptions and 0 illegal actions in 3.87 million decisions, and no bot had
+any in these runs. Over 1 ms (strict: counted, and folded) it ran 0.19-0.21% at load ~8.5 (the variant runs) and
+0.51-0.68% at load 10-16. At the same moments Hero ran 0.14-0.47%, rival1 0.53%, rival2 3.07% (top3) and tag
+0.03-0.11%. The rate follows the host. In the gate re-run it matched a fixed 30-us loop (report §4).
+
+**Under catalogue twists.** For information only: rival 3 handles none, and that is expected. `holdout` field, same
+settings:
+
+| variant | rival3 | hero | hero - rival3 | note |
+|---|---|---|---|---|
+| none | 6.105 ± 0.101 | 5.369 ± 0.096 | -0.736 ± 0.155 | |
+| top_heavy (50/25/12/6/3/2/1/1, uniform 12.5) | 27.70 ± 1.08 | 18.09 ± 0.87 | -9.61 ± 1.73 | first in 49% of tables; its ICM is for the wrong table here too |
+| permuted_ranks (permutation from seed 7) | 5.753 ± 0.112 | 6.055 ± 0.093 | +0.302 ± 0.171 | it does not remap ranks and still finishes second |
+| antes_from_level_3 | 6.172 ± 0.098 | 5.457 ± 0.101 | -0.716 ± 0.162 | antes change nothing for it |
+
+**What it says.**
+1. *Hero's level with the top rival on `realistic` does not generalise.* On `holdout` rival 3 is first by a wide
+   margin: 6.11, first at half the tables, 0.74 ahead of Hero paired. On the same seeds rival 1 in that seat is 0.14
+   ahead of Hero.
+2. *On `top3` the three rivals are level within noise* (5.03, 4.93, 4.82; each pair inside its interval). Hero is
+   sixth of eight at 4.45, 0.37-0.59 behind each rival. Rival 3 beats Hero in both mirrors.
+3. *Its holdout edge is largest when the engine folds bots that overrun:* -0.74 in strict mode, -0.36 in measure
+   mode. In strict mode the Monte Carlo bots' and timeout_then_recover's overruns become folds.
+   - At table end, rival 3 reads those three seats with fold-to-raise 0.63-0.70 and fold-to-bet 0.38-0.67, and
+     never labels them dead (`rival3_measure/labels.py`, 100 tables).
+   - Its labels are coarse. It reads tag as a maniac in 42% of tables, because c-bets count as unprompted bets.
+   - The likeliest source of the edge, from its code and these reads, is the measured fold rates, not the labels.
+     Its steal rule raises any hand up to the 85th percentile when the steal's chip EV is positive against the
+     product of the seats' fold probabilities. With fold rates like these, that opens wide from late position.
+   - This is an inference, not a trace.
+4. *Its play does not depend on the twist.* It keeps its lead through antes, and it stays second under permuted
+   ranks with its hand values scrambled. That suggests its edge on this field comes more from reading the
+   opponents than from its card values.
+
+**Not done here.**
+- No Hero tuning, and none against rival 3, ever.
+- No rival tuning.
+- No bust trace or leak analysis of Hero against rival 3, on purpose.
+- `realistic`, `strong`, `top`, `top2` and `chaos` are unchanged.
+- No quiet-host repeat: the aggression pass's sweeps kept the box at load 6-16 throughout, so the strict tables
+  overstate every bot's timeouts against a dedicated host.
