@@ -1,5 +1,6 @@
 """The hybrid candidate (hyperion.hybrid): rival 2's decision core behind Hero's shell. Legality, every catalogue entry
 without an error, the rank-remap round trip, payouts reaching the core, the fallbacks, and timing."""
+import dataclasses
 from time import perf_counter_ns
 
 import pytest
@@ -16,8 +17,9 @@ from hyperion.strategy.hero import icm_value
 from tests.sim_helpers import Auditor
 
 FAST_FIELD = ["hybrid", "tag", "pushfold", "loose_aggro", "nit", "station", "maniac", "random"]
-# deterministic sampler (count only, no wall budget): the same inputs give the same decisions
-COUNT_ONLY = {"mc_budget_us": 1e6, "mc_hard_us": 1e6, "soft_us": 1e6}
+# deterministic sampler (count only, no wall budget) and no SafeBot panic (it reads the wall clock): the same inputs
+# give the same decisions however loaded the host is
+COUNT_ONLY = {"mc_budget_us": 1e6, "mc_hard_us": 1e6, "soft_us": 1e6, "panic_after": 10 ** 9}
 
 
 def _routes(bot) -> dict:
@@ -31,7 +33,8 @@ def test_hybrid_is_registered_and_its_fields_seat_it_where_hero_sits():
         assert plain[0] == "hero" and hyb[0] == "hybrid" and plain[1:] == hyb[1:]
 
 
-def test_hybrid_plays_300_hands_legally_with_no_error_swallowed():
+def test_hybrid_plays_300_hands_legally_with_no_error_swallowed(monkeypatch):
+    monkeypatch.setattr(B, "HYBRID_CONFIG", {"panic_after": 10 ** 9})  # legality, not timing: no wall-clock panic
     rules = Rules(max_hands=300, starting_stack=16000)  # deep enough that busts do not end it early
     names = ["hybrid", "hybrid", "rival2", "rival1", "tag", "pushfold", "loose_aggro", "station"]
     hands = 0
@@ -93,8 +96,10 @@ def _to_displayed(cards, rules: Rules):
 def test_rank_remap_round_trip_the_permuted_game_plays_exactly_as_the_canonical_one():
     """A table of the plain game, recorded at seat 0, then replayed to a fresh hybrid under a rank permutation with
     every card (hole, board, showdowns) written in displayed ranks: every decision must be the same."""
-    plain = Rules()
-    perm = _perm_rules()
+    # deep, so the recorded seat does not bust early (rival 2's import-time tables, and with them its play,
+    # vary with host load: its Monte Carlo stops at a 2.4 s budget)
+    plain = Rules(starting_stack=16000, max_hands=200)
+    perm = dataclasses.replace(_perm_rules(), starting_stack=16000, max_hands=200)
     assert tuple(perm.rank_order) != tuple(range(13))
 
     class Rec:

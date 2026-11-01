@@ -151,3 +151,96 @@ worse than Hero on the three 3-card games, where Hero plays from 3-card variant 
 preflop, the core after the discard) would leave the core parsing preflop history as if it were the flop, so the
 whole table goes to Hero instead. Only tables with `Rules.hole_cards == 3` change: every 2-card result above stands
 as measured. The best-two path stays available (`hero_on_three_cards` false) and tested.
+
+## 02:39-02:50: the mirrors (200 seeds x 8, strict, seed 7, v1 at 133a837; 2 at a time, load 4.4-6.1; uniform 4.50)
+
+| room | the lone bot | the seven | paired, the same room with Hero in the hybrid's place |
+|---|---|---|---|
+| hybrid + 7 rival2 | hybrid **4.551 ± 0.099** | rival2 4.493 | hero + 7 rival2: Hero 3.537 ± 0.088; hybrid - Hero **+1.014 ± 0.129** |
+| rival2 + 7 hybrids | rival2 **4.430 ± 0.097** | hybrid 4.510 | rival2 + 7 Heroes: rival2 5.157 ± 0.106; rival2's change **-0.727 ± 0.148** |
+
+The hybrid holds uniform in both mirrors (+0.05 alone among rival 2s, rival 2 -0.07 alone among hybrids); Hero is
+-0.96 alone among rival 2s and gives a lone rival 2 +0.66. Timeouts: rival2 among 7 hybrids 2,249 (its usual rate),
+the 7 hybrids 2,560 in 1.9 million decisions (0.13%); SafeBot panic in a few tables (746 decisions).
+
+## 02:50-02:53: timing next to Hero in the same runs, v1.1 3-card rows
+
+Hybrid and Hero seated in one field (hybrid, hero, rival1, rival2, pushfold, tag, hero_tight, loose_aggro), strict:
+
+| run | load | hybrid p50 / p99 / mean, over 1 ms | Hero p50 / p99 / mean, over 1 ms | rival2 (as built) |
+|---|---|---|---|---|
+| 80 seeds x 8, quiet | 1.2-1.5 | 24 / 179 / 38.7 us, 1 in 100,039 | 19 / 54 / 21.5 us, 1 in 110,240 | 119 / 305 us, 5 in 99,866 |
+| 200 seeds x 8 | 5.0 -> 2.0 | 24 / 192 / 39.8 us, 22 in 256,757 (0.009%) | 19 / 61 / 21.8 us, 9 in 266,690 (0.003%) | 120 / 350 us, 0.035% |
+
+In the field runs above, against hero_tight (a Hero clone, same code path) in the same run: top_h 0.224% vs 0.127%
+(load 6.5-8.9), top2_h 0.065% vs 0.044%, strong 0.009% vs 0.003%, top_h top_heavy 0.127% vs 0.063%, top_h brief
+0.020% vs 0.009%: the hybrid times out 1.5-3x as often as Hero, and 4-7x less often than rival 2 as built (0.33-0.90%
+in the same runs). Its p99 was 182-292 us in every run, under 300 us; Hero's 53-152 us.
+
+hand_end / new_table (untimed by our engine; 30 tables in measure mode, load ~1.5): hybrid hand_end p50 68 / p99 226 us
+(Hero 41 / 137) on linear payouts, 240 / 599 us (Hero 161 / 527) on top_heavy; new_table p50 101 us (Hero 46).
+
+v1.1 on the 3-card games (200 tables, same seeds as Hero's matrix row, load 1.4-1.7): toss_or_holdem -0.01 ± 0.15,
+three_card_blind_discard +0.02 ± 0.17, three_card_keep +0.06 ± 0.18, first on all three. v1.1 matrix: READY 21,
+PLAYS 2 (antes_from_level_3, fast_schedule), first on 11.
+
+## 02:54: Hero moved under the measurements
+
+The aggression pass shipped f349380 (mid-depth re-shoves to 25 bb, the c-bet margin) after this log's pin
+(133a837). Everything above is against the Hero before it. Re-measuring Hero at 7e51197 (the coordinator's frozen
+Hero) on the same seeds, and the hybrid wherever Hero clones sit at its table (top, top2, strong: hero_tight,
+hero_loose). On realistic, the holdout and the rival 2 mirrors the hybrid's opponents did not change and the core
+took every decision but 0.1% (Hero's cheap path), so those hybrid runs stand and are paired with the new Hero.
+
+## 02:54-03:05: against the frozen Hero at 7e51197 (200 seeds x 8, strict, seed 7; pinned worktree at 7e51197, which
+also carries hybrid v1.1; load 0.9-3.0)
+
+| field | Hero 7e51197 | hybrid | hybrid - Hero (paired) | hybrid's rank, next/leader | Hero p50/p99, over 1 ms | hybrid p50/p99, over 1 ms |
+|---|---|---|---|---|---|---|
+| realistic | 5.598 ± 0.097 | 5.491 ± 0.106 (133a837 run, load 4-7) | -0.107 ± 0.132 | 2 of 8; rival1 5.721 | 19/55 us, 0.00% | 26/232 us, 0.09% |
+| holdout | 5.552 ± 0.097 | 5.430 ± 0.109 (133a837 run, load 6-7; measured once) | -0.123 ± 0.128 | 2 of 8; rival3 5.876 | 19/55 us, 0.00% | 26/222 us, 0.04% |
+| top | 4.668 ± 0.104 | 4.940 ± 0.108 | **+0.272 ± 0.135** | 2 of 7; rival2 5.000 | 19/56 us, 0.00% | 24/183 us, 0.00% |
+| top2 | 4.511 ± 0.103 | 4.961 ± 0.103 | **+0.450 ± 0.139** | 1 of 7; rival2 4.930 | 20/59 us, 0.00% | 24/175 us, 0.00% |
+| strong | 5.133 ± 0.105 | 5.123 ± 0.109 | -0.009 ± 0.139 | 1 of 7; hero_tight 4.859 | 16/57 us, 0.01% | 23/185 us, 0.01% |
+
+Hero 7e51197 vs Hero 133a837, same seeds: realistic +0.108 ± 0.105, holdout +0.102 ± 0.084 (the aggression pass's own
+400-seed numbers: +0.051, +0.109). The hybrid between its two runs (opponents hero_tight / hero_loose changed): top
+-0.048 ± 0.098, top2 -0.022 ± 0.111. Gaps on the same seeds: top Hero - rival1 +0.012 ± 0.143, hybrid - rival1 +0.284
+± 0.143; top2 Hero - rival2 -0.424 ± 0.139, hybrid - rival2 +0.031 ± 0.127.
+
+## 03:05-03:16: payout robustness against the frozen Hero (7e51197; load 2.6-10.0, a spike from another session)
+
+| field, payouts | Hero 7e51197 | hybrid | hybrid - Hero (paired) | leader |
+|---|---|---|---|---|
+| realistic, brief 10/7/.../0 | 5.628 ± 0.153 | 5.492 ± 0.154 (133a837 run) | -0.136 ± 0.190 | rival1 5.965 |
+| realistic, top_heavy | 20.83 ± 0.89 | 20.09 ± 0.94 (133a837 run) | -0.74 ± 1.22 | rival1 23.18 |
+| top, brief | 4.263 ± 0.139 | 4.541 ± 0.149 | +0.278 ± 0.188 | hybrid first; rival2 4.533 |
+| top, top_heavy | 13.94 ± 0.83 | 14.74 ± 0.83 | +0.80 ± 1.03 | rival2 16.05 |
+
+Against Hero 133a837 the same rows were +0.116, +0.57, +0.624, +2.62: the aggression pass closed most of Hero's
+top_heavy weakness (Hero on realistic top_heavy 19.53 -> 20.83; the pass measured +2.39 ± 0.68 over 400 seeds).
+
+## 03:16-03:21: the mirrors against the frozen Hero (7e51197; load 4.8-5.9)
+
+hero + 7 rival2: Hero 3.680 ± 0.095 (133a837: 3.537); hybrid - Hero **+0.871 ± 0.136**. rival2 + 7 Heroes: rival2
+5.131 ± 0.104 (133a837: 5.157); rival2 among 7 hybrids 4.430, change **-0.701 ± 0.149**. (Hybrid runs from 133a837:
+the opponents are rival 2 copies, unchanged.)
+
+## 03:21-03:41: readiness against the frozen Hero (v1.1 and Hero at 7e51197, same tables; load 5 -> 35)
+
+Hybrid v1.1 READY 23, first on 13; Hero 7e51197 READY 21, PLAYS 2 (swap_holdem, two_boards), first on 15. 0 errors
+for either. Another session took the box from load 5 to 35 during the run; from swap_holdem on, the hybrid's
+timeouts reached 1.3-2.0% and its SafeBot panic share 4-18%. Only straddle (load 35, panic 18%) is outside its
+interval: -0.37 ± 0.34. Full table in docs/decisions.md, "Hybrid candidate". A load-matched hybrid re-run on
+realistic was started and killed at load 34.
+
+## 03:45: written up
+
+docs/decisions.md "Hybrid candidate" (every number above, the verdict, the recommendation); one line in HANDOFF.md.
+
+## 04:20: rival 2's import-time tables vary with host load
+
+At load ~30, `import hyperion.sim.rivals.rival2` computed 1,088 and 1,152 of its 1,500 import-time Monte Carlo boards
+(the 2.4 s budget binds) and took 5.9-6.4 s; quiet, 1,500 boards in ~1.15 s. The core's equity tables, and so its play,
+differ between processes on a loaded host. The round-trip and legality tests now switch off SafeBot panic (it reads
+the wall clock) and play deep stacks, so a loaded host cannot make them flake.
