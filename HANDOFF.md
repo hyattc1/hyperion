@@ -20,6 +20,9 @@ fake kits, tooling, five drills) is in good shape; Track A (bring the repo) is t
   `docs/drills/aggression-pass-log.md`. Owns `hyperion/strategy/*`, `tools/sweep.py`. Relaunch from the log.
 - Rival 3: integrated as `rival3`, the holdout (never tuned on); on `holdout` Hero - rival3 -0.74 ± 0.16.
 - Drill 5 follow-ups (item 4 below), then drill 6: Track A on kit A with toss_or_holdem, on a pinned copy.
+- Gate the packaged bot: DONE. `tools/gate.py` plays the upload zip itself, paired against in-sim Hero, and
+  the Stage 2 and Stage 4 gates run it before every upload. Drill 6's upload fails it (-2.46 ± 0.76), and so
+  do drills 1, 2 and 4's (decisions entry "Gate the packaged bot").
 
 Agents commit as they finish tasks. If one was killed, `git log` shows what landed; the rest is below.
 

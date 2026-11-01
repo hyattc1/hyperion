@@ -226,6 +226,43 @@ Code changes that came with the drill (also in 4f5ad79):
 
 The kit toss mode itself is 857dbe9.
 
+## Follow-up: gate the packaged bot (2026-11-01)
+
+Repo findings 2, 3 and 5 are closed:
+- finding 2: `tools/gate.py` plays the zip itself;
+- finding 3: `pack.py` vendors the active variant's tables;
+- finding 5: `latency.py` deals the rules' cards.
+
+The Stage 2 and Stage 4 gates and hard rule 3 run the gate before every upload. Details are in
+docs/decisions.md, "Gate the packaged bot".
+
+**This drill's upload.** 100 strict tables, realistic field, `--variant toss_or_holdem`, seed 11, against
+in-sim Hero:
+
+| zip | package | in-sim Hero | paired delta | gate |
+|---|---|---|---|---|
+| `frozen/stage4_hero_787c70a6.zip`, as shipped | 3.577 ± 0.629 | 6.032 ± 0.525 | -2.456 ± 0.761 | FAIL |
+| the same `submission/` repacked over `pristine_fixed/` (history passed) | 5.716 ± 0.544 | 5.937 ± 0.526 | -0.221 ± 0.397 | PASS |
+
+**Drills 1, 2 and 4.** Their shipped zips were still in the session scratchpad. Each ran 100 strict tables on
+the realistic field, seed 11, with its own `rules_tonight.json` and `--baseline package`. That baseline is the
+zip's own Hero behind no adapter, so the delta measures the kit path alone, not the code changed since Oct 31.
+Points are on each drill's own scale.
+
+| drill | kit and twist | zip (sha256) | package | own Hero, no adapter | paired delta | gate |
+|---|---|---|---|---|---|---|
+| 1 | B, permuted ranks, payouts 8..1 (uniform 4.5) | `drill1/hyperion/submission_hero.zip` (9a0bb3db) | 3.561 ± 0.435 | 4.782 ± 0.426 | -1.221 ± 0.531 | FAIL |
+| 2 | C, payouts 50/25/12/6/3/2/1/1 (uniform 12.5), 1,500 chips, fast schedule | `drill2/submission_hero.zip` (7a148182) | 12.650 ± 3.533 | 18.977 ± 4.081 | -6.328 ± 4.812 | FAIL |
+| 4 | D, short deck, payouts 10/7/5/4/3/2/1/0 (uniform 4.0), `--variant short_deck` | `drill4/hyperion/frozen/T1.zip` (14947f38, same as `dist/`) | 2.940 ± 0.536 | 4.671 ± 0.642 | -1.731 ± 0.733 | FAIL |
+
+All three shipped the flaw this drill found. Kits B, C and D have no action log. Their reference adapters at
+the time passed no history and rebuilt none, and Hero at the time inferred nothing from the bets. So the
+uploads read every raised pot as unopened, and the drills' "Hero first" lines were the bestiary Hero's.
+
+None of the three had an exception, an illegal action or a timeout. Kit D's one raise after a short all-in is
+legal under its rules and not under ours; the gate played it as a call. Drill 2's kit C round trips had a
+p99 of 2.6 ms on this loaded box, but the pooled clock never ran out.
+
 ## Appendix: the operator's rules text as pasted to the agent
 
 ```

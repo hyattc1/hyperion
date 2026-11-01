@@ -1446,3 +1446,88 @@ settings:
 - `realistic`, `strong`, `top`, `top2` and `chaos` are unchanged.
 - No quiet-host repeat: the aggression pass's sweeps kept the box at load 6-16 throughout, so the strict tables
   overstate every bot's timeouts against a dedicated host.
+
+## Gate the packaged bot (2026-11-01, builder: gate pass)
+
+**Why.** Drill 6's upload played 2.5 points a table below Hero, and nothing we ran could see it. Every gate
+(prompt 04's sim, prompt 05, the windows) played the bestiary Hero, which the engine feeds its full history.
+The uploaded bot sees only what its adapter passes, and none of the reference adapters passed history. From
+now on we gate what we upload.
+
+**What landed** (`c4ad5e5`, `d1aee18`, `b5463e4`, `56f9485`, `ba45884`):
+- `tools/gate.py ZIP --kit a|b|c|d|seat.py`, with `tools/gate_host.py` as its child. It unpacks the zip and
+  imports it in a fresh `python -I -B` per table, the way the organisers would:
+  - the package directory first on sys.path, the kit's `kit.py` importable as `kit`;
+  - a scratch working directory, and no `PYTHON*` or `HYPERION_*` variables.
+- Each engine Observation goes to the kit's state through `hyperion.drills.adapter.dealer_state` (the inverse
+  of `make_observation`, history and toss discards included) and the kit's own constructor, and the reply
+  comes back through the kit's own parser.
+- How each kit is timed:
+  - kits A and B run in process; the host times the bot call alone against 1 ms;
+  - kits C and D run their entry as a subprocess on the kit's line or socket protocol, charged to its pooled
+    clock (1 ms x max_hands x 3), as their runners do;
+  - a seat file (class `Seat`, copied from `gate_host.KitA`) covers tonight's in-process kit, with
+    `--kit-module` pointing at the organisers' `kit.py`.
+- An exception, an illegal or unreadable reply, or a late one is a check or fold, as the rules score it.
+- Each table seed is played twice: the package in the field's `hero` seat, then the baseline in that seat,
+  with every other bot and the deal identical. The baseline is one of:
+  - in-sim Hero (`--baseline sim`, with `--hero-config`, `cheap` for the Stage 2 package);
+  - the package's own Hero behind no adapter (`--baseline package`), for packages built from older code. It
+    also reads the package's tables, so it cannot see a missing variant set.
+- FAIL when the package trails by more than the paired 95% interval, raises, sends an illegal action, never
+  imports, or times out on more than 0.3% of decisions (a warning under the playbook's load clause).
+- `GateTable` subclasses the engine's `Table` (`_ask`, `_ask_variant`, `_needs_betting`); no engine edit.
+- Conformance, with both rules hard:
+  - `history_raise`: a bet above the street's base needs a RAISE to that total in obs.history;
+  - `history_prefix`: an adapter declaring `history_source = "log"` must never drop a raise later in the
+    hand. Kits B, C and D's reference adapters declare `"bets"`. The template passes the log in TODO 7b and
+    documents the bets path.
+- `pack.py` vendors `tables/variants/<extras.variant>/` from the rules JSON on its own; `--tables-dir` is an
+  override.
+- `latency.py` deals the rules' hole-card count, board and deck, and takes `--variant`. With toss_or_holdem
+  Hero shows 0 SafeBot errors, where drill 6 had 468.
+
+**Proof.** 100 strict tables, realistic field, `--variant toss_or_holdem`, seed 11:
+
+| package | paired delta vs in-sim Hero | verdict |
+|---|---|---|
+| drill 6's upload (`787c70a6`, Hero at 857dbe9, adapter passed no history) | -2.456 ± 0.761 (3.58 vs 6.03) | FAIL |
+| the same `submission/` repacked over drill 6's history-fixed tree (`70d34824`) | -0.221 ± 0.397 (5.72 vs 5.94) | PASS |
+
+`tests/test_gate.py` repeats this on this tree, with Hero's bets inference switched off in both packages,
+because drill 6's Hero had none. It runs 32 tables in measure mode, with both Heroes seeded and the baseline
+shared. It is deterministic per tree. At 48 tables the same set-up measured -1.71 ± 0.66 dropping history,
+and +0.16 ± 0.43 fixed.
+
+**Earlier drills** (100 strict tables, `--baseline package`, which isolates the kit path from code drift
+since Oct 31):
+
+| drill | kit, twist | package | own Hero, no adapter | paired delta | gate |
+|---|---|---|---|---|---|
+| 1 | B, permuted ranks (payouts 8..1) | 3.561 ± 0.435 | 4.782 ± 0.426 | -1.221 ± 0.531 | FAIL |
+| 2 | C, top-heavy 50/25/... and fast schedule | 12.650 ± 3.533 | 18.977 ± 4.081 | -6.328 ± 4.812 | FAIL |
+| 4 | D, short deck | 2.940 ± 0.536 | 4.671 ± 0.642 | -1.731 ± 0.733 | FAIL |
+
+All three shipped drill 6's flaw: kits with no action log, adapters that rebuilt nothing, and a Hero that
+inferred nothing. There were no exceptions, illegal actions or timeouts. Kit D's one raise after a short all-in
+is a rule mismatch, played as a call. The zips and hashes are in the drill 6 report's follow-up section.
+
+**What else it showed.**
+- *Resolution.* The paired interval is ±0.4 to ±0.8 points at 100 tables (wider when the package busts
+  often) and about ±0.9 at 30. It catches drill-6-sized losses, not 0.2-point ones. The two Heroes drift apart even when the adapter loses nothing: postflop RNG, and kit A's
+  `hand_over` carries no showdown, so the two profilers diverge. That drift is real and the gate counts it.
+- *Today's Hero heals most of drill 6's flaw by itself.* Since `c38259e` it infers raises from the bets.
+  A fresh history-dropping package from this tree scored +0.03 ± 0.51 at 40 tables and passed. The gate is
+  the check that does not depend on Hero's inference.
+- *Kit D charges the round-start packet to its pooled clock.* A kit D entry that builds Hero's tables on the
+  first `G` packet spends about 1 s of the 0.6 s clock, and every later action folds. Drill 4's entry warmed
+  at import, which is the fix.
+- *Cost.* 100 tables take about 2 minutes on this loaded box (0.3 s of that per table is the fresh import).
+  The suite gains about 85 s, 75 s of it the proof test.
+
+**Limits.**
+- Seat files cover in-process kits only. A subprocess kit unlike C or D cannot be gated.
+- Kits B, C and D cannot carry variant decisions; the dealer's default plays them and the report counts them.
+- Kit D refuses a straddle, and any variant that changes cards mid-hand.
+- Kit D's legal set ignores our engine's short-all-in no-reopen rule. A raise there is reported as a rule
+  mismatch and played as a call.
