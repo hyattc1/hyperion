@@ -813,12 +813,13 @@ class RivalBot(_Base):
     engine times the adapter and the rival together. The rival seeds itself per table; `seed` is unused."""
 
     MODULE = "rival1"
+    PACKAGE = ".rivals"  # the field's persona bots live in .field
 
     def __init__(self, seed: Optional[int] = None):
         super().__init__(seed)
         import importlib
 
-        self.impl = importlib.import_module(f".rivals.{self.MODULE}", __package__).Bot()
+        self.impl = importlib.import_module(f"{self.PACKAGE}.{self.MODULE}", __package__).Bot()
         self._hist: list = []  # converted history for the current hand, extended as it grows
         self._hist_n = 0
         self._hist_hand = -1
@@ -927,6 +928,190 @@ class Rival4Bot(RivalBot):
                             "history": [(s, (a.kind.value, a.amount)) for s, a in result.history]})
 
 
+# ----- the night field: other agents' one-hour builds behind the kit each was built against (hyperion/sim/field/) ----
+
+
+class _KitAPlayer:
+    __slots__ = ("name", "stack", "bet", "folded", "all_in")
+
+    def __init__(self, name, stack, bet, folded, all_in):
+        self.name, self.stack, self.bet, self.folded, self.all_in = name, stack, bet, folded, all_in
+
+
+class _KitAState:
+    """Fake kit A's GameState (hyperion/drills/fakekits/kit_a/kit.py) with the fields its bots read."""
+
+    __slots__ = ("hand", "community", "street", "my_index", "dealer_index", "players", "my_stack", "pot_size",
+                 "current_bet", "my_bet", "legal_moves", "min_raise", "max_raise", "hand_number", "small_blind",
+                 "big_blind", "action_log", "discards")
+
+
+_KIT_A_CARD = tuple(("2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A")[c >> 2] + "cdhs"[c & 3]
+                    for c in range(52))
+_KIT_A_STREET = ("preflop", "flop", "turn", "river")
+_KIT_A_LEGAL: dict[frozenset, list] = {}
+_KIT_A_ACTIONS = {"FOLD": Action.fold(), "CHECK": Action.check(), "CALL": Action.call()}
+
+
+class TrackBKitABot(_Base):
+    """Drill 3's Track B bot (hyperion.sim.field.trackb3), unchanged, behind fake kit A's interface: an Agent with
+    new_game(my_index, n_players, starting_stack), act(GameState) -> "FOLD" | "CHECK" | "CALL" | "RAISE:<total>" and
+    hand_over(hand_number, chip_change), cards as strings ("10d"), pot_size including this street's bets, and the
+    hand's action log as (seat, "RAISE:120"). One adaptation: the bot was built for a bounty twist (a showdown won
+    holding a Seven pays 50 chips) and reads the module constant BOUNTY_CHIPS at every decision; it is set to 0, as
+    plain hold'em pays none. The rest plays as built, including the brief's 10/7/5/4/3/2/1/0 table in its ICM.
+    Imports in ~2.7 s (its 7-card evaluator and 169-class equity tables); lookups and arithmetic after."""
+
+    MODULE = "trackb3"
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        import importlib
+
+        mod = importlib.import_module(f".field.{self.MODULE}", __package__)
+        mod.BOUNTY_CHIPS = 0
+        self.impl = mod.Agent()
+        self._log: list = []
+        self._log_n = 0
+        self._log_hand = -1
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self._log, self._log_n, self._log_hand = [], 0, -1
+        self.impl.new_game(seat, n_players, rules.starting_stack)
+
+    def to_kit(self, obs: Observation) -> _KitAState:
+        st = _KitAState()
+        bets, stacks, in_hand = obs.bets, obs.stacks, obs.in_hand
+        st.hand = [_KIT_A_CARD[c] for c in obs.hole]
+        st.community = [_KIT_A_CARD[c] for c in obs.board]
+        st.street = _KIT_A_STREET[obs.street] if obs.street < 4 else "river"
+        st.my_index, st.dealer_index = obs.seat, obs.button
+        st.players = [_KitAPlayer("player%d" % i, stacks[i], bets[i], not in_hand[i], in_hand[i] and stacks[i] == 0)
+                      for i in range(len(stacks))]
+        st.my_stack = stacks[obs.seat]
+        st.pot_size = obs.pot + sum(bets)
+        st.current_bet = max(bets)
+        st.my_bet = bets[obs.seat]
+        legal = _KIT_A_LEGAL.get(obs.legal)
+        if legal is None:
+            legal = _KIT_A_LEGAL[obs.legal] = [m for m in ("FOLD", "CHECK", "CALL", "RAISE")
+                                               if ActionKind(m.lower()) in obs.legal]
+        st.legal_moves = legal
+        st.min_raise, st.max_raise = obs.min_raise, obs.max_raise
+        st.hand_number = obs.hand_no + 1
+        st.small_blind, st.big_blind = obs.blinds
+        src = obs.history
+        n = len(src)
+        if obs.hand_no != self._log_hand or n < self._log_n:
+            self._log, self._log_n, self._log_hand = [], 0, obs.hand_no
+        if n > self._log_n:
+            self._log.extend((s, "RAISE:%d" % a.amount if a.kind is RAISE else a.kind.value.upper())
+                             for s, a in src[self._log_n:])
+            self._log_n = n
+        st.action_log = self._log
+        st.discards = {}
+        return st
+
+    @staticmethod
+    def from_kit(answer, obs: Observation) -> Action:
+        if isinstance(answer, str):
+            if answer.startswith("RAISE:"):
+                try:
+                    return Action.raise_to(int(answer[6:])).clamp(obs)
+                except ValueError:
+                    return _check_or_fold(obs)
+            a = _KIT_A_ACTIONS.get(answer)
+            if a is not None:
+                return a.clamp(obs)
+        return _check_or_fold(obs)
+
+    def act(self, obs: Observation) -> Action:
+        return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
+
+    def hand_end(self, result: HandResult) -> None:
+        self.impl.hand_over(result.hand_no + 1, result.deltas[self.seat])
+
+
+_KIT_B_SUITS = "CDHS"
+_KIT_B_CARD = tuple({"rank": (c >> 2) + 2, "suit": _KIT_B_SUITS[c & 3]} for c in range(52))
+_KIT_B_LEGAL: dict[frozenset, list] = {}
+
+
+class TrackBKitBBot(_Base):
+    """Drill 5's Track B bot (hyperion.sim.field.trackb5), unchanged, behind fake kit B's interface: module functions
+    decide(observation: dict) -> {"action": ..., "by": <increment over the highest bet>}, on_table_start(info) and
+    on_hand_end(info), cards as {"rank": 2..14, "suit": "H"}, no action history. Two adaptations:
+    - its state lives in module globals (P, H, S, C), so each instance keeps its own dicts and binds them into the
+      module before every call: two seats of it at one table (`night@trackb5` drawing it too) never share a profile;
+    - it was built for permuted_ranks (seed 0) and maps printed ranks to strength through the module list REMAP at
+      every parse; REMAP is set from Rules.rank_order at each table, so it is the identity on plain hold'em and right
+      under any permutation the rules sheet gives.
+    Imports in ~1.4 s (evaluator and equity tables); lookups and arithmetic after."""
+
+    MODULE = "trackb5"
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        import importlib
+
+        self.mod = importlib.import_module(f".field.{self.MODULE}", __package__)
+        self._state = None
+
+    def _bind(self) -> None:
+        m, st = self.mod, self._state
+        m.P, m.H, m.S, m.C, m.REMAP = st
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self._state = ({}, {"hand": None, "street": -1, "snap": {}, "cur": 0, "seen": set(), "flags": {}},
+                       {"seat": None, "n": 0, "stack0": 2000, "total": 16000, "est": [], "hand_start": None,
+                        "hand_start_id": None},
+                       {"pts": None}, list(rules.rank_order))
+        self._bind()
+        self.mod.on_table_start({"seat": seat, "players": n_players, "stack": rules.starting_stack,
+                                 "blinds": {"sb": rules.small_blind, "bb": rules.big_blind}})
+
+    @staticmethod
+    def to_kit(obs: Observation) -> dict:
+        bets, stacks, in_hand = obs.bets, obs.stacks, obs.in_hand
+        current = max(bets)
+        legal = _KIT_B_LEGAL.get(obs.legal)
+        if legal is None:
+            legal = _KIT_B_LEGAL[obs.legal] = [k.value for k in _KIND_ORDER if k in obs.legal]
+        return {
+            "hand_id": obs.hand_no,
+            "street": len(obs.board),
+            "blinds": {"sb": obs.blinds[0], "bb": obs.blinds[1]},
+            "hand": {"cards": [_KIT_B_CARD[c] for c in obs.hole]},
+            "table": {"board": [_KIT_B_CARD[c] for c in obs.board], "pot": obs.pot, "button": obs.button,
+                      "players": [{"seat": i, "chips": stacks[i], "committed": bets[i], "active": bool(in_hand[i])}
+                                  for i in range(len(stacks))]},
+            "you": {"seat": obs.seat, "to_call": obs.to_call, "min_raise_by": obs.min_raise - current,
+                    "max_raise_by": obs.max_raise - current},
+            "actions": list(legal),
+        }
+
+    @staticmethod
+    def from_kit(d, obs: Observation) -> Action:
+        try:
+            kind = d["action"]
+            if kind == "raise":
+                return Action.raise_to(max(obs.bets) + int(d["by"])).clamp(obs)
+            a = _KIT_ACTIONS.get(kind)
+        except (TypeError, KeyError, ValueError):
+            return _check_or_fold(obs)
+        return a.clamp(obs) if a is not None else _check_or_fold(obs)
+
+    def act(self, obs: Observation) -> Action:
+        self._bind()
+        return self.from_kit(self.mod.decide(self.to_kit(obs)), obs)
+
+    def hand_end(self, result: HandResult) -> None:
+        self._bind()
+        self.mod.on_hand_end({"hand_id": result.hand_no, "delta": result.deltas[self.seat]})
+
+
 # ----- the hybrid candidate: rival 2's decision core behind Hero's shell ---------------------------------------
 
 
@@ -1006,6 +1191,8 @@ REGISTRY: dict[str, type] = {
     "rival2": Rival2Bot,  # red-team drill 2's computation-first bot through the same adapter
     "rival3": Rival3Bot,  # red-team drill 3's exploitation-first bot: the holdout, never tuned against
     "rival4": Rival4Bot,  # red-team drill 4's bot (no assigned philosophy): the judge of the final comparison
+    "trackb3": TrackBKitABot,  # drill 3's Track B one-hour build (kit A), in the night pool
+    "trackb5": TrackBKitBBot,  # drill 5's Track B one-hour build (kit B), in the night pool
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
@@ -1085,6 +1272,16 @@ FIELDS: dict[str, tuple[str, ...]] = {
     # the table that busts itself: Hero's job is to survive it and be there at the end
     "chaos": ("hero", "crasher", "random", "allin", "station", "montecarlo", "maniac", "timeout_then_recover"),
 }
+# The night: Hero's seat and seven opponents drawn per table, with the table seed alone, from a weighted pool that is
+# our guess at the real room (one-hour agent builds 40%, weak or broken 30%, decent 15%, strong teams 15%;
+# night_hard: strong teams and the persona bots heavier). Each `night.k` entry is a seat that builds the bot its slot
+# draws (hyperion/sim/field/night.py, where the weights and the reasoning are). Every rotation and every `night@<bot>`
+# swap sees the same seven opponents with the same seeds. `night0` is the version without the persona bots.
+from .field import night as _night  # noqa: E402 - imports nothing from here at module level
+
+for _pool in ("night", "night_hard", "night0"):
+    FIELDS[_pool] = ("hero",) + _night.seat_names(_pool)
+
 # fields that seat an optional bot: present in FIELDS only when every bot in them is registered
 OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {
     # the best public prep bot twice, both red-team rivals, and the competent baselines
@@ -1136,12 +1333,18 @@ def field_names(name: str) -> list[str]:
 for _name in ("judge", "judge_top"):
     for _cand in JUDGE_CANDIDATES:
         FIELDS[f"{_name}@{_cand}"] = tuple(_hero_swap(_name, _cand))
+for _name in ("night", "night_hard"):  # so `--field night@hybrid3_x` parses; field_names() takes any registered bot
+    for _cand in JUDGE_CANDIDATES + ("rival3",):
+        FIELDS[f"{_name}@{_cand}"] = tuple(_hero_swap(_name, _cand))
 
 
 def make_bot(name: str, seed: Optional[int] = None):
     key = name.strip().lower()
     cls = REGISTRY.get(key) or _BY_CLASS.get(key)
     if cls is None:
+        seat = _night.parse_seat(key)
+        if seat is not None:  # `night.3`: the bot slot 3 of the night pool draws at this seed's table
+            return _night.PoolSeat(seat[0], seat[1], seed)
         if key in OPTIONAL_BOTS:
             raise _unavailable(key)
         raise KeyError(f"unknown bot {name!r}; known: {', '.join(REGISTRY)}")
