@@ -240,6 +240,8 @@ Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `
 | `exploit.post_streak` | 3 |
 | `exploit.steal` | False |
 | `exploit.steal_bb` | 2.0 |
+| `exploit.steal_min_fold` | 0.0 |
+| `exploit.dead_shift` | False |
 | `exploit.bet_checked` | False |
 | `exploit.bet_min_fold` | 0.6 |
 | `exploit.bet_frac` | 0.33 |

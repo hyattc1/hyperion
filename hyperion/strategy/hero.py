@@ -496,13 +496,13 @@ class HeroCore:
                 prof.observe(obs)  # the kit's own history: the profiler counts only what it can see
             except Exception:  # noqa: BLE001 - a profiler slip must not cost the decision
                 prof = None
-        ex = self.exploit
+        xl = self.exploit  # (not `ex`: that name holds the exposed cards below)
         raw = obs  # the kit's own observation: the exploit layer replays only what it saw
-        if ex is not None:
+        if xl is not None:
             try:
-                ex.observe(obs)
+                xl.observe(obs)
             except Exception:  # noqa: BLE001
-                ex = None
+                xl = None
         no_history = not obs.history
         if obs.street == 0 or no_history:
             bb = obs.blinds[1] or 1
@@ -544,6 +544,14 @@ class HeroCore:
             spot.ror = self.ror_for(spot.my_bb, obs.hand_no)
         cheap = cfg.cheap or self.panic
         if obs.street == 0:
+            if xl is not None and not cheap and xl.p.dead_shift and spot.n_raises == 0 and spot.n_in == 0 \
+                    and spot.behind > 1:
+                try:
+                    k = xl.dead_behind(raw)
+                except Exception:  # noqa: BLE001
+                    k = 0
+                if k:
+                    spot.behind = max(1, spot.behind - k)  # dead seats behind fold: open for the seats that are left
             pf = self.pushfold
             a = None
             if pf.applies(spot):
@@ -554,8 +562,8 @@ class HeroCore:
             if a is None:
                 self.last_path = "preflop"
                 a = self.preflop.act(spot, prof, cheap)
-            if ex is not None and not cheap:
-                a = self._exploit(ex, raw, a)
+            if xl is not None and not cheap:
+                a = self._exploit(xl, raw, a)
             if a.kind is ActionKind.RAISE:
                 self._pre_aggr = True
             elif spot.to_call > 0 and spot.n_raises > 0:
@@ -580,8 +588,8 @@ class HeroCore:
         self.last_path = "postflop"
         a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
                               value_shift=value_shift)
-        if ex is not None and not cheap:
-            a = self._exploit(ex, raw, a)
+        if xl is not None and not cheap:
+            a = self._exploit(xl, raw, a)
         return a
 
     def _exploit(self, ex: Exploit, obs: Observation, a: Action) -> Action:
