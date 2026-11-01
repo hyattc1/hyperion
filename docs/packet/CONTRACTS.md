@@ -68,7 +68,7 @@ Kinds: fold, check, call, raise. `action.clamp(obs)` returns a legal version (ra
 - `__init__(self, bot: 'Bot', rules: 'Rules | None' = None)`: Initialize self.  See help(type(self)) for accurate signature.
 - `decide(self, native: 'Any') -> 'Any'`
 - `from_action(self, action: 'Action', obs: 'Observation', native: 'Any') -> 'Any'`
-- `hand_end(self, hand_no: 'int', delta: 'int', n_players: 'int | None' = None) -> 'None'`
+- `hand_end(self, hand_no: 'int', delta: 'int', n_players: 'int | None' = None, history=None, deltas=None) -> 'None'`: The hand is over; pass the kit's `history` and every seat's `deltas` too when its signal has them.
 - `native_safe(self, native: 'Any') -> 'Any'`: The kit's own check-if-possible-else-fold, used when translation itself blows up.
 - `start(self, seat: 'int', n_players: 'int', rules: 'Rules | None' = None) -> 'None'`
 - `to_observation(self, native: 'Any') -> 'Observation'`

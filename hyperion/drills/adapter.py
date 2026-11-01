@@ -64,9 +64,11 @@ class Adapter:
             return self.native_safe(native)
 
     def hand_end(self, hand_no: int, delta: int, n_players: int | None = None, history=None, deltas=None) -> None:
-        """The hand is over. Pass what the kit's hand-end signal carries: `history` [(seat, Action)] for the whole
-        hand and `deltas` (every seat's chip change) when it has them. The shipped bot's core (rival 3) replays the
-        hand's history here to read the actions after our last decision, as the simulator gives it."""
+        """The hand is over; pass the kit's `history` and every seat's `deltas` too when its signal has them.
+
+        `history` is [(seat, Action)] for the whole hand, `deltas` every seat's chip change. The shipped bot's core
+        (rival 3) replays the hand's history here to read the actions after our last decision, as the simulator
+        gives it."""
         try:
             if deltas is None:
                 deltas = [0] * (n_players or max(1, self.seat + 1))
