@@ -264,3 +264,39 @@ on the same deals; these seeds were never used to choose anything.
 P beats both bases beyond noise on all four fields. Its gain on night (+0.20) is the screen's (+0.22) less a little
 selection bias. Latency in these model runs (load 3-8): P p50 / p99 69 / 257 us, hybrid3_x 39 / 154, Hero 29 / 111. P
 runs both members on every decision. Strict-mode timing and the variant matrix come next, then the climb from P.
+
+## 16:10-16:25: timing, and light shadows
+
+P runs both members on every decision. **Light shadows** (`ComposeConfig.light`, on in `ship()`): a member that is not
+chosen keeps its state from the observation without deciding, where its decision changes nothing it keeps.
+- Hero preflop: its modules keep no state, so only the hand's chips and the profiler's read are needed. Postflop it
+  draws from its RNG, so there it still decides in full.
+- Rival 3's core postflop: its decision draws from its RNG and nothing else, and its preflop play draws nothing, so the
+  history replay is all it needs. Preflop it decides in full, because its own preflop raise is part of its state.
+
+P is bit-identical with light and full shadows: per-decision sha1 on realistic, night, permuted_ranks and short_deck
+(tests), and the confirmed P's samples on night seeds 1000-1004. The same pass makes Hero's "I was the preflop
+raiser" flag follow the action taken. Hero uses that flag as its postflop aggressor read only on a kit with no action
+history, where Hero now plays every postflop decision of the base's preflop.
+
+Strict mode on a quiet host (load 1-2), realistic seeds 2000-2199 x 8, every candidate in Hero's seat at the same load:
+
+| bot | p50 / p99 us | engine timeouts | wall >= 1 ms | max us | - hybrid3_x |
+|---|---|---|---|---|---|
+| hybrid3_x | 36 / 80 | 2 (0.001%) | 2 | 4701 | - |
+| P, full shadows | 63 / 124 | 1 (0.000%) | 1 | 6713 | **+0.205 ± 0.124** |
+| P, light shadows | 51 / 113 | 1 (0.000%) | 1 | 9961 | **+0.193 ± 0.121** |
+
+An earlier strict run (load 2-4, seeds 2000-2199) gave P (full) 4 timeouts against hybrid3_x's 4, and Hero 1. The
+timeouts are level. The max is a single preemption; it is not the bot.
+
+`tools/latency.py --adapter hyperion.drills.adapter:KitBAdapter --native kit_b --n 5000`, quiet host (random
+observations, all streets):
+
+| bot | bot.act p50 / p99 / max us | kit-B adapter round trip p50 / p99 / max us |
+|---|---|---|
+| hybrid3_x | 28 / 71 / 283 | 36 / 88 / 244 |
+| P, light shadows (as shipped) | 44 / 110 / 278 | 48 / 127 / 254 |
+| P, full shadows | 59 / 121 / 434 | 66 / 137 / 330 |
+
+P's p99 through the kit-B adapter is 127 us, a quarter of tools/latency.py's 500 us bar and an eighth of the budget.
