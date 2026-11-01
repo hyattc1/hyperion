@@ -1531,3 +1531,130 @@ is a rule mismatch, played as a call. The zips and hashes are in the drill 6 rep
 - Kit D refuses a straddle, and any variant that changes cards mid-hand.
 - Kit D's legal set ignores our engine's short-all-in no-reopen rule. A raise there is reported as a rule
   mismatch and played as a call.
+
+## Mid-phase aggression pass (2026-11-01, builder: aggression pass)
+
+Scope: `hyperion/strategy/*`, `tools/sweep.py`, the strategy and sweep tests. Brief: rival 1 and rival 2 out-take Hero
+in the 10-25 bb phase (deep pass); measure where before coding, build levers as Config keys off by default, screen
+them, ship only by the rule (paired delta >= 0 on realistic and on top, not below -0.03 on base or strong, at least
+one field outside noise). Running log with every table: `docs/drills/aggression-pass-log.md`.
+
+### What the measurement said (step 1)
+
+A per-phase action-frequency table (every seat wrapped, every preflop and flop decision classified; top2 and
+realistic, 120 seeds x 8 each) overturned half the diagnosis. Hero does not open too little: its first-in open
+rate is the widest of the three bots at every position in both phases (levels 4-8 on top2: 20.3 opens per seat,
+rival 1 18.6, rival 2 13.2). What it lacked, in order of size (levels 4-8, bb per seat): re-shoves over single opens at
+10-25 bb (rival 2 2.58 per seat for +5.1 bb, Hero 0.18 for +0.5; from the blinds 21% of opens faced against Hero's
+5%); heads-up postflop where Hero called preflop (it folds 71-78% to a c-bet, the rivals 44-54%, and loses -6.9 /
+-1.9 bb per seat in non-showdown pots at levels 1-3 / 4-8 against rival 2's +0.4 / -0.2); and at 10-15 bb Hero
+raises 50% of first-in spots to 2.25 bb and shoves none where both rivals shove ~20%, then folds 77% of the
+re-shoves it faces. Big-blind flats were equal (19% vs 18%); the defence gap was all re-raises.
+
+### What shipped (f349380)
+
+- `preflop.reshove_mid_bb` = 25 (lever c, 0b6289b): facing one open with no callers above push/fold depth, shove
+  the solved re-shove set (the multiway table's 4-25 bb family over a 2.3 bb open) when push/fold's ICM gate passes.
+  It raises Hero's 10-25 bb re-shoves from 0.18 to ~0.9 per seat in levels 4-8 (blinds 5% -> 11% of opens faced,
+  big-blind 3-bets 7% -> 16%), each worth about +1.8 bb.
+- `postflop.vs_cbet_margin` = 0.05 (lever e, 1f56fa2): facing the preflop raiser's small flop c-bet heads-up (the
+  first bet of the street, at most 0.75 pot), the call margin is 0.05 instead of 0.15; middle pair stopped folding
+  to a third-pot bet.
+- Hero infers the betting state from the bets when the history cannot explain them (coordinator add-on, c38259e):
+  realistic with Hero's history stripped 5.505 against 5.756 with it (drill 6: 3.21); nothing changes with history.
+- Built and left off (all Config keys with tests): the observed-opener width and the exploitative re-shove price
+  for the re-shove table (`pushfold.reshove_w_observed`, `reshove_exploit`), the first-in shove zone
+  (`pushfold.fi_threshold_bb`, `fi_late_threshold_bb`, `fi_rest_open`), the per-seat re-shove read
+  (`preflop.shove_ctx_auto`), c-bet bluffs by fold-to-c-bet (`postflop.cbet_ftc_read`), and opens tightened against
+  a re-shove threat behind (`preflop.reshove_threat`). New profiler reads: first-in opens per opportunity by
+  position class, an opener's fold to a re-raise, c-bets and folds to them. `tools/sweep.py`: several rivals in
+  the report and the lone bot's delta in a mirror, per-field Rules, and jobs queued with every setting side by side.
+
+### Results (400 duplicate seeds x 8 rotations, seed 7, strict, one sweep from a clean worktree of f349380)
+
+"before" = d917c45 behaviour (the shipped keys off; bit-identical to d917c45 on a 7,590-hand check), "after" = the
+shipped defaults; panic on as shipped. Uniform is 4.50. Gaps are paired Hero-minus-rival means.
+
+| target | requirement | before (d917c45) | after (f349380) | paired after - before | met? |
+|---|---|---|---|---|---|
+| T1 | Hero - rival1 >= 0, realistic | -0.120 ± 0.115 | **-0.031 ± 0.109** (Hero 5.595, rival1 5.626) | Hero +0.051 ± 0.061; gap +0.089 | no (inside noise of 0) |
+| T1 | Hero - rival1 >= 0, top | -0.203 ± 0.107 | **-0.019 ± 0.106** (Hero 4.639, rival1 4.659) | Hero **+0.082 ± 0.068**; gap +0.184 | no (inside noise of 0) |
+| T7 | Hero - rival2 >= -0.20, top2 | -0.578 ± 0.094 | **-0.469 ± 0.098** (Hero 4.511, rival2 4.980) | Hero **+0.095 ± 0.074**; gap +0.109 | no |
+| T2 | Hero + 7 rival1 >= 4.50 | 4.436 ± 0.062 | **4.515 ± 0.064** | **+0.080 ± 0.045** | **yes** |
+| T2 | Hero + 7 rival2 >= 4.00 | 3.600 ± 0.067 | 3.671 ± 0.071 | +0.071 ± 0.083 | no |
+| T3 | base within the CI of now | 6.813 ± 0.045 | 6.826 ± 0.044 | +0.013 ± 0.015 | yes |
+| T3 | strong within the CI of now | 5.134 ± 0.073 | 5.143 ± 0.076 | +0.008 ± 0.065 | yes |
+| T4 | act() p99 < 100 µs; hand_end, new_table p99 < 1 ms | act 56-87 µs | act mean 20 µs, p99 51-56 µs; hand_end 46 µs, new_table 51 µs (top-heavy 445 / 431 µs) | | yes |
+| T5 | READY >= 22; Hero first on >= 15 of 23 | 22 / 15 (deep pass) | **22 READY, 1 PLAYS (two_boards); first on 18** | | yes |
+| T6 | MicroAgent among 7 Heroes <= 4.60 | 4.442 ± 0.065 | 4.485 ± 0.068 | micro +0.043 ± 0.061 | yes |
+| holdout | Hero - rival3 on `holdout` (never tuned on) | -0.510 ± 0.106 | -0.372 ± 0.110 (Hero 5.575, rival3 5.947) | Hero **+0.109 ± 0.057**; gap +0.138 | (holdout) |
+| - | rival1 among 7 Heroes | 4.539 ± 0.082 | **4.423 ± 0.077** | rival1 -0.116 ± 0.074 | - |
+| - | rival2 among 7 Heroes | 5.138 ± 0.076 | 5.107 ± 0.071 | rival2 -0.030 ± 0.084 | - |
+| - | realistic, payouts 10/7/5/4/3/2/1/0 | Hero 5.429, gap to rival1 -0.398 | 5.612, gap -0.067 | Hero **+0.183 ± 0.102** | not worse: yes |
+| - | realistic, payouts 50/25/12/6/3/2/1/1 | Hero 18.86, gap -3.96 | 21.25, gap -0.63 | Hero **+2.39 ± 0.68** | not worse: yes |
+
+On top Hero gained on rival 1 but not on rival 2 (gap -0.39 -> -0.43); on top2 it gained on both. The holdout row
+differs from the rival 3 entry's -0.74 ± 0.16 (2fc1b90, 200 seeds) because this one is paired over 400 seeds on this
+commit's code and a quiet host; the delta (+0.138 ± ~0.08) is the comparable number, and rival 3 was never in a screen.
+
+### Screens (tools/sweep.py, strict, seed 7, 5 workers, panic off in every screen base)
+
+S1 (160 seeds, realistic / top / top2 / Hero + 7 rival2, every lever): nothing outside noise on realistic or top;
+most levers up on top2 and down on realistic; the first-in shove zone -0.12 to -0.19 on realistic. A dozen busy-loop
+processes from another session put Hero's SafeBot into panic in hundreds of tables during the first launch (discarded;
+every screen base sets `panic_after` 1,000,000), and S1's settings were queued one after another, so its later rows ran
+under 10x the timeouts of its base: `tools/sweep.py` now queues settings side by side. S2 (200 seeds, eight fields):
+`reshove_mid_bb` 25 passed alone (Hero + 7 rival1 +0.052 ± 0.049), `vs_cbet_margin` 0.05 was >= 0 everywhere, the threat
+read failed realistic. S3 (200 seeds, ten fields with two payout tables): the pair passed every clause (realistic
++0.083 ± 0.081, top +0.140 ± 0.097); the exploitative re-shove price on top of it failed strong (-0.14); the threat
+read on top of it helped top2 (+0.08) and rival 2 among Heroes (-0.07) but cost realistic again (-0.015).
+
+| lever (key) | best result | why not shipped |
+|---|---|---|
+| (a) steal widening by fold-to-steal | not built | step 1: Hero already opens more than either rival everywhere |
+| (b) first-in shove zone (`pushfold.fi_threshold_bb` ...) | top2 +0.02-0.05, Hero + 7 rival2 +0.09-0.12 | realistic -0.12 to -0.19: the Monte Carlo bots call shoves wide (the deep pass's finding) |
+| (c) observed opener width (`pushfold.reshove_w_observed`) | top2 +0.09 alone | realistic -0.11 alone, ~0 with mid re-shoves; rival 2 among Heroes +0.07 |
+| (c) exploitative re-shove price (`pushfold.reshove_exploit`) | on top of the pair: Hero + 7 rival1 +0.19, Hero + 7 rival2 +0.26 | strong -0.14 (Hero copies re-shove into each other), base -0.03 |
+| (d) per-seat re-shove read (`preflop.shove_ctx_auto`) | top2 +0.03 | top -0.08 / -0.10 |
+| (e) c-bet bluffs by fold-to-c-bet (`postflop.cbet_ftc_read`) | top2 +0.06 | top -0.10 (S1) |
+| (f) opens tightened against a re-shove threat (`preflop.reshove_threat`) | on top of the pair: top2 +0.08, rival 2 among Heroes -0.07 | realistic -0.06 alone, -0.015 on top; opt-in for a room of frequent re-shovers |
+
+**Readings.** (1) The deep pass's "volume" was the right axis but the wrong half: the gap is re-raising, not opening,
+and pricing re-shoves from a solved table plus an ICM gate takes a third of rival 2's volume and most of its value
+per re-shove. (2) Every way of shoving more on Hero's own initiative (first-in zone, exploit price, per-seat reads)
+costs the realistic or strong room more than it gains against the rivals; what survives is narrow: re-shove the
+solved set over single opens, and stop folding middle pair to small c-bets. (3) Heads-up postflop was worth as much
+as the preflop lever in the measurement and is the least-explored part: one margin moved here; c-bet frequency and
+turn play were not.
+
+### Assessment: rival 2's decision core behind Hero's shell (not built; the owner's call)
+
+Hero still trails rival 2 by 0.47 on top2 (> 0.30), so the brief asks what the fallback would take. A separate agent
+started a hybrid in `hyperion/hybrid/` during this pass; this is the cost from the strategy side, not a review of it.
+
+*What it would take.* Rival 2 is one 1,481-line stdlib file whose `Bot._act` takes the kit-shaped observation
+`bestiary.Rival2Bot` already builds from ours, so the adapter exists. The hybrid is a router in `HeroCore.act`: plain
+two-card hold'em decisions to a frozen copy of rival 2's `_preflop` / `_postflop`, everything else to Hero's modules,
+with Hero keeping `new_table`, the variant wiring, `variant_decide`, SafeBot and the Config. Four pieces need work.
+(1) Its ICM curve uses fixed points 10/7/5/4/3/2/1/0 and never reads Rules: payouts (and the hand cap) must be wired
+in, or the default 8..1 and top_heavy are both mispriced. (2) Its import costs ~1.15 s (a Monte Carlo 169x169 matrix,
+a push/fold solve) and ends in a process-wide `gc.freeze()`; any regenerated variant table set needs its matrix too.
+(3) Latency: its postflop sampler is time-boxed on the wall clock (260 µs, hard cap 520 µs), so act() p99 is ~285 µs
+against T4's 100 µs, its strict-mode timeouts reached 1.8-2.7% on a loaded host, and its play is not reproducible
+under duplicate deals; cutting the budget changes the bot that was measured. (4) No Config lever or read of Hero's
+reaches the routed path; tuning means editing the copy.
+
+*Cost on the 23 variants.* The routed path understands two hole cards, a 52-card deck and the standard ranking. With an
+observation-level rank remap and the payouts wired in it could take plain hold'em and about seven variants
+(permuted_ranks, top_heavy, pot_limit and fixed_raise through the adapter's clamp, with sizing unaware of the cap,
+antes_from_level_3, fast_schedule, straddle). The other sixteen (short_deck, lowball, wild_deuces,
+flush_over_full_house, toss_or_holdem, both three-card games, omaha_four, both swaps, exposed_card, two_boards,
+bonus_card, bounty, knockout_bounty, hi_lo) need Hero's modules: readiness there holds only if the router is exact,
+and each routed variant needs a re-measure against the 22-READY baseline. The upside is bounded by rival 2's own
+margin here (top2 +0.47 over Hero after this pass; as the lone rival 2 among Heroes 5.11, +0.61 over uniform), less
+whatever its latency fix costs.
+
+**Next lever.** Heads-up postflop as the preflop caller and as the raiser, read-driven: the measurement put Hero's
+non-showdown postflop loss level with the re-shove gap, and one margin closed part of it. Second: re-shoves from the
+threat side (the opt-in `reshove_threat` is the one lever that moves the rival 2 rooms without touching the
+re-shove calls), re-tested at 400 seeds on realistic.
