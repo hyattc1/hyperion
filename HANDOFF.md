@@ -26,17 +26,24 @@ fake kits, tooling, five drills) is in good shape; Track A (bring the repo) is t
 
 Agents commit as they finish tasks. If one was killed, `git log` shows what landed; the rest is below.
 
-### 1. Deep Hero pass: DONE in substance, cut off by the Opus 5-hour limit (resets 1:30 PM ET) while writing its
-report. All code is committed (ce5a137, c5cb3db, 745bf82, d917c45, 5257118, f955955); its full entry is in
-docs/decisions.md, "Deep Hero pass". Shipped: solved multiway push/fold and re-shove tables (36 s to generate),
-shove calls read against the shover's observed range, a late call-down cap, hand_end 6.4 ms to 49 µs p99,
-safe_err / safe_over columns. Readiness still 22 READY / 1 PLAYS, Hero first on 15 of 23 variants.
-Targets: met T2b, T3, T4, T5, T6 (MicroAgent pushed below uniform). NOT met: T1 (Hero − rival1 −0.14 realistic,
-−0.13 top, was −0.30), T2a, T7 (Hero − rival2 −0.56 on top2), T8. Its diagnosis: the rivals win on the VOLUME of
-uncontested preflop pots they take at 10–25 bb (wide opens scaled by the blinds' fold rate, light 3-bets from
-the blinds, frequent re-shoves). No single gate fixes that; it is Hero's own preflop aggression in the middle
-phase. Next pass: build and sweep exactly that, with rival 2 as the target. The fallback in item 2 below
-(rival decision core behind Hero's shell) is the owner's call and has not been taken.
+### 1. Mid-phase aggression pass: DONE (2026-11-01). Entry "Mid-phase aggression pass" in docs/decisions.md; every
+table in docs/drills/aggression-pass-log.md. (It follows the deep pass, whose entry "Deep Hero pass" stands.)
+Measured first: Hero already opens wider than both rivals at every position; its gap is re-raising (rival 2
+re-shoves 2.6 times per seat at 10-25 bb in levels 4-8, Hero 0.2) and heads-up postflop after calling (Hero folds
+71-78% to c-bets). Shipped (f349380): `preflop.reshove_mid_bb` 25 (re-shove the solved re-shove set over single
+opens up to 25 bb, ICM-gated) and `postflop.vs_cbet_margin` 0.05; plus Hero infers the betting state from the bets
+when an adapter passes no history (c38259e; stripped-history Hero 5.51 vs 5.76 with it, drill 6 had 3.21). Six more
+levers are built, tested and off (first-in shove zone, observed opener width, exploitative re-shove price, per-seat
+re-shove read, c-bet bluffs by fold-to-c-bet, opens tightened against a re-shove threat); why each failed the
+shipping rule is in the entry. Final, 400 seeds x 8, paired vs d917c45: Hero + realistic +0.05, top +0.08, top2
++0.10, Hero + 7 rival1 4.52 (T2a met), holdout +0.11, both payout tables up, base/strong flat. Hero - rival1 -0.03
+realistic / -0.02 top (T1 inside noise of 0, not met on the point estimate); Hero - rival2 on top2 -0.47 (T7 not met);
+Hero + 7 rival2 3.67 (T2b not met). T3-T6 met; T5 22 READY / 1 PLAYS (two_boards), Hero first on 18 of 23.
+**Next lever:** heads-up postflop, read-driven (c-bet frequency, turn play, defence as the preflop caller): the
+measurement put it level with the re-shove gap and one margin closed part of it. Then `preflop.reshove_threat` 1.0
+(the one lever that moves the rival 2 rooms without touching re-shove calls) re-tested at 400 seeds on realistic.
+The rival-2-core fallback is assessed in the entry (cost: latency p99 ~285 us vs T4, fixed 10..0 ICM points, about 7
+of 23 variants routable); a hybrid is being built separately in hyperion/hybrid/ and is the owner's call.
 
 ### 2. Red-team rival 2: DONE and integrated (`rival2`, fields `top`, `top2`; decisions entry "Rival 2 in the
 pool"). It is the strongest opponent: top2 Hero 4.36 vs rival2 4.98; one rival2 among 7 Heroes +0.69 over
