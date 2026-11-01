@@ -387,3 +387,69 @@ with rival 4 in rival 3's seat; `judge_top` = hero, rival1-4, pushfold, tag, loo
 
 Rival 2's sampler is on the wall clock, so at load 30-50 it, and the rival 2 hybrids, sampled less than on a quiet
 host in these runs. Model mode removes every other load effect.
+
+## 06:49-06:57: readiness, hybrid3 v Hero 7e51197 on the 23 entries (variant_matrix.py's rules, `--field realistic`,
+200 unrotated tables per entry, seed 7, model mode, panic off; one worker each, load ~33)
+
+| variant | route | Hero 7e51197 | hybrid3 | hybrid3 - Hero 7e51197 |
+|---|---|---|---|--- |
+| permuted_ranks | core 100% | 6.06, 1, READY | 6.71, 1, READY | **+0.65 ± 0.37** |
+| short_deck | Hero (deck) | 5.74, 1, READY | 5.74, 1, READY | +0.00 ± 0.00 |
+| lowball | Hero (showdown) | 7.73, 1, READY | 7.73, 1, READY | +0.00 ± 0.00 |
+| wild_deuces | Hero (showdown) | 7.07, 1, READY | 7.07, 1, READY | +0.00 ± 0.00 |
+| flush_over_full_house | Hero (showdown) | 5.61, 2, READY | 5.61, 2, READY | +0.00 ± 0.00 |
+| toss_or_holdem | Hero (three_cards) | 6.08, 1, READY | 6.08, 1, READY | +0.00 ± 0.00 |
+| three_card_blind_discard | Hero (three_cards) | 6.03, 1, READY | 6.03, 1, READY | +0.00 ± 0.00 |
+| three_card_keep | Hero (three_cards) | 6.09, 1, READY | 6.09, 1, READY | +0.00 ± 0.00 |
+| omaha_four | Hero (must_use) | 6.72, 1, READY | 6.72, 1, READY | +0.00 ± 0.00 |
+| swap_holdem | core 100% | 5.49, 2, READY | 6.08, 1, READY | **+0.59 ± 0.38** |
+| swap_one_turn | core 100% | 5.97, 1, READY | 6.16, 1, READY | +0.19 ± 0.36 |
+| exposed_card | Hero (exposed) | 5.54, 2, READY | 5.54, 2, READY | +0.00 ± 0.00 |
+| two_boards | Hero (showdown) | 5.38, 2, READY | 5.38, 2, READY | +0.00 ± 0.00 |
+| bonus_card | core 76% | 5.71, 1, READY | 5.92, 1, READY | +0.21 ± 0.33 |
+| bounty | Hero (bounty) | 5.32, 3, PLAYS | 5.32, 3, PLAYS | +0.00 ± 0.00 |
+| knockout_bounty | Hero (bounty) | 6.93, 1, READY | 6.93, 1, READY | +0.00 ± 0.00 |
+| top_heavy | core 100% | 22.26, 2, READY | 23.38, 1, READY | +1.12 ± 3.39 |
+| hi_lo | Hero (showdown) | 5.58, 2, READY | 5.58, 2, READY | +0.00 ± 0.00 |
+| pot_limit | core 100% | 5.51, 2, READY | 5.73, 1, READY | +0.23 ± 0.35 |
+| antes_from_level_3 | core 100% | 5.57, 2, READY | 5.85, 1, READY | +0.28 ± 0.35 |
+| fixed_raise | Hero (fixed_limit) | 5.83, 2, READY | 5.83, 2, READY | +0.00 ± 0.00 |
+| fast_schedule | core 100% | 5.52, 2, READY | 5.93, 1, READY | **+0.41 ± 0.36** |
+| straddle | core 32% | 5.66, 2, READY | 5.48, 2, READY | -0.18 ± 0.34 |
+
+**hybrid3 READY 22, PLAYS 1 (bounty, which is Hero's own row: Hero plays that table), first on 16; Hero 7e51197 READY
+22, PLAYS 1 (bounty), first on 11.** Every Hero-routed row is +0.00 ± 0.00: in model mode with panic off, nothing reads
+the wall clock, so the shell plays those tables bit for bit as Hero does. Of the nine core-routed rows, none is
+worse beyond noise; permuted_ranks +0.65, swap_holdem +0.59 and fast_schedule +0.41 are better beyond it.
+
+## 06:57-07:05: readiness with the layer, hybrid3_x v Hero HEAD (same settings, worktree 0d660dc, load ~32)
+
+| variant | route | Hero HEAD | hybrid3_x | hybrid3_x - Hero HEAD |
+|---|---|---|---|---|
+| permuted_ranks | core 100% | 6.48, 1, READY | 6.66, 1, READY | +0.18 ± 0.35 |
+| short_deck | Hero (deck) | 5.94, 1, READY | 5.94, 1, READY | +0.00 ± 0.00 |
+| lowball | Hero (showdown) | 7.77, 1, READY | 7.77, 1, READY | +0.00 ± 0.00 |
+| wild_deuces | Hero (showdown) | 7.09, 1, READY | 7.09, 1, READY | +0.00 ± 0.00 |
+| flush_over_full_house | Hero (showdown) | 6.01, 1, READY | 6.01, 1, READY | +0.00 ± 0.00 |
+| toss_or_holdem | Hero (three_cards) | 6.19, 1, READY | 6.19, 1, READY | +0.00 ± 0.00 |
+| three_card_blind_discard | Hero (three_cards) | 6.16, 1, READY | 6.16, 1, READY | +0.00 ± 0.00 |
+| three_card_keep | Hero (three_cards) | 6.19, 1, READY | 6.19, 1, READY | +0.00 ± 0.00 |
+| omaha_four | Hero (must_use) | 6.78, 1, READY | 6.78, 1, READY | +0.00 ± 0.00 |
+| swap_holdem | core 100% | 6.12, 1, READY | 6.12, 1, READY | +0.00 ± 0.37 |
+| swap_one_turn | core 100% | 6.21, 1, READY | 6.31, 1, READY | +0.10 ± 0.34 |
+| exposed_card | Hero (exposed) | 5.86, 1, READY | 5.86, 1, READY | +0.00 ± 0.00 |
+| two_boards | Hero (showdown) | 6.02, 1, READY | 6.02, 1, READY | +0.00 ± 0.00 |
+| bonus_card | core 76% | 5.96, 1, READY | 6.09, 1, READY | +0.14 ± 0.32 |
+| bounty | Hero (bounty) | 5.82, 1, READY | 5.82, 1, READY | +0.00 ± 0.00 |
+| knockout_bounty | Hero (bounty) | 7.75, 1, READY | 7.75, 1, READY | +0.00 ± 0.00 |
+| top_heavy | core 100% | 26.42, 1, READY | 23.72, 1, READY | -2.70 ± 3.68 |
+| hi_lo | Hero (showdown) | 5.92, 1, READY | 5.92, 1, READY | +0.00 ± 0.00 |
+| pot_limit | core 100% | 5.86, 1, READY | 5.94, 1, READY | +0.09 ± 0.38 |
+| antes_from_level_3 | core 100% | 6.00, 1, READY | 6.15, 1, READY | +0.15 ± 0.36 |
+| fixed_raise | Hero (fixed_limit) | 5.93, 2, READY | 5.93, 2, READY | +0.00 ± 0.00 |
+| fast_schedule | core 100% | 5.64, 1, READY | 5.76, 1, READY | +0.12 ± 0.38 |
+| straddle | core 32% | 6.08, 1, READY | 5.90, 1, READY | -0.18 ± 0.35 |
+
+**Both READY 23, first on 22** (the layer lifts Hero from first on 11 to 22). The 14 Hero-routed rows are identical
+again; the nine core-routed rows are all inside noise (top_heavy -2.70 ± 3.68 on 200 unrotated tables; the payout
+runs are the read).
