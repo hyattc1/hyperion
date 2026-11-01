@@ -445,3 +445,48 @@ at the edge of noise; every other entry is level or ahead.
 **The ship rule (coordinator, 14:50) is met.** F beats both hybrid3_x and Hero beyond noise on night, both on the
 held-out seeds and on the climb's seeds. It is ahead of both, beyond noise, on night_hard, realistic and top. It loses
 to neither on any judge field; on judge_top it is +0.09 ± 0.09 over hybrid3_x, inside noise. **Shipped: d32d629.**
+
+## 17:42-18:05: the remaining per-section rankings (hybrid3_x base, 200 x 8, seeds 0-199, measured after shipping, for the record)
+
+Neither matrix changes the decision. The composite was chosen and measured as a whole, and its guard numbers are the
+final ones above. Bold is beyond the 95% interval, (worse) is below it.
+
+**night_hard** (night pool with ~1.9 strong seats a table). Base 5.226 ± 0.103.
+
+| section | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| pre_open_40 | rival1 +0.052 | **rival3 +0.035 ± 0.030** | **hybrid3 +0.035 ± 0.030** | hero +0.027 | r2x +0.026 |
+| pre_open_20 | hero +0.060 | rival1 +0.055 | r2x +0.024 | rival3 +0.015 | hybrid3 +0.015 |
+| pre_open_10 | **r2x +0.130 ± 0.074** | **rival1 +0.084 ± 0.066** | hero +0.064 | rival3 -0.003 | hybrid3 -0.003 |
+| pre_open_short | hero +0.021 | hybrid3 +0.009 | rival3 +0.009 | r2x -0.000 | rival1 -0.042 |
+| pre_raised_deep | hybrid3 +0.000 | rival3 -0.002 | r2x -0.025 | hero -0.078 | rival1 -0.116 |
+| pre_raised_short | **r2x +0.087 ± 0.086** | rival1 +0.069 | hero +0.066 | rival3 +0.026 | hybrid3 +0.000 |
+| pre_allin | r2x +0.035 | rival1 +0.024 | hero +0.008 | rival3 +0.001 | hybrid3 +0.000 |
+| pre_3way | hero +0.018 | rival1 +0.008 | r2x +0.007 | hybrid3 +0.005 | rival3 -0.002 |
+| pre_hu | hero +0.006 | rival3 +0.000 | hybrid3 -0.000 | r2x -0.008 | rival1 -0.010 (worse) |
+| post_hu_bet | **hero +0.158 ± 0.099** | r2x +0.076 | hybrid3 +0.000 | rival3 -0.022 (worse) | rival1 -0.066 |
+| post_hu_chk | **r2x +0.151 ± 0.093** | hero +0.017 | rival3 +0.005 | hybrid3 -0.001 | rival1 -0.029 |
+| post_mw | **rival1 +0.076 ± 0.070** | hero +0.061 | **hybrid3 +0.029 ± 0.024** | **rival3 +0.026 ± 0.024** | r2x +0.018 |
+
+**top** (fixed-speed rival 2). Base 5.006 ± 0.095.
+
+| section | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| pre_open_40 | rival3 -0.021 | hybrid3 -0.021 | rival1 -0.038 | r2x -0.069 | hero -0.123 (worse) |
+| pre_open_20 | rival3 -0.005 | hybrid3 -0.005 | hero -0.018 | r2x -0.082 (worse) | rival1 -0.086 (worse) |
+| pre_open_10 | r2x +0.045 | hybrid3 -0.008 | rival3 -0.009 | rival1 -0.012 | hero -0.071 (worse) |
+| pre_open_short | hybrid3 +0.012 | rival3 -0.014 | r2x -0.033 | hero -0.041 | rival1 -0.060 |
+| pre_raised_deep | r2x +0.023 | hybrid3 +0.000 | rival3 -0.019 | rival1 -0.222 (worse) | hero -0.318 (worse) |
+| pre_raised_short | r2x +0.032 | hybrid3 +0.000 | rival3 -0.021 | rival1 -0.026 | hero -0.094 (worse) |
+| pre_allin | hybrid3 +0.000 | rival3 -0.023 | rival1 -0.046 | r2x -0.053 (worse) | hero -0.074 (worse) |
+| pre_3way | r2x +0.017 | hybrid3 -0.000 | rival3 -0.003 | rival1 -0.003 | hero -0.004 |
+| pre_hu | hero +0.002 | rival3 -0.002 | hybrid3 -0.003 | r2x -0.006 | rival1 -0.011 (worse) |
+| post_hu_bet | **hero +0.109 ± 0.094** | r2x +0.030 | rival1 +0.019 | hybrid3 +0.000 | rival3 -0.027 (worse) |
+| post_hu_chk | hero -0.012 | r2x -0.111 (worse) | hybrid3 -0.166 (worse) | rival3 -0.180 (worse) | rival1 -0.183 (worse) |
+| post_mw | hybrid3 -0.011 | rival3 -0.021 | r2x -0.039 | hero -0.071 | rival1 -0.111 (worse) |
+
+One swap leads on every field measured: Hero facing a heads-up postflop bet (realistic +0.17, night +0.09, night_hard
++0.16, top +0.11, all beyond noise). On night_hard several donors help hybrid3_x where it is weakest: short opens
+(r2x +0.13) and checked-to heads-up (r2x +0.15). Hero facing a raise short loses on top (-0.09) and wins elsewhere.
+The shipped composite, measured whole, is ahead on top (+0.16 held out), so the sections interact here as they do on
+night.
