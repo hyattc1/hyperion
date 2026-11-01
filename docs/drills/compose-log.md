@@ -248,3 +248,19 @@ preflop, Hero facing a raise when short (under 20 bb effective), and Hero and th
 parts pays: postflop facing a bet (+0.09 alone), postflop checked to (+0.08 on top), and the short raise spot (+0.08 on
 top). Hero's checked-to play loses alone (-0.02) but pays once Hero also plays the bets: the two halves of a postflop
 strategy fit together.
+
+## 15:51-16:05: P confirmed on fresh seeds (1000-1399, 400 x 8, model mode, code 4bbd794)
+
+P = `post=hero,pre_raised_short=hero` (every other section on the hybrid3_x base). Full runs, the three bots paired
+on the same deals; these seeds were never used to choose anything.
+
+| field | P | Hero | hybrid3_x | P - hybrid3_x | P - Hero | Hero - hybrid3_x |
+|---|---|---|---|---|---|---|
+| night | 5.954 | 5.764 | 5.756 | **+0.199 ± 0.077** | **+0.191 ± 0.083** | +0.008 ± 0.093 |
+| night_hard | 5.496 | 5.313 | 5.308 | **+0.188 ± 0.089** | **+0.183 ± 0.087** | +0.005 ± 0.100 |
+| realistic | 6.342 | 6.075 | 6.150 | **+0.192 ± 0.074** | **+0.268 ± 0.083** | -0.076 ± 0.088 |
+| top | 5.034 | 4.788 | 4.921 | **+0.112 ± 0.084** | **+0.246 ± 0.086** | **-0.134 ± 0.094** |
+
+P beats both bases beyond noise on all four fields. Its gain on night (+0.20) is the screen's (+0.22) less a little
+selection bias. Latency in these model runs (load 3-8): P p50 / p99 69 / 257 us, hybrid3_x 39 / 154, Hero 29 / 111. P
+runs both members on every decision. Strict-mode timing and the variant matrix come next, then the climb from P.
