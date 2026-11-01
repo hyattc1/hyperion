@@ -19,7 +19,7 @@ which is how `joint` measures a combined route against its base. `--full` replay
 the final comparison ran. Rival 2's sampler reads the wall clock (it stops at 260 us, ~110 samples heads-up here, with a
 hard stop at 520 us): in these runs every rival 2 opponent draws a fixed `R2_SAMPLES` (110) and the rival 2 core member
 a fixed 32 (its `mc_max`), so fields with rival 2 replay exactly. Its import-time equity tables stop at 1500 boards or
-2.4 s; a process where the clock bound prints a warning. That is a fixed-speed rival 2; the final measurement plays it as built.
+2.4 s: its clock is held still while it imports, so every process builds all 1500. That is a fixed-speed rival 2; the final measurement plays it as built.
 
 The sample is one table seed (its eight rotations averaged), paired with the base on the same seed.
 """
@@ -70,6 +70,15 @@ def setup_process(mode: str = "model", as_built: bool = False) -> None:
             B.HYBRID_CONFIG.pop(k)
         return
     if "hyperion.sim.rivals.rival2" in sys.modules or os.environ.get("SWAP_R2", "1") == "1":
+        if "hyperion.sim.rivals.rival2" not in sys.modules:
+            # its import-time equity tables stop at 1500 boards or after 2.4 s: hold its clock still while it imports,
+            # so every process builds all 1500 (what a quiet host does) whatever the load
+            real = time.perf_counter
+            time.perf_counter = lambda: 0.0
+            try:
+                from hyperion.sim.rivals import rival2  # noqa: F401
+            finally:
+                time.perf_counter = real
         from hyperion.sim.rivals import rival2 as R2
 
         R2.Bot.MC_BUDGET_US = 1e9
