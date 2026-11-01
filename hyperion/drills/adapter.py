@@ -16,7 +16,14 @@ KIND_BY_NAME = {"fold": ActionKind.FOLD, "check": ActionKind.CHECK, "call": Acti
 
 
 class Adapter:
-    """Base class. Subclasses implement the three translation hooks; decide() does the rest safely."""
+    """Base class. Subclasses implement the three translation hooks; decide() does the rest safely.
+
+    `history_source` says where obs.history comes from, and conformance holds the adapter to it: "log" (the
+    kit's action log, so within a hand every decision's history extends the last one) or "bets" (the kit
+    has no log; make_observation rebuilds this street's raises from the bets, and earlier streets' are lost).
+    """
+
+    history_source = "log"
 
     def __init__(self, bot: Bot, rules: Rules | None = None):
         self.bot = bot
@@ -85,6 +92,33 @@ def history_from_bets(street: int, button: int, stacks, bets, big_blind: int) ->
             continue
         out.append((seats[0], Action(ActionKind.RAISE, int(level))))
     return out
+
+
+def history_rows(history, discards: dict | None = None, at: int | None = None) -> list[list]:
+    """obs.history -> the fake dealer's rows [seat, kind, total] (total only for a raise). `discards`
+    {seat: card}, in toss order, go in as [seat, "discard", card] at history index `at` (the flop's first
+    action), as the dealer logs them; without `at` they go last."""
+    rows = [[int(s), a.kind.value, int(a.amount) if a.kind is ActionKind.RAISE else 0] for s, a in history]
+    if discards:
+        pos = len(rows) if at is None else min(at, len(rows))
+        rows[pos:pos] = [[int(s), "discard", int(c)] for s, c in discards.items()]
+    return rows
+
+
+def dealer_state(obs: Observation, discards_at: int | None = None) -> dict:
+    """The fake kits' dealer state (hyperion/drills/fakekits/_table.py) for an Observation: the inverse of
+    make_observation, history and face-up discards included. Lists and ints only, so
+    tools/gate.py can send it to another process (json turns the int keys of `discards` into strings;
+    tools/gate_host.py turns them back). `kit.to_state(...)` and its peers accept it as it is."""
+    discards = (obs.extras or {}).get("discards") or {}
+    return {
+        "hole": list(obs.hole), "board": list(obs.board), "street": obs.street, "seat": obs.seat,
+        "button": obs.button, "stacks": list(obs.stacks), "bets": list(obs.bets), "in_hand": list(obs.in_hand),
+        "pot": obs.pot, "to_call": obs.to_call, "min_raise": obs.min_raise, "max_raise": obs.max_raise,
+        "legal": sorted(k.value for k in obs.legal), "hand_no": obs.hand_no, "blinds": list(obs.blinds),
+        "history": history_rows(obs.history, discards, discards_at),
+        "discards": {int(s): int(c) for s, c in discards.items()},
+    }
 
 
 def make_observation(*, hole, board, street, seat, button, stacks, bets, in_hand, pot, to_call, min_raise,
@@ -184,6 +218,8 @@ class KitBAdapter(Adapter):
     """observation dict: hand.cards[{rank,suit}], table.{board,pot,button,players[{seat,chips,committed,
     active}]}, you.{seat,to_call,min_raise_by,max_raise_by}, actions, street = board count."""
 
+    history_source = "bets"  # the kit has no action log
+
     def to_observation(self, o: dict) -> Observation:
         players = sorted(o["table"]["players"], key=lambda p: p["seat"])
         bets = [p["committed"] for p in players]
@@ -229,6 +265,8 @@ def make_kit_b_module(bot: Bot | None = None) -> tuple[Callable, Callable, Calla
 
 class KitCAdapter(Adapter):
     """Decision line clauses: H D S K B C E I O L V T (see kit_c/kit.py). Replies F/K/C/R<total>."""
+
+    history_source = "bets"  # the kit has no action log
 
     @staticmethod
     def clauses(line: str) -> dict[str, str]:
@@ -330,6 +368,8 @@ class KitDAdapter(Adapter):
     hands (card strings, ours filled), board, acting, in_hand, blinds, last_raise, previous_state;
     legal_actions() is a set of action classes (no FoldAction when a check is free); raise_bounds() are
     raise-to totals. Replies are instances of the classes found in the legal set, so no kit import."""
+
+    history_source = "bets"  # previous_state holds the hand, but this adapter does not walk it
 
     def __init__(self, bot: Bot, rules: Rules | None = None):
         super().__init__(bot, rules)
