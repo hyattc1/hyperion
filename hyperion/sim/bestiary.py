@@ -14,6 +14,7 @@ import os
 import random
 import sys
 import time
+import types
 from typing import Optional
 
 from ..core.cards import deck_for, hole_class, remap
@@ -929,6 +930,35 @@ class Rival4Bot(RivalBot):
                             "history": [(s, (a.kind.value, a.amount)) for s, a in result.history]})
 
 
+class Rival5Bot(Rival4Bot):
+    """Red-team rival 5 (hyperion.sim.rivals.rival5), unchanged, behind the same kit adapter as rival 4: payouts with the
+    rules, the hand's history at hand_end. The second judge: built blind by a fresh team against the same brief and kit
+    (docs/drills/redteam/rival5_bot.py), never tuned on; the compose agent measures the candidates on it once, at the end,
+    in `judge2` and `judge2_night`. Smoke tests check only that it plays legally and in time. It reads `hand_cap` from
+    the rules and builds its per-seat counts from the history it sees in act(); its ICM is the brief's table, hard-coded.
+    Its postflop sampler stops on the wall clock (130 us, checked every four trials), so its play follows the host,
+    as rival 2's does. STEP_US, when set, gives it a clock that advances STEP_US per read, so it samples a fixed amount
+    and replays exactly: 4.0 us is the CPU time of four trials against two opponents on this box (2.9 heads-up, 6.8
+    against three). Off by default: the judge plays as built."""
+
+    MODULE = "rival5"
+    STEP_US: Optional[float] = None
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self.mod = sys.modules[type(self.impl).__module__]
+        self._now = 0.0
+        self._clock_ns = types.SimpleNamespace(perf_counter=self._clock)
+
+    def _clock(self) -> float:
+        self._now += self.STEP_US * 1e-6
+        return self._now
+
+    def act(self, obs: Observation) -> Action:
+        self.mod.time = self._clock_ns if self.STEP_US is not None else time
+        return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
+
+
 # ----- the night field: other agents' one-hour builds behind the kit each was built against (hyperion/sim/field/) ----
 
 
@@ -1283,6 +1313,7 @@ REGISTRY: dict[str, type] = {
     "rival2": Rival2Bot,  # red-team drill 2's computation-first bot through the same adapter
     "rival3": Rival3Bot,  # red-team drill 3's exploitation-first bot: the holdout, never tuned against
     "rival4": Rival4Bot,  # red-team drill 4's bot (no assigned philosophy): the judge of the final comparison
+    "rival5": Rival5Bot,  # red-team drill 5's bot, built blind by a fresh team: the second judge (judge2, judge2_night)
     "trackb3": TrackBKitABot,  # drill 3's Track B one-hour build (kit A), in the night pool
     "trackb5": TrackBKitBBot,  # drill 5's Track B one-hour build (kit B), in the night pool
     "agent_charts": AgentChartsBot,  # persona: live-poker chart player's team (one-hour agent build), night pool
@@ -1377,6 +1408,11 @@ from .field import night as _night  # noqa: E402 - imports nothing from here at 
 
 for _pool in ("night", "night_hard", "night0"):
     FIELDS[_pool] = ("hero",) + _night.seat_names(_pool)
+# the second judge: `judge` with rival 5 in rival 4's seat (realistic-shaped, rival 5 in the holdout seat), and the
+# night pool with rival 5 in one seat and six drawn around it. Never tuned on; measured once, by the compose agent
+FIELDS["judge2"] = ("hero", "rival5", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "tag",
+                    "timeout_then_recover")
+FIELDS["judge2_night"] = ("hero", "rival5") + _night.seat_names("judge2_night")
 
 # fields that seat an optional bot: present in FIELDS only when every bot in them is registered
 OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {
@@ -1426,7 +1462,7 @@ def field_names(name: str) -> list[str]:
     return list(FIELDS[key])
 
 
-for _name in ("judge", "judge_top"):
+for _name in ("judge", "judge_top", "judge2", "judge2_night"):
     for _cand in JUDGE_CANDIDATES:
         FIELDS[f"{_name}@{_cand}"] = tuple(_hero_swap(_name, _cand))
 for _name in ("night", "night_hard"):  # so `--field night@hybrid3_x` parses; field_names() takes any registered bot
