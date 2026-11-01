@@ -387,3 +387,25 @@ plus realistic and top as guards).
 None clears the rule alone (beyond noise on night, not worse beyond noise on realistic and top). Three are positive on
 the screen and on night, and close to or past noise on a guard field. Round 2 tests them together, once, on fresh seeds
 7000-7399: B1 = bet_min_fold 0.4; C2 = B1 + call_margin 0.2; C3 = C2 + vs_cbet_margin 0.0.
+
+## 16:54-17:05: climb round 2, the three dials together (fresh seeds 7000-7399, 400 x 8, paired against P)
+
+| candidate | night | realistic | top |
+|---|---|---|---|
+| B1 = bet_min_fold 0.4 | +0.009 ± 0.044 | **+0.069 ± 0.041** | **+0.067 ± 0.046** |
+| **C2 = B1 + Hero call_margin 0.2** | **+0.058 ± 0.049** | **+0.088 ± 0.048** | **+0.077 ± 0.056** |
+| C3 = C2 + Hero vs_cbet_margin 0.0 | +0.048 ± 0.051 | **+0.099 ± 0.049** | **+0.085 ± 0.062** |
+
+**Accepted: C2**, two dial changes on P (2 of the cap of about 6). It is beyond noise on night and better beyond noise on
+both guards. The layer now bets when checked to at a fold read of 0.4, not 0.5. Hero, playing every postflop decision,
+calls a bet only with 0.20 equity over the price, not 0.15. C3's third dial is not better than C2 on night, so it stays
+out. The climb stops here: the screen found nothing else that survived confirmation.
+
+Accepted climb steps, all of them: 1. `exploit.bet_min_fold` 0.5 -> 0.4 and `hero.postflop.call_margin` 0.15 -> 0.20,
+taken together (night +0.058, realistic +0.088, top +0.077). Rejected after confirmation: r3.open_scale 1.1, and each of the
+three dials alone (round 1). Rejected at the screen: the other 50 trials (table above).
+
+**The final composite F** = `{"route": "post=hero,pre_raised_short=hero", "exploit.bet_min_fold": 0.4,
+"hero.postflop.call_margin": 0.2}`. Next, run once: its 23 variants, then the judges (judge, judge_top, judge2,
+judge2_night, seeds 0-399) and the held-out seeds 5000-5399 on night, night_hard, realistic and top. F, hybrid3_x and Hero
+are measured on the same deals.
