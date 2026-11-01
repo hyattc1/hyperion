@@ -36,6 +36,7 @@ from ..core.cards import hole_class, is_identity_order, remap
 from ..core.eval import warm
 from ..core.types import RANKS, Action, ActionKind, HandResult, Observation, Rules
 from ..tablegen import hole_label
+from .exploit import Exploit, ExploitParams
 from .postflop import TIER_EQUITY, Postflop, PostflopParams
 from .preflop import Preflop, PreflopParams
 from .profiler import Profiler
@@ -171,6 +172,9 @@ class Config:
     preflop: PreflopParams = field(default_factory=PreflopParams)
     pushfold: PushFoldParams = field(default_factory=PushFoldParams)
     postflop: PostflopParams = field(default_factory=PostflopParams)
+    # dead and timing-out seats (hyperion/strategy/exploit.py): its own reads, and overrides of the modules' action in
+    # a few spots; every spot off by default, so nothing runs unless one is on
+    exploit: ExploitParams = field(default_factory=ExploitParams)
     profiler_prior_n: float = 2.0
     profiler_blend_n: float = 8.0  # dials reach half strength after this many observed actions
     profiler_dial_strength: float = 1.0  # 0 = read opponents but never act on it
@@ -369,6 +373,7 @@ class HeroCore:
         self.postflop = Postflop(cfg.postflop, cfg.seed)
         self.pushfold.pre = self.preflop
         self.preflop.pf = self.pushfold
+        self.exploit = Exploit(cfg.exploit) if cfg.exploit.active else None
         if self.prof is not None and self.pushfold.mw is not None:
             self.prof.call_prior = self.pushfold.call_prior  # shove calls are read against a solved caller's
         self._base = (self.preflop, self.pushfold)
@@ -420,6 +425,8 @@ class HeroCore:
         self._configure(rules)
         if self.prof is not None:
             self.prof.reset(n_players, seat)
+        if self.exploit is not None:
+            self.exploit.new_table(n_players, seat)
         if self.cfg.use_icm:
             self._curve(self.last_stacks, 0)
         gc.freeze()  # tables and evaluator dicts leave the collector's reach: no gen-2 pause mid-decision
@@ -489,6 +496,13 @@ class HeroCore:
                 prof.observe(obs)  # the kit's own history: the profiler counts only what it can see
             except Exception:  # noqa: BLE001 - a profiler slip must not cost the decision
                 prof = None
+        ex = self.exploit
+        raw = obs  # the kit's own observation: the exploit layer replays only what it saw
+        if ex is not None:
+            try:
+                ex.observe(obs)
+            except Exception:  # noqa: BLE001
+                ex = None
         no_history = not obs.history
         if obs.street == 0 or no_history:
             bb = obs.blinds[1] or 1
@@ -540,6 +554,8 @@ class HeroCore:
             if a is None:
                 self.last_path = "preflop"
                 a = self.preflop.act(spot, prof, cheap)
+            if ex is not None and not cheap:
+                a = self._exploit(ex, raw, a)
             if a.kind is ActionKind.RAISE:
                 self._pre_aggr = True
             elif spot.to_call > 0 and spot.n_raises > 0:
@@ -562,8 +578,22 @@ class HeroCore:
             aggressor = prof is not None and prof.pre_raiser == obs.seat
         value_shift = 1 if (self._swap_street and obs.street < self._swap_street) else 0
         self.last_path = "postflop"
-        return self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
-                                 value_shift=value_shift)
+        a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
+                              value_shift=value_shift)
+        if ex is not None and not cheap:
+            a = self._exploit(ex, raw, a)
+        return a
+
+    def _exploit(self, ex: Exploit, obs: Observation, a: Action) -> Action:
+        """The exploit layer's override of the module's action, if it has one; a slip there keeps `a`."""
+        try:
+            b = ex.override(obs, a)
+        except Exception:  # noqa: BLE001
+            return a
+        if b is None:
+            return a
+        self.last_path = "exploit." + ex.last
+        return b
 
     def ror_for(self, my_bb: float, hand_no: int) -> float:
         """The risk-of-ruin margin on stack-offs: Config.ror_margin while deep and early, else 0."""
@@ -576,6 +606,11 @@ class HeroCore:
     def hand_end(self, result: HandResult) -> None:
         if self.prof is not None:
             self.prof.hand_end(result)
+        if self.exploit is not None:
+            try:
+                self.exploit.hand_end(result)
+            except Exception:  # noqa: BLE001
+                pass
         base = self.hand_start if (self.hand_start is not None and result.hand_no == self.hand_no) else self.last_stacks
         if base is not None and len(result.deltas) == len(base):
             after = [max(0, base[s] + result.deltas[s]) for s in range(len(base))]
@@ -771,5 +806,5 @@ def make_bot(config: Config | None = None) -> Hero:
 
 gc.freeze()  # whatever was built at import (evaluator tables, straight-draw table) is permanent
 
-__all__ = ["Config", "Hero", "HeroCore", "IcmCurve", "config_from_dict", "icm_value", "make_bot", "mirror_map",
+__all__ = ["Config", "Exploit", "ExploitParams", "Hero", "HeroCore", "IcmCurve", "config_from_dict", "icm_value", "make_bot", "mirror_map",
            "replace", "wild_map"]
