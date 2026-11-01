@@ -186,9 +186,8 @@ def classify_variant(dials: dict, delta: dict):
     if heads <= {"r3", "base"}:
         _, kw = CB.parse_dials({"route": "", **delta})
         return ("member", "base", kw["base_overrides"], {})
-    if heads == {"hero"}:
-        _, kw = CB.parse_dials({"route": "", **delta})
-        return ("member", "hero", {}, kw["hero_member"])
+    # hero.* reaches the hero member and the base's fallback Hero both (parse_dials): two copies would be needed, so a
+    # Hero dial replays every rotation
     if heads == {"exploit"} and not any(k.partition(".")[2] in _LAYER_STATE for k in delta) \
             and dials.get("exploit", "hero") is not None:
         _, kw = CB.parse_dials({**dials, **delta})
