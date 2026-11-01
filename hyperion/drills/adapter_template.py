@@ -28,6 +28,12 @@ def card(native_card: Any) -> int:
     raise NotImplementedError("TODO 1: one kit card -> rank*4 + suit")
 
 
+def history(native: Any) -> list[tuple[int, Action]]:
+    """TODO 7b: the kit's action log -> [(seat, Action)] (e.g. kit A's "RAISE:120" -> Action(RAISE, 120)); a
+    malformed entry is skipped, never raised. Return [] when the kit has no log (and set history_source)."""
+    return []
+
+
 # TODO 2  STREET -> obs.street (index 0..3), and len(obs.board) must equal (0, 3, 4, 5)[street]. Kits give
 #   a name ("flop"), an enum, or the board count (MIT: 0/3/4/5; `street == 3` is the flop, not the river).
 #   Test: a flop state from the kit sim -> obs.street == 1 and len(obs.board) == 3 (conformance rule board_len).
@@ -58,15 +64,19 @@ STREET_BY_BOARD = {0: 0, 3: 1, 4: 2, 5: 3}
 #   message, or only in the kit's schedule (then compute from hand_no; antes are NOT blinds).
 #   Test: obs.blinds == (10, 20) on the first hand and it changes at the kit's first level boundary.
 
+# TODO 7b HISTORY -> obs.history = [(seat, Action)] for the whole hand so far, in order, from the kit's action
+#   log: map each entry to (their seat as our seat, Action(kind, raise-TO total)) and pass history=... to
+#   make_observation; skip entries that are not bets (discards, card swaps). Hero reads who raised and how
+#   often from history: drill 6's adapters passed none and the uploaded bot lost 2.5 points a table.
+#   No log at all (kits B and C): leave history out, make_observation rebuilds this street's raises from the
+#   bets (one RAISE per bet level, earlier streets lost), and set history_source = "bets" below so
+#   conformance expects the rebuild. Test: HYPERION_CHECK=1 reports 0 history_raise and 0 history_prefix
+#   violations; tools/gate.py on the zip PASSes.
+
 # TODO 8  PER-TABLE INIT -> Adapter.start(seat, n_players, rules) -> bot.new_table. Call it from the kit's
 #   table-start hook if one exists (outside the 1 ms budget); otherwise Adapter.decide calls it lazily on
 #   the first decision, so everything heavy (tables, evaluator warm-up) must happen at import instead.
 #   Test: python tools/pack.py ... prints the import time (budget 5 s); kit sim first decision under 1 ms.
-
-# TODO 7b HISTORY -> obs.history = [(seat, Action)] for the hand so far, from the kit's action log if it has
-#   one (pass history=... to make_observation). Hero reads who raised from history alone: drill 6's empty
-#   history cost 2.5 points a table. No log at all: leave it out and make_observation rebuilds this
-#   street's raises from the bets. Test: after a raise, obs.history has a RAISE by the raiser's seat.
 
 # TODO 9  native_safe -> what the kit gets when translation itself blows up: ITS check if legal, else ITS
 #   fold, built from the raw native state and never raising, even on garbage.
@@ -76,11 +86,13 @@ STREET_BY_BOARD = {0: 0, 3: 1, 4: 2, 5: 3}
 class TonightAdapter(Adapter):
     """Kit <name>: <one line on the native state and action format, from the rule sheet>."""
 
+    history_source = "log"  # TODO 7b: "log" when history= carries the kit's action log, "bets" when it has none
+
     def to_observation(self, native: Any) -> Observation:
-        # TODO 2-7, in that order; return make_observation(hole=..., board=..., street=..., seat=..., button=...,
+        # TODO 2-7b, in that order; return make_observation(hole=..., board=..., street=..., seat=..., button=...,
         #   stacks=..., bets=..., in_hand=..., pot=..., to_call=..., min_raise=..., max_raise=..., legal=[...],
-        #   hand_no=..., blinds=(sb, bb), history=[...] (TODO 7b))
-        raise NotImplementedError("TODO 2-7: kit state -> Observation")
+        #   hand_no=..., blinds=(sb, bb), history=history(native))
+        raise NotImplementedError("TODO 2-7b: kit state -> Observation")
 
     def from_action(self, action: Action, obs: Observation, native: Any) -> Any:
         # TODO 4-5: action.kind.value is "fold" | "check" | "call" | "raise"; action.amount is a raise-TO total.

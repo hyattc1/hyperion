@@ -128,26 +128,51 @@ def _check(obs: Observation, rules: Rules) -> list[str]:
         s, a = item
         if not 0 <= s < n:
             v.append(f"history_seat: seat {s} in history outside 0..{n - 1}")
-            break
+            return v
         if not isinstance(a, Action):
             v.append(f"history_action: {a!r} in history is not an Action")
-            break
+            return v
+    v += _check_raise_in_history(obs, rules)
     return v
+
+
+def _check_raise_in_history(obs: Observation, rules: Rules) -> list[str]:
+    """A bet above the street's base (the big blind, or the straddle, preflop; nothing after) means somebody
+    raised: the history must hold a RAISE to that total. Hero reads who raised from history (drill 6: an empty
+    one cost 2.5 points a table)."""
+    bb = obs.blinds[1]
+    base = bb * max(1, int(rules.straddle or 0)) if obs.street == 0 else 0
+    top = max(obs.bets)
+    if top <= base:
+        return []
+    raises = [a.amount for _, a in obs.history if a.kind is RAISE]
+    fix = ("pass the kit's action log as history= to make_observation, or, when the kit has none, leave history "
+           "out so make_observation rebuilds this street's raises from the bets (TODO 7b)")
+    if not raises:
+        return [f"history_raise: a bet of {top} is above the street's base {base} but obs.history holds no RAISE; "
+                f"Hero reads raises from history (an empty one cost 2.5 points a table in drill 6): {fix}"]
+    if top not in raises:
+        return [f"history_raise: the top bet is {top} but no RAISE in obs.history reaches it (raises {raises[-3:]}); "
+                f"history amounts must be raise-to totals: {fix}"]
+    return []
 
 
 class ConformanceReport:
     """Counts per rule with the first few examples, plus the cross-call checks a single obs cannot make:
     the table's chip total is constant within a hand, the button is constant within a hand, our seat is
-    constant for the table."""
+    constant for the table, and (for an adapter whose history_source is "log") each decision's history
+    extends the previous decision's in the same hand, so a raise seen once is never dropped later."""
 
-    def __init__(self, examples: int = EXAMPLES_PER_RULE):
+    def __init__(self, examples: int = EXAMPLES_PER_RULE, history_source: str = "log"):
         self.observations = 0
         self.counts: Counter = Counter()
         self.examples: dict[str, list[str]] = {}
         self.actions: Counter = Counter()
         self.keep = examples
+        self.history_source = history_source  # "log" or "bets", as the adapter declares (Adapter.history_source)
         self._seat: int | None = None
         self._last: tuple[int, int, int] | None = None  # hand_no, chip total, button
+        self._hist: tuple[int, list] | None = None  # hand_no, the last observation's history as (seat, kind, amount)
 
     @property
     def total(self) -> int:
@@ -190,6 +215,15 @@ class ConformanceReport:
             if obs.button != b:
                 out.append(f"button_changed: button {b} -> {obs.button} within hand {obs.hand_no}")
         self._last = (obs.hand_no, total, obs.button)
+        hist = [(s, a.kind.value, a.amount) for s, a in obs.history]
+        if self.history_source != "bets" and self._hist is not None and self._hist[0] == obs.hand_no:
+            prev = self._hist[1]
+            if hist[: len(prev)] != prev:
+                out.append(f"history_prefix: hand {obs.hand_no}: this decision's history does not extend the last one "
+                           f"({len(prev)} entries then {len(hist)}); a kit log only grows. If the kit has no log and the "
+                           f"history is rebuilt from the bets each decision, declare history_source = \"bets\" on the "
+                           f"adapter (earlier streets' raises are then lost, and the report says so)")
+        self._hist = (obs.hand_no, hist)
         return out
 
     def summary(self) -> str:
@@ -200,6 +234,9 @@ class ConformanceReport:
         acts = " ".join(f"{k} {self.actions[k]}" for k in ("fold", "check", "call", "raise"))
         lines.append(f"conformance: {self.observations} observations checked, {self.total} violations"
                      f"{' in ' + str(len(self.counts)) + ' rules' if self.counts else ''}; actions {acts}")
+        lines.append("history: the kit's action log" if self.history_source != "bets" else
+                     "history: rebuilt from the bets each decision (the adapter says the kit has no log); "
+                     "this street's raises only, earlier streets' are lost")
         return "\n".join(lines)
 
 
@@ -208,7 +245,7 @@ def checked(adapter: Any, rules: Rules | None = None, report: ConformanceReport 
     `rules` defaults to the adapter's own Rules at each call (so a later `start(rules=...)` is honoured)."""
     if getattr(adapter, "conformance", None) is not None:
         return adapter
-    report = report or ConformanceReport()
+    report = report or ConformanceReport(history_source=getattr(adapter, "history_source", "log"))
     to_obs, from_act = adapter.to_observation, adapter.from_action
 
     def to_observation(native: Any) -> Observation:
