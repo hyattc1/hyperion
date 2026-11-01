@@ -142,3 +142,54 @@ works as built: with `reshove_mid_bb` 25 and the observed width, Hero's re-shove
 0.18 to 0.88 per seat (blinds 5% -> 11% of opens faced, big-blind 3-bets 7% -> 16%), each netting about +1.8 bb, like
 rival 2's +2.1, but rival 2 still makes 2.58 per seat: the solved table and Hero's ICM gate stop at a third of its
 volume.
+
+## Add-on (coordinator): Hero without action history (c38259e)
+
+Drill 6 found the reference adapters passed no `obs.history`, so Hero read every raised pot as unopened (3.2
+points against 5.9). Now, when the history is empty, or preflop holds no raise although a bet is above the blind
+(straddle-aware), `HeroCore.act` rebuilds this street's raises from the bets (one RAISE per bet level, credited to
+the first seat in acting order; a short all-in below the top level is a call) for `Spot` and the modules, and
+postflop uses its own preflop aggression for the c-bet decision. The profiler keeps the kit's own history (it counts
+only what it sees) and stops counting hands with no visible action as dealt. Nothing changes when the history is
+present (`HeroCore.inferred` counts the decisions that used the fallback). Realistic, 100 seeds x 8 rotations,
+measure mode, Hero's seat stripped of history in act() and hand_end(): full 5.756 ± 0.116, stripped 5.505 ± 0.119,
+paired -0.251 ± 0.108 (drill 6: stripped 3.21; the adapter's rebuild 5.20 against 5.50). What is left is the
+opponent model, which sees nothing. Test: `tests/test_strategy_no_history.py` (paired table run, 3,301 inferred
+decisions, 5.92 full vs 5.75 stripped).
+
+### Screen S2 (stage B): survivors on all eight fields, 200 seeds (commit 8e8a78c, settings queued side by side)
+
+Hero's timeouts are now level across settings (13-461 per cell, the same spread in every row). Fields: h7r1 / h7r2 =
+Hero + 7 rival1 / rival2; r2h7 = rival2 + 7 Heroes, where the cell is rival 2's own delta (lower is better for Hero).
+
+```
+Δhero (paired vs base) ± 95%; in r2h7/r1h7: Δ of the lone rival (lower is better for Hero)
+setting                                  realistic             top            top2            h7r1            h7r2            r2h7            base          strong
+base                                  5.560 ±0.093    4.488 ±0.101    4.392 ±0.104    4.451 ±0.094    3.642 ±0.091    5.102 ±0.106    6.800 ±0.066    5.141 ±0.102
+postflop.vs_cbet_margin=0.05         +0.013 ±0.094   +0.083 ±0.093   +0.029 ±0.102   +0.051 ±0.059   +0.051 ±0.112   -0.008 ±0.126   +0.006 ±0.010   +0.014 ±0.087
+preflop.reshove_mid_bb=25            +0.025 ±0.085   +0.010 ±0.092   +0.068 ±0.099   +0.052 ±0.049   -0.023 ±0.109   -0.006 ±0.116   +0.004 ±0.017   -0.002 ±0.057
+preflop.reshove_threat=1.0           -0.063 ±0.085   +0.108 ±0.081   +0.027 ±0.107   +0.012 ±0.034   +0.016 ±0.114   -0.048 ±0.116   -0.000 ±0.006   +0.028 ±0.028
+preflop.reshove_mid_bb=20            -0.001 ±0.088   +0.071 ±0.087   +0.034 ±0.102   +0.050 ±0.046   -0.016 ±0.112   -0.042 ±0.123   -0.002 ±0.014   +0.016 ±0.056
+rmid25_wobs                          +0.006 ±0.082   +0.066 ±0.092   +0.047 ±0.101   +0.050 ±0.053   +0.041 ±0.115   +0.069 ±0.112   +0.003 ±0.017   -0.024 ±0.066
+rmid25_thr_vscb                      +0.047 ±0.093   +0.172 ±0.100   +0.067 ±0.097   +0.132 ±0.066   +0.081 ±0.112   -0.129 ±0.112   +0.012 ±0.020   -0.013 ±0.089
+
+Hero - rival paired, relative to base (Δ of the gap) for rival1 / rival2 where present; base row = the gap itself
+base                                         -0.09     -0.27/-0.51     -0.28/-0.63           -0.06           -0.98                                                
+postflop.vs_cbet_margin=0.05                 +0.02     +0.13/+0.10     -0.01/+0.06           +0.06           +0.06                                                
+preflop.reshove_mid_bb=25                    +0.05     +0.08/-0.04     +0.11/+0.08           +0.06           -0.03                                                
+preflop.reshove_threat=1.0                   -0.06     +0.10/+0.21     -0.07/+0.03           +0.01           +0.02                                                
+preflop.reshove_mid_bb=20                    +0.02     +0.12/+0.08     +0.04/+0.06           +0.06           -0.02                                                
+rmid25_wobs                                  -0.01     +0.11/+0.08     +0.00/+0.08           +0.06           +0.05                                                
+rmid25_thr_vscb                              +0.10     +0.25/+0.20     +0.09/+0.11           +0.15           +0.09                                                
+
+timeouts (hero tmo, all seats), safe_err
+base                                         246/0           104/0           110/0            69/0            75/0           402/0            40/0            58/0
+postflop.vs_cbet_margin=0.05                 276/0            74/0            87/0            38/0            74/0           434/0            13/0            53/0
+```
+Readings. With the load spread evenly the picture is cleaner and mostly positive. `reshove_mid_bb` 25 passes the
+shipping rule on its own (realistic +0.025, top +0.010, base / strong +0.004 / -0.002, Hero + 7 rival1 +0.052 ± 0.049
+outside noise). `vs_cbet_margin` 0.05 is >= 0 on every Hero field but nothing is outside noise. `reshove_threat` 1.0
+alone fails realistic (-0.063). The three together are the best row: top +0.172 ± 0.100 and Hero + 7 rival1 +0.132 ±
+0.066 outside noise, realistic +0.047, top2 +0.067, rival 2 among seven Heroes -0.129, base / strong +0.012 / -0.013.
+Next screen: the increments (the passing pair, then the threat read, then the exploitative re-shove pricing) with
+the payout tables the coordinator asked for.
