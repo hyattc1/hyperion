@@ -24,7 +24,11 @@ class KitObs:
 
 class KitView:
     """Converts our Observation to KitObs. History is converted incrementally (the prefix never changes within a
-    hand). `hole` and `board` are passed in already mapped to canonical strength."""
+    hand). `hole` and `board` are passed in already mapped to canonical strength. A history the adapter rebuilt
+    from the bets (`obs.extras["history_from_bets"]`: a kit with no action log) is passed as none: it holds the
+    street's raises and no folds, calls or checks, and a rival's replay of it books every raiser as a seat that
+    raises every hand (rival 3 through fake kit B: -1.23 +- 0.81 against itself in-sim). The core then reads the
+    raises from the bets, as it does anyway, and keeps its priors on every seat."""
 
     __slots__ = ("_hist", "_hist_n", "_hist_hand")
 
@@ -44,7 +48,7 @@ class KitView:
         if legal is None:
             legal = _KIT_LEGAL[obs.legal] = {kind.value for kind in obs.legal}
         k.legal = legal
-        src = obs.history
+        src = () if obs.extras and obs.extras.get("history_from_bets") else obs.history
         n = len(src)
         if obs.hand_no != self._hist_hand or n < self._hist_n:
             self._hist, self._hist_n, self._hist_hand = [], 0, obs.hand_no

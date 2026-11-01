@@ -142,3 +142,20 @@ def test_adapter_hand_end_passes_the_kits_history_and_deltas():
     ad.hand_end(5, -60, history=hist, deltas=[60, -60, 0])
     assert got[0].deltas == [0, 30] and got[0].history == []
     assert got[1].deltas == [60, -60, 0] and got[1].history == hist and got[1].hand_no == 5
+
+
+def test_a_history_rebuilt_from_the_bets_reaches_the_core_as_none():
+    """A kit with no action log: make_observation rebuilds the street's raises for Hero and flags it; rival 3's core
+    reads no history then (a replay of raises alone books every raiser as a seat that raises every hand)."""
+    from hyperion.drills.adapter import make_observation
+    from hyperion.hybrid.kit import KitView
+
+    kw = dict(hole=[48, 44], board=[], street=0, seat=3, button=0, stacks=[1990, 1980, 1940] + [2000] * 5,
+              bets=[0, 10, 20, 60, 0, 0, 0, 0], in_hand=[True] * 8, pot=0, to_call=0, min_raise=100, max_raise=2000,
+              legal=["fold", "call", "raise"], hand_no=4, blinds=(10, 20))
+    rebuilt = make_observation(**kw)
+    assert rebuilt.extras == {"history_from_bets": True} and len(rebuilt.history) == 1
+    assert KitView()(rebuilt, rebuilt.hole, rebuilt.board).history == []
+    from hyperion.core.types import Action
+    logged = make_observation(**kw, history=[(3, Action.raise_to(60))])
+    assert logged.extras == {} and KitView()(logged, logged.hole, logged.board).history == [(3, ("raise", 60))]

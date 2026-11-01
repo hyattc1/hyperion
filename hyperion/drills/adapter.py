@@ -131,16 +131,20 @@ def dealer_state(obs: Observation, discards_at: int | None = None) -> dict:
 def make_observation(*, hole, board, street, seat, button, stacks, bets, in_hand, pot, to_call, min_raise,
                      max_raise, legal: Iterable[str], hand_no, blinds, history=None) -> Observation:
     """Assemble an Observation from already-translated pieces; `legal` are lowercase kind names.
-    No `history` (or an empty one) while somebody has bet above the blind: raises are rebuilt from the bets."""
+    No `history` (or an empty one) while somebody has bet above the blind: raises are rebuilt from the bets, and
+    `extras["history_from_bets"]` says so (the shipped bot's core then reads no history: a replay of raises alone
+    would book every raiser as a seat that raises every hand)."""
     hist = list(history or [])
+    extras = {}
     if not hist:
         hist = history_from_bets(int(street), int(button), stacks, bets, int(blinds[1]))
+        extras["history_from_bets"] = True
     return Observation(
         hole=tuple(hole), board=tuple(board), street=int(street), seat=int(seat), button=int(button),
         stacks=list(stacks), bets=list(bets), in_hand=list(in_hand), pot=int(pot), to_call=int(to_call),
         min_raise=int(min_raise), max_raise=int(max_raise),
         legal=frozenset(KIND_BY_NAME[k.lower()] for k in legal), hand_no=int(hand_no),
-        blinds=(int(blinds[0]), int(blinds[1])), history=hist,
+        blinds=(int(blinds[0]), int(blinds[1])), history=hist, extras=extras,
     )
 
 
