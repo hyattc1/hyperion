@@ -139,6 +139,7 @@ class Profiler:
         self.pre_order_known = False  # False in the degraded hand_end pass (no observation, no button)
         self.pre_opener = -1
         self.oft_done = False
+        self.counted = 0
         self.cb_state = 0  # this hand's flop: 0 nothing yet, 1 the raiser c-bet, 2 answered or not a c-bet spot
 
     def _start_hand(self, obs: Observation) -> None:
@@ -154,6 +155,7 @@ class Profiler:
                 dealt |= 1 << s
                 self.hands[s] += 1
         self.dealt = dealt
+        self.counted = dealt  # hands[] already counts these seats; undone at hand_end if no action was ever seen
         self.inhand = dealt
         self.need = dealt
         bb = obs.blinds[1] or self.last_bb
@@ -230,6 +232,13 @@ class Profiler:
                     self.hands[s] += 1
         if len(hist) > self.consumed:
             self._consume(hist, 99)
+        if self.consumed == 0 and self.counted:
+            # no action history reached us this hand (an adapter that passes none): do not count the hand as dealt,
+            # or every seat's VPIP drifts to 0 and the nit flag fires on the whole table
+            for s in range(self.n):
+                if self.counted >> s & 1:
+                    self.hands[s] -= 1
+        self.counted = 0
         for s in result.showdown:
             if 0 <= s < self.n:
                 self.showdowns[s] += 1

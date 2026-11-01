@@ -15,9 +15,50 @@ Variant terms (all neutral by default, set by Hero from Rules.extras / Observati
 from __future__ import annotations
 
 from ..core.cards import hole_class
-from ..core.types import ActionKind, Observation
+from ..core.types import Action, ActionKind, Observation
 
 _RAISE = ActionKind.RAISE
+
+
+def history_explains_bets(obs: Observation, base: int) -> bool:
+    """False when the history cannot account for the bets: it is empty while somebody has bet above `base` (the
+    big blind, or the straddle, preflop; 0 after), or preflop it holds no raise although a bet is above `base`."""
+    top = 0
+    for b in obs.bets:
+        if b > top:
+            top = b
+    if top <= base:
+        return True
+    hist = obs.history
+    if not hist:
+        return False
+    if obs.street == 0:
+        for _, act in hist:
+            if act.kind is _RAISE:
+                return True
+        return False
+    return True
+
+
+def history_from_bets(obs: Observation, base: int) -> list:
+    """This street's raises rebuilt from the bets (when the kit passed no history): one RAISE per distinct bet
+    level above `base`, credited to the first seat in acting order at that level; a short all-in below the top
+    level is a call. Earlier streets' raises and the exact re-raise count beyond the levels are lost."""
+    bets, stacks = obs.bets, obs.stacks
+    n = len(bets)
+    top = max(bets) if n else 0
+    first = 3 if obs.street == 0 else 1  # under the gun preflop, the first seat left of the button after
+    if obs.street == 0 and sum(1 for s in range(n) if stacks[s] + bets[s] > 0 or obs.in_hand[s]) == 2:
+        first = 0  # heads-up the button acts first preflop
+    button = obs.button
+    order = sorted(range(n), key=lambda x: (x - button - first) % n)
+    out = []
+    for level in sorted({b for b in bets if b > base}):
+        seats = [x for x in order if bets[x] == level]
+        if level < top and all(stacks[x] == 0 for x in seats):
+            continue
+        out.append((seats[0], Action(ActionKind.RAISE, int(level))))
+    return out
 
 
 class Spot:

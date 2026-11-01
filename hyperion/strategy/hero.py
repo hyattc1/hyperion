@@ -41,7 +41,7 @@ from .preflop import Preflop, PreflopParams
 from .profiler import Profiler
 from .pushfold import PushFold, PushFoldParams
 from .safe import SafeBot, safe_action
-from .spot import Spot
+from .spot import Spot, history_explains_bets, history_from_bets
 from .tables import CLASSES, Tables, load as load_tables, tables_for
 
 _CHECK = Action(ActionKind.CHECK)
@@ -395,6 +395,8 @@ class HeroCore:
         self._bounty = None  # (ratio, constant) when a bounty variant is on
         self._ko = 0.0  # knockout points per bust
         self._swap_street = 0
+        self._pre_aggr = False  # my last preflop action this hand was a raise nobody re-raised (when history is absent)
+        self.inferred = 0  # decisions whose betting state came from the bets because the history could not explain it
 
     # ------------------------------------------------------------------ Bot protocol
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
@@ -480,12 +482,22 @@ class HeroCore:
             self.hand_no = obs.hand_no
             stacks, bets = obs.stacks, obs.bets
             self.hand_start = [stacks[s] + bets[s] for s in range(len(stacks))]
+            self._pre_aggr = False
         prof = self.prof
         if prof is not None:
             try:
-                prof.observe(obs)
+                prof.observe(obs)  # the kit's own history: the profiler counts only what it can see
             except Exception:  # noqa: BLE001 - a profiler slip must not cost the decision
                 prof = None
+        no_history = not obs.history
+        if obs.street == 0 or no_history:
+            bb = obs.blinds[1] or 1
+            base = (max(bb, self.rules.straddle * bb) if self.rules.straddle else bb) if obs.street == 0 else 0
+            if not history_explains_bets(obs, base):
+                # an adapter that passes no action history: rebuild this street's raises from the bets so a raised
+                # pot does not read as unopened (drill 6: 5.9 -> 3.2 points without this)
+                obs = replace(obs, history=history_from_bets(obs, base))
+                self.inferred += 1
         nh = len(hole)
         cls = None
         if nh == 2:
@@ -519,13 +531,20 @@ class HeroCore:
         cheap = cfg.cheap or self.panic
         if obs.street == 0:
             pf = self.pushfold
+            a = None
             if pf.applies(spot):
                 self.last_path = "pushfold"
                 a = pf.act(spot, prof, cheap)
-                if a.kind is ActionKind.RAISE or not pf.p.fi_rest_open or not pf.fi_zone(spot):
-                    return a
-            self.last_path = "preflop"
-            return self.preflop.act(spot, prof, cheap)
+                if not (a.kind is ActionKind.RAISE or not pf.p.fi_rest_open or not pf.fi_zone(spot)):
+                    a = None
+            if a is None:
+                self.last_path = "preflop"
+                a = self.preflop.act(spot, prof, cheap)
+            if a.kind is ActionKind.RAISE:
+                self._pre_aggr = True
+            elif spot.to_call > 0 and spot.n_raises > 0:
+                self._pre_aggr = False  # facing a raise and not re-raising: someone else is the aggressor
+            return a
         if nh < 2 or len(board) < 3:
             self.last_path = "safe"
             return safe_action(obs)
@@ -537,7 +556,10 @@ class HeroCore:
         elif nh + len(board) > 8:
             self.last_path = "safe"
             return safe_action(obs)
-        aggressor = prof is not None and prof.pre_raiser == obs.seat
+        if no_history:
+            aggressor = self._pre_aggr
+        else:
+            aggressor = prof is not None and prof.pre_raiser == obs.seat
         value_shift = 1 if (self._swap_street and obs.street < self._swap_street) else 0
         self.last_path = "postflop"
         return self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
