@@ -44,8 +44,12 @@ def _check(obs: Observation, rules: Rules) -> list[str]:
         return ["seats: stacks is empty"]
     seat, button = obs.seat, obs.button
     # cards: hole count, board count per street, encoding range, duplicates
-    if len(obs.hole) != rules.hole_cards:
-        v.append(f"hole_len: {len(obs.hole)} hole cards, rules say {rules.hole_cards}")
+    want = rules.hole_cards
+    ex = rules.extras or {}
+    if "discard_street" in ex and obs.street >= int(ex["discard_street"]):
+        want = int(ex.get("keep", want - 1))  # toss or hold'em: the discard leaves `keep` cards
+    if len(obs.hole) != want:
+        v.append(f"hole_len: {len(obs.hole)} hole cards, rules say {want} on street {obs.street}")
     streets = len(rules.board_sizes)
     if not 0 <= obs.street < streets:
         v.append(f"street_range: street {obs.street} outside 0..{streets - 1} (board count passed as the index?)")

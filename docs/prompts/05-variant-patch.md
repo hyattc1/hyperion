@@ -16,11 +16,12 @@ caption every line "Hero on hold'em tables" and expect the patch to do nothing. 
   and ignore it when not.
 
 ## Information moved (extra or fewer hole cards, swaps, exposed cards, two boards)
-- Extra hole cards: preflop ranks by the best two-card class plus a bonus for a pairing or suiting
-  third card (prompt 03 step 4). Tighten opens by one position step because everyone's hands are
-  stronger. Postflop needs no change: the evaluator takes 5 to 8 cards.
-- Discard decisions (toss or hold'em): discard the card that minimizes the best two-card class loss;
-  if the discard goes to the board, prefer discarding a card that does not pair or suit your keepers.
+- Extra hole cards: with a variant table set loaded (`tables/variants/<name>`) its classes already price
+  the extra card: no bonus, no tightening (`preflop.open_step` 1 measured +0.02 in drill 6, reverted).
+  Without one, Hero's label fallback adds the pairing/suiting bonus and one step tighter itself.
+  Postflop needs no change: the evaluator takes 5 to 8 cards.
+- Discard decisions (toss or hold'em): Hero already chooses through `variant_decide` (keeps the best two
+  by its flop read); the patch is the adapter routing the kit's discard there (prompt 02). No new rule.
 - Swaps on later streets: a made hand on the flop is worth less. Multiply value thresholds on streets
   before the last swap by 1.15 and prefer checking back medium hands; after the last swap, standard.
 - Exposed cards: feed them into the dead-card set for draws; nothing else.

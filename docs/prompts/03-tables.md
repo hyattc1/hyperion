@@ -7,8 +7,11 @@ displayed 2 is strongest" or "three hole cards, one discarded face up before the
    rank_order (displayed index -> canonical strength index, 13 entries), n_suits, blind_levels,
    hands_per_level, payouts, and any `extras` the matching preset in `hyperion/drills/variants.py`
    documents.
-2. `python tools/gen_tables.py --rules rules_tonight.json --out tables/ --workers <cores>`, default
-   samples, box 5 minutes. `--variant-check` over-projects by about 4x: pass `--skip-matrix` (Hero then
+2. If `tables.tables_for(rules)` already loads `tables/variants/<name>/` from disk (a catalog entry with
+   tonight's card rules), print its `source` and class count, keep it and go to step 5. Otherwise
+   `python tools/gen_tables.py --rules rules_tonight.json --out tables/ --workers <cores>`, default
+   samples, box 5 minutes; when the hole-card count or the deck changes, never `--out tables/` (it
+   overwrites the 2-card set): `--out tables/variants/<name>/` with `extras.variant` = `<name>`. `--variant-check` over-projects by about 4x: pass `--skip-matrix` (Hero then
    re-solves push/fold at startup) only if it projects over 20 minutes.
 3. From `hyperion.strategy`, `t = tables.load(need_hu=True)`; print `t.source` and `len(t.equity)`.
    `source` must be `disk` and the count must match the generator's log. `built` means the loader

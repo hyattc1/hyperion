@@ -157,3 +157,38 @@ def test_kit_a_parses_discard_and_dealer_default_keeps_a_pair():
     st = {"hole": (20, 21, 51), "legal": {"discard"}}
     assert _table.is_legal("discard", 1, st) and not _table.is_legal("discard", 3, st)
     assert not _table.is_legal("check", 0, st)
+
+
+# ----- obs.history through the adapters (drill 6: an empty history cost Hero 2.5 points a table) -----
+
+def test_kit_a_adapter_passes_the_action_log_as_history():
+    st = {
+        "hole": (48, 33), "board": (8, 20, 30), "street": 1, "seat": 1, "button": 3,
+        "stacks": [1940, 1880, 0, 2000], "bets": [0, 0, 0, 0], "in_hand": [True, True, False, False],
+        "pot": 260, "to_call": 0, "min_raise": 20, "max_raise": 1880, "legal": {"fold", "check", "raise"},
+        "hand_no": 4, "blinds": (10, 20),
+        "history": [(2, "fold", 0), (0, "raise", 60), (1, "raise", 120), (0, "call", 0), (1, "discard", 51)],
+    }
+    obs = KitAAdapter(CheapBot()).to_observation(kit_a.to_state(st))
+    assert [(s, a.kind, a.amount) for s, a in obs.history] == [
+        (2, ActionKind.FOLD, 0), (0, ActionKind.RAISE, 60), (1, ActionKind.RAISE, 120), (0, ActionKind.CALL, 0)]
+
+
+def test_make_observation_rebuilds_raises_from_bets_when_the_kit_has_no_history():
+    from hyperion.drills.adapter import history_from_bets, make_observation
+
+    # button 0, SB 1, BB 2; seat 3 opened to 60, seat 5 called 60, seat 6 is all-in short for 45 (a call)
+    stacks, bets = [2000, 1990, 1980, 1940, 2000, 1940, 0, 2000], [0, 10, 20, 60, 0, 60, 45, 0]
+    h = history_from_bets(0, 0, stacks, bets, 20)
+    assert [(s, a.kind, a.amount) for s, a in h] == [(3, ActionKind.RAISE, 60)]
+    obs = make_observation(hole=(48, 33), board=(), street=0, seat=7, button=0, stacks=stacks, bets=bets,
+                           in_hand=[True] * 8, pot=0, to_call=60, min_raise=100, max_raise=2000,
+                           legal=["fold", "call", "raise"], hand_no=1, blinds=(10, 20))
+    assert [(s, a.amount) for s, a in obs.history] == [(3, 60)]
+    # blinds only: nothing to rebuild; a real history is never replaced
+    assert history_from_bets(0, 0, stacks, [0, 10, 20, 0, 0, 0, 0, 0], 20) == []
+    real = [(4, Action(ActionKind.CALL))]
+    obs2 = make_observation(hole=(48, 33), board=(), street=0, seat=7, button=0, stacks=stacks, bets=bets,
+                            in_hand=[True] * 8, pot=0, to_call=60, min_raise=100, max_raise=2000,
+                            legal=["fold", "call", "raise"], hand_no=1, blinds=(10, 20), history=real)
+    assert obs2.history == real

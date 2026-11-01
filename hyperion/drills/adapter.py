@@ -65,15 +65,41 @@ class Adapter:
             pass
 
 
+def history_from_bets(street: int, button: int, stacks, bets, big_blind: int) -> list[tuple[int, Action]]:
+    """This street's raises, rebuilt from the bets when the kit gives no action history.
+
+    Hero reads who raised (Spot.n_raises, Spot.raiser, the opener and shove reads) from obs.history only; an
+    empty history makes every raised pot look unopened, which cost Hero 2.5 points a table in drill 6 (5.9 to
+    3.3 on the realistic field). One RAISE per distinct bet level above the street's base (the big blind
+    preflop, 0 after), credited to the first seat in acting order at that level; a short all-in below the
+    top level is a call, not a raise. Earlier streets' raises and the exact count of re-raises are lost."""
+    n = len(bets)
+    base = big_blind if street == 0 else 0
+    top = max(bets) if n else 0
+    first = 3 if street == 0 else 1  # UTG preflop, the first seat left of the button after
+    order = sorted(range(n), key=lambda x: (x - button - first) % n)
+    out: list[tuple[int, Action]] = []
+    for level in sorted({b for b in bets if b > base}):
+        seats = [x for x in order if bets[x] == level]
+        if level < top and all(stacks[x] == 0 for x in seats):
+            continue
+        out.append((seats[0], Action(ActionKind.RAISE, int(level))))
+    return out
+
+
 def make_observation(*, hole, board, street, seat, button, stacks, bets, in_hand, pot, to_call, min_raise,
                      max_raise, legal: Iterable[str], hand_no, blinds, history=None) -> Observation:
-    """Assemble an Observation from already-translated pieces; `legal` are lowercase kind names."""
+    """Assemble an Observation from already-translated pieces; `legal` are lowercase kind names.
+    No `history` (or an empty one) while somebody has bet above the blind: raises are rebuilt from the bets."""
+    hist = list(history or [])
+    if not hist:
+        hist = history_from_bets(int(street), int(button), stacks, bets, int(blinds[1]))
     return Observation(
         hole=tuple(hole), board=tuple(board), street=int(street), seat=int(seat), button=int(button),
         stacks=list(stacks), bets=list(bets), in_hand=list(in_hand), pot=int(pot), to_call=int(to_call),
         min_raise=int(min_raise), max_raise=int(max_raise),
         legal=frozenset(KIND_BY_NAME[k.lower()] for k in legal), hand_no=int(hand_no),
-        blinds=(int(blinds[0]), int(blinds[1])), history=list(history or []),
+        blinds=(int(blinds[0]), int(blinds[1])), history=hist,
     )
 
 
@@ -84,6 +110,23 @@ _A_STREETS = {"preflop": 0, "flop": 1, "turn": 2, "river": 3}
 
 def _a_card(s: str) -> int:
     return parse_card(s.replace("10", "T"))
+
+
+def _a_history(log) -> list[tuple[int, Action]]:
+    """kit A action_log [(index, "FOLD" | "CHECK" | "CALL" | "RAISE:120" | "DISCARD:Ah")] -> obs.history.
+    Discards are not betting actions and are skipped; anything unreadable is skipped, never raised."""
+    out: list[tuple[int, Action]] = []
+    for item in log or ():
+        try:
+            seat, text = item
+            word, _, amount = str(text).partition(":")
+            kind = KIND_BY_NAME.get(word.lower())
+            if kind is None:
+                continue
+            out.append((int(seat), Action(kind, int(amount) if kind is ActionKind.RAISE else 0)))
+        except Exception:  # noqa: BLE001 - a malformed entry costs one history line, not the decision
+            continue
+    return out
 
 
 class KitAAdapter(Adapter):
@@ -100,6 +143,7 @@ class KitAAdapter(Adapter):
             pot=s.pot_size - sum(bets), to_call=min(s.current_bet - s.my_bet, s.my_stack),
             min_raise=s.min_raise, max_raise=s.max_raise, legal=s.legal_moves,
             hand_no=s.hand_number, blinds=(s.small_blind, s.big_blind),
+            history=_a_history(getattr(s, "action_log", None)),
         )
 
     def from_action(self, a: Action, obs: Observation, s: Any) -> str:

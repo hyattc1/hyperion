@@ -8,21 +8,27 @@ Track A (repo present):
 1. Copy `hyperion/drills/adapter_template.py` to `submission/adapter.py` and fill its TODOs in order;
    each names the Observation field it feeds and its one-line test. If a reference adapter in
    `hyperion/drills/adapter.py` fits the kit, subclass it unchanged. Construct it with `Rules` from
-   `rules_tonight.json`.
+   `rules_tonight.json`. Pass the kit's action log as `history` (TODO 7b): Hero reads who raised from
+   it alone, and an empty history cost 2.5 points a table in drill 6; with no log, `make_observation`
+   rebuilds the raises from the bets.
 2. The kit's entry point instantiates `hyperion.strategy.hero.Hero.cheap()` behind `make_adapter(bot,
    rules)`, with everything imported and warmed at module import, not on the first decision; if the kit
    has no per-table hook, `start()` a throwaway adapter at import so every cache is hot before the
-   first packet.
-3. `native_safe` is the kit's check-else-fold; every kit call is wrapped so any exception returns it.
+   first packet. A variant decision the kit asks for (discard, swap, buy) goes to
+   `bot.variant_decide({"decision": ..., "hole": ..., "board": ...})`, never through `act`.
+3. `native_safe` is the kit's check-else-fold, or a legal default when the only legal move is a variant
+   move (a discard): fold is illegal there. Every kit call is wrapped so any exception returns it.
 4. Kit's local simulator, 50+ hands, `HYPERION_CHECK=1` (every Observation checked, report at
    exit); show the output. Required: zero exceptions, zero illegal actions, zero conformance
    violations, under 0.3% of decisions over 1 ms (a lone spike on a sub-0.1 ms median is the OS: note
    it and go on; if the box load average exceeds the core count, re-run on a quiet box before failing
    the gate; the rate is 0.3% at normal load), and the report's action counts show fold, check-or-call
    and raise each at least once.
-5. `python -m pytest -q` from the repo root; it must stay green.
-6. `python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py
-   submission/rules_tonight.json --note "cheap bot"`: it vendors `hyperion/` and `tables/`, times a
+5. `python -m pytest -q` from the repo root; it must stay green. It takes 2 to 3 minutes and never
+   imports `submission/`: run it while step 6 packs.
+6. `python tools/pack.py --entry submission/<entry>.py --out dist/ --tables-dir tables --extra
+   submission/adapter.py submission/rules_tonight.json --note "cheap bot"` (without `--tables-dir` the
+   catalog's `tables/variants/` is left out): it vendors `hyperion/` and `tables/`, times a
    fresh-process import (fails over 5 s), checks 100 MB, zips with the entry at the top level, prints
    the sha256 and writes the Submissions row in `NIGHT.md`. If the rules name another layout, match it
    and say so. Tell me to upload.

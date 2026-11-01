@@ -63,6 +63,11 @@ STREET_BY_BOARD = {0: 0, 3: 1, 4: 2, 5: 3}
 #   the first decision, so everything heavy (tables, evaluator warm-up) must happen at import instead.
 #   Test: python tools/pack.py ... prints the import time (budget 5 s); kit sim first decision under 1 ms.
 
+# TODO 7b HISTORY -> obs.history = [(seat, Action)] for the hand so far, from the kit's action log if it has
+#   one (pass history=... to make_observation). Hero reads who raised from history alone: drill 6's empty
+#   history cost 2.5 points a table. No log at all: leave it out and make_observation rebuilds this
+#   street's raises from the bets. Test: after a raise, obs.history has a RAISE by the raiser's seat.
+
 # TODO 9  native_safe -> what the kit gets when translation itself blows up: ITS check if legal, else ITS
 #   fold, built from the raw native state and never raising, even on garbage.
 #   Test: adapter.native_safe(None) and adapter.decide(None) both return the kit's fold without raising.
@@ -74,7 +79,7 @@ class TonightAdapter(Adapter):
     def to_observation(self, native: Any) -> Observation:
         # TODO 2-7, in that order; return make_observation(hole=..., board=..., street=..., seat=..., button=...,
         #   stacks=..., bets=..., in_hand=..., pot=..., to_call=..., min_raise=..., max_raise=..., legal=[...],
-        #   hand_no=..., blinds=(sb, bb))
+        #   hand_no=..., blinds=(sb, bb), history=[...] (TODO 7b))
         raise NotImplementedError("TODO 2-7: kit state -> Observation")
 
     def from_action(self, action: Action, obs: Observation, native: Any) -> Any:

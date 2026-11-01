@@ -100,6 +100,15 @@ def test_rules_drive_hole_and_board_counts():
     assert check_observation(three, Rules(hole_cards=3)) == []
 
 
+def test_toss_rules_expect_the_kept_cards_after_the_discard_street():
+    toss = Rules(hole_cards=3, extras={"variant": "toss_or_holdem", "discard_street": 1, "keep": 2})
+    assert check_observation(make_obs(hole="Ah Ad Kc"), toss) == []  # preflop: three cards
+    flop2 = make_obs(hole="Ah Ad", board="7c 2d 9s", street=1, pot=60)
+    assert "hole_len" not in rules_hit(check_observation(flop2, toss))  # after the toss: two
+    flop3 = make_obs(hole="Ah Ad Kc", board="7c 2d 9s", street=1, pot=60)
+    assert "hole_len" in rules_hit(check_observation(flop3, toss))  # the discard never reached the obs
+
+
 def test_malformed_observation_is_a_finding_not_a_crash():
     obs = sb_obs()
     obs.stacks = None
