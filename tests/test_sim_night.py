@@ -19,7 +19,11 @@ ROOT = Path(__file__).resolve().parents[1]
 FROZEN = {  # registry name -> (archived original, copy in the package, header lines, md5 of the original)
     "trackb3": ("docs/drills/field/trackb3_bot.py", "hyperion/sim/field/trackb3.py", 7, "b40150c0551b423454c6e9c9e927bea4"),
     "trackb5": ("docs/drills/field/trackb5_bot.py", "hyperion/sim/field/trackb5.py", 7, "aeb14d3b9bbc64a7db86450a66d1c4d0"),
+    "agent_charts": ("docs/drills/field/agent_charts_bot.py", "hyperion/sim/field/agent_charts.py", 6,
+                     "8d684a439cabe518f86a1c471e343d2b"),
 }
+SCRUBBED = {"trackb3", "trackb5"}  # the event's name dropped from the first docstring line for the public export
+PERSONA_DEBUG = {"agent_charts": "DEBUG"}  # the class flag that lets the bot's exceptions through to the engine
 JUDGES = {"rival4", "rival5"}
 NOT_IN_POOLS = JUDGES | {"hero", "hero_tight", "hero_loose", "hybrid", "hybrid3", "hybrid_x", "hybrid3_x", "micro"}
 
@@ -32,6 +36,9 @@ def test_frozen_source_matches_its_archive_and_md5(name):
     lines = (ROOT / copy).read_bytes().splitlines(keepends=True)
     assert all(ln.startswith(b"#") for ln in lines[:header])
     assert md5.encode() in b"".join(lines[:header])
+    if name not in SCRUBBED:
+        assert b"".join(lines[header:]) == raw  # unchanged apart from the header
+        return
     # unchanged apart from the header and the event's one-word name, dropped from the docstring's first line so the
     # public export carries no event identifier (the archive keeps it; docs/drills/ is never exported)
     body = b"".join(lines[header:])
@@ -224,3 +231,16 @@ def test_night_field_smoke_runs_in_model_mode():
     for name, b in rep.bots.items():
         assert b.stats.illegal == 0, name
     assert abs(sum(b.mean * b.seats for b in rep.bots.values()) / 3 - sum(Rules().payouts)) < 1e-6
+
+
+@pytest.mark.parametrize("name", sorted(PERSONA_DEBUG))
+def test_persona_bots_play_legal_poker_with_their_exceptions_let_through(name, monkeypatch):
+    bot = B.make_bot(name)
+    assert isinstance(bot, B.PersonaBot) and type(bot.impl).__module__ == f"hyperion.sim.field.{name}"
+    monkeypatch.setattr(type(bot.impl), PERSONA_DEBUG[name], True)
+    names = [name, "tag", "pushfold", "loose_aggro", "maniac", "station", "nit", "trackb5"]
+    rep = run_tournament(names, tables=6, seed=13, mode="measure")
+    st = rep.bots[name].stats
+    assert st.calls > 300 and st.exceptions == 0 and st.illegal == 0, st.last_error
+    bot.new_table(Rules(), 3, 8)  # the adapter passes payouts and history, which the brief allows
+    assert bot.kit_rules(Rules(), 8)["payouts"] == list(Rules().payouts)

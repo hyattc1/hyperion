@@ -1112,6 +1112,33 @@ class TrackBKitBBot(_Base):
         self.mod.on_hand_end({"hand_id": result.hand_no, "delta": result.deltas[self.seat]})
 
 
+class PersonaBot(RivalBot):
+    """A persona bot of the night field (hyperion.sim.field.agent_*), unchanged, behind the red-team kit adapter it was
+    built against (the same brief and kit as rivals 1 to 5: legal as strings, history as (seat, (kind, amount)),
+    1-based hand_no). Each was built by an agent in one hour playing one kind of student team, with no access to this
+    repository (docs/drills/field/agent_*.md, the builders' logs). The brief says new_table's rules and hand_end's
+    result "may be partial", so this passes what a kit may: the payouts (Rules.payouts) with the rules, the hand's
+    history with the result, as rival 4's adapter does. A bot that ignores them is unaffected."""
+
+    PACKAGE = ".field"
+    MODULE = "agent_charts"
+
+    def kit_rules(self, rules: Rules, n_players: int) -> dict:
+        return {**super().kit_rules(rules, n_players), "payouts": list(rules.payouts)}
+
+    def hand_end(self, result: HandResult) -> None:
+        self.impl.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas,
+                            "history": [(s, (a.kind.value, a.amount)) for s, a in result.history]})
+
+
+class AgentChartsBot(PersonaBot):
+    """Persona `agent_charts`: a strong live cash player's team. Positional open and 3-bet charts typed from memory,
+    standard c-bets, value-heavy TAG postflop with pot-odds calls, Chen-percentile shove/fold under 15 bb; no ICM, no
+    opponent model. Frozen at minute 17. Reads no rules and nothing at hand_end; one RNG with a fixed seed."""
+
+    MODULE = "agent_charts"
+
+
 # ----- the hybrid candidate: rival 2's decision core behind Hero's shell ---------------------------------------
 
 
@@ -1193,6 +1220,7 @@ REGISTRY: dict[str, type] = {
     "rival4": Rival4Bot,  # red-team drill 4's bot (no assigned philosophy): the judge of the final comparison
     "trackb3": TrackBKitABot,  # drill 3's Track B one-hour build (kit A), in the night pool
     "trackb5": TrackBKitBBot,  # drill 5's Track B one-hour build (kit B), in the night pool
+    "agent_charts": AgentChartsBot,  # persona: live-poker chart player's team (one-hour agent build), night pool
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
