@@ -59,6 +59,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+# Run as a script, tools/ is sys.path[0], and a tools/*.py named like a stdlib module shadows it (tools/profile.py
+# broke `import cProfile` in the runner): modules come from the repo root and the standard library only.
+sys.path[:] = [p for p in sys.path if Path(p or ".").resolve() != ROOT / "tools"]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 

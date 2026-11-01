@@ -11,16 +11,25 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from hyperion import ship  # noqa: E402
 from hyperion.core import types as T  # noqa: E402
 from hyperion.drills.adapter import Adapter  # noqa: E402
+from hyperion.hybrid.bot import HybridConfig  # noqa: E402
+from hyperion.hybrid.dials import Rival3Knobs  # noqa: E402
+from hyperion.strategy.exploit import ShippedExploitParams  # noqa: E402
 from hyperion.strategy.hero import Config  # noqa: E402
 
 OUT = ROOT / "docs" / "packet" / "CONTRACTS.md"
 
 COMMANDS = [
     ("Run tests", "python -m pytest -q"),
-    ("Hero vs realistic field, strict 1 ms", "python -m hyperion.sim --tables 300 --seed 11 --mode strict --field realistic"),
-    ("Same, duplicate-dealt (seating luck cancels)", "python -m hyperion.sim --tables 40 --rotate --seed 11 --mode strict --field realistic"),
+    ("The shipped bot vs realistic field, strict 1 ms", "python -m hyperion.sim --tables 300 --seed 11 --mode strict --field realistic@ship"),
+    ("Same, duplicate-dealt (seating luck cancels)", "python -m hyperion.sim --tables 40 --rotate --seed 11 --mode strict --field realistic@ship"),
+    ("A dial, measured (same seed without it is the before)", "python -m hyperion.sim --tables 300 --seed 11 --mode model --field realistic@ship --dials '{\"r3.open_late_scale\": 1.3}'"),
+    ("Hero instead (the base until 2026-11-01)", "python -m hyperion.sim --tables 300 --seed 11 --mode strict --field realistic   (and --bot hero on pack, gate, latency)"),
+    ("Pack the upload (records the bot; --bot cheap at Stage 2)", "python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py submission/rules_tonight.json"),
+    ("Gate the zip against the same bot in-sim", "python tools/gate.py dist/submission.zip --kit a|b|c|d --tables 100 --rules rules_tonight.json"),
+    ("Decision latency of the shipped bot", "python tools/latency.py --n 2000 --rules rules_tonight.json"),
     ("Regenerate every table for a variant", "python tools/gen_tables.py --rules rules_tonight.json --out tables/"),
     ("List variant presets / write a rules JSON", "python -m hyperion.drills.variants --list   |   --rules NAME --out rules_NAME.json"),
     ("Timed drill against a fake kit", "python -m hyperion.drills.run --variant NAME --kit a|b|c|d --seed 1"),
@@ -96,10 +105,36 @@ def render() -> str:
     parts += ["## Adapter (the only code written on the night)", ""] + _methods(Adapter) + ["",
               "Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `hyperion/drills/fakekits/*/RUBRIC.md` "
               "lists the gotchas each one covers.", ""]
-    parts += ["## Config keys (`hero.config_from_dict({'a.b': v})`; every tunable lives here)", "",
+    parts += ["## The shipped bot (`hyperion/ship.py`)", "",
+              f"`SHIP = {ship.SHIP!r}`, `DIALS = {ship.DIALS!r}`. The submission entry builds it with "
+              "`hyperion.ship.make_bot()`; `tools/pack.py` records the bot and dials it packed in the package's copy "
+              "of that file and `tools/gate.py` pairs the zip against the same bot in-sim; `tools/latency.py` and "
+              "`python -m hyperion.sim --field <field>@ship` measure it. Every tool takes `--bot NAME` and "
+              "`--dials JSON`; `--bot hero` restores Hero, `--bot cheap` is Stage 2's Hero.cheap(). Names: "
+              + ", ".join(f"`{n}`" for n in ship.BUILDERS) + ".", "",
+              "hybrid3_x is rival 3's decision core plus the exploit layer behind Hero's shell (adapter, Rules, rank "
+              "remap, variant decisions, SafeBot). The core makes about 97% of plain hold'em decisions; Hero plays "
+              "the 14 tables the core cannot represent (short deck, lowball, wild cards, hi/lo, two boards, "
+              "must-use, three or more hole cards, fixed limit, bounties, exposed cards) and the straddle preflop. "
+              "So Hero's Config keys move hybrid3_x only there: on hybrid3_x they are written `hero.<key>`, and a "
+              "bare Hero key is an error.", ""]
+    parts += ["## Dials of the shipped bot (one flat dict: `--dials '{\"r3.open_scale\": 1.2}'`)", "",
+              "Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):", "",
+              _table([("r3." + f.name, repr(f.default), f.metadata.get("doc", ""))
+                      for f in dataclasses.fields(Rival3Knobs)], ("key", "default", "meaning")), "",
+              "The exploit layer, `exploit.<name>`; hybrid3_x ships Hero's params (below; `{\"exploit\": null}` turns "
+              "the layer off):", "",
+              _table([("exploit." + n, d) for n, d in _config_rows(ShippedExploitParams)], ("key", "hybrid3_x")), "",
+              "The shell, flat keys (hybrid3_x sets `core` 'rival3' and `exploit` 'hero'; `cheap: true` = every "
+              "decision Hero's cheap path, the timeout dial):", "",
+              _table([(n, d) for n, d in _config_rows(HybridConfig)
+                      if n.split(".")[0] not in ("hero", "r3", "seed", "core", "exploit")], ("key", "default")), "",
+              "The fallback Hero: `hero.<key>` for any key in the next table.", ""]
+    parts += ["## Config keys (Hero: the dials of `--bot hero`, `hero.<key>` on hybrid3_x; `hero.config_from_dict({'a.b': v})`)", "",
               _table(_config_rows(Config), ("key", "default")), ""]
     parts += ["## Commands", ""] + [f"- {what}: `{cmd}`" for what, cmd in COMMANDS] + [""]
     parts += ["## Entry points", "",
+              "- `hyperion.ship.make_bot(name=None, dials=None)` -> the bot we ship (SHIP with DIALS; what the entry builds). `make_bot('cheap')` = `Hero.cheap()`.",
               "- `hyperion.strategy.hero.make_bot(config=None)` -> Hero (SafeBot-wrapped). `Hero.cheap()` -> the 15-minute fallback.",
               "- `hyperion.strategy.tables.load(tables_dir)` -> preflop tables; `hyperion.strategy.pushfold.load_pushfold(tables)`.",
               "- `hyperion.core.eval.evaluate(cards)` -> int strength, higher is better, 5 to 8 cards.",
