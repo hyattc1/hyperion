@@ -300,3 +300,17 @@ observations, all streets):
 | P, full shadows | 59 / 121 / 434 | 66 / 137 / 330 |
 
 P's p99 through the kit-B adapter is 127 us, a quarter of tools/latency.py's 500 us bar and an eighth of the budget.
+
+## 16:30: the 23 variants (P with light shadows; variant_matrix.py's rules, realistic, 200 unrotated tables each, seed 7, model mode)
+
+**P: 23 of 23 READY, first on 22** (second on fixed_raise, as hybrid3_x), zero exceptions or inner errors. hybrid3_x on the
+same tables: the same 23 / 22.
+
+- **The 14 tables Hero plays whole are identical** (+0.00 ± 0.00). There the base's fallback Hero and the hero member are
+  the same Hero, fed the same observations.
+- **On the nine the core plays, P is ahead or level on every one**, each inside noise:
+  - antes +0.34 ± 0.32, pot_limit +0.30 ± 0.32, swap_holdem +0.28 ± 0.36, fast_schedule +0.26 ± 0.30, straddle
+    +0.18 ± 0.35;
+  - permuted_ranks +0.08, bonus_card +0.03, swap_one_turn -0.01;
+  - top_heavy +3.35 ± 3.29 (on its 12.5-point scale).
+- p99 81-109 us (top_heavy 212: its exact ICM).
