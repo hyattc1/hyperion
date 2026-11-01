@@ -288,5 +288,8 @@ def test_the_exploit_layer_composes_in_front_of_every_decision_and_only_once():
     routes = _routes(hb)
     fired = sum(v for k, v in routes.items() if k.startswith("exploit:"))
     assert fired == sum(hb.core.ex.fired.values()) and fired > 0, routes
-    assert make_bot(seed=4, overrides={**NO_PANIC, "exploit": {}}).core.ex is None or ExploitParams().active
+    # {} = Hero's shipped exploit params unchanged: a layer exactly when Hero ships one (ExploitParams() itself is off)
+    from hyperion.strategy.hero import Config
+
+    assert (make_bot(seed=4, overrides={**NO_PANIC, "exploit": {}}).core.ex is not None) == Config().exploit.active
     assert B.make_bot("hybrid3_x", seed=1).impl.config.core == "rival3"
