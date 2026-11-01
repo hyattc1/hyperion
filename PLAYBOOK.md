@@ -24,13 +24,16 @@ almost nothing; blinds reach 200/400 by hand 175 and every table ends in push/fo
 pre-written; the code is pre-designed; the hour wires it to an interface we have never seen and
 applies one patch for the axis the variant moved.
 
-**What we ship.** `hyperion/ship.py` names it: `SHIP = "hybrid3_x"`, rival 3's decision core plus the exploit
-layer behind Hero's shell (adapter, `Rules`, rank remap, the 23 variant hooks, SafeBot). The core makes about
-97% of plain hold'em decisions; Hero plays the 14 tables it cannot represent. It led Hero on every field of the
-final comparison (decisions, "Final core comparison"). Every tool follows that name: the entry's
+**What we ship.** The ship bot is whatever `hyperion/ship.py` names (the switch: `SHIP`, printed by `python -m
+hyperion.ship`). It says `hybrid3_x` for now: rival 3's decision core plus the exploit layer behind Hero's shell
+(adapter, `Rules`, rank remap, the 23 variant hooks, SafeBot), whose core makes about 97% of plain hold'em
+decisions while Hero plays the 14 tables it cannot represent. That setting is provisional. hybrid3_x leads Hero on
+realistic and the judges, ties on the night-like field and trails on its hard version; the compose agent's final
+measurement sets the switch (Hero, hybrid3_x or the composite). Every tool follows it: the entry's
 `hyperion.ship.make_bot()`, `tools/pack.py`, `tools/gate.py`, `tools/latency.py`, `--field realistic@ship`.
-`--bot hero` on any of them restores Hero; `--bot cheap` is the Stage 2 bot. Dials are one JSON dict
-(`--dials`, or `DIALS` in that file); CONTRACTS.md lists every key.
+`--bot hero` on any of them restores Hero; `--bot cheap` is the Stage 2 bot. Dials are one JSON dict (`--dials`,
+kept in `DIALS`), and the night's dials are named recipes (`--dials survival`) that resolve for whichever bot the
+switch names; CONTRACTS.md lists every key and recipe.
 
 **The four axes.** Hand-strength ordering · Information · Payoff · Betting structure. Stage 1
 names which one moved; Stage 5 applies that axis's patch. Nothing else in the hour depends on it.
@@ -94,7 +97,7 @@ Done at home. Not optional; each item has sunk a drill or will.
 **Prepared**
 - [ ] Laptop plugged in, performance power mode, sleep and lock off, notifications off, phone hotspot.
 - [ ] Repo pulled, `pytest -q` green, hash recorded. `tables/` regenerated this week.
-- [ ] Known-good number of the shipped bot written down: `python -m hyperion.sim --tables 300 --seed 11
+- [ ] Known-good number of the ship bot written down: `python -m hyperion.sim --tables 300 --seed 11
       --mode strict --field realistic@ship`. This is the number to beat tonight. (Hero's, `--field
       realistic`, too, for the `--bot hero` fallback.)
 - [ ] Timer alarms: :12, :28, :40, :50, :55.
@@ -161,17 +164,18 @@ If the axis did not move, skip to Stage 4 and say so in `NIGHT.md`. Drill 2 skip
 
 ### Stage 4: WIRE (0:25–0:40)
 
-Repack the Stage 2 entry without `--bot cheap`: the package then records the shipped bot. Verify in this
+Repack the Stage 2 entry without `--bot cheap`: the package then records the ship bot. Verify in this
 order: kit simulator, our strict sim on the realistic field (`--field realistic@ship`), duplicate-dealt
 rotation, latency under load, import time from a fresh process, then the zip. The strict sim measures the
 simulator's own copy of the bot, which the engine feeds its full history; `tools/gate.py` measures what we
 upload: it imports the zip as the organisers would, plays it through the kit interface, and pairs it
-against the same bot in-sim on the same deals (the hybrid3_x zip on fake kit A: -0.22 ± 0.48, PASS). Drill 6's upload was 2.5 points
+against the same bot in-sim on the same deals (fake kit A, 100 tables: the hybrid3_x zip -0.22 ± 0.48, the
+Hero zip -0.16 ± 0.40, both PASS). Drill 6's upload was 2.5 points
 behind its sim Hero (its adapter dropped the history) and nothing else saw it; the gate fails it. If the
 engine cannot represent the variant, run the standard game, caption every result "variant minus X", and
 let Stage 5 carry the difference.
 
-The fallback is not "fix the bot." When the adapter is clean and only the shipped bot's own line fails,
+The fallback is not "fix the bot." When the adapter is clean and only the ship bot's own line fails,
 Hero is one flag away (`--bot hero` on pack and gate, `--field realistic` in the sim) and passes the same
 gates. Otherwise it is the Stage 2 cheap package, resubmitted unchanged. (A "cheap
 bot plus profiler" middle option does not exist in the code and is not worth building in the hour.)
@@ -179,17 +183,17 @@ bot plus profiler" middle option does not exist in the code and is not worth bui
 ### Stage 5: PATCH (0:40–0:50)
 
 One axis, one patch, as dials or a single small function. The axis sections in `05-variant-patch.md`
-are the pre-reasoned fixes; on the shipped bot most axes either move a table Hero plays whole (its patch as
+are the pre-reasoned fixes; on a ship bot built on rival 3's core most axes either move a table Hero plays whole (its patch as
 `hero.<key>` dials) or need nothing, and antes are the core's one dial set. Run the sim in model mode with
 and without the dials; keep only if points did not drop beyond the confidence interval, then strict, errors
-zero. A kept patch goes into `DIALS` in `hyperion/ship.py`, so every tool and the package carry it. Drill 2's lesson: when the sim is
+zero. A kept patch goes into `DIALS` (`python -m hyperion.ship --set '<dict>'`), so every tool and the package carry it. Drill 2's lesson: when the sim is
 blind to what the patch compensates for (it could not play antes), the prompt's own revert rule
 fires and the patch is dropped. That is correct behaviour, not a failure. Ship unpatched rather than
 ship unverified.
 
 ### Submit and freeze (0:50)
 
-Submit the shipped bot. Hash it. `cp` it to `frozen/T1`. Write the hash and minute in `NIGHT.md`. From 0:55 to
+Submit the ship bot. Hash it. `cp` it to `frozen/T1`. Write the hash and minute in `NIGHT.md`. From 0:55 to
 1:00 touch nothing; re-read the submission rules once: under 100 MB, no network, entry point named
 exactly as the kit wants.
 
@@ -236,7 +240,7 @@ BROKEN = exceptions. Full table with VPIP, bust rate and reasons: `docs/decision
 | Payoff | bounty, knockout_bounty, top_heavy, hi_lo | | hi_lo plays high only; bounty reads only our own posted rank |
 | Betting | pot_limit, antes_from_level_3, fixed_raise, fast_schedule, straddle | | antes and straddle feed `stack_bb` |
 
-22 READY, 1 PLAYS, 0 WEAK, 0 BROKEN as of 2026-10-31. The shipped bot (hybrid3_x) and Hero with the exploit layer
+22 READY, 1 PLAYS, 0 WEAK, 0 BROKEN as of 2026-10-31. hybrid3_x and Hero with the exploit layer
 are both 23 READY, first on 22 (final core comparison, 2026-11-01); on hybrid3_x Hero plays 14 of these tables
 whole and the core plays the other nine (permuted ranks, swaps, bonus card, antes, pot limit, fast schedule,
 straddle after the preflop, top_heavy). If the real twist is none of these, the nearest
@@ -244,14 +248,28 @@ entry on its axis is the recipe; if it is not hold'em underneath, the FIT VERDIC
 
 ## 5. The signal table (what a window does)
 
-The dial is a dials dict for the shipped bot (hybrid3_x); measure it with `--field realistic@ship --dials`,
-keep it in `DIALS` in `hyperion/ship.py`. Each was checked in a paired run (realistic field unless named, 200
-tables, model mode; decisions, "Ship hybrid3_x as the base"): the play moves as stated, and on our fields no dial
-gains points beyond noise, so a dial is a response to tonight's standings, not a free improvement. The last
-column is the same dial for Hero, if Hero is what we ship (`--bot hero`).
+A window applies one recipe to the ship bot (see the switch): `--dials <recipe>` on the sim (`--field
+realistic@ship`), kept with `python -m hyperion.ship --set <recipes>`. A recipe means the same thing on every bot
+and resolves to that bot's keys (`hyperion/ship.py`, RECIPES): rival 3's core dials for hybrid3_x, hybrid3 and the
+composite, plus Hero's keys as `hero.<key>` for the tables Hero plays there; Hero's Config keys for Hero. Each was
+checked on both bots in a paired run (200 tables, model mode, realistic unless named; decisions, "Ship hybrid3_x
+as the base"). The play moves as stated, and on our fields no recipe gains points beyond noise. A recipe answers
+tonight's standings; it is not a free improvement.
 
-| Standings say | Likely cause | Dial (shipped bot) | What it did in the check | Hero (`--bot hero`) |
+| Standings say | Likely cause | Recipe | On rival 3's core (hybrid3_x, the composite) | On Hero |
 |---|---|---|---|---|
+| Many firsts, many 7th/8th | busting early, too willing to gamble | `survival` | `r3.call_margin` 0.03, `r3.call_edge` 0.16, `r3.raise_shift` 0.05, `r3.three_bet_scale` 0.7: all-in calls 16% to 10%, 3-bets 6.3% to 4.4%, folds to a postflop bet 62% to 67%; points -0.04 ± 0.23. Not `r3.push_margin`: 0.03 cut short-stack shoves from 72% to 22% and busts rose | `preflop.patience_deep` 0.3, `postflop.icm_margin` 0.15, `postflop.big_value_tier` 7, `preflop.three_bet_frac` 0.02: 3-bets 4.5% to 3.5%; points -0.00 ± 0.16 |
+| Mid-table, few firsts, few lasts | too passive for this field | `passive` | `r3.open_late_scale` 1.3, `r3.bluff_scale` 1.3: cutoff and button opens 58% to 61%, bets when checked to 56% to 59%; -0.04 ± 0.17 | `preflop.open_frac` for 2 and 3 behind to 0.66 and 0.48, `postflop.cbet_freq_ip_dry` 0.7: late opens 52.5% to 55.7%; -0.01 ± 0.15 |
+| Many near-zero scorers in the field | lots of dead/timing-out bots | `dead_seats` | `r3.prior_scale` 0.5 (reads move twice as fast), `timeouts` field: late opens 57% to 61%; +0.12 ± 0.18, busts -4.5 ± 5.3 | `exploit.steal_min_fold` 0.5, `profiler_blend_n` 4, `timeouts` field: late opens 56% to 70%; +0.10 ± 0.16, busts -3.5 ± 5.3 |
+| Top scores bunched, field tight | strong field | `strong_field` | nothing: Hero's recipe on the core (`r3.open_scale` 0.85 with `r3.prior_scale` 0.5) measured -0.48 ± 0.33 and busts +11 ± 7.5 on `top` | `preflop.open_frac_mult` 0.9, `profiler_prior_n` 1, `top` field: late opens 62% to 58%; +0.23 ± 0.24 |
+| Any timeout or error in our log | we are the problem | `latency` if latency is the cause, else `timeouts`; verify, submit, then investigate | `latency`: `{"exploit": null}` (the layer's ~6 µs). `timeouts`: `{"cheap": true}`, every decision Hero's cheap path: -1.86 ± 0.38, busts +32%, an emergency | `latency`: `use_profiler` false. `timeouts`: `cheap` true |
+
+Single dials for a hill climb or a measured exception (CONTRACTS.md has every key): `r3.push_margin` is steep
+(0.01 cut short-stack shoves by 7 points, 0.03 by 50); `r3.open_scale` 1.25 / 0.8 moved opens by +3 / -2 points;
+`r3.bluff_scale` 1.4 / 0.6 moved bets when checked to by +5 / -8. Hero's earlier strong-field and dead-seat keys
+(`preflop.open_frac_default`, `profiler_dial_strength`) moved none of the probed rates by a point.
+
+---|---|---|---|---|
 | Many firsts, many 7th/8th | busting early, too willing to gamble | `{"r3.call_margin": 0.03, "r3.call_edge": 0.16, "r3.raise_shift": 0.05, "r3.three_bet_scale": 0.7}` | all-in calls 16% to 10%, 3-bets 6.3% to 4.4%, folds to a postflop bet 62% to 67%; points -0.04 ± 0.23. Not `r3.push_margin`: 0.03 cut short-stack shoves from 72% to 22% and busts rose | raise `preflop.patience_deep`, raise `postflop.icm_margin` and `postflop.big_value_tier`, lower `preflop.three_bet_frac` |
 | Mid-table, few firsts, few lasts | too passive for this field | `{"r3.open_late_scale": 1.3, "r3.bluff_scale": 1.3}` | cutoff and button opens 58% to 61%, bets when checked to 56% to 59%; points -0.04 ± 0.17 | raise `preflop.open_frac` for the last two seats, raise `postflop.cbet_freq_ip_dry` |
 | Many near-zero scorers in the field | lots of dead/timing-out bots | `{"r3.prior_scale": 0.5}` (reads move sooner) | `timeouts` field: opens 56% to 58%, late opens 57% to 61%; points +0.12 ± 0.18, busts -4.5 ± 5.3 | lower `profiler_blend_n` (8 to 4) so reads act sooner; raise `profiler_dial_strength` |
@@ -301,7 +319,9 @@ Step sizes: `r3.push_margin` is steep (0.01 cut short-stack shoves by 7 points, 
   shell, with the exploit layer) ahead of Hero on every field, beyond noise on the judge field (+0.14), realistic
   (+0.10), top (+0.14), top2 (+0.14) and timeouts (+0.11); both 23/23 READY; strict timeouts 0.007% vs 0.006%.
   The rival 2 hybrid wins strong rooms and loses the judge (-0.35) and realistic (-0.28). Which ships is the owner's call.
-- Base switch (2026-11-01): the owner chose hybrid3_x; `hyperion/ship.py` names it. Its zip on fake kit A: 854 KB,
+- Base switch (2026-11-01): the owner approved hybrid3_x and `hyperion/ship.py` names it, provisionally: the
+  night-like fields reopened it (tie on `night`, -0.17 ± 0.13 on `night_hard`) and the compose agent's final
+  measurement sets the switch. The Hero zip passes the same gate (-0.16 ± 0.40). Its zip on fake kit A: 854 KB,
   import plus build 0.3-0.4 s from another directory, gate PASS -0.22 ± 0.48 (100 strict tables), latency p99 123 µs
   (170 through the kit B adapter) at load 50. The kit B rehearsal (Stages 2 and 4) found that the gate failed every
   bot on a kit with no action log (hybrid3_x -1.23, Hero -0.83 against in-sim bots fed the full log). Since then the
@@ -377,7 +397,7 @@ The track is decided in Stage 0, never on the night.
 | 2026-11-01 | Drill 6 (Track A, kit A, toss_or_holdem, separate-subagent agent role): checkpoints 12/21/29/34 (drill 3: 4/9/17/19), classification right, 0 illegal tosses; the shipped Agent scored 3.39 vs Hero 5.90 because no reference adapter passed `obs.history` (fixed: 5.81). Prompt edits: 02 history, `variant_decide` routing, legal `native_safe` on discard-only decisions, pytest while packing, `--tables-dir tables`; 03 keeps a catalog variant set, never overwrites the 2-card tables; 04 `obs.history` check, latency.py's 2-card generator, `--tables-dir`; 05 no discard rule or one-step tightening when variant tables load | drill 6 report |
 | 2026-11-01 | Gate the packaged bot: `tools/gate.py` plays the zip itself (fresh `python -I`, kit interface, paired against in-sim Hero); Stage 2 runs it once on the cheap zip, the Stage 4 gate and hard rule 3 before every upload. Drill 6's upload fails it (-2.46 ± 0.76), the history-fixed repack passes (-0.22 ± 0.40). Conformance checks history; `pack.py` vendors the active variant's tables itself (`--tables-dir` is an override); `latency.py` deals the rules' cards | gate pass |
 | 2026-11-01 | Evidence: final core comparison; hybrid3_x leads Hero on every field, recommended, owner to decide | final comparison |
-| 2026-11-01 | Ship hybrid3_x as the base: section 0 "What we ship" (`hyperion/ship.py`, `--bot hero` restores Hero); Stage 2's entry builds `hyperion.ship.make_bot()` packed `--bot cheap`, so Stage 4 is a repack; sim lines `--field realistic@ship`; the gate pairs against the bot the zip records and, on a kit with no action log, gives the baseline what the kit gives (`--kit-log`); Stage 5 and 6 changes are dials dicts kept in `DIALS`; section 5 rewritten with the core's dials as checked, Hero's keys alongside, no dial for a strong tight field; section 6 evidence | base switch |
+| 2026-11-01 | The ship switch (`hyperion/ship.py`, provisionally hybrid3_x; section 0 "What we ship", `--bot hero` restores Hero); window recipes that resolve for whichever bot it names; Stage 2's entry builds `hyperion.ship.make_bot()` packed `--bot cheap`, so Stage 4 is a repack; sim lines `--field realistic@ship`; the gate pairs against the bot the zip records and, on a kit with no action log, gives the baseline what the kit gives (`--kit-log`); Stage 5 and 6 changes are dials dicts kept in `DIALS`; section 5 rewritten with the core's dials as checked, Hero's keys alongside, no dial for a strong tight field; section 6 evidence | base switch |
 
 ---
 

@@ -202,8 +202,8 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--bot", default="ship", help="ship (hyperion/ship.py's bot, the default) | hybrid3_x | hero | "
                                                  "cheap | module:attr (a Bot, or a factory returning one)")
-    p.add_argument("--dials", help="dials for the bot, JSON inline or a file (default: hyperion/ship.py's DIALS for "
-                                   "ship, none for a named bot)")
+    p.add_argument("--dials", help="dials for the bot: JSON inline or a file, or recipe names (default: "
+                                   "hyperion/ship.py's DIALS for ship, none for a named bot)")
     p.add_argument("--n", type=int, default=2000)
     p.add_argument("--warm", type=int, default=200, help="untimed calls before the run (default 200)")
     p.add_argument("--adapter", help="module:Class, an Adapter subclass to time the round trip through")
@@ -216,9 +216,9 @@ def main(argv=None) -> int:
     a = p.parse_args(argv)
 
     rules = load_rules(a.rules, a.variant)
-    dials = None
-    if a.dials:
-        dials = json.loads(a.dials) if a.dials.lstrip().startswith("{") else json.loads(Path(a.dials).read_text())
+    from hyperion import ship
+
+    dials = ship.parse_dials(a.dials, None if a.bot == "ship" else a.bot) if a.dials else None
     bot = load_bot(a.bot, dials)
     obs = observations(a.n, a.seed, rules.n_players, a.seat, rules)
     warm = obs[: min(a.warm, len(obs))]
@@ -235,8 +235,6 @@ def main(argv=None) -> int:
         for x in natives[: len(warm)]:
             adapter.decide(x)
         runs.append(("adapter.decide", measure(adapter.decide, natives)))
-
-    from hyperion import ship
 
     label = ship.describe(None, dials) if a.bot == "ship" else (ship.describe(a.bot, dials or {})
                                                                if a.bot in ship.BUILDERS else a.bot)

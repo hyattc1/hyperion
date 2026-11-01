@@ -156,8 +156,15 @@ def test_every_dial_the_night_docs_name_exists():
         keys = _dial_keys(text)
         missing = {k for k in keys if f"`{k}`" not in contracts}
         assert not missing, (name, missing)
-    assert any(k.startswith("r3.") for k in _dial_keys(read(PROMPTS / "06-windows.md")))
     assert any(k.startswith("r3.") for k in _dial_keys(section5))
+    from hyperion import ship
+
+    p06 = read(PROMPTS / "06-windows.md")
+    for name in ship.HERO_RECIPES:  # the windows name recipes, which resolve for whichever bot the switch names
+        assert f"`{name}`" in p06 and f"`{name}`" in section5 and f"`{name}`" in contracts, name
+    assert "--dials" in p06 and "python -m hyperion.ship --set" in p06
+    for text in (p06, section5, read(PROMPTS / "04-wire-hero.md"), read(PROMPTS / "05-variant-patch.md")):
+        assert "hybrid3_x ships" not in text and "shipped bot" not in text
 
 
 def test_playbook_stage_0_prepared_list():

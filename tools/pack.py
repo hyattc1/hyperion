@@ -72,24 +72,17 @@ def ship_module():
     return mod
 
 
-def parse_dials(spec: str | None) -> dict | None:
-    """--dials: a JSON object inline or in a file; None when not given."""
-    if spec is None:
-        return None
-    text = spec if spec.lstrip().startswith("{") else Path(spec).read_text()
-    val = json.loads(text)
-    if not isinstance(val, dict):
-        raise SystemExit(f"FAIL --dials must be a JSON object, got {val!r}")
-    return val
-
-
-def record_bot(dest: Path, bot: str | None, dials: dict | None) -> tuple[str, dict]:
-    """Write --bot / --dials into the package's hyperion/ship.py; returns the (bot, dials) it now records."""
+def record_bot(dest: Path, bot: str | None, dials: str | None) -> tuple[str, dict]:
+    """Write --bot / --dials (JSON inline or a file, or recipe names resolved for that bot) into the package's
+    hyperion/ship.py; returns the (bot, dials) it now records."""
     ship = ship_module()
     path = dest / "hyperion" / "ship.py"
     name, have = ship.read_record(path)
     name = bot or name
-    dials = have if dials is None else dials
+    try:
+        dials = have if dials is None else ship.parse_dials(dials, name)
+    except (KeyError, ValueError) as e:
+        raise SystemExit(f"FAIL --dials: {e}")
     if name not in ship.BUILDERS:
         raise SystemExit(f"FAIL --bot {name!r} is not in hyperion/ship.py BUILDERS ({', '.join(ship.BUILDERS)})")
     ship.write_record(path, name, dials)
@@ -269,7 +262,8 @@ def main(argv=None) -> int:
     p.add_argument("--extra", nargs="*", default=[], help="files or directories to copy beside the entry")
     p.add_argument("--bot", help="the bot to record in the package (default hyperion/ship.py's SHIP): hybrid3_x, "
                                  "hero, cheap (Stage 2's Hero.cheap()) or any BUILDERS name")
-    p.add_argument("--dials", help="JSON object (inline or a file) of dials to record (default hyperion/ship.py's DIALS)")
+    p.add_argument("--dials", help="dials to record: a JSON object (inline or a file) or recipe names such as "
+                                   "survival (default hyperion/ship.py's DIALS)")
     p.add_argument("--slim", action="store_true", help="drop drills/fakekits and the sim bestiary")
     p.add_argument("--rules", help="the rules JSON whose extras.variant picks tables/variants/<name>/ (default: "
                                    "the first --extra JSON with Rules keys, else rules_tonight.json beside the entry)")
@@ -298,7 +292,7 @@ def main(argv=None) -> int:
     rules_path = find_rules(entry, extras, Path(a.rules).resolve() if a.rules else None)
     variant, needs = active_variant(rules_path)
     tables = build(dest, entry, extras, a.slim, tables_dir, variant, needs_variant=needs)
-    bot, dials = record_bot(dest, a.bot, parse_dials(a.dials))
+    bot, dials = record_bot(dest, a.bot, a.dials)
 
     ok, detail, secs = verify_import(dest, entry.stem, a.import_budget)
     size, count = tree_size(dest)

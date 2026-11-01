@@ -5,7 +5,7 @@ it. Keep the T0 line exactly in this form: `tools/pack.py` reads it to stamp eac
 
 T0: <HH:MM local, the minute the variant was revealed>
 repo: <`git rev-parse --short HEAD`>   kit: <path>   variant (their name): <...>   track: A | B
-shipped bot: <`hyperion/ship.py` SHIP and DIALS, e.g. hybrid3_x {}>   (`--bot hero` restores Hero)
+ship bot: <`python -m hyperion.ship`: SHIP and DIALS>   (`--bot hero` restores Hero)
 Stage 0 known-good number: <ship line of `python -m hyperion.sim --tables 300 --seed 11 --mode strict --field realistic@ship`>
 Hero's, for the fallback: <hero line of the same with `--field realistic`>
 
@@ -75,7 +75,7 @@ ENGINE CANNOT REPRESENT: <none | the rule, and what every sim line is captioned 
 |---|---|---|---|
 | | 2 | `HYPERION_CHECK=1 python -m <kit runner> submission/<entry>.py --hands 50` | PASS ... 0 illegal; conformance ... 0 violations |
 | | 4 | `python -m hyperion.sim --tables 300 --seed 11 --mode strict --rules rules_tonight.json --field realistic@ship` | ship ... exc 0 ill 0 p99 ... |
-| | 4 | `python tools/latency.py --n 2000 --rules rules_tonight.json` | bot hybrid3_x ... p99 ... over 1 ms ... |
+| | 4 | `python tools/latency.py --n 2000 --rules rules_tonight.json` | bot <SHIP> ... p99 ... over 1 ms ... |
 | | 4 | `python tools/gate.py dist/submission.zip --kit <k> --tables 100 --rules rules_tonight.json` | baseline bot ...; GATE PASS ... |
 
 ## Submissions
@@ -93,7 +93,7 @@ Frozen known-good: <sha256>  (`mkdir -p frozen && cp dist/submission.zip frozen/
 
 One change per window, verified before upload, upload by minute 15 or nothing. One upload per five minutes.
 
-| window | standings in at minute | our rank / mean / spread | signal | dial (the dials dict) | model sim before -> after | uploaded (sha256 or nothing) |
+| window | standings in at minute | our rank / mean / spread | signal | recipe (and the dials it set) | model sim before -> after | uploaded (sha256 or nothing) |
 |---|---|---|---|---|---|---|
 | T2 | | | | | | |
 | T3 | | | | | | |

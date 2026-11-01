@@ -26,7 +26,7 @@ displayed 2 is strongest" or "three hole cards, one discarded face up before the
    also compare `t.equity['AA'][0]` with the value in `tables/preflop_equity.json`. Then construct
    `hyperion.ship.make_bot()` (and `make_bot("hero")`) once in a fresh process and print one preflop and
    one flop decision on remapped cards (the permuted AA on a dry flop): the strongest displayed class is
-   treated as the strongest. The shipped bot's core reads cards through the same remap; Hero, which plays
+   treated as the strongest. A ship bot on rival 3's core reads cards through the same remap; Hero, which plays
    the tables the core cannot (three hole cards, short deck), reads these tables.
 6. Nothing to copy: `pack.py` vendors `tables/` and the `tables/variants/<name>/` that
    `rules_tonight.json`'s `extras.variant` names when it builds the zip. Re-run the kit simulator for

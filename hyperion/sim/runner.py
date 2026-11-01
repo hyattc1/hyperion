@@ -301,8 +301,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                    help="a named 8-bot field from the bestiary; replaces --bots (optional fields such as `public` "
                         "need their bots enabled, e.g. HYPERION_MICROHOLDEM for `micro`); <field>@<bot> puts <bot> in "
                         "Hero's seat, and <field>@ship the bot hyperion/ship.py ships, with --dials")
-    p.add_argument("--dials", default=None, help="JSON (inline or file) of dials for `ship` (default hyperion/ship.py's "
-                                                 "DIALS)")
+    p.add_argument("--dials", default=None, help="dials for `ship`: JSON (inline or file) or recipe names such as "
+                                                 "survival+passive (default hyperion/ship.py's DIALS)")
     p.add_argument("--rotate", action="store_true", help="play all rotations of each deal (duplicate)")
     p.add_argument("--mode", choices=("strict", "measure", "model"), default="strict",
                    help="strict: fold calls over 1 ms on the wall clock; measure: never; model: the deterministic timeout "
@@ -334,9 +334,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if a.rules == "default":
             rules = variant.rules
     if "ship" in (a.field or "").split("@")[-1:] or "ship" in [b.strip() for b in a.bots.split(",")] or a.dials:
-        from ..ship import register_sim  # the night's bot as seat `ship`, built as the entry builds it
+        from ..ship import parse_dials, register_sim  # the night's bot as seat `ship`, built as the entry builds it
 
-        print(f"ship = {register_sim(load_hero_config(a.dials))}")
+        print(f"ship = {register_sim(parse_dials(a.dials))}")
     try:
         names = field_names(a.field) if a.field else a.bots.split(",")
     except BotUnavailable as e:  # an optional field whose bot is not enabled: say which variable to set

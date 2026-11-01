@@ -4,7 +4,7 @@ Fill the TODOs in order. They are the gotchas in the order they have bitten (PLA
 RUBRICs); each names the Observation field it feeds and the one-line test to run before moving on.
 Until the bodies are written this module imports and instantiates and does nothing else. Reference
 adapters for four fake kits: `hyperion/drills/adapter.py`. If one of them fits the kit, subclass it
-instead of filling this in. The bot behind it is `hyperion.ship.make_bot()` (the shipped base, hybrid3_x;
+instead of filling this in. The bot behind it is `hyperion.ship.make_bot()` (the ship bot the switch names;
 `tools/pack.py --bot cheap` makes the same entry play Hero.cheap() at Stage 2).
 
 While the kit simulator runs, check every decision against the Observation invariants:
@@ -80,7 +80,7 @@ STREET_BY_BOARD = {0: 0, 3: 1, 4: 2, 5: 3}
 #   Test: python tools/pack.py ... prints the import time (budget 5 s); kit sim first decision under 1 ms.
 #   HAND END -> Adapter.hand_end(hand_no, my_delta, n_players, history=..., deltas=...): if the kit's hand-end
 #   signal carries the hand's actions or every seat's chip change, pass them (history through history() above);
-#   the shipped bot's core reads the actions after our last decision from them.
+#   rival 3's core (hybrid3_x, the composite) reads the actions after our last decision from them.
 
 # TODO 9  native_safe -> what the kit gets when translation itself blows up: ITS check if legal, else ITS
 #   fold, built from the raw native state and never raising, even on garbage.

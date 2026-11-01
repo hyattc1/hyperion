@@ -15,7 +15,7 @@ Track A (repo present):
    everything imported and warmed at module import, not on the first decision; if the kit has no
    per-table hook, `start()` a throwaway adapter at import so every cache is hot before the first
    packet. `make_bot()` builds whatever the package records (step 6 packs it with `--bot cheap`:
-   `Hero.cheap()` now; Stage 4 repacks the same entry as the shipped bot). If the kit's hand-end signal
+   `Hero.cheap()` now; Stage 4 repacks the same entry as the ship bot, see the switch). If the kit's hand-end signal
    carries the hand's actions or every seat's chip change, pass them to `hand_end` (template TODO 8). A variant decision the kit asks for (discard, swap, buy) goes to
    `bot.variant_decide({"decision": ..., "hole": ..., "board": ...})`, never through `act`.
 3. `native_safe` is the kit's check-else-fold, or a legal default when the only legal move is a variant

@@ -2,6 +2,7 @@
 dials route to the part of the bot that makes the decision, and rival 3's core with its dials at the defaults plays
 bit for bit as rival 3's own methods."""
 import hashlib
+from pathlib import Path
 
 import pytest
 
@@ -196,3 +197,26 @@ def test_every_registered_ship_bot_builds_with_no_dials():
     for name in ship.BUILDERS:
         bot = ship.make_bot(name, {})
         assert all(hasattr(bot, m) for m in ("new_table", "act", "hand_end", "variant_decide")), name
+
+
+def test_recipes_resolve_for_whichever_bot_ships(tmp_path, capsys):
+    """The window dials are named recipes: the same name gives each bot the dials with that meaning."""
+    for name in ship.HERO_RECIPES:
+        for bot in ("hybrid3_x", "hero", "composite"):
+            ship.make_bot(bot, {**ship.recipe(name, bot)})
+    core, hero = ship.recipe("survival", "hybrid3_x"), ship.recipe("survival", "hero")
+    assert core["r3.call_margin"] == 0.03 and core["hero.preflop.patience_deep"] == hero["preflop.patience_deep"]
+    assert not any(k.startswith("r3.") for k in hero)
+    assert ship.recipe("timeouts", "hybrid3_x") == ship.recipe("timeouts", "hero") == {"cheap": True}
+    assert ship.recipe("survival+passive", "hero") == {**ship.HERO_RECIPES["survival"], **ship.HERO_RECIPES["passive"]}
+    assert ship.parse_dials('{"r3.open_scale": 1.1}') == {"r3.open_scale": 1.1} and ship.parse_dials(None) is None
+    assert ship.parse_dials("dead_seats", "hero") == ship.HERO_RECIPES["dead_seats"]
+    with pytest.raises(KeyError):
+        ship.recipe("bolder")
+    copy = tmp_path / "ship.py"
+    copy.write_text((Path(ship.__file__)).read_text())
+    ship.main(["--set", "passive", "--bot", "hero"], path=copy)
+    assert ship.read_record(copy) == ("hero", ship.HERO_RECIPES["passive"])
+    ship.main(["--set", ""], path=copy)
+    assert ship.read_record(copy) == ("hero", {})
+    assert "SHIP = 'hero'" in capsys.readouterr().out

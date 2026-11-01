@@ -828,8 +828,6 @@ def baseline_bot(pkg: Path, bot: str | None, dials: str | None, hero_spec: str |
                  hero_config: dict | None) -> tuple[tuple[str, dict], str]:
     """((name, dials) for the baseline seat, where they came from): --bot / --dials, else --hero-config, else the
     package's hyperion/ship.py record, else Hero."""
-    from hyperion.sim.runner import load_hero_config
-
     if hero_spec and not bot:
         name = "cheap" if hero_spec.strip() == "cheap" else "hero"
         rec, where = (name, {} if name == "cheap" else dict(hero_config or {})), "--hero-config"
@@ -840,7 +838,8 @@ def baseline_bot(pkg: Path, bot: str | None, dials: str | None, hero_spec: str |
         except (OSError, ValueError, SyntaxError):
             rec, where = ("hero", {}), "no record in the package: Hero"
     if bot or dials:
-        rec = (bot or rec[0], load_hero_config(dials) if dials else rec[1])
+        name = bot or rec[0]
+        rec = (name, ship.parse_dials(dials, name) if dials else rec[1])
         where = "--bot / --dials" if bot else where + ", --dials"
     if rec[0] not in ship.BUILDERS:
         raise SystemExit(f"FAIL baseline bot {rec[0]!r} is not in hyperion/ship.py BUILDERS ({', '.join(ship.BUILDERS)})")
@@ -876,7 +875,8 @@ def main(argv=None) -> int:
     p.add_argument("--variant-seed", type=int, default=None)
     p.add_argument("--bot", help="the baseline bot (hyperion/ship.py BUILDERS name; default: the one the package "
                                  "records in its hyperion/ship.py, else hero)")
-    p.add_argument("--dials", help="the baseline's dials, JSON inline or a file (default: the package's record)")
+    p.add_argument("--dials", help="the baseline's dials: JSON inline or a file, or recipe names (default: the "
+                                   "package's record)")
     p.add_argument("--hero-config", help="older form: Hero with these dotted Config overrides as the baseline (and in "
                                          "every other Hero seat), JSON or file, or `cheap` for Hero.cheap()")
     p.add_argument("--baseline", choices=("sim", "package"), default="sim")

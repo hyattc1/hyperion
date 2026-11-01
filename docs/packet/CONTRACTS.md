@@ -75,13 +75,26 @@ Kinds: fold, check, call, raise. `action.clamp(obs)` returns a legal version (ra
 
 Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `hyperion/drills/fakekits/*/RUBRIC.md` lists the gotchas each one covers.
 
-## The shipped bot (`hyperion/ship.py`)
+## The ship bot (`hyperion/ship.py`, the switch)
 
-`SHIP = 'hybrid3_x'`, `DIALS = {}`. The submission entry builds it with `hyperion.ship.make_bot()`; `tools/pack.py` records the bot and dials it packed in the package's copy of that file and `tools/gate.py` pairs the zip against the same bot in-sim; `tools/latency.py` and `python -m hyperion.sim --field <field>@ship` measure it. Every tool takes `--bot NAME` and `--dials JSON`; `--bot hero` restores Hero, `--bot cheap` is Stage 2's Hero.cheap(). Names: `hybrid3_x`, `hybrid3`, `hero`, `cheap`, `composite`.
+`SHIP = 'hybrid3_x'` (provisional: the compose agent's final measurement sets it), `DIALS = {}`. The submission entry builds it with `hyperion.ship.make_bot()`; `tools/pack.py` records the bot and dials it packed in the package's copy of that file and `tools/gate.py` pairs the zip against the same bot in-sim; `tools/latency.py` and `python -m hyperion.sim --field <field>@ship` measure it. Every tool takes `--bot NAME` and `--dials JSON`; `--bot hero` restores Hero, `--bot cheap` is Stage 2's Hero.cheap(). Names: `hybrid3_x`, `hybrid3`, `hero`, `cheap`, `composite`.
 
-hybrid3_x is rival 3's decision core plus the exploit layer behind Hero's shell (adapter, Rules, rank remap, variant decisions, SafeBot). The core makes about 97% of plain hold'em decisions; Hero plays the 14 tables the core cannot represent (short deck, lowball, wild cards, hi/lo, two boards, must-use, three or more hole cards, fixed limit, bounties, exposed cards) and the straddle preflop. So Hero's Config keys move hybrid3_x only there: on hybrid3_x they are written `hero.<key>`, and a bare Hero key is an error.
+hybrid3_x (and the composite's base) is rival 3's decision core plus the exploit layer behind Hero's shell (adapter, Rules, rank remap, variant decisions, SafeBot). The core makes about 97% of plain hold'em decisions; Hero plays the 14 tables the core cannot represent (short deck, lowball, wild cards, hi/lo, two boards, must-use, three or more hole cards, fixed limit, bounties, exposed cards) and the straddle preflop. So Hero's Config keys move hybrid3_x only there: on hybrid3_x they are written `hero.<key>`, and a bare Hero key is an error.
 
-## Dials of the shipped bot (one flat dict: `--dials '{"r3.open_scale": 1.2}'`)
+## Recipes (the night's dials by name: `--dials survival`, stacked `survival+passive`)
+
+Each resolves for the bot the switch names: on rival 3's core (hybrid3_x, hybrid3, composite) the core's dials plus Hero's as `hero.<key>`; on Hero its Config keys.
+
+| recipe | rival 3's core | Hero |
+|---|---|---|
+| `survival` | `{'r3.call_margin': 0.03, 'r3.call_edge': 0.16, 'r3.raise_shift': 0.05, 'r3.three_bet_scale': 0.7}` | {'preflop.patience_deep': 0.3, 'postflop.icm_margin': 0.15, 'postflop.big_value_tier': 7, 'preflop.three_bet_frac': 0.02} |
+| `passive` | `{'r3.open_late_scale': 1.3, 'r3.bluff_scale': 1.3}` | {'preflop.open_frac': {'2': 0.66, '3': 0.48}, 'postflop.cbet_freq_ip_dry': 0.7} |
+| `dead_seats` | `{'r3.prior_scale': 0.5}` | {'exploit.steal_min_fold': 0.5, 'profiler_blend_n': 4.0} |
+| `strong_field` | `{}` | {'preflop.open_frac_mult': 0.9, 'profiler_prior_n': 1.0} |
+| `latency` | `{'exploit': None}` | {'use_profiler': False} |
+| `timeouts` | `{'cheap': True}` | {'cheap': True} |
+
+## Dials of rival 3's core bots (one flat dict: `--dials '{"r3.open_scale": 1.2}'`)
 
 Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 
@@ -100,7 +113,7 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.prior_scale` | `1.0` | weight of the prior in every seat read (about four actions' worth): below 1 the reads move sooner |
 | `r3.dead_hands` | `22` | hands with no voluntary chip before a seat reads as dead (folds to everything): lower catches folding and timing-out seats sooner |
 
-The exploit layer, `exploit.<name>`; hybrid3_x ships Hero's params (below; `{"exploit": null}` turns the layer off):
+The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"exploit": null}` turns the layer off):
 
 | key | hybrid3_x |
 |---|---|
@@ -355,13 +368,14 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 ## Commands
 
 - Run tests: `python -m pytest -q`
-- The shipped bot vs realistic field, strict 1 ms: `python -m hyperion.sim --tables 300 --seed 11 --mode strict --field realistic@ship`
+- The ship bot (see the switch) vs realistic field, strict 1 ms: `python -m hyperion.sim --tables 300 --seed 11 --mode strict --field realistic@ship`
 - Same, duplicate-dealt (seating luck cancels): `python -m hyperion.sim --tables 40 --rotate --seed 11 --mode strict --field realistic@ship`
-- A dial, measured (same seed without it is the before): `python -m hyperion.sim --tables 300 --seed 11 --mode model --field realistic@ship --dials '{"r3.open_late_scale": 1.3}'`
+- A recipe or dials, measured (same seed without it is the before): `python -m hyperion.sim --tables 300 --seed 11 --mode model --field realistic@ship --dials passive`
+- Keep dials in the switch / print it: `python -m hyperion.ship --set survival+passive   |   python -m hyperion.ship`
 - Hero instead (the base until 2026-11-01): `python -m hyperion.sim --tables 300 --seed 11 --mode strict --field realistic   (and --bot hero on pack, gate, latency)`
 - Pack the upload (records the bot; --bot cheap at Stage 2): `python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py submission/rules_tonight.json`
 - Gate the zip against the same bot in-sim: `python tools/gate.py dist/submission.zip --kit a|b|c|d --tables 100 --rules rules_tonight.json`
-- Decision latency of the shipped bot: `python tools/latency.py --n 2000 --rules rules_tonight.json`
+- Decision latency of the ship bot: `python tools/latency.py --n 2000 --rules rules_tonight.json`
 - Regenerate every table for a variant: `python tools/gen_tables.py --rules rules_tonight.json --out tables/`
 - List variant presets / write a rules JSON: `python -m hyperion.drills.variants --list   |   --rules NAME --out rules_NAME.json`
 - Timed drill against a fake kit: `python -m hyperion.drills.run --variant NAME --kit a|b|c|d --seed 1`

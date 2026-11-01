@@ -3,18 +3,19 @@
 The rule sheet classified tonight's twist on the <axis> axis. Apply ONLY the matching patch below, as dials
 (one JSON dict, `docs/packet/CONTRACTS.md` lists every key) or a single small function, never a rewrite.
 
-Who decides what. The shipped bot (`hyperion/ship.py`: hybrid3_x) has rival 3's core decide plain hold'em,
+Who decides what. If the ship bot (see the switch: `python -m hyperion.ship`) is hybrid3_x or the composite,
+rival 3's core decides plain hold'em,
 permuted ranks, antes, pot limit, swaps and any schedule or payout table; Hero plays the whole table for short
 deck, lowball, wild cards, category orders, hi/lo, two boards, must-use, three or more hole cards, fixed limit,
 bounties and exposed cards, and the straddle preflop (`hero:table:<why>` in the bot's route counters). So a
-Hero patch below reaches the shipped bot only on Hero's tables, written `hero.<key>`; the core's dials are
+Hero patch below reaches such a bot only on Hero's tables, written `hero.<key>`; the core's dials are
 `r3.<name>`. With `--bot hero` (Hero is the ship bot) the Hero keys are written bare.
 
 Measure before and after with prompt 04's 300-table sim in `--mode model` on the same seed:
 `python -m hyperion.sim --tables 300 --seed 11 --mode model --field realistic@ship --rules rules_tonight.json`,
 then the same with `--dials '<the dict>'`. Keep the patch only if the ship line's points rise by more than half
-their CI, else revert it and say so. Kept: write the dict into `DIALS` in `hyperion/ship.py` (one line; the
-kit simulator, latency, pack and the sim all read it), then one strict run: errors zero.
+their CI, else revert it and say so. Kept: `python -m hyperion.ship --set '<the dict>'` writes it into `DIALS` in
+`hyperion/ship.py` (the kit simulator, latency, pack and the sim all read it), then one strict run: errors zero.
 
 ## Strength ordering moved (permuted ranks, short deck, new categories)
 The evaluator remaps ranks through `Rules.rank_order`. If prompt 03 ended on its restore branch,
@@ -22,7 +23,7 @@ caption every line "on hold'em tables" and expect the patch to do nothing. Patch
 - Confirm the adapter passes DISPLAYED cards and that `Rules` carries the permutation; nothing in
   strategy should know the ranks changed. The shell remaps the cards before the core sees them: no dial.
 - Short deck (Hero's table): set the short-deck keys listed in CONTRACTS.md under postflop, as
-  `hero.postflop.<key>` on the shipped bot, else no change.
+  `hero.postflop.<key>` on a core-based ship bot, else no change.
 - New categories (e.g. a five-of-a-kind, a new wild rule; Hero's table): if `hyperion/drills/variants.py`
   has a `score_hand` for it, pass it to the engine; otherwise treat the new category as the nuts when held
   and ignore it when not.
@@ -35,7 +36,7 @@ caption every line "on hold'em tables" and expect the patch to do nothing. Patch
 - Discard decisions (toss or hold'em): the shell's Hero already chooses through `variant_decide` (keeps the
   best two by its flop read); the patch is the adapter routing the kit's discard there (prompt 02). No new rule.
 - Swaps on later streets (the core plays them; swap_holdem and swap_one_turn are READY in the variant matrix,
-  hybrid3 +0.59 ± 0.38 over Hero on swap_holdem): no dial on the shipped bot. With `--bot hero`: a made hand
+  hybrid3 +0.59 ± 0.38 over Hero on swap_holdem): no dial on a core-based ship bot. With `--bot hero`: a made hand
   on the flop is worth less; multiply value thresholds on streets before the last swap by 1.15 and prefer
   checking back medium hands; after the last swap, standard.
 - Exposed cards (Hero's table): feed them into the dead-card set for draws; nothing else.
