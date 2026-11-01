@@ -9,8 +9,9 @@ Cases, each the bot in Hero's seat of the field, model mode, the same table seed
                 before the inference (hyperion.drills.adapter.NoLogSeat): this street's raises rebuilt from the bets,
                 a hand end with only our own chip change
   infer         the same bare states through the inference as the adapters run it (hyperion.drills.infer_history
-                InferSeat): the log rebuilt from the states; the hand end waits for the next hand's first state, whose
-                stacks settle the folds after our last reply and every seat's chip change
+                InferSeat): the log rebuilt from the states; when a seat owed chips after our last reply, the hand
+                end waits for the next hand's first state, whose stacks settle the folds and every seat's chip change
+  infer_all     infer, holding every hand end we acted in (Adapter.hold_all): every seat's chip change every hand
   infer_none    the same, with the hand end at once: our own chip change and the log up to our last reply
   infer_stacks  the hand end lists every seat's chip change (a kit that says so)
   infer_shown   infer_stacks, and the kit shows the hands at showdown
@@ -33,11 +34,20 @@ import time
 from collections import Counter
 
 QUIET = {"panic_after": 10 ** 9, "soft_us": 1e6}
-CASES = ("nolog", "infer_none", "infer", "infer_stacks", "infer_shown", "full")
+CASES = ("nolog", "infer_none", "infer", "infer_all", "infer_stacks", "infer_shown", "full")
+
+
+def _name(bot: str) -> str:
+    """`ship` is the bot hyperion/ship.py names."""
+    if bot == "ship":
+        from hyperion import ship
+
+        return ship.SHIP
+    return bot
 
 
 def _dials(bot: str) -> dict:
-    return dict(QUIET) if bot not in ("hero", "cheap") else {"panic_after": 10 ** 9}
+    return dict(QUIET) if _name(bot) not in ("hero", "cheap") else {"panic_after": 10 ** 9}
 
 
 def seating_for(names, n, table_seed):
@@ -57,6 +67,8 @@ def wrap(case: str, bot):
         return bot
     if case == "nolog":
         return NoLogSeat(bot)
+    if case == "infer_all":
+        return InferSeat(bot, final="next", hold_all=True)
     return InferSeat(bot, final={"infer": "next", "infer_none": "none", "infer_stacks": "stacks",
                                  "infer_shown": "shown"}[case])
 
@@ -79,7 +91,7 @@ def job(args):
         pts = []
         for rot in (range(rules.n_players) if rotate else (0,)):
             bots = [B.make_bot(nm, seed=ts * 64 + rot * 8 + s) for s, nm in enumerate(seating)]
-            bots[g] = wrap(case, ship.make_bot(bot, _dials(bot), seed=ts * 64 + rot * 8 + g))
+            bots[g] = wrap(case, ship.make_bot(_name(bot), _dials(bot), seed=ts * 64 + rot * 8 + g))
             res = play_table(bots, rules, seed=ts, rotation=rot, mode="model")
             pts.append(res.points[g])
         out[t] = sum(pts) / len(pts)
@@ -240,7 +252,7 @@ def check(field: str, bot: str, tables: int, seed: int, final: str, variant: str
         g = seating.index("hero")
         book: dict = {}
         bots = [B.make_bot(nm, seed=ts * 64 + s) for s, nm in enumerate(seating)]
-        bots[g] = ship.make_bot(bot, _dials(bot), seed=ts * 64 + g)
+        bots[g] = ship.make_bot(_name(bot), _dials(bot), seed=ts * 64 + g)
         bots = [_Streets(b, book) for b in bots]
         bots[g] = _Checker(bots[g], st, book, final, rules)
         play_table(bots, rules, seed=ts, mode="model", variant=var.new_hooks() if var else None)
@@ -269,7 +281,7 @@ def check_report(st: Counter) -> str:
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--fields", default="realistic,night")
-    p.add_argument("--bots", default="hero,hybrid3_x")
+    p.add_argument("--bots", default="hero,hybrid3_x", help="hyperion/ship.py BUILDERS names; ship = the switch's")
     p.add_argument("--cases", default="nolog,infer,full")
     p.add_argument("--seeds", type=int, default=200)
     p.add_argument("--seed", type=int, default=7)

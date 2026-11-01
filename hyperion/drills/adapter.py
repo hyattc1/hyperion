@@ -70,8 +70,10 @@ class Adapter:
             pass
 
     def with_history(self, obs: Observation) -> Observation:
-        """obs with the history the bot reads (history_source above). The inference runs on every decision, so its
-        walk is in step for the hand end whatever the source; on a log kit it only watches."""
+        """obs with the history the bot reads: the kit's log, or the one rebuilt from the states (history_source).
+
+        The inference runs on every decision, so its walk is in step for the hand end whatever the source; on a log
+        kit it only watches."""
         kit = [] if (obs.extras and obs.extras.get("history_from_bets")) else obs.history
         if self.history_source == "log" and kit:
             self.inference.history(obs)
@@ -106,14 +108,17 @@ class Adapter:
         every seat's chips after it); `showdown` {seat: hole cards} for every hand still in at showdown ({} when
         there was none; leave it None when the kit does not say). Without a history the rebuilt one goes to the bot:
         the hand's log up to our last decision, our reply, and the folds after it that the deltas and showdown
-        settle. When the signal has none of deltas, final_stacks or showdown (`defer_hand_end`), the bot's hand end
-        waits for the next hand's first state, whose stacks give every seat's chips after this hand: it is delivered
-        at the top of that decision. Rival 3's core (hybrid3_x, the composite) replays the hand's history here, as
+        settle. When the signal has none of deltas, final_stacks or showdown (`defer_hand_end`) and some seat had to
+        act after our reply owing chips, the bot's hand end waits for the next hand's first state, whose stacks give
+        every seat's chips after this hand: it is delivered at the top of that decision (50-200 us of the bot's own
+        hand end inside it; `defer_hand_end = False` keeps it at the kit's hand end, untimed, without those
+        folds). Rival 3's core (hybrid3_x, the composite) replays the hand's history here, as
         the simulator gives it."""
         try:
             if self._pending is not None:  # two hand ends with no decision between them (a walk in our big blind)
                 self._deliver(None)
-            if deltas is None and final_stacks is None and showdown is None and self.defer_hand_end:
+            if (deltas is None and final_stacks is None and showdown is None and self.defer_hand_end
+                    and self.inference.hand_no == hand_no and (self.hold_all or self.inference.tail_open())):
                 self._pending = (hand_no, delta, n_players, history, board)
                 return
             self._end(hand_no, delta, n_players, history, deltas, final_stacks, showdown, board)
@@ -121,6 +126,8 @@ class Adapter:
             pass
 
     defer_hand_end = True
+    hold_all = False  # hold every hand end we acted in: every seat's chip change for the bot's stacks (Hero's ICM
+    #                  curve), at the cost of the bot's hand end inside the next decision on every hand
 
     def _deliver(self, obs: Observation | None) -> None:
         """The waiting hand end, settled by `obs` when it is the next hand's first state."""

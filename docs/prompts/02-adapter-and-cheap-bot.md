@@ -8,15 +8,23 @@ Track A (repo present):
 1. Copy `hyperion/drills/adapter_template.py` to `submission/adapter.py` and fill its TODOs in order;
    each names the Observation field it feeds and its one-line test. If a reference adapter in
    `hyperion/drills/adapter.py` fits the kit, subclass it unchanged. Construct it with `Rules` from
-   `rules_tonight.json`. Pass the kit's action log as `history` (TODO 7b): Hero reads who raised from
-   it alone, and an empty history cost 2.5 points a table in drill 6; with no log, `make_observation`
-   rebuilds the raises from the bets.
+   `rules_tonight.json`. History (TODO 7b): say which the kit gives. A full action log: pass it as
+   `history`, `history_source = "log"`. Some actions (this street, the last few, each player's last
+   action): pass those, `history_source = "partial"`. None: leave `history` out, `history_source =
+   "bets"`. For "partial" and "bets", `Adapter.decide` rebuilds the hand's log from the states it sees
+   (`hyperion/drills/infer_history.py`: every fold, call, check and raise between our decisions; never an
+   action that did not happen). It is worth 0.4 to 0.7 points a table over the bets alone. Do not write
+   your own rebuild and do not override `decide`; the rebuild needs TODO 3 (pot), 6 (seats, in_hand) and
+   the stacks exactly right. Drill 6's empty history cost 2.5 points a table.
 2. The kit's entry point builds `bot = hyperion.ship.make_bot()` behind `make_adapter(bot, rules)`, with
    everything imported and warmed at module import, not on the first decision; if the kit has no
    per-table hook, `start()` a throwaway adapter at import so every cache is hot before the first
    packet. `make_bot()` builds whatever the package records (step 6 packs it with `--bot cheap`:
-   `Hero.cheap()` now; Stage 4 repacks the same entry as the ship bot, see the switch). If the kit's hand-end signal
-   carries the hand's actions or every seat's chip change, pass them to `hand_end` (template TODO 8). A variant decision the kit asks for (discard, swap, buy) goes to
+   `Hero.cheap()` now; Stage 4 repacks the same entry as the ship bot, see the switch). Pass `hand_end`
+   whatever the kit's hand-end signal carries (template TODO 8): the hand's actions (`history=`), every
+   seat's chip change (`deltas=`), the hands at showdown (`showdown=`, only if the kit shows every hand
+   still in). With only our own chip change, pass that: the adapter holds the hand end for the next
+   hand's first state, whose stacks settle the folds after our last decision. A variant decision the kit asks for (discard, swap, buy) goes to
    `bot.variant_decide({"decision": ..., "hole": ..., "board": ...})`, never through `act`.
 3. `native_safe` is the kit's check-else-fold, or a legal default when the only legal move is a variant
    move (a discard): fold is illegal there. Every kit call is wrapped so any exception returns it.
@@ -25,7 +33,10 @@ Track A (repo present):
    violations, under 0.3% of decisions over 1 ms (a lone spike on a sub-0.1 ms median is the OS: note
    it and go on; if the box load average exceeds the core count, re-run on a quiet box before failing
    the gate; the rate is 0.3% at normal load), and the report's action counts show fold, check-or-call
-   and raise each at least once.
+   and raise each at least once. On a kit with no or a partial log the report's history line says how
+   many hands the rebuilt log stopped at a gap: near 0. Over 5% is a `history_gap` violation: the pot,
+   bets, stacks or in-hand flags disagree with the betting (pot with this street's bets in it, a folded
+   seat still in hand); fix TODO 3 or 6, not the rebuild.
 5. `python -m pytest -q` from the repo root; it must stay green. It takes 3 to 5 minutes and never
    imports `submission/`: run it while step 6 packs.
 6. `python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py
@@ -38,7 +49,8 @@ Track A (repo present):
    --tables 30 --rules rules_tonight.json` (plus `--variant <name>` if the catalog has it). It imports
    the zip as the organisers would and plays it in our sim, paired against the bot the package records,
    in-sim (`baseline bot cheap` line: `Hero.cheap()`). A kit with no action log (the rule sheet says so):
-   add `--kit-log no`, so the in-sim bot sees only what the kit gives (automatic for fake kits b, c, d). A kit that is none of the fake kits: first write `submission/gate_seat.py`, class
+   add `--kit-log no`, so the in-sim bot sees only what the kit gives, through the same rebuild
+   (automatic for fake kits b, c, d); an adapter that loses the rebuild then fails the gate. A kit that is none of the fake kits: first write `submission/gate_seat.py`, class
    `Seat` copied from `KitA` in `tools/gate_host.py` with `native` and `parse` changed for this kit, and
    pass `--kit submission/gate_seat.py --kit-module <their kit.py>` (a subprocess kit unlike c or d:
    say the gate cannot run). Required: `GATE PASS`. It proves the reverse adapter now, so Stage 4's gate

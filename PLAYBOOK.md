@@ -151,6 +151,15 @@ that minute we cannot score zero. The adapter runs with `HYPERION_CHECK=1` so tr
 kit's simulator cannot see (raise increments passed as totals, pot double-counting) show up as named
 violations; `tools/pack.py` builds, import-tests, sizes and hashes the upload in one command.
 
+What the kit shows of the betting is the second thing to read off its interface, after the cards. Our bots
+read every fold, call, check and raise from `obs.history`: Hero's raise counts, the profiler, the exploit layer's
+dead and timing-out seats, rival 3's seat reads. A full log goes in as `history` (`history_source = "log"`); part
+of one as `"partial"`; none as `"bets"`. For the last two the adapter rebuilds the log from the states
+(`hyperion/drills/infer_history.py`), so the agent writes no history code at all. Without the rebuild a kit with no
+log costs 0.6 to 0.9 points a table. With only our own chip change at hand end, the adapter holds the hand end for
+the next state, whose stacks show who folded after us. The conformance report's history line counts the hands where
+the rebuild stopped at a gap; a high count means a translation bug in the pot, bets or in-hand flags.
+
 ### Stage 3: TABLES (0:15–0:25, conditional)
 
 Only when the rule sheet says the strength or information axis moved. One rules JSON, one command.
@@ -220,6 +229,12 @@ the score: the bot that plays T6 should be a bot that has already played T4 or T
 | **Information** | 3 hole cards with discard, swaps, exposed card, two boards | preflop class scheme; value of a made hand before the last change | best-two-card class plus a bonus; raise value thresholds before the last swap; split-pot sizing |
 | **Payoff** | bounties, auctions, top-heavy points | what a chip is worth | add expected side payoff to the pot in shove/call EV; paste the real payouts into `Rules.payouts` |
 | **Betting structure** | pot limit, fixed sizes, antes, fast schedule | legal action set; open sizes; push depth | adapter clamps; sizes in `Config`; antes loosen opens one step and push depth 2 bb |
+
+Not a twist, but it reads like the information axis: what the **kit** shows of the betting. A kit with no action
+log, or one that shows only some actions, needs no patch and no Stage 5 time: the adapter rebuilds the log from the
+states (Stage 2), and the gate's `--kit-log no` measures the upload against the same rebuild in-sim. A twist that
+hides actions *in the game itself* (blind bets, hidden folds) is the information axis proper: the rebuild then
+stops at the first action the states cannot settle, and never invents one.
 
 A twist that is not poker underneath (hands ranked by card sum, no community cards) is off this
 table. Then the plan is the Track B cheap bot with hand-written rules and the profiler. Estimated

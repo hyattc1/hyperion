@@ -121,6 +121,19 @@ class HistoryInference:
         self.sent = None
         return out
 
+    def tail_open(self) -> bool:
+        """Could how the hand ended settle anything after our last reply? True when some other seat still in, with
+        chips, had to act after it owing chips (a fold the final stacks can show). Adapter holds the hand end for
+        the next state only then: the bot's hand end costs 50-200 us inside that decision."""
+        if not (self.live and self.paused and self.sent is not None):
+            return False
+        me, raised = self.me, self.sent.kind is _RAISE
+        for s in range(self.n):
+            if s != me and self.inh[s] and self.stacks[s] > 0 and (
+                    raised or (self.need[s] and self.cur > self.bets[s])):
+                return True
+        return False
+
     def merge(self, mine: list, kit: list) -> list:
         """The kit's own entries with the rebuilt ones: the kit's log when the rebuilt prefix starts it; the rebuilt
         prefix extended by the kit's entries where they overlap its end by at least one entry (a log of this street,
@@ -444,15 +457,17 @@ class InferSeat:
     measurement (hyperion/drills/infer_eval.py).
 
     `final` is what the seat sees of how each hand ended:
-      "next"    nothing at hand end; the hand end waits for the next hand's first state, whose stacks settle the folds
-                after our last reply and give every seat's chip change (what Adapter does on such a kit; default)
+      "next"    nothing at hand end; when a seat owed chips after our last reply the hand end waits for the next
+                hand's first state, whose stacks settle the folds and give every seat's chip change (what Adapter does
+                on such a kit; default). `hold_all` holds every hand end we acted in (Adapter.hold_all)
       "none"    nothing: the hand end goes at once with our own chip change and the log up to our reply
       "stacks"  every seat's chip change at hand end (a kit whose hand end lists them)
       "shown"   that and the hands at showdown"""
 
-    def __init__(self, bot, final: str = "next"):
+    def __init__(self, bot, final: str = "next", hold_all: bool = False):
         self.bot = bot
         self.final = final
+        self.hold_all = hold_all  # "next": hold every hand end we acted in, not only those with a fold to settle
         self.inf = HistoryInference()
         self.rules = Rules()
         self.seat = 0
@@ -475,7 +490,10 @@ class InferSeat:
         if self.final == "next":
             if self.pending is not None:
                 self._deliver(None)
-            self.pending = (result.hand_no, result.deltas[self.seat])
+            if self.inf.hand_no == result.hand_no and (self.hold_all or self.inf.tail_open()):
+                self.pending = (result.hand_no, result.deltas[self.seat])
+                return
+            self._end(result.hand_no, result.deltas[self.seat], self.inf.hand_end(hand_no=result.hand_no))
             return
         if self.final == "none":
             self._end(result.hand_no, result.deltas[self.seat], self.inf.hand_end(hand_no=result.hand_no))

@@ -68,12 +68,15 @@ Kinds: fold, check, call, raise. `action.clamp(obs)` returns a legal version (ra
 - `__init__(self, bot: 'Bot', rules: 'Rules | None' = None)`: Initialize self.  See help(type(self)) for accurate signature.
 - `decide(self, native: 'Any') -> 'Any'`
 - `from_action(self, action: 'Action', obs: 'Observation', native: 'Any') -> 'Any'`
-- `hand_end(self, hand_no: 'int', delta: 'int', n_players: 'int | None' = None, history=None, deltas=None) -> 'None'`: The hand is over; pass the kit's `history` and every seat's `deltas` too when its signal has them.
+- `hand_end(self, hand_no: 'int', delta: 'int', n_players: 'int | None' = None, history=None, deltas=None, final_stacks=None, showdown=None, board=()) -> 'None'`: The hand is over; pass whatever the kit's hand-end signal has.
 - `native_safe(self, native: 'Any') -> 'Any'`: The kit's own check-if-possible-else-fold, used when translation itself blows up.
 - `start(self, seat: 'int', n_players: 'int', rules: 'Rules | None' = None) -> 'None'`
 - `to_observation(self, native: 'Any') -> 'Observation'`
+- `with_history(self, obs: 'Observation') -> 'Observation'`: obs with the history the bot reads: the kit's log, or the one rebuilt from the states (history_source).
 
 Reference adapters for four fake kits live in `hyperion/drills/adapter.py` and `hyperion/drills/fakekits/*/RUBRIC.md` lists the gotchas each one covers.
+
+`history_source` says what the kit shows of the betting: `"log"` (its full action log, passed as `history`), `"partial"` (some actions, merged), `"bets"` (none). For the last two `decide` rebuilds the hand's log from the states (`hyperion/drills/infer_history.py`: each seat's in-hand flag, stack and bet between our decisions, replayed through the betting order; every entry happened; a state it cannot settle ends the log for the hand). `hand_end` adds our last reply and the folds after it that the kit's `deltas` / `final_stacks` / `showdown` settle; with only our chip change it holds the hand end for the next hand's first state (`defer_hand_end`, `hold_all`). The sim seat that sees what such a kit gives is `InferSeat(bot)`.
 
 ## The ship bot (`hyperion/ship.py`, the switch)
 
@@ -379,6 +382,7 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 - Regenerate every table for a variant: `python tools/gen_tables.py --rules rules_tonight.json --out tables/`
 - List variant presets / write a rules JSON: `python -m hyperion.drills.variants --list   |   --rules NAME --out rules_NAME.json`
 - Timed drill against a fake kit: `python -m hyperion.drills.run --variant NAME --kit a|b|c|d --seed 1`
+- The rebuilt action log: precision and recall on sim tables / what it wins back: `python -m hyperion.drills.infer_eval --check 20 --fields realistic --bots ship   |   --fields realistic --bots hero --cases nolog,infer,full --seeds 50 --rotate`
 
 ## Entry points
 

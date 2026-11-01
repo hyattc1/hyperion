@@ -225,8 +225,8 @@ class Record:
 
 def test_kit_b_adapter_end_to_end_against_the_engine_log():
     """Engine -> kit B's dict -> KitBAdapter (with only our chip change at hand end) -> the bot: what the bot reads
-    is the engine's log, a prefix of it, at every decision; the hand ends arrive one state late with every seat's
-    chip change and the folds after our reply."""
+    is the engine's log at every decision; a hand end where a seat owed chips after our reply arrives one state
+    late with every seat's chip change and the folds after it, the others at once."""
     from hyperion.sim import bestiary as B
 
     names = B.field_names("realistic")
@@ -269,12 +269,14 @@ def test_kit_b_adapter_end_to_end_against_the_engine_log():
         for res in rec.ends:
             hist, deltas = truth[res.hand_no]
             assert rows(res.history) == hist[: len(res.history)], (rows(res.history), hist)
-            full += res.deltas == deltas
+            own = [d if s == me else 0 for s, d in enumerate(deltas)]
+            assert res.deltas in (deltas, own)  # held for the next state (every seat's), or at once (ours)
+            full += res.deltas == deltas != own
         acts, ends = acts + len(rec.acts), ends + len(rec.ends)
         assert ad.conformance.clean, ad.conformance.summary()
         assert ad.inference.gaps == 0
     assert acts > 100 and ends > 100
-    assert full > 0.8 * ends  # every seat's chips, one state late (not the hand that ends the table)
+    assert full > 0.3 * ends  # held when a seat owed chips after our reply: every seat's chips, one state late
 
 
 def test_conformance_flags_a_state_the_betting_cannot_explain():
@@ -310,7 +312,7 @@ def test_infer_seat_matches_the_adapter_path_and_costs_little():
     bots[2] = seat
     Table(bots, Rules(), seed=5, mode="model").play()
     assert rec.acts and all(o.extras.get("history_inferred") for o in rec.acts)
-    assert sum(len(set(r.deltas) - {0}) > 1 for r in rec.ends) > 0.5 * len(rec.ends)
+    assert sum(len(set(r.deltas) - {0}) > 1 for r in rec.ends) > 0.3 * len(rec.ends)  # the held ones
     st = E.check("realistic", "hero", 1, 3, "next")
     ns = sorted(st["ns"])
     assert ns[len(ns) // 2] < 100_000, ns[len(ns) // 2]  # ~10 us on a quiet host; generous under load
