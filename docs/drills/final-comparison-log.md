@@ -79,3 +79,31 @@ left on in that run, such as the 350 us soft deadline, moves a few decisions to 
 hybrid_x 5.707 (5.657: rival 2's sampler is on the wall clock). On those 200 seeds, hybrid3_x - Hero +0.180 ± 0.134.
 On all 400: **hybrid3_x - Hero +0.135 ± 0.097**, outside noise but only just; hybrid3 (no layer) +0.001; rival3 raw
 -0.090 ± 0.099; **hybrid_x -0.350 ± 0.099**, the only candidate the judge out-scores.
+
+## 07:39-07:45: `judge_top` (the judge's strong room, measured once), model mode, 400 seeds x 8
+
+hero, rival1, rival2, rival3, rival4, pushfold, tag, loose_aggro; each candidate in Hero's seat. rival3's reference row is a second copy of rival 3 in Hero's seat (`rival3_seat`); its "- rival3" gap is against the other copy.
+
+| # | candidate | pts ± 95% | - Hero (paired) | rank in field | 1st % | bust % | gaps (paired) | load |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hybrid_x | 5.131 ± 0.075 | +0.300 ± 0.098 | 1 of 8 (leader hybrid_x 5.13) | 25 | 67 | - rival4 +0.611 ± 0.110; - rival1 +0.391 ± 0.115; - rival3 +0.319 ± 0.119 | 25-26 |
+| 2 | hybrid3_x | 4.892 ± 0.076 | +0.061 ± 0.100 | 2 of 8 (leader rival2 5.00) | 22 | 73 | - rival4 +0.400 ± 0.107; - rival1 +0.108 ± 0.116; - rival3 +0.001 ± 0.123 | 25-26 |
+| 3 | hybrid3 (no layer) | 4.839 ± 0.075 | +0.008 ± 0.100 | 3 of 8 (leader rival2 4.96) | 20 | 75 | - rival4 +0.336 ± 0.105; - rival1 +0.058 ± 0.121; - rival3 -0.081 ± 0.119 | 25-26 |
+| 4 | Hero | 4.831 ± 0.077 | - | 3 of 8 (leader rival2 5.01) | 24 | 73 | - rival4 +0.236 ± 0.107; - rival1 +0.147 ± 0.120; - rival3 -0.023 ± 0.123 | 25-26 |
+| 5 | rival3 (raw, reference) | 4.828 ± 0.078 | -0.004 ± 0.106 | 3 of 8 (leader rival2 4.97) | 21 | 74 | - rival4 +0.290 ± 0.108; - rival1 +0.040 ± 0.119; - rival3 -0.068 ± 0.121 | 25-26 |
+
+| candidate | decisions | p50 / p99 us | wall >= 1 ms | engine timeouts | panicked tables | exc / ill / safe_err | routes and layer fires per table |
+|---|---|---|---|---|---|---|---|
+| Hero | 540,775 | 33 / 143 | 731 (0.135%) | 0 (0.000%) | 0 | 0 / 0 / 0 |  |
+| hybrid_x | 516,565 | 37 / 238 | 1016 (0.197%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 95.67%; exploit:steal_fold 4.56, exploit:bet_checked 2.54, exploit:steal 0.25 |
+| hybrid3_x | 512,694 | 42 / 185 | 969 (0.189%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 97.73%; exploit:bet_checked 2.65, exploit:steal_fold 1.01, exploit:steal 0.05, hero:core_none 0.04 |
+| rival3 (raw, reference) | 509,968 | 26 / 108 | 665 (0.130%) | 0 (0.000%) | 0 | 0 / 0 / 0 |  |
+| hybrid3 (no layer) | 517,051 | 32 / 152 | 655 (0.127%) | 0 (0.000%) | 0 | 0 / 0 / 0 | core 99.98%; hero:core_none 0.03 |
+
+
+Rival 2 is at this table, and its sampler is on the wall clock, so the field itself moves a little with the host: on the
+first 200 seeds Hero scores 4.767 here against 4.814 in the hybrid agent's run on the same deals (load 41-46 there,
+25-26 here). The five candidates ran interleaved at one load, so the pairs share it.
+
+**hybrid_x leads (+0.300 ± 0.098), outside noise; hybrid3_x +0.061 ± 0.100, hybrid3 +0.008 and rival3 -0.004 are level
+with Hero.** Every candidate beats rival 4 here (+0.24 to +0.61). Rival 2 leads the room whenever hybrid_x is not in it.
