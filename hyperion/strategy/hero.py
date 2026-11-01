@@ -518,9 +518,12 @@ class HeroCore:
             spot.ror = self.ror_for(spot.my_bb, obs.hand_no)
         cheap = cfg.cheap or self.panic
         if obs.street == 0:
-            if self.pushfold.applies(spot):
+            pf = self.pushfold
+            if pf.applies(spot):
                 self.last_path = "pushfold"
-                return self.pushfold.act(spot, prof, cheap)
+                a = pf.act(spot, prof, cheap)
+                if a.kind is ActionKind.RAISE or not pf.p.fi_rest_open or not pf.fi_zone(spot):
+                    return a
             self.last_path = "preflop"
             return self.preflop.act(spot, prof, cheap)
         if nh < 2 or len(board) < 3:

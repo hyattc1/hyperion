@@ -104,3 +104,36 @@ def test_reshove_width_reads_the_openers_observed_open_rate(tables):
     # off: the seat prior times the PFR ratio, as the deep pass had it (one hand seen: PFR jumps)
     old = core_with(tables, {"preflop.reshove_mid_bb": 25})
     assert old.pushfold.opener_width(spot, tight, 7) == pytest.approx(0.40)
+
+
+def _btn_first_in(hole, bb_deep, seat=7, folds=(2, 3, 4, 5, 6), hand_no=3):
+    return preflop_obs(hole, seat, button=7, stacks=[20 * bb_deep] * 8, actions=FOLDS(*folds), hand_no=hand_no)
+
+
+def test_first_in_shove_zone_above_push_fold_depth(tables):
+    """13 bb on the button, folded to: the default min-raises 44 and K8o; with the zone at 13 bb the solved first-in
+    table shoves 44 and folds K8o (outside the solved 30%), and with fi_rest_open K8o keeps the chart's raise."""
+    off = core_with(tables, {}, seat=7)
+    a = off.act(_btn_first_in("4h 4c", 13))
+    assert a.kind is ActionKind.RAISE and a.amount < 100
+    zone = core_with(tables, {"pushfold.fi_threshold_bb": 13}, seat=7)
+    obs = _btn_first_in("4h 4c", 13)
+    a = zone.act(obs)
+    assert a.kind is ActionKind.RAISE and a.amount == obs.max_raise and zone.last_path == "pushfold"
+    assert zone.act(_btn_first_in("Kh 8c", 13, hand_no=4)) == F
+    rest = core_with(tables, {"pushfold.fi_threshold_bb": 13, "pushfold.fi_rest_open": True}, seat=7)
+    a = rest.act(_btn_first_in("Kh 8c", 13))
+    assert a.kind is ActionKind.RAISE and a.amount < 100 and rest.last_path == "preflop"
+    deeper = _btn_first_in("4h 4c", 16, hand_no=5)  # beyond the zone: the chart again
+    assert zone.act(deeper).amount < 100
+
+
+def test_first_in_shove_zone_reaches_deeper_from_late_seats(tables):
+    late = core_with(tables, {"pushfold.fi_late_threshold_bb": 16}, seat=7)
+    obs = _btn_first_in("4h 4c", 16)
+    assert late.act(obs).amount == obs.max_raise  # the button has two behind: in the zone at 16 bb
+    utg = core_with(tables, {"pushfold.fi_late_threshold_bb": 16}, seat=2)
+    obs = preflop_obs("Ah Kc", 2, button=7, stacks=[320] * 8)
+    a = utg.act(obs)
+    assert a.kind is ActionKind.RAISE and a.amount < obs.max_raise  # under the gun at 16 bb opens normally
+    assert not utg.pushfold.fi_zone(Spot(obs, obs.hole))

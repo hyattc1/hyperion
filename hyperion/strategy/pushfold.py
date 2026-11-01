@@ -92,6 +92,14 @@ class PushFoldParams:
     # bb_open_prior[its seat] with reshove_w_n0 spots. Off = bb_open_prior times its PFR over the prior.
     reshove_w_observed: bool = False
     reshove_w_n0: float = 6.0
+    # the first-in shove zone: an unopened pot above threshold_bb is still push/fold (the solved first-in table
+    # with its ICM gate) up to fi_threshold_bb effective, and up to fi_late_threshold_bb with at most fi_late_behind
+    # players behind. Hands the table does not shove fold, or with fi_rest_open fall through to the preflop chart's
+    # open-raise. 0 = off (the chart opens everything above threshold_bb).
+    fi_threshold_bb: float = 0.0
+    fi_late_threshold_bb: float = 0.0
+    fi_late_behind: int = 2
+    fi_rest_open: bool = False
 
 
 # ---------------------------------------------------------------- offline solver
@@ -402,7 +410,17 @@ class PushFold:
         return self.min_depth if d < self.min_depth else self.max_depth if d > self.max_depth else d
 
     def applies(self, spot: Spot) -> bool:
-        return spot.cls is not None and spot.eff_bb <= self.p.threshold_bb
+        return spot.cls is not None and (spot.eff_bb <= self.p.threshold_bb or self.fi_zone(spot))
+
+    def fi_zone(self, spot: Spot) -> bool:
+        """An unopened pot above threshold_bb that the first-in shove zone covers."""
+        p = self.p
+        if spot.n_raises or spot.eff_bb <= p.threshold_bb:
+            return False
+        top = p.fi_threshold_bb
+        if spot.behind <= p.fi_late_behind and p.fi_late_threshold_bb > top:
+            top = p.fi_late_threshold_bb
+        return spot.eff_bb <= top
 
     def _clamp(self, m: float) -> float:
         return self.p.dial_min if m < self.p.dial_min else self.p.dial_max if m > self.p.dial_max else m
