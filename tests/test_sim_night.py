@@ -17,8 +17,10 @@ from hyperion.sim.runner import run_tournament
 
 ROOT = Path(__file__).resolve().parents[1]
 FROZEN = {  # registry name -> (archived original, copy in the package, header lines, md5 of the original)
-    "trackb3": ("docs/drills/field/trackb3_bot.py", "hyperion/sim/field/trackb3.py", 7, "b40150c0551b423454c6e9c9e927bea4"),
-    "trackb5": ("docs/drills/field/trackb5_bot.py", "hyperion/sim/field/trackb5.py", 7, "aeb14d3b9bbc64a7db86450a66d1c4d0"),
+    "trackb3": ("docs/drills/field/trackb3_bot.py", "hyperion/sim/field/trackb3.py", 7,
+                "b40150c0551b423454c6e9c9e927bea4"),
+    "trackb5": ("docs/drills/field/trackb5_bot.py", "hyperion/sim/field/trackb5.py", 7,
+                "aeb14d3b9bbc64a7db86450a66d1c4d0"),
     "agent_charts": ("docs/drills/field/agent_charts_bot.py", "hyperion/sim/field/agent_charts.py", 6,
                      "8d684a439cabe518f86a1c471e343d2b"),
 }

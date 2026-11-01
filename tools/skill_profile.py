@@ -53,6 +53,7 @@ from hyperion.compose.sections import section as _section  # noqa: E402
 from hyperion.core.types import Action, ActionKind, Rules  # noqa: E402
 from hyperion.sim import bestiary as B  # noqa: E402
 from hyperion.sim import runner as R  # noqa: E402
+from hyperion.sim.engine import BotStats  # noqa: E402
 
 FOLD, CHECK, CALL, RAISE = ActionKind.FOLD, ActionKind.CHECK, ActionKind.CALL, ActionKind.RAISE
 ROWS = SECTIONS + ("blinds",)  # the last row: posted blinds, walks, all-ins by posting
@@ -215,15 +216,18 @@ def seat_name(field: str, bot: str) -> str:
 
 
 def run_job(args) -> dict:
+    """Seeds lo..hi one at a time (each with its eight rotations), keeping each seed's section totals for the
+    intervals."""
     field, bot, lo, hi, mode, payouts, seed = args
     name = seat_name(field, bot)
     names = B.field_names(f"{field}@{name}")
     counts = _new_counts()
+    cur = {"c": counts}
     orig = B.make_bot
 
     def build(nm, seed=None):
         b = orig(nm, seed=seed)
-        return Tracer(b, counts) if nm == name and seed is not None else b
+        return Tracer(b, cur["c"]) if nm == name and seed is not None else b
 
     if mode == "model":
         B.HYBRID_CONFIG = dict(MODEL_HYBRID_CONFIG)
@@ -231,20 +235,32 @@ def run_job(args) -> dict:
     else:
         B.HYBRID_CONFIG, hero_config = None, None
     rules = Rules(payouts=tuple(payouts)) if payouts else None
-    R.make_bot = build
     t0 = time.time()
     load0 = os.getloadavg()[0]
+    samples, places, seats, busts, hands, per_seed_rows = [], None, 0, 0, 0, {}
+    st = BotStats(name)
+    R.make_bot = build
     try:
-        rep = R.run_tournament(names, hi - lo, seed=seed, rotate=True, mode=mode, rules=rules, hero_config=hero_config,
-                               table_offset=lo)
+        for t in range(lo, hi):
+            cur["c"] = one = _new_counts()
+            rep = R.run_tournament(names, 1, seed=seed, rotate=True, mode=mode, rules=rules, hero_config=hero_config,
+                                   table_offset=t)
+            br = rep.bots[name]
+            samples.extend(br.samples)
+            places = br.places if places is None else [a + b for a, b in zip(places, br.places)]
+            seats += br.seats
+            busts += br.busts
+            hands += rep.hands
+            st.merge(br.stats)
+            for k in KEYS:
+                counts[k] = [a + b for a, b in zip(counts[k], one[k])]
+            per_seed_rows[str(t)] = [one["chips_bb"], one["dec"]]
     finally:
         R.make_bot = orig
-    br = rep.bots[name]
-    st = br.stats
     return {
         "field": field, "bot": bot, "seeds": [lo, hi], "mode": mode, "seed": seed, "payouts": payouts,
-        "samples": br.samples, "places": br.places, "seats": br.seats, "busts": br.busts,
-        "counts": counts, "hands": rep.hands, "secs": time.time() - t0, "load": [load0, os.getloadavg()[0]],
+        "samples": samples, "places": places, "seats": seats, "busts": busts, "per_seed_rows": per_seed_rows,
+        "counts": counts, "hands": hands, "secs": time.time() - t0, "load": [load0, os.getloadavg()[0]],
         "engine": {"calls": st.calls + st.first_calls, "over_budget": st.over_budget, "exceptions": st.exceptions,
                    "illegal": st.illegal, "safe_err": st.safe_err, "p50_us": st.percentile_us(0.5),
                    "p99_us": st.percentile_us(0.99), "last_error": st.last_error},
@@ -264,6 +280,7 @@ def _merge(old: Optional[dict], new: dict) -> dict:
     old["chunks"] = sorted(old["chunks"] + [[lo, hi]])
     for i, x in enumerate(new["samples"]):
         old["per_seed"][str(lo + i)] = x
+    old.setdefault("per_seed_rows", {}).update(new.get("per_seed_rows", {}))
     old["places"] = [a + b for a, b in zip(old["places"], new["places"])]
     old["seats"] += new["seats"]
     old["busts"] += new["busts"]
@@ -344,7 +361,9 @@ def summarize(res: dict) -> dict:
     samples = [res["per_seed"][k] for k in sorted(res["per_seed"], key=int)]
     pts, ci = mean_ci(samples)
     seats = res["seats"] or 1
+    psr = res.get("per_seed_rows", {})
     return {"rows": rows, "pts": pts, "ci": ci, "n": len(samples), "first": res["places"][0] / seats,
+            "per_seed_rows": [psr[k] for k in sorted(psr, key=int)],
             "bust": res["busts"] / seats, "places": [p / seats for p in res["places"]], "decisions": total_dec,
             "net_bb": sum(c["chips_bb"]), "engine": res.get("engine", {}), "chunks": res["chunks"]}
 
@@ -357,16 +376,30 @@ def _fmt(x, pct=False, digits=2) -> str:
     return f"{100 * x:.0f}%" if pct else f"{x:+.{digits}f}" if digits == 3 else f"{x:.{digits}f}"
 
 
+def ratio_ci(per_seed: list) -> float:
+    """95% half-width of sum(chips) / sum(decisions) over seeds (the ratio estimator's linearised standard error;
+    the seed is the unit, its eight rotations inside it)."""
+    n = len(per_seed)
+    tot_d = sum(d for _, d in per_seed)
+    if n < 2 or not tot_d:
+        return 0.0
+    r = sum(c for c, _ in per_seed) / tot_d
+    ss = sum((c - r * d) ** 2 for c, d in per_seed)
+    return 1.96 * math.sqrt(ss * n / (n - 1)) / tot_d
+
+
 def leaderboard(field_res: dict, rows: tuple, min_dec: int = 200) -> list:
     """Bots ranked by chips won per decision over `rows` (one section or a group); bots with fewer than `min_dec`
-    decisions there are left out. -> [(bot, bb/dec, decisions, share)]"""
+    decisions there are left out. -> [(bot, bb/dec, decisions, share, ±95%)]"""
     out = []
     for bot, s in field_res.items():
         d = sum(s["rows"][r]["dec"] for r in rows)
         if d < min_dec:
             continue
         chips = sum(s["rows"][r]["chips_bb"] for r in rows)
-        out.append((bot, chips / d, d, d / s["decisions"]))
+        idx = [ROWS.index(r) for r in rows]
+        per = [(sum(c[i] for i in idx), sum(dd[i] for i in idx)) for c, dd in s.get("per_seed_rows", [])]
+        out.append((bot, chips / d, d, d / s["decisions"], ratio_ci(per)))
     return sorted(out, key=lambda t: -t[1])
 
 
@@ -393,18 +426,21 @@ def report(dirs: list, fields: Optional[list] = None, names: Optional[dict] = No
             lines.append(f"{i}. **{b}** {s['pts']:.2f} ± {s['ci']:.2f} (1st {100 * s['first']:.0f}%, bust "
                          f"{100 * s['bust']:.0f}%)")
         lines.append("")
-        lines.append("Best at, by chips won per decision (bb) in the spots each bot reached:")
+        lines.append("Best at, by chips won per decision (bb) in the spots each bot reached, ± 95% (the seed is the "
+                     "unit):")
         lines.append("")
         for title, rows in GROUPS:
             lb = leaderboard(summ, rows)[:top]
-            lines.append(f"- **{title}**: " + ", ".join(f"{i}. {b} {v:+.3f}" for i, (b, v, _, _) in enumerate(lb, 1)))
+            lines.append(f"- **{title}**: " + ", ".join(f"{i}. {b} {v:+.3f} ± {ci:.3f}"
+                                                       for i, (b, v, _, _, ci) in enumerate(lb, 1)))
         lines.append("")
-        lines.append("Per section (bb per decision; the bot's share of its decisions in brackets):")
+        lines.append("Per section (bb per decision ± 95%; the bot's share of its decisions in brackets):")
         lines.append("")
         for nm in SECTIONS:
             lb = leaderboard(summ, (nm,))[:top]
             lines.append(f"- *{LABEL[nm]}* (`{nm}`): "
-                         + ", ".join(f"{i}. {b} {v:+.3f} ({100 * sh:.0f}%)" for i, (b, v, _, sh) in enumerate(lb, 1)))
+                         + ", ".join(f"{i}. {b} {v:+.3f} ± {ci:.3f} ({100 * sh:.0f}%)"
+                                     for i, (b, v, _, sh, ci) in enumerate(lb, 1)))
         lines.append("")
         bust_rows = {}
         for b, s in summ.items():
@@ -422,7 +458,8 @@ def report(dirs: list, fields: Optional[list] = None, names: Optional[dict] = No
         lines.append("| bot | " + " | ".join(str(i) for i in range(1, 9)) + " | bust |")
         lines.append("|---|" + "---|" * 9)
         for b, s in ranked:
-            lines.append(f"| {b} | " + " | ".join(f"{100 * p:.0f}" for p in s["places"]) + f" | {100 * s['bust']:.0f} |")
+            dist = " | ".join(f"{100 * p:.0f}" for p in s["places"])
+            lines.append(f"| {b} | {dist} | {100 * s['bust']:.0f} |")
         lines.append("")
         for b, s in ranked:
             lines.append(f"<details><summary>{b}: per-section table</summary>")

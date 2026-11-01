@@ -1,5 +1,5 @@
-"""tools/skill_profile.py: the Hero-seat tracer books every decision by section, its chip attribution sums to the bot's net
-chips, a job plays exactly the runner's tables, and the report ranks bots per section."""
+"""tools/skill_profile.py: the Hero-seat tracer books every decision by section, its chip attribution sums to the
+bot's net chips, a job plays exactly the runner's tables, and the report ranks bots per section."""
 import json
 import sys
 from pathlib import Path
@@ -55,6 +55,12 @@ def test_a_job_plays_the_runner_tables_exactly():
                          hero_config=P.MODEL_HERO_CONFIG, table_offset=3)
     assert res["samples"] == rep.bots["tag_seat"].samples  # realistic seats tag already: the profiled copy is an alias
     assert res["seats"] == 16 and sum(res["counts"]["dec"]) > 0
+    rows = res["per_seed_rows"]  # each seed's section totals, for the intervals, add up to the job's
+    assert sorted(rows) == ["3", "4"]
+    for i in range(len(P.ROWS)):
+        assert abs(sum(rows[k][0][i] for k in rows) - res["counts"]["chips_bb"][i]) < 1e-9
+        assert sum(rows[k][1][i] for k in rows) == res["counts"]["dec"][i]
+    assert P.ratio_ci([(1.0, 10), (3.0, 10), (2.0, 10)]) > 0 and P.ratio_ci([(1.0, 10)]) == 0.0
 
 
 def test_seat_name_aliases_a_bot_the_field_already_seats():
