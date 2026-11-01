@@ -19,7 +19,7 @@ from hyperion.strategy.hero import icm_me
 from tests.sim_helpers import Auditor
 
 FAST_FIELD = ["hybrid3", "tag", "pushfold", "loose_aggro", "nit", "station", "maniac", "random"]
-NO_PANIC = {"core": "rival3", "panic_after": 10 ** 9}  # legality and replay tests must not read the wall clock
+NO_PANIC = {"core": "rival3", "panic_after": 10 ** 9, "soft_us": 1e6}  # these tests must not read the wall clock
 HERO_ONLY = {"short_deck", "lowball", "wild_deuces", "flush_over_full_house", "omaha_four", "exposed_card",
              "two_boards", "bounty", "knockout_bounty", "hi_lo", "fixed_raise", "toss_or_holdem",
              "three_card_blind_discard", "three_card_keep"}
@@ -270,3 +270,23 @@ def test_hybrid3_decision_p99_is_under_300_us_and_strict_timeouts_under_one_perc
         if host >= 160:
             pytest.skip(f"host oversubscribed: hybrid3 p99 {p99:.0f} us, a fixed 100 us loop's p99 {host:.0f} us")
     assert p99 < 300, p99
+
+
+def test_the_exploit_layer_composes_in_front_of_every_decision_and_only_once():
+    from hyperion.strategy.exploit import ExploitParams
+
+    over = {**NO_PANIC, "exploit": {"bet_checked": True, "post_streak": 1, "bet_min_fold": 0.5, "steal": True}}
+    hb = make_bot(seed=4, overrides=over)
+    assert hb.core.ex is not None and hb.core.ex.p.bet_checked
+    if hasattr(hb.core.hero.cfg, "exploit"):
+        assert not hb.core.hero.cfg.exploit.active  # the fallback Hero's own copy is off: no decision is seen twice
+    names = ["hybrid3", "station", "montecarlo30", "timeout_then_recover", "tag", "pushfold", "nit", "loose_aggro"]
+    bots = [hb] + [B.make_bot(n, seed=60 + s) for s, n in enumerate(names[1:])]
+    # the deterministic timeout model: the timeout bots fold when their modelled cost is over budget, as on the night
+    res = play_table(bots, Rules(starting_stack=8000), seed=3, mode="model")
+    assert res.stats[0].exceptions == 0 and res.stats[0].illegal == 0 and hb.safe.errors == 0
+    routes = _routes(hb)
+    fired = sum(v for k, v in routes.items() if k.startswith("exploit:"))
+    assert fired == sum(hb.core.ex.fired.values()) and fired > 0, routes
+    assert make_bot(seed=4, overrides={**NO_PANIC, "exploit": {}}).core.ex is None or ExploitParams().active
+    assert B.make_bot("hybrid3_x", seed=1).impl.config.core == "rival3"

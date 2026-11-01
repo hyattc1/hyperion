@@ -913,13 +913,16 @@ class HybridBot(_Base):
     same dotted overrides as `hero` (HERO_CONFIG). A candidate measured against Hero, not a replacement."""
 
     CORE = "rival2"
+    EXPLOIT = None  # the exploit layer in front of it: None = off, "hero" = the params Hero's Config ships
 
     def __init__(self, seed: Optional[int] = None):
         super().__init__(seed)
         from ..hybrid import make_bot as _make_hybrid
 
-        self.impl = _make_hybrid(seed=seed, overrides={**(HYBRID_CONFIG or {}), "core": self.CORE},
-                                 hero_overrides=HERO_CONFIG)
+        over = {**(HYBRID_CONFIG or {}), "core": self.CORE}
+        if self.EXPLOIT is not None:
+            over.setdefault("exploit", self.EXPLOIT)
+        self.impl = _make_hybrid(seed=seed, overrides=over, hero_overrides=HERO_CONFIG)
 
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
         self.impl.new_table(rules, seat, n_players)
@@ -939,6 +942,19 @@ class Hybrid3Bot(HybridBot):
     payouts from Rules in its all-in prices, the hand's history at hand_end, Hero for what it cannot represent."""
 
     CORE = "rival3"
+
+
+class HybridXBot(HybridBot):
+    """`hybrid` with the exploit layer (hyperion/strategy/exploit.py) in front of every decision, with the params Hero's
+    Config ships at this commit (identical to `hybrid` while Hero ships every spot off)."""
+
+    EXPLOIT = "hero"
+
+
+class Hybrid3XBot(Hybrid3Bot):
+    """`hybrid3` with the exploit layer in front of every decision, with the params Hero's Config ships at this commit."""
+
+    EXPLOIT = "hero"
 
 
 REGISTRY: dict[str, type] = {
@@ -965,6 +981,8 @@ REGISTRY: dict[str, type] = {
     "rival3": Rival3Bot,  # red-team drill 3's exploitation-first bot: the holdout, never tuned against
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
+    "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
+    "hybrid3_x": Hybrid3XBot,  # `hybrid3` with the exploit layer as Hero ships it
 }
 
 # Opponents that need something from outside this repo. Each is registered only when its environment

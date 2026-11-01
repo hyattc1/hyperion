@@ -20,13 +20,16 @@ Routing, per table from Rules and per decision from the observation:
          table).
 Variant decisions (discard, swap, buy a card) are always Hero's `variant_decide`.
 
+Exploit layer (`HybridConfig.exploit`, off by default): hyperion/strategy/exploit.py observes every decision and may
+replace a passive action (counted as `exploit:<spot>`); the fallback Hero's own copy is then off.
+
 Counters: `HybridCore.counts` per bot, and the module-level `COUNTS` summed over every HybridCore in the process
 (measurement scripts read it).
 """
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from time import perf_counter
 
 from ..core.cards import is_identity_order, remap
@@ -64,6 +67,10 @@ class HybridConfig:
     # three hole cards: Hero plays the table from its 3-card variant tables. False = the core plays preflop from its
     # best two (and postflop once a discard leaves two): measured 0.35-0.63 worse than Hero on the three 3-card games
     hero_on_three_cards: bool = True
+    # the exploit layer for dead and timing-out seats (hyperion/strategy/exploit.py) in front of every decision, core or
+    # Hero: None = off; an ExploitParams; or "hero" = the params Hero's Config ships by default at this commit. When it
+    # is on, the fallback Hero's own copy is switched off, so one layer sees every decision and none is counted twice.
+    exploit: object = None
     seed: int | None = None
 
 
@@ -75,7 +82,28 @@ def hybrid_config(overrides: dict | None = None, hero_overrides: dict | None = N
         if not hasattr(cfg, k) or k == "hero":
             raise KeyError(f"unknown HybridConfig field {k!r}")
         setattr(cfg, k, v)
+    cfg.exploit = exploit_params(cfg.exploit)
     return cfg
+
+
+def exploit_params(spec):
+    """HybridConfig.exploit as ExploitParams or None: "hero" (Hero's shipped defaults), a dict of ExploitParams fields
+    (on top of those defaults), an ExploitParams, or None / False (off). A layer with no spot on is None."""
+    if spec is None or spec is False:
+        return None
+    from ..strategy.exploit import ExploitParams  # imported here: a Hero without the layer still builds a hybrid
+
+    if spec == "hero" or spec is True:
+        base = getattr(Config(), "exploit", None)
+        params = base if isinstance(base, ExploitParams) else ExploitParams()
+    elif isinstance(spec, dict):
+        base = getattr(Config(), "exploit", None)
+        params = replace(base if isinstance(base, ExploitParams) else ExploitParams(), **spec)
+    elif isinstance(spec, ExploitParams):
+        params = spec
+    else:
+        raise TypeError(f"HybridConfig.exploit: {spec!r}")
+    return params if params.active else None
 
 
 def table_reason(rules: Rules, cfg: HybridConfig) -> str | None:
@@ -111,6 +139,14 @@ class HybridCore:
 
     def __init__(self, config: HybridConfig | None = None):
         self.cfg = cfg = config or HybridConfig()
+        cfg.exploit = exploit_params(cfg.exploit)
+        self.ex = None
+        if cfg.exploit is not None:
+            from ..strategy.exploit import Exploit, ExploitParams
+
+            self.ex = Exploit(cfg.exploit)
+            if hasattr(cfg.hero, "exploit"):  # one layer in front of every decision: Hero's own copy stays off
+                cfg.hero.exploit = ExploitParams()
         self.hero = HeroCore(cfg.hero)
         if cfg.core not in CORES:
             raise KeyError(f"unknown hybrid core {cfg.core!r}; known: {', '.join(CORES)}")
@@ -137,6 +173,8 @@ class HybridCore:
         self._table_why = table_reason(rules, cfg)
         self._straddle = bool(rules.straddle)
         self.hero.new_table(rules, seat, n_players)
+        if self.ex is not None:
+            self.ex.new_table(n_players, seat)
         self.kit.reset()
         core = self.core
         core.setup(rules, seat, n_players, cfg)
@@ -151,6 +189,27 @@ class HybridCore:
         self.hero.set_panic(on)
 
     def act(self, obs: Observation) -> Action:
+        ex = self.ex
+        if ex is None:
+            return self._decide(obs)
+        try:
+            ex.observe(obs)
+        except Exception:  # noqa: BLE001 - a slip in the layer keeps the decision the core or Hero makes
+            ex = None
+        a = self._decide(obs)
+        if ex is not None:
+            try:
+                b = ex.override(obs, a)
+            except Exception:  # noqa: BLE001
+                b = None
+            if b is not None:
+                why = "exploit:" + (ex.last or "override")
+                self.counts[why] += 1
+                COUNTS[why] += 1
+                return b
+        return a
+
+    def _decide(self, obs: Observation) -> Action:
         t0 = perf_counter()
         if self.panic:
             return self._hero(obs, "hero:panic")
@@ -205,6 +264,11 @@ class HybridCore:
         return h.act(obs)
 
     def hand_end(self, result: HandResult) -> None:
+        if self.ex is not None:
+            try:
+                self.ex.hand_end(result)
+            except Exception:  # noqa: BLE001
+                pass
         try:
             self.hero.hand_end(result)
         finally:

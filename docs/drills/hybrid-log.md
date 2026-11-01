@@ -263,3 +263,13 @@ the wall clock) and play deep stacks, so a loaded host cannot make them flake.
   expected routing, the rank-remap round trip, `icm_points` against `_icm1` and `icm_me`, payouts in `_allin` with
   rival 3's globals untouched, the hand_end history, declines, the soft deadline, timing). Full suite 656 passed.
 - Smoke (strict, 10 seeds x 8, load ~3): top2_h3 p50 32 / p99 70 us, realistic_h3 p50 28 / p99 65 us.
+
+## 05:20: the exploit layer wired in (off by default); `hybrid_x`, `hybrid3_x`
+
+`HybridConfig.exploit` (None = off; "hero" = the params Hero's Config ships at that commit; or a dict of
+ExploitParams fields) puts hyperion/strategy/exploit.py in front of every decision, core or Hero. When it is on, the
+fallback Hero's own copy is switched off, so one layer sees every decision and nothing is counted twice. The layer
+only replaces passive actions (a check postflop; a fold or check preflop), so it cannot double an action the core
+already took; its fires are counted as `exploit:<spot>`. Bestiary: `hybrid_x`, `hybrid3_x` (the layer with Hero's
+shipped params: the same as `hybrid` / `hybrid3` while Hero ships every spot off). The rival 2 hybrid stays
+bit-identical (563 decisions, same sha as v1.1 at 7e51197). Full suite 661 passed.
