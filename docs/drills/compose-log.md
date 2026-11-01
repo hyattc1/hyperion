@@ -101,3 +101,38 @@ setup: realistic, strong and the eight timeout and weak bots replay exactly. Fie
 (110 samples always), and rival 2, `night` and every other field replay exactly. Rival 2's import-time equity tables
 stop at 1500 boards or 2.4 s, so a worker that imported it on a host slow enough for the clock to bind would differ
 from the others. swap.py warns when that happens. The first `top` base run was made before the fix, so it is redone.
+
+## 14:26: the screen on realistic (200 seeds x 8, model mode, seeds 0-199)
+
+Each cell = the composite with that one section played by the donor, the rest by the base (hybrid3_x), paired on the
+same deals. Base hybrid3_x 6.133 ± 0.112. Bold = beyond the 95% interval. Ranked best first; "differs" is the share of
+the section's decisions where the donor's action differs from the base's.
+
+| section | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| pre_open_40 | hybrid3 +0.001 | rival3 +0.001 | r2x -0.007 | rival1 -0.045 | hero -0.086 |
+| pre_open_20 | hybrid3 -0.012 | rival3 -0.012 | hero -0.038 | rival1 -0.072 (worse) | r2x -0.075 (worse) |
+| pre_open_10 | hybrid3 -0.003 | rival3 -0.003 | hero -0.025 | rival1 -0.056 | r2x -0.086 (worse) |
+| pre_open_short | rival3 -0.009 | hybrid3 -0.009 | r2x -0.010 | rival1 -0.014 | hero -0.020 |
+| pre_raised_deep | hybrid3 0 (never differs) | rival3 -0.045 (worse) | rival1 -0.066 | hero -0.261 (worse) | r2x -0.290 (worse) |
+| pre_raised_short | hero +0.045 ± 0.061 | rival1 +0.016 | rival3 +0.012 | hybrid3 0 | r2x -0.029 |
+| pre_allin | hybrid3 0 | rival3 -0.003 | rival1 -0.022 | r2x -0.026 (worse) | hero -0.062 (worse) |
+| pre_3way | hybrid3 -0.002 | rival3 -0.003 | r2x -0.042 (worse) | hero -0.045 (worse) | rival1 -0.055 (worse) |
+| pre_hu | hybrid3 +0.001 | hero +0.001 | rival3 -0.001 | r2x -0.011 (worse) | rival1 -0.030 (worse) |
+| post_hu_bet | **hero +0.173 ± 0.096** | hybrid3 0 | rival3 -0.020 | rival1 -0.024 | r2x -0.053 |
+| post_hu_chk | r2x +0.023 ± 0.085 | hero -0.012 | rival3 -0.132 (worse) | rival1 -0.136 (worse) | hybrid3 -0.137 (worse) |
+| post_mw | hybrid3 +0.024 ± 0.035 | rival3 +0.022 | r2x -0.019 | hero -0.050 | rival1 -0.075 |
+
+Read:
+- **One swap beats the base beyond noise on realistic:** Hero facing a heads-up postflop bet (+0.17 ± 0.10). Its
+  postflop calls and raises differ from rival 3's core on a quarter of those decisions.
+- Everywhere preflop the base's core is first or level. Hero's and rival 2's deep 3-bet / call ranges facing a raise are
+  the worst swaps measured (-0.26, -0.29).
+- **The layer's worth by section:** turning it off costs -0.14 in post_hu_chk (bet when checked to) and nothing
+  measurable elsewhere. Off in post_mw is +0.02 ± 0.04, inside noise.
+- Raw rival 3 and the layer-off base are the same donor wherever the payout correction does not move a price.
+  Raw rival 3 differs from the base on 0.2-8% of decisions.
+
+The screen's top base run was redone after the determinism fixes (14:10). Every later run uses a frozen worktree of
+the tree at 80e3dd7, so other agents' edits cannot reach a run halfway. Realistic re-verified there: 10 base and 10
+replayed rotations identical.
