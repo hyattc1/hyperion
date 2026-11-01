@@ -11,7 +11,8 @@ and each one has a time box, the exact things to paste in, and a pass/fail check
 Two tracks, decided by the organizers' answer on pre-written code:
 
 - **Track A (repo allowed).** The agent works inside this repo. The prompts mostly ask it to write one
-  adapter, run one generator, and run the sim. Hero is submitted by minute 45.
+  adapter, run one generator, and run the sim. The shipped bot (`hyperion/ship.py`: hybrid3_x, rival 3's
+  core behind Hero's shell; `--bot hero` restores Hero) is submitted by minute 45.
 - **Track B (blank directory).** The agent rebuilds the core from `track-b-from-scratch.md`, which is
   the compressed specification of this repo: evaluator, safe wrapper, push/fold rule, profiler. It is
   written so a competent agent regenerates a legal tight bot in 15 minutes and a profiling push/fold
@@ -40,9 +41,9 @@ that axis. Everything in between is identical regardless of the game.
 | 0:07 | `02-adapter-and-cheap-bot` | kit's local simulator plays 50 hands, zero errors, legal every time, submission accepted | submit the kit's own example bot first; then fix |
 | 0:15 | **SUBMIT cheap bot** | portal confirms | nothing else matters until this is green |
 | 0:17 | `03-tables` only if the rule sheet says the strength or information axis moved | generator finishes, spot check prints sane equities | ship Hero with old tables plus the axis fallback |
-| 0:25 | `04-wire-hero` | 300 strict-mode tables vs bestiary through the adapter: zero exceptions, zero illegal, p99 under 0.3 ms, Hero not last | revert to cheap bot plus profiler only |
-| 0:40 | `05-variant-patch` for the axis the rule sheet named | re-run the 300 tables, Hero score did not drop | ship without the patch |
-| 0:50 | **SUBMIT Hero** | portal confirms | re-submit the cheap bot |
+| 0:25 | `04-wire-hero` | 300 strict-mode tables (`--field realistic@ship`): zero exceptions, zero illegal, p99 under 0.3 ms, the bot not last; the gate on the zip passes | `--bot hero` if only the bot's line fails, else the Stage 2 cheap package |
+| 0:40 | `05-variant-patch` for the axis the rule sheet named | re-run the 300 tables with and without the dials, the score did not drop | ship without the patch |
+| 0:50 | **SUBMIT the shipped bot** | portal confirms | re-submit the cheap bot |
 | 0:55 | freeze; read `06-windows` | known-good bot recorded with its hash | |
 | T1 + each 20 min | `06-windows` loop | one dial change per window at most, verified in sim before submit | keep the frozen bot |
 

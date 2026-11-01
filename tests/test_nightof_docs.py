@@ -122,9 +122,10 @@ def test_prompt_02_uses_the_tools_and_the_upload_cadence():
 
 def test_prompt_04_gates_and_tools():
     p = read(PROMPTS / "04-wire-hero.md")
-    assert "--field realistic --rules rules_tonight.json" in p and "omit `--rules`" not in p
+    assert "--field realistic@ship --rules rules_tonight.json" in p and "omit `--rules`" not in p
     assert "--out\n   /tmp/load" in p or "--out /tmp/load" in p
-    assert "Hero vs tag is not the gate" in p and "tag's minus" not in p
+    assert "Ship vs tag is not the gate" in p and "tag's minus" not in p
+    assert "hyperion.ship.make_bot()" in p and "--bot hero" in p and "--bot cheap" in p
     assert "Hero.cheap()`\npackage unchanged" in p or "Hero.cheap()` package unchanged" in p
     assert "dead-seat and station" not in p
     assert "tools/latency.py" in p and "tools/pack.py" in p and "HYPERION_CHECK=1" in p
@@ -137,6 +138,26 @@ def test_prompt_05_names_only_real_config_keys():
     assert "ICM risk premium" not in p and "No ICM-premium key exists" in p
     keys = set(re.findall(r"`((?:preflop|pushfold|postflop)\.[a-z_]+)`", p))
     assert keys and all(f"`{k}`" in contracts for k in keys), keys
+
+
+def _dial_keys(text: str) -> set[str]:
+    """Every dial a doc names: bare Hero keys, r3.* and exploit.* keys, and hero.<key> (checked as <key>)."""
+    found = set(re.findall(r'"?((?:r3|exploit|hero\.(?:preflop|pushfold|postflop)|preflop|pushfold|postflop)'
+                           r'\.[a-z_]+)"?', text))
+    return {k[len("hero."):] if k.startswith("hero.") else k for k in found}
+
+
+def test_every_dial_the_night_docs_name_exists():
+    """The window and variant dials (prompts 05 and 06, PLAYBOOK section 5) are keys the shipped bot or Hero has."""
+    contracts = read(PACKET / "CONTRACTS.md")
+    section5 = read(ROOT / "PLAYBOOK.md").split("## 5. The signal table", 1)[1].split("## 6.", 1)[0]
+    for name, text in (("05", read(PROMPTS / "05-variant-patch.md")), ("06", read(PROMPTS / "06-windows.md")),
+                       ("PLAYBOOK 5", section5)):
+        keys = _dial_keys(text)
+        missing = {k for k in keys if f"`{k}`" not in contracts}
+        assert not missing, (name, missing)
+    assert any(k.startswith("r3.") for k in _dial_keys(read(PROMPTS / "06-windows.md")))
+    assert any(k.startswith("r3.") for k in _dial_keys(section5))
 
 
 def test_playbook_stage_0_prepared_list():

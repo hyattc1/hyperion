@@ -11,10 +11,12 @@ Track A (repo present):
    `rules_tonight.json`. Pass the kit's action log as `history` (TODO 7b): Hero reads who raised from
    it alone, and an empty history cost 2.5 points a table in drill 6; with no log, `make_observation`
    rebuilds the raises from the bets.
-2. The kit's entry point instantiates `hyperion.strategy.hero.Hero.cheap()` behind `make_adapter(bot,
-   rules)`, with everything imported and warmed at module import, not on the first decision; if the kit
-   has no per-table hook, `start()` a throwaway adapter at import so every cache is hot before the
-   first packet. A variant decision the kit asks for (discard, swap, buy) goes to
+2. The kit's entry point builds `bot = hyperion.ship.make_bot()` behind `make_adapter(bot, rules)`, with
+   everything imported and warmed at module import, not on the first decision; if the kit has no
+   per-table hook, `start()` a throwaway adapter at import so every cache is hot before the first
+   packet. `make_bot()` builds whatever the package records (step 6 packs it with `--bot cheap`:
+   `Hero.cheap()` now; Stage 4 repacks the same entry as the shipped bot). If the kit's hand-end signal
+   carries the hand's actions or every seat's chip change, pass them to `hand_end` (template TODO 8). A variant decision the kit asks for (discard, swap, buy) goes to
    `bot.variant_decide({"decision": ..., "hole": ..., "board": ...})`, never through `act`.
 3. `native_safe` is the kit's check-else-fold, or a legal default when the only legal move is a variant
    move (a discard): fold is illegal there. Every kit call is wrapped so any exception returns it.
@@ -27,14 +29,15 @@ Track A (repo present):
 5. `python -m pytest -q` from the repo root; it must stay green. It takes 3 to 5 minutes and never
    imports `submission/`: run it while step 6 packs.
 6. `python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py
-   submission/rules_tonight.json --note "cheap bot"`: it vendors `hyperion/`, `tables/` and the
-   variant set `rules_tonight.json` names (read its `tables` line), times a fresh-process import (fails
-   over 5 s), checks 100 MB, zips with the entry at the top level, prints the sha256 and writes the
+   submission/rules_tonight.json --bot cheap --note "cheap bot"`: it vendors `hyperion/`, `tables/` and
+   the variant set `rules_tonight.json` names (read its `tables` line), records the bot (`bot cheap`
+   line) in the package's `hyperion/ship.py`, times a fresh-process import and bot build (fails over
+   5 s), checks 100 MB, zips with the entry at the top level, prints the sha256 and writes the
    Submissions row in `NIGHT.md`. If the rules name another layout, match it and say so. Tell me to upload.
 7. After the upload, gate that zip once: `python tools/gate.py dist/submission.zip --kit <a|b|c|d>
-   --tables 30 --hero-config cheap --rules rules_tonight.json` (plus `--variant <name>` if the catalog
-   has it). It imports the zip as the organisers would and plays it in our sim, paired against in-sim
-   `Hero.cheap()`. A kit that is none of the fake kits: first write `submission/gate_seat.py`, class
+   --tables 30 --rules rules_tonight.json` (plus `--variant <name>` if the catalog has it). It imports
+   the zip as the organisers would and plays it in our sim, paired against the bot the package records,
+   in-sim (`baseline bot cheap` line: `Hero.cheap()`). A kit that is none of the fake kits: first write `submission/gate_seat.py`, class
    `Seat` copied from `KitA` in `tools/gate_host.py` with `native` and `parse` changed for this kit, and
    pass `--kit submission/gate_seat.py --kit-module <their kit.py>` (a subprocess kit unlike c or d:
    say the gate cannot run). Required: `GATE PASS`. It proves the reverse adapter now, so Stage 4's gate

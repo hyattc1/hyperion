@@ -24,6 +24,14 @@ almost nothing; blinds reach 200/400 by hand 175 and every table ends in push/fo
 pre-written; the code is pre-designed; the hour wires it to an interface we have never seen and
 applies one patch for the axis the variant moved.
 
+**What we ship.** `hyperion/ship.py` names it: `SHIP = "hybrid3_x"`, rival 3's decision core plus the exploit
+layer behind Hero's shell (adapter, `Rules`, rank remap, the 23 variant hooks, SafeBot). The core makes about
+97% of plain hold'em decisions; Hero plays the 14 tables it cannot represent. It led Hero on every field of the
+final comparison (decisions, "Final core comparison"). Every tool follows that name: the entry's
+`hyperion.ship.make_bot()`, `tools/pack.py`, `tools/gate.py`, `tools/latency.py`, `--field realistic@ship`.
+`--bot hero` on any of them restores Hero; `--bot cheap` is the Stage 2 bot. Dials are one JSON dict
+(`--dials`, or `DIALS` in that file); CONTRACTS.md lists every key.
+
 **The four axes.** Hand-strength ordering · Information · Payoff · Betting structure. Stage 1
 names which one moved; Stage 5 applies that axis's patch. Nothing else in the hour depends on it.
 
@@ -86,8 +94,9 @@ Done at home. Not optional; each item has sunk a drill or will.
 **Prepared**
 - [ ] Laptop plugged in, performance power mode, sleep and lock off, notifications off, phone hotspot.
 - [ ] Repo pulled, `pytest -q` green, hash recorded. `tables/` regenerated this week.
-- [ ] Known-good Hero number written down: `python -m hyperion.sim --tables 300 --seed 11 --mode strict
-      --field realistic`. This is the number to beat tonight.
+- [ ] Known-good number of the shipped bot written down: `python -m hyperion.sim --tables 300 --seed 11
+      --mode strict --field realistic@ship`. This is the number to beat tonight. (Hero's, `--field
+      realistic`, too, for the `--bot hero` fallback.)
 - [ ] Timer alarms: :12, :28, :40, :50, :55.
 - [ ] Printed: this playbook's section 0 and the stage table in section 3, the four kit rubrics
       (`hyperion/drills/fakekits/*/RUBRIC.md`), the organizers' email reply if any.
@@ -103,11 +112,11 @@ Done at home. Not optional; each item has sunk a drill or will.
 | # | Stage | Clock | Driver pastes | Effort | Pass check | If it fails |
 |---|---|---|---|---|---|---|
 | 1 | READ | 0:00–0:05 | `00-briefing` then `01-rule-sheet` with the rules and kit path | xhigh | Rule sheet filled, axis named, assumption diff listed | Verifier answers the agent's questions from the rules text; no code until the sheet exists |
-| 2 | ADAPT | 0:05–0:15 | `02-adapter-and-cheap-bot` | medium | Kit simulator 50 hands: 0 exceptions, 0 illegal, conformance 0 violations, bot folds/calls/raises at least once; `pack.py` zip hashed; after the upload, `tools/gate.py` on that zip: GATE PASS | Adapter clean at 0:12: upload the cheap bot. Not clean: upload the kit's own example bot at 0:12, the cheap bot at 0:17 (one upload per five minutes, §3.5) |
+| 2 | ADAPT | 0:05–0:15 | `02-adapter-and-cheap-bot` | medium | Kit simulator 50 hands: 0 exceptions, 0 illegal, conformance 0 violations, bot folds/calls/raises at least once; `pack.py --bot cheap` zip hashed; after the upload, `tools/gate.py` on that zip: GATE PASS | Adapter clean at 0:12: upload the cheap bot. Not clean: upload the kit's own example bot at 0:12, the cheap bot at 0:17 (one upload per five minutes, §3.5) |
 | 3 | TABLES | 0:15–0:25, only if the FIT VERDICT says REGENERATE | `03-tables` | medium | Generator finished, fingerprint matches, one remapped decision printed sane | Keep old tables; note which Stage 5 patch compensates |
-| 4 | WIRE | 0:25–0:40 | `04-wire-hero` | high | Kit sim 100 hands clean; our strict sim (the Stage 0 command with `--rules rules_tonight.json`): 0 exc, 0 illegal, p99 < 300 µs, over-1 ms rate < 0.3%, Hero within its own CI of the Stage 0 number. Hero vs tag is not the gate. Then `tools/gate.py` on the zip itself: GATE PASS, before this and every later upload | Fallback: resubmit the Stage 2 cheap package unchanged |
-| 5 | PATCH | 0:40–0:50 | `05-variant-patch`, the section for the named axis | xhigh | Same strict sim; points did not drop beyond CI; errors still zero | Revert. Ship without the patch. |
-| — | SUBMIT | 0:50 | — | — | Portal confirms; sha256 in `NIGHT.md`; copy to `frozen/T1` | Resubmit the Stage 2 cheap bot |
+| 4 | WIRE | 0:25–0:40 | `04-wire-hero` | high | Kit sim 100 hands clean; our strict sim (the Stage 0 command with `--rules rules_tonight.json`): 0 exc, 0 illegal, p99 < 300 µs, over-1 ms rate < 0.3%, the ship line within its own CI of the Stage 0 number. Ship vs tag is not the gate. Then `tools/gate.py` on the zip itself (it pairs against the bot the zip records): GATE PASS, before this and every later upload | Only the bot's own line fails: `--bot hero`, same gates. Else resubmit the Stage 2 cheap package unchanged |
+| 5 | PATCH | 0:40–0:50 | `05-variant-patch`, the section for the named axis | xhigh | The same sim in model mode with and without the dials; points did not drop beyond CI; then strict, errors still zero | Revert. Ship without the patch. |
+| — | SUBMIT | 0:50 | — | — | Portal confirms; sha256, bot and dials in `NIGHT.md`; copy to `frozen/T1` | Resubmit the Stage 2 cheap bot |
 | 6 | WINDOWS | after T1, ×5 | `06-windows` with standings pasted | high | One dial, verified in strict sim, submitted by minute 15 of the window | Keep the frozen bot. Submit nothing. |
 
 ### Stage 1: READ (0:00–0:05)
@@ -131,7 +140,8 @@ strings vs ints), street as index vs board length, whether pot includes this str
 as total vs increment, legal-action names, how "check" is spelled, seat numbering, where the button
 is, and whether a per-table init exists for warm-up. The kit rubrics list these per fake kit.
 
-Upload at 0:12 if the adapter is clean. If it is not, upload the kit's own example bot at 0:12 and the
+The entry builds `hyperion.ship.make_bot()` from the start and the package is built with `--bot cheap`, so
+Stage 4 is a repack of the same entry, not an edit. Upload at 0:12 if the adapter is clean. If it is not, upload the kit's own example bot at 0:12 and the
 cheap bot at 0:17, because §3.5 allows one upload per five minutes and two uploads inside the same
 five minutes are impossible. A bot on the board is the single most valuable thing in the hour: from
 that minute we cannot score zero. The adapter runs with `HYPERION_CHECK=1` so translation bugs the
@@ -151,30 +161,35 @@ If the axis did not move, skip to Stage 4 and say so in `NIGHT.md`. Drill 2 skip
 
 ### Stage 4: WIRE (0:25–0:40)
 
-Swap the cheap bot for `make_bot()`. Verify in this order: kit simulator, our strict sim on the
-realistic field, duplicate-dealt rotation, latency under load, import time from a fresh process, then
-the zip. The strict sim measures the simulator's own Hero, which the engine feeds its full history;
-`tools/gate.py` measures what we upload: it imports the zip as the organisers would, plays it through
-the kit interface, and pairs it against in-sim Hero on the same deals. Drill 6's upload was 2.5 points
+Repack the Stage 2 entry without `--bot cheap`: the package then records the shipped bot. Verify in this
+order: kit simulator, our strict sim on the realistic field (`--field realistic@ship`), duplicate-dealt
+rotation, latency under load, import time from a fresh process, then the zip. The strict sim measures the
+simulator's own copy of the bot, which the engine feeds its full history; `tools/gate.py` measures what we
+upload: it imports the zip as the organisers would, plays it through the kit interface, and pairs it
+against the same bot in-sim on the same deals (the hybrid3_x zip on fake kit A: -0.22 ± 0.48, PASS). Drill 6's upload was 2.5 points
 behind its sim Hero (its adapter dropped the history) and nothing else saw it; the gate fails it. If the
 engine cannot represent the variant, run the standard game, caption every result "variant minus X", and
 let Stage 5 carry the difference.
 
-The fallback is not "fix Hero." It is the Stage 2 cheap package, resubmitted unchanged. (A "cheap
+The fallback is not "fix the bot." When the adapter is clean and only the shipped bot's own line fails,
+Hero is one flag away (`--bot hero` on pack and gate, `--field realistic` in the sim) and passes the same
+gates. Otherwise it is the Stage 2 cheap package, resubmitted unchanged. (A "cheap
 bot plus profiler" middle option does not exist in the code and is not worth building in the hour.)
 
 ### Stage 5: PATCH (0:40–0:50)
 
-One axis, one patch, as `Config` overrides or a single small function. The axis sections in
-`05-variant-patch.md` are the pre-reasoned fixes. Re-run the strict sim; keep only if points did not
-drop beyond the confidence interval and errors stayed at zero. Drill 2's lesson: when the sim is
+One axis, one patch, as dials or a single small function. The axis sections in `05-variant-patch.md`
+are the pre-reasoned fixes; on the shipped bot most axes either move a table Hero plays whole (its patch as
+`hero.<key>` dials) or need nothing, and antes are the core's one dial set. Run the sim in model mode with
+and without the dials; keep only if points did not drop beyond the confidence interval, then strict, errors
+zero. A kept patch goes into `DIALS` in `hyperion/ship.py`, so every tool and the package carry it. Drill 2's lesson: when the sim is
 blind to what the patch compensates for (it could not play antes), the prompt's own revert rule
 fires and the patch is dropped. That is correct behaviour, not a failure. Ship unpatched rather than
 ship unverified.
 
 ### Submit and freeze (0:50)
 
-Submit Hero. Hash it. `cp` it to `frozen/T1`. Write the hash and minute in `NIGHT.md`. From 0:55 to
+Submit the shipped bot. Hash it. `cp` it to `frozen/T1`. Write the hash and minute in `NIGHT.md`. From 0:55 to
 1:00 touch nothing; re-read the submission rules once: under 100 MB, no network, entry point named
 exactly as the kit wants.
 
@@ -188,7 +203,7 @@ nothing; there is no retry inside the window (§3.5). Minutes 15 to 20: three
 lines in `NIGHT.md`.
 
 Hard rules: one change per window; no new modules; nothing unverified; timeouts or errors in any log
-override everything (switch to `Config.cheap=True`, verify, submit). Tournaments 5 and 6 are 52% of
+override everything (the dial `{"cheap": true}`: every decision Hero's cheap path; verify, submit). Tournaments 5 and 6 are 52% of
 the score: the bot that plays T6 should be a bot that has already played T4 or T5 clean.
 
 ---
@@ -221,13 +236,32 @@ BROKEN = exceptions. Full table with VPIP, bust rate and reasons: `docs/decision
 | Payoff | bounty, knockout_bounty, top_heavy, hi_lo | | hi_lo plays high only; bounty reads only our own posted rank |
 | Betting | pot_limit, antes_from_level_3, fixed_raise, fast_schedule, straddle | | antes and straddle feed `stack_bb` |
 
-22 READY, 1 PLAYS, 0 WEAK, 0 BROKEN as of 2026-10-31. If the real twist is none of these, the nearest
+22 READY, 1 PLAYS, 0 WEAK, 0 BROKEN as of 2026-10-31. The shipped bot (hybrid3_x) and Hero with the exploit layer
+are both 23 READY, first on 22 (final core comparison, 2026-11-01); on hybrid3_x Hero plays 14 of these tables
+whole and the core plays the other nine (permuted ranks, swaps, bonus card, antes, pot limit, fast schedule,
+straddle after the preflop, top_heavy). If the real twist is none of these, the nearest
 entry on its axis is the recipe; if it is not hold'em underneath, the FIT VERDICT sends us to the cheap bot.
 
 ## 5. The signal table (what a window does)
 
-| Standings say | Likely cause | Dial |
-|---|---|---|
+The dial is a dials dict for the shipped bot (hybrid3_x); measure it with `--field realistic@ship --dials`,
+keep it in `DIALS` in `hyperion/ship.py`. Each was checked in a paired run (realistic field unless named, 200
+tables, model mode; decisions, "Ship hybrid3_x as the base"): the play moves as stated, and on our fields no dial
+gains points beyond noise, so a dial is a response to tonight's standings, not a free improvement. The last
+column is the same dial for Hero, if Hero is what we ship (`--bot hero`).
+
+| Standings say | Likely cause | Dial (shipped bot) | What it did in the check | Hero (`--bot hero`) |
+|---|---|---|---|---|
+| Many firsts, many 7th/8th | busting early, too willing to gamble | `{"r3.call_margin": 0.03, "r3.call_edge": 0.16, "r3.raise_shift": 0.05, "r3.three_bet_scale": 0.7}` | all-in calls 16% to 10%, 3-bets 6.3% to 4.4%, folds to a postflop bet 62% to 67%; points -0.04 ± 0.23. Not `r3.push_margin`: 0.03 cut short-stack shoves from 72% to 22% and busts rose | raise `preflop.patience_deep`, raise `postflop.icm_margin` and `postflop.big_value_tier`, lower `preflop.three_bet_frac` |
+| Mid-table, few firsts, few lasts | too passive for this field | `{"r3.open_late_scale": 1.3, "r3.bluff_scale": 1.3}` | cutoff and button opens 58% to 61%, bets when checked to 56% to 59%; points -0.04 ± 0.17 | raise `preflop.open_frac` for the last two seats, raise `postflop.cbet_freq_ip_dry` |
+| Many near-zero scorers in the field | lots of dead/timing-out bots | `{"r3.prior_scale": 0.5}` (reads move sooner) | `timeouts` field: opens 56% to 58%, late opens 57% to 61%; points +0.12 ± 0.18, busts -4.5 ± 5.3 | lower `profiler_blend_n` (8 to 4) so reads act sooner; raise `profiler_dial_strength` |
+| Top scores bunched, field tight | strong field | none: keep the frozen bot | `top` field: Hero's recipe on the core (`r3.open_scale` 0.85 with `r3.prior_scale` 0.5) -0.48 ± 0.33 and busts +11 ± 7.5; each half alone -0.05 and -0.22 | lower `preflop.open_frac_default`, keep `preflop.patience_deep` up, lower `profiler_blend_n` |
+| Any timeout or error in our log | we are the problem | `{"exploit": null}` if latency is the cause (the layer's ~6 µs), else `{"cheap": true}` (every decision Hero's cheap path); verify, submit, then investigate | `cheap`: -1.86 ± 0.38 points, busts +32%: an emergency dial | `Config.cheap=True`, verify, submit, then investigate |
+
+Step sizes: `r3.push_margin` is steep (0.01 cut short-stack shoves by 7 points, 0.03 by 50), `r3.open_scale`
+1.25 / 0.8 moved opens by +3 / -2 points, `r3.bluff_scale` 1.4 / 0.6 moved bets when checked to by +5 / -8.
+
+---|---|---|
 | Many firsts, many 7th/8th | busting early, too willing to gamble | raise `preflop.patience_deep`, raise `postflop.icm_margin` and `postflop.big_value_tier`, lower `preflop.three_bet_frac` |
 | Mid-table, few firsts, few lasts | too passive for this field | raise `preflop.open_frac` for the last two seats, raise `postflop.cbet_freq_ip_dry` |
 | Many near-zero scorers in the field | lots of dead/timing-out bots | lower `profiler_blend_n` (8 to 4) so reads act sooner; raise `profiler_dial_strength` |
