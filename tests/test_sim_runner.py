@@ -55,3 +55,25 @@ def test_cli_runs(capsys):
     assert main(["--tables", "2", "--seed", "1", "--bots", "tag,nit", "--mode", "measure"]) == 0
     out = capsys.readouterr().out
     assert "hands/s" in out and "nit" in out
+
+
+def test_variant_seed_picks_the_permutation_apart_from_the_table_seed(monkeypatch):
+    from hyperion.drills import variants
+    from hyperion.sim import runner
+
+    seen = []
+    real = runner.run_tournament
+
+    def spy(names, tables, seed, rotate, mode, rules, **kw):
+        seen.append((seed, tuple(rules.rank_order), tuple(kw["variant"].rules.rank_order)))
+        return real(names, tables, seed, rotate, mode, rules, **kw)
+
+    monkeypatch.setattr(runner, "run_tournament", spy)
+    base = ["--tables", "1", "--bots", "tag,nit", "--mode", "measure", "--variant", "permuted_ranks", "--seed", "11"]
+    assert main(base) == 0
+    assert main(base + ["--variant-seed", "0"]) == 0
+    perm11 = tuple(variants.get("permuted_ranks", seed=11).rules.rank_order)
+    perm0 = tuple(variants.get("permuted_ranks", seed=0).rules.rank_order)
+    assert perm11 != perm0
+    assert seen[0] == (11, perm11, perm11)  # default unchanged: the table seed also picks the permutation
+    assert seen[1] == (11, perm0, perm0)  # --variant-seed: same tables, the seed-0 permutation

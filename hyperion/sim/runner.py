@@ -3,6 +3,7 @@
 `python -m hyperion.sim --tables 1000 --seed 1 --bots tag,nit,station,maniac --rotate`
 `python -m hyperion.sim --tables 125 --seed 7 --field realistic --rotate`   (named 8-bot fields)
 `python -m hyperion.sim --tables 300 --field realistic --variant short_deck`  (catalog entry: its Rules + hooks)
+`python -m hyperion.sim --tables 300 --seed 11 --variant permuted_ranks --variant-seed 0`  (seeded entry, own seed)
 
 Seats: the named bots are placed in a seeded random order per table; names beyond the table size
 are dropped, fewer are filled with random copies of the names given (the tournament fills with
@@ -304,6 +305,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     p.add_argument("--rules", default="default", help="'default' or a json file of Rules fields")
     p.add_argument("--variant", default=None, metavar="NAME",
                    help="a hyperion.drills.variants catalog entry: plays its Rules (unless --rules is a file) and hooks")
+    p.add_argument("--variant-seed", type=int, default=None, metavar="N",
+                   help="seed for a seeded variant (permuted_ranks' permutation); default --seed, so the table seed "
+                        "also picks the permutation unless this is given")
     p.add_argument("--profile", action="store_true", help="print the hottest functions afterwards")
     p.add_argument("--list", action="store_true", help="list bot names and exit")
     p.add_argument("--hero-config", default=None, help="JSON (inline or file) of dotted hero Config overrides")
@@ -321,7 +325,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if a.variant:
         from ..drills import variants as _variants
 
-        variant = _variants.get(a.variant, seed=a.seed)
+        variant = _variants.get(a.variant, seed=a.seed if a.variant_seed is None else a.variant_seed)
         if a.rules == "default":
             rules = variant.rules
     try:
