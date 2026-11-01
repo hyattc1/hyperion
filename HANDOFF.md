@@ -14,6 +14,14 @@ fake kits, tooling, five drills) is in good shape; Track A (bring the repo) is t
 
 ## What was running when this was written, and how to relaunch each
 
+**Running as of 2026-11-01 00:30 ET (three Opus agents, launched from the coordinating session):**
+- Mid-phase aggression pass: Hero's 10–25 bb preflop volume (steals by fold-to-steal read, light 3-bets
+  from the blinds, per-seat re-shove read), rival 2 the main target. Running log, committed per screen:
+  `docs/drills/aggression-pass-log.md`. Owns `hyperion/strategy/*`, `tools/sweep.py`. Relaunch from the log.
+- Red-team rival 3 (exploitation-first, built blind in 60 minutes) in the session scratchpad `redteam3/`;
+  integration as `rival3` (a holdout, never tuned on) follows once it freezes.
+- Drill 5 follow-ups (item 4 below), then drill 6: Track A on kit A with toss_or_holdem, on a pinned copy.
+
 Agents commit as they finish tasks. If one was killed, `git log` shows what landed; the rest is below.
 
 ### 1. Deep Hero pass: DONE in substance, cut off by the Opus 5-hour limit (resets 1:30 PM ET) while writing its
