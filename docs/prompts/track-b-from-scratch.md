@@ -1,7 +1,7 @@
-# Track B: the from-scratch specification, v2 (paste after prompt 00)
+# Track B: the from-scratch specification, v2.1 (paste after prompt 00)
 
-Build in this order. After every step run the gate (at the end), zip `submission.py` at the top
-level, submit. Stdlib only.
+Build in this order. After every step run the gate (at the end), zip `submission.py` at top level,
+submit. Stdlib only.
 
 **Definitions.** Cards are ints 0..51 = rank*4 + suit, rank 0 = deuce, 12 = ace. `k` = players dealt
 in between you and the button clockwise: button 0, cutoff 1, hijack 2. Buckets: late k ≤ 1; middle k
@@ -28,7 +28,7 @@ offsuit 12) ranked by heads-up equity.
 - Deeper than 12 bb: open premium from any seat to 2.5 bb plus one bb per limper; open playable from
   k ≤ 2, button only when fewer than six are dealt in. Facing a raise that is not a shove: call with
   premium; 3-bet to three times it with QQ+ and AK. Facing a shove: call with TT+ and AK; 77+ and AQ
-  when the shover is short or has shoved three times already.
+  when the shover is short.
 - Under 12 bb: push (raise to the maximum) or fold. Push premium or playable from any seat; under
   8 bb also any ace and any king with a suited or T+ kicker. Facing a raise: re-shove with premium,
   else fold. Facing a shove: the call rule above.
@@ -41,65 +41,67 @@ offsuit 12) ranked by heads-up equity.
   (category, tiebreak tuple), sort, assign strength 1..7462; key a non-flush dict by the product of
   rank primes (2,3,5,7,11,13,17,19,23,29,31,37,41) and a flush dict by the 13-bit rank mask. For 6 and
   7 cards build a dict from the prime product of all cards to the best 5-card strength (rank multisets
-  with at most 4 of a rank; about 0.2 s on Python 3.12). If any suit has 5+ cards, look up
-  its rank mask in a mask table for 5, 6 and 7 bits; with 7 or fewer cards that lookup is final; with
-  8 take the max of both paths. Verify against brute force on 3,000 random 7-card hands. Step 3
-  is its real consumer.
+  with at most 4 of a rank; about 0.2 s). If a suit has 5+ cards, look its rank mask up in a 5-, 6-
+  and 7-bit mask table: final with up to 7 cards; with 8 take the max of both paths. Verify against
+  brute force on 3,000 random 7-card hands.
 - Profiler: per seat, counters with a Beta prior of 2 pseudo-observations at the population rate:
   VPIP (0.3), PFR (0.15), folded facing a bet (0.5), shoved (0.05); raise rate = raises over all
   observed actions, no prior. Update only from the per-decision history diff (entries since your
   previous decision this hand; keep an index, reset on a new hand number) and from reported
   showdowns. Never infer what you did not see. If the kit gives no history at hand end (kit A:
-  unseen folds, seen raises), count at most one observation per seat per hand per counter and double
-  the floors. Flags: dead = five bets faced, all folded, at least one free check, no raise ever;
-  station = fold-to-bet under 0.15 after 10 bets faced; maniac = raise rate over 0.5 after 10
-  actions; nit = VPIP under 0.12 after 20 hands dealt in.
+  unseen folds, seen raises) or none at all, count at most one observation per seat per hand per
+  counter and double the floors. With none at all (kit B), diff each seat's active flag and committed
+  chips between your observations (after a street change, against that street's last): went
+  inactive = fold; committed to a new high = raise (shove at zero behind); matched = call; your own
+  raise is the bet others face. Flags: dead = five bets faced, all folded, at least one free check,
+  no raise ever; station = fold-to-bet under 0.15 after 10 bets faced; maniac = raise rate over 0.5
+  after 10 actions; nit = VPIP under 0.12 after 20 hands dealt in.
 - Exploits: when every opponent left in the hand is flagged dead, raise any two preflop and bet every
   street when checked to. Station: bet 75 percent with top pair kicker T+; medium (top pair, worse
   kicker) checks to the river, then bets 75 percent. Maniac: call down with top pair, never fold an
-  overpair. Nit: steal its blinds with any two from k ≤ 1; fold to its raises without QQ+/AK.
+  overpair. Nit: steal its blinds with any two from k ≤ 1; fold to its raises without QQ+/AK. With
+  sparse history flags form late or never: exploits unchanged, unflagged seats get the charts.
 
 ## Step 2b (minutes 30–33): flags once per hand
-- Compute every seat's flags once per hand, at your first decision of it, into a list by seat; later
+- Compute every seat's flags once per hand, at your first decision, into a list by seat; later
   decisions read the list. Counter updates stay per decision. Re-run `bench.py`.
 
 ## Step 3 (by minute 45): equity table, charts and the ICM curve
-- At import, Monte Carlo the 169 classes versus 1 and versus 3 random opponents with the evaluator,
-  2,000 samples each (about 3 s; over a 5 s import cut to 1,000, never lower). A class's percentile
-  is the combo-weighted share ranked above it. `test_bot.py` asserts QQ above JJ, TT above 99,
+- At import, Monte Carlo the 169 classes versus 1 and versus 3 random opponents, 2,000 samples each
+  (about 3 s; over a 5 s import cut to 1,000, never lower). A class's percentile is the
+  combo-weighted share ranked above it. `test_bot.py` asserts QQ above JJ, TT above 99,
   A3o outside the top 12 percent.
 - Replace the lists. Open the top 15 percent early, 25 middle, 40 late; defend the
   BB with the top 35 versus one raise; every other call of a raise keeps the premium list. Push by
-  effective stack: under 5 bb top 60 from any seat; 5–8 top 40 from any seat; 8–12: 25 early, 35
+  effective stack: under 5 bb top 60, 5–8 top 40, from any seat; 8–12: 25 early, 35
   middle, 45 late. Call shoves with the top 12, 20 against a flagged maniac; equity vs 1 when one
   opponent is all-in, vs 3 when two or more have money in.
 - ICM curve. V(stacks) = your Malmuth-Harville points over the live stacks and the point table;
-  never run it inside `act` (about 50 µs). Once per hand build a curve: for your stack times 0.5, 1
-  and 2, scale the opponents pro rata so the total is unchanged and evaluate V; add 0 = the points
-  for busting now and all the chips = first place, both free. Decisions interpolate V(x)
-  linearly. Do the three evaluations at `new_game` and in the untimed hand-end
-  callback, from the stacks it passes or, when it passes only your chip change (kit A), from your
-  new stack and the opponents' last-seen chips scaled to the remaining total. No hand-end callback
-  at all: compute at your first decision of the hand.
+  never run it inside `act` (about 50 µs). Once per hand build a curve: V at your stack times 0.5, 1
+  and 2 (opponents scaled pro rata, total unchanged), plus 0 = the points for busting now and all the
+  chips = first place; decisions interpolate V(x) linearly. Evaluate at `new_game` and in the untimed
+  hand-end callback, from the stacks it passes (only your chip change, kit A: your new stack and the
+  opponents' last-seen chips scaled to the rest); with no callback, at your first decision of a hand.
 - Gate: before calling an all-in or re-shoving over a raise, never before an open shove (it has fold
   equity), require e·V(stack + win) + (1 − e)·V(stack − risk) > V(stack) + 1e-6: e from the table,
   win = the pot with every bet and your call, risk = the call (a re-shove risks your stack).
 
 ## Step 3b (minutes 45–50): push rule from the equity table
-- Add a third column after the first two: equity versus one opponent dealt from the top 12 percent
-  (1,000 samples, about 1 s). Under 12 bb replace the push percentiles: S = effective stack, b =
-  seats behind you, c = 0.12 per seat (0.20 for a flagged maniac, 0.08 a nit), p = (1 − c)^b, e = the
-  third column, blinds = 1.5 bb plus antes: push when p·V(S + blinds) + (1 − p)·(e·V(2S + blinds) +
-  (1 − e)·V(0)) > V(S) + the value of 0.1 bb. Sanity: the push set widens as S and b fall; 22 from
-  the button at 10 bb pushes; 72o from early at 12 bb does not. On failure keep step 3's percentiles.
+- A third column: equity versus one opponent from the top 20 percent (1,000 samples, about 1 s).
+  Under 12 bb, unraised, push on chip EV (bb) instead of percentiles: S = effective stack, B =
+  the pot (1.5 plus antes and limps), c = each live opponent's call chance (0.2; maniac 0.3, nit 0.1,
+  dead 0), p = the product of (1 − c), e = the third column: push when
+  p·B + (1 − p)·(e·(2S + B) − S) > 0 (not V: ICM folds 22 here; it stays on calls). Sanity, 8
+  players: button 10 bb about 38 percent, 22 in; early 12 bb about 12, 72o out; wider with fewer
+  bb or opponents. On failure keep step 3's percentiles.
 
 ## Step 4 (if time remains): the variant patch, Track B form
 - Strength: done in step 0. Payoff (bounty, side pot): add its expected value to the pot in
   every all-in comparison and in pot odds; widen percentiles one class for qualifying hands while
-  the payoff is at least one bb. Betting: antes join the blinds in the push rule; pot limit clamps
+  the payoff is at least one bb. Betting: antes join B in the push rule; pot limit clamps
   sizes. Information (extra hole cards): class = best two cards, thresholds one bucket tighter.
-- Nothing local measures the patch (the kit's dealer rarely pays the twist): gate for
-  legality, record it unverified, keep the pre-patch zip as the fallback.
+- Nothing local measures the patch (the kit's dealer rarely pays the twist): gate for legality,
+  record it unverified, keep the pre-patch zip as the fallback.
 
 ## The gate (every step, before every zip)
 1. Kit runner, 50 hands: zero exceptions, zero illegal actions, timeouts within 1 percent.
