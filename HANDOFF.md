@@ -77,6 +77,13 @@ from its brief below and `git log`.
   hybrid3_x and Hero zips both gated PASS on kit A. The kit B rehearsal found that the gate failed every bot on kits with
   no action log; fixed (`--kit-log`). Open: without a log both bots lose 0.6-0.9 points a table; an adapter that infers
   the missing actions is the next lever (decisions entries "Ship hybrid3_x as the base" and its addendum).
+- Action-log inference: DONE. On a kit with no log, or a partial one, every adapter rebuilds the hand's log from the
+  states (`hyperion/drills/infer_history.py`; the night-of agent writes no history code). It wins back 86-95% of the
+  0.56-0.92 points a table the missing log cost (realistic Hero +0.66, hybrid3_x +0.86; night +0.48, +0.53; 200 x 8,
+  paired). Precision 100%; recall 100% at decisions, preflop 75% after our last one. Gate PASS on kits B (-0.06 ±
+  0.34) and A (-0.20 ± 0.55); `--kit-log no` now pairs against the rebuild, and a zip without it fails (-0.80). With
+  it hybrid3_x leads Hero on a no-log kit as with the log (realistic +0.14 ± 0.12, night level). Decisions entry
+  "Infer the action log on kits without one".
 
 Agents commit as they finish tasks. If one was killed, `git log` shows what landed; the rest is below.
 

@@ -8,7 +8,8 @@ Same adapter and `rules_tonight.json`. Verify in this order, pasting every outpu
 1. Kit's local simulator, 100 hands, `HYPERION_CHECK=1` (run it with the ship bot: the entry's
    `make_bot()` reads the repo's `hyperion/ship.py` outside a package): zero exceptions, illegal actions
    and conformance violations (`history_raise` and `history_prefix` included: the bot reads raises from
-   the history), under 0.3% of decisions over 1 ms.
+   the history; on a kit with no or a partial log also `history_infer` and `history_gap`, the rebuilt log),
+   under 0.3% of decisions over 1 ms.
 2. Print one flop decision of `make_bot()` through the adapter on remapped cards (state built from a round
    start, or the pot reads 0). Then `python -m hyperion.sim --tables 300 --seed 11 --mode strict
    --field realistic@ship --rules rules_tonight.json` (and `--variant <name>` if the catalog has tonight's

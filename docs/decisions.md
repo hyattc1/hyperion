@@ -2883,3 +2883,119 @@ registered, its two half-tables seated 17, which is 56 cards at three hole cards
 - No measurement of anything against rival 5.
 - No strict-mode night run: the host was at load 40-60 throughout, so strict timeouts would have measured the host.
 - The pool weights are a guess. Re-weigh them when the regional's field is known.
+
+## Infer the action log on kits without one (2026-11-01, builder: action-log inference)
+
+**Why.** The base-switch rehearsal found that a kit with no action log costs both bots 0.6 to 0.9 points a table.
+Their opponent reads go blind: Hero's raise counts and profiler, the exploit layer's fold streaks and dead or
+timing-out seats, rival 3's seat reads. The real kit's interface is unknown. Fake kit B has no log; fake kit A has
+one at our decisions but nothing after our last one. Every kit does show, at each of our decisions, each seat's
+in-hand flag, chips behind, chips in this street and the pot. That is enough to rebuild the log.
+
+**What landed** (598148d, bacce90, ca19c55, 4de1cfd, f2181b3 and the docs commit after this entry).
+- `hyperion/drills/infer_history.py`, `HistoryInference`. It replays the engine's betting procedure with each
+  seat's action as the unknown:
+  - blinds and straddle posted, who still has to act, full and short raises, the order from the button;
+  - between two of our decisions each other seat acts at most once a street, so the change settles it: out of the
+    hand = fold, more chips to a new high = raise to that total, to the high (or all-in below it) = call, nothing
+    more and still in where the order says it was asked owing nothing = check;
+  - across a street change, the old street's last bets come from the chips behind;
+  - every observation is checked against the state the walk predicts. An action the states do not settle is a gap,
+    and the log stops there for the hand. Example: a big blind that owed nothing preflop and is out by our flop
+    turn folded its free option or checked and folded to the flop bet; both fit.
+  - our own reply is read back from the next state like any other seat's.
+- Hand end. The bot's hand end carries the log up to our last decision and our reply as sent. The folds after it are
+  added when the kit shows how the hand ended: every seat's deltas or final stacks, and the showdown. A seat that
+  owed chips, put nothing more in and was not shown folded. With chip counts alone, only a whole fold-out to one
+  seat with nobody all-in is accepted. A kit whose hand end says nothing still shows every seat's stack in the next
+  hand's first state (`chips_after_hand`). So when some seat owed chips after our reply, `Adapter` holds the hand
+  end and delivers it at the top of that decision, with every seat's deltas.
+- `Adapter` (every reference adapter and entry, and the template) runs it on every decision.
+  - `history_source = "log"`: the kit's log as it is. `"partial"`: some actions, merged where they overlap the
+    rebuilt prefix. `"bets"`: none; make_observation's raises-from-bets stand-in is dropped.
+  - Kit D's round end goes through it with every delta and the shown hands.
+  - The night-of agent writes no history code.
+- `tools/gate.py --kit-log no` (auto for fake kits b, c, d) seats the in-sim baseline behind `InferSeat`, the same
+  rebuild on the bare states (kit d: with its deltas and showdowns). An upload that loses the rebuild now fails.
+  `--kit-log bets` keeps the old `NoLogSeat` baseline for packages from before it.
+- Conformance checks the history the bot reads: `history_infer` (it must explain the bets unless it stopped at a
+  gap, and grow within a hand) and `history_gap` (gaps in more than 5% of hands: the state translation disagrees
+  with the betting). The demo's pot-includes-bets adapter stops at a gap in 25 of 50 hands.
+- `python -m hyperion.drills.infer_eval`: the paired measurement below, and `--check` for precision and recall.
+
+**Correctness** (the rebuilt log against the engine's, on real sim tables; `--check`, hand end as the adapter gets
+it on a kit that says nothing):
+
+| field / bot (40 tables) | decision entries | false | recall at decisions | hand-end entries | false | hand-end recall: preflop / flop / turn / river |
+|---|---|---|---|---|---|---|
+| realistic / Hero | 24,400 | 0 | 100% every street | 21,847 | 0 | 75.5 / 53.5 / 45.4 / 33.2% |
+| realistic / hybrid3_x | 19,213 | 0 | 100% every street | 19,480 | 0 | 74.0 / 43.2 / 35.3 / 24.9% |
+| night / Hero | 27,416 | 0 | 100% every street | 24,614 | 0 | 75.4 / 57.5 / 50.9 / 40.3% |
+| night / hybrid3_x | 23,294 | 0 | 100% every street | 23,467 | 0 | 75.0 / 47.7 / 41.5 / 34.0% |
+
+- Precision is 100%: no entry it emitted was false. Hand end without holding it for the next state: preflop
+  recall 63%; with every seat's deltas, 76%; with the showdown too, 83%.
+
+- Property test (`tests/test_infer_history.py`): 160 random tables, 2 to 8 seats, any stacks, antes, straddles, no,
+  pot and fixed limit, folds with a free check, odd raises and all-ins, from every seat, all four hand-end modes:
+  no false entry.
+- Kit B end to end (engine, kit B's dict, KitBAdapter, the bot): the bot's log equals the engine's at every
+  decision; held hand ends carry every seat's true deltas.
+- Gaps: 0 in 4,500 sim hands; 1 in 50 on fake kit B's dealer (the big blind's free option above).
+
+**What it wins back** (model mode, 200 seeds x 8 rotations, paired; the bot in Hero's seat):
+
+| field / bot | no log | rebuilt | full log | the log's cost | won back | left |
+|---|---|---|---|---|---|---|
+| realistic / Hero | 5.27 | 5.93 | 5.97 | 0.70 ± 0.10 | **+0.66 ± 0.10 (95%)** | 0.04 ± 0.08 |
+| realistic / hybrid3_x | 5.21 | 6.07 | 6.13 | 0.92 ± 0.13 | **+0.86 ± 0.12 (94%)** | 0.06 ± 0.10 |
+| night / Hero | 5.20 | 5.68 | 5.75 | 0.56 ± 0.09 | **+0.48 ± 0.10 (86%)** | 0.08 ± 0.09 |
+| night / hybrid3_x | 5.17 | 5.70 | 5.75 | 0.58 ± 0.13 | **+0.53 ± 0.13 (92%)** | 0.05 ± 0.10 |
+
+"No log" is `NoLogSeat` (the gate's baseline before this: the street's raises from the bets, a bare hand end);
+"rebuilt" is `InferSeat` on the same bare states, the hand end held as the adapter holds it; "full log" is the
+engine's. The won-back and left columns are paired, seed for seed.
+
+- With the rebuild, the two bots compare on a no-log kit as they do with the log. hybrid3_x - Hero on realistic:
+  -0.06 ± 0.13 with no log, +0.14 ± 0.12 rebuilt, +0.17 ± 0.13 with the full log. On night: -0.03, +0.03, -0.01,
+  all ± 0.12. The rehearsal's caveat (on a kit without a log the bots are level, leaning Hero) no longer holds.
+
+- The rebuild wins back 86% to 95% of what the missing log cost. What is left is within noise on every row.
+- Holding the hand end for the next state adds 0.08 to 0.25 of it. Without the hold (`infer_none`: the hand end at
+  once, with the log up to our reply) the rebuild wins back 58% to 79% (Hero 0.41 / 0.32, hybrid3_x 0.66 / 0.46 on
+  realistic / night).
+- Holding every hand end (`infer_all`, every seat's deltas every hand) gains nothing over holding only those
+  where a fold can be settled. So `hold_all` stays off.
+
+**Cost.** Measured through KitBAdapter on real tables at load 5:
+- the inference is 12 µs a decision at the median, p99 40-50 µs;
+- a held hand end runs the bot's own hand end (Hero's ICM curve, the profiler's dials, rival 3's replay) inside the
+  next hand's first decision: 55-80 µs median, p99 130-240 µs, on about 70% of the hands we act in (those where a
+  seat owed chips after our reply; hybrid3_x 1,363 of 1,913).
+- `defer_hand_end = False` moves it back outside the clock and gives up the 0.08 to 0.25 above. Do that if the
+  gate's timeouts say so.
+
+**Gate** (fake kits, 100 strict tables, seed 11, the reference entries packed from 4bbd794):
+
+| zip (hybrid3_x, reference entry) | kit | baseline in-sim | package | baseline | paired | timeouts, p99 | gate |
+|---|---|---|---|---|---|---|---|
+| `make_kit_b_module()` | B, no log | the rebuild (`InferSeat`) | 6.09 | 6.15 | -0.06 ± 0.34 | 0.03%, 300 µs | **PASS** |
+| `KitAAgent` | A, log at our decisions | the full log | 6.03 | 6.23 | -0.20 ± 0.55 | 0%, 256 µs | **PASS** |
+| kit B with the rebuild switched off | B, no log | the rebuild | 5.53 | 6.33 | **-0.80 ± 0.52** | 0%, 99 µs | **FAIL** |
+
+- 0 exceptions and 0 illegal actions on all three; load 6. The base-switch rehearsal's hybrid3_x zip scored 5.21 through
+  kit B on the same seed and field; this one 6.09.
+- The third row is the check that the gate now catches an upload whose adapter drops the rebuild.
+
+**Limits.**
+- Gaps stop the log for the rest of the hand; they are rare on the engine's rules. A kit whose dealer differs (dead
+  button, blinds in the log, a seat asked with nobody left to bet into) shows up as gaps, and conformance names it.
+- After our last decision only folds are settled, and only up to the first seat that put more in. Hand-end recall
+  preflop is about 75%; the rest are unknown, never guessed.
+- The partial-log merge needs the kit's entries to overlap the rebuilt prefix by at least one entry.
+- Variants that change chips mid-hand were not in the measurement. Payouts at hand end are safe: the fold-out test
+  then fails and nothing is added.
+
+**Not done.**
+- No quiet-host strict timing of a held hand end inside the decision clock.
+- Track B's spec keeps its own no-history clause; it was not changed.

@@ -13,7 +13,8 @@ Track A (repo present):
    action): pass those, `history_source = "partial"`. None: leave `history` out, `history_source =
    "bets"`. For "partial" and "bets", `Adapter.decide` rebuilds the hand's log from the states it sees
    (`hyperion/drills/infer_history.py`: every fold, call, check and raise between our decisions; never an
-   action that did not happen). It is worth 0.4 to 0.7 points a table over the bets alone. Do not write
+   action that did not happen). It wins back 0.5 to 0.9 points a table, 86-95% of what a missing log
+   costs. Do not write
    your own rebuild and do not override `decide`; the rebuild needs TODO 3 (pot), 6 (seats, in_hand) and
    the stacks exactly right. Drill 6's empty history cost 2.5 points a table.
 2. The kit's entry point builds `bot = hyperion.ship.make_bot()` behind `make_adapter(bot, rules)`, with

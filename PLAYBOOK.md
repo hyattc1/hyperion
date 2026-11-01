@@ -155,9 +155,9 @@ What the kit shows of the betting is the second thing to read off its interface,
 read every fold, call, check and raise from `obs.history`: Hero's raise counts, the profiler, the exploit layer's
 dead and timing-out seats, rival 3's seat reads. A full log goes in as `history` (`history_source = "log"`); part
 of one as `"partial"`; none as `"bets"`. For the last two the adapter rebuilds the log from the states
-(`hyperion/drills/infer_history.py`), so the agent writes no history code at all. Without the rebuild a kit with no
-log costs 0.6 to 0.9 points a table. With only our own chip change at hand end, the adapter holds the hand end for
-the next state, whose stacks show who folded after us. The conformance report's history line counts the hands where
+(`hyperion/drills/infer_history.py`), so the agent writes no history code at all. A kit with no log cost 0.56 to
+0.92 points a table; the rebuild wins back 86% to 95% of it. With only our own chip change at hand end, the adapter
+holds the hand end for the next state, whose stacks show who folded after us. The conformance report's history line counts the hands where
 the rebuild stopped at a gap; a high count means a translation bug in the pot, bets or in-hand flags.
 
 ### Stage 3: TABLES (0:15–0:25, conditional)
@@ -345,6 +345,13 @@ Step sizes: `r3.push_margin` is steep (0.01 cut short-stack shoves by 7 points, 
   -0.14 ± 0.23 realistic, -0.12 ± 0.26 judge). With the log, hybrid3_x leads. Every r3.* dial moves play the stated
   way; none gains points beyond noise on our fields; Hero's strong-field recipe loses on the core (-0.48 ± 0.33).
 
+- Action-log inference (2026-11-01, 200 seeds x 8, paired, model mode): on a kit with no log the adapter rebuilds the
+  log from the states. What the missing log cost and what the rebuild wins back: realistic Hero 0.70 / +0.66,
+  hybrid3_x 0.92 / +0.86; night Hero 0.56 / +0.48, hybrid3_x 0.58 / +0.53 (86-95%; the rest within noise). Every
+  emitted entry true over 94,000 decision entries and a random-hand property test. Fake kit B zip gate PASS -0.06 ±
+  0.34 against the rebuild in-sim; kit A PASS -0.20 ± 0.55; a zip without the rebuild FAILS (-0.80 ± 0.52). With it,
+  hybrid3_x - Hero on a no-log kit is what it is with the log (realistic +0.14 ± 0.12, night level).
+
 **Unverified**
 - Track B spec v2 (step 0 rank map, steps 2b and 3b, the value-curve ICM, the p99 gate). Drill 3
   ran v1; its minute 4 / 9 / 17 timings are the only Track B evidence.
@@ -413,6 +420,7 @@ The track is decided in Stage 0, never on the night.
 | 2026-11-01 | Gate the packaged bot: `tools/gate.py` plays the zip itself (fresh `python -I`, kit interface, paired against in-sim Hero); Stage 2 runs it once on the cheap zip, the Stage 4 gate and hard rule 3 before every upload. Drill 6's upload fails it (-2.46 ± 0.76), the history-fixed repack passes (-0.22 ± 0.40). Conformance checks history; `pack.py` vendors the active variant's tables itself (`--tables-dir` is an override); `latency.py` deals the rules' cards | gate pass |
 | 2026-11-01 | Evidence: final core comparison; hybrid3_x leads Hero on every field, recommended, owner to decide | final comparison |
 | 2026-11-01 | The ship switch (`hyperion/ship.py`, provisionally hybrid3_x; section 0 "What we ship", `--bot hero` restores Hero); window recipes that resolve for whichever bot it names; Stage 2's entry builds `hyperion.ship.make_bot()` packed `--bot cheap`, so Stage 4 is a repack; sim lines `--field realistic@ship`; the gate pairs against the bot the zip records and, on a kit with no action log, gives the baseline what the kit gives (`--kit-log`); Stage 5 and 6 changes are dials dicts kept in `DIALS`; section 5 rewritten with the core's dials as checked, Hero's keys alongside, no dial for a strong tight field; section 6 evidence | base switch |
+| 2026-11-01 | Infer the action log on kits without one: every adapter rebuilds the hand's log from the states when the kit has no log or part of one (`history_source` "bets" / "partial"; `hyperion/drills/infer_history.py`), holds a bare hand end for the next state's stacks, and conformance reports `history_infer` / `history_gap`; Stage 2 reads what the kit shows of the betting, section 4 says a kit with no log needs no patch, prompt 02 steps 1, 2, 4, 7 and prompt 04 step 1 follow; `tools/gate.py --kit-log no` pairs against the rebuild (`--kit-log bets` is the old baseline); wins back 86-95% of 0.56-0.92 points a table; section 6 evidence | action-log inference |
 
 ---
 
