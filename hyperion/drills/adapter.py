@@ -63,11 +63,16 @@ class Adapter:
         except Exception:  # noqa: BLE001
             return self.native_safe(native)
 
-    def hand_end(self, hand_no: int, delta: int, n_players: int | None = None) -> None:
+    def hand_end(self, hand_no: int, delta: int, n_players: int | None = None, history=None, deltas=None) -> None:
+        """The hand is over. Pass what the kit's hand-end signal carries: `history` [(seat, Action)] for the whole
+        hand and `deltas` (every seat's chip change) when it has them. The shipped bot's core (rival 3) replays the
+        hand's history here to read the actions after our last decision, as the simulator gives it."""
         try:
-            deltas = [0] * (n_players or max(1, self.seat + 1))
-            deltas[self.seat] = delta
-            self.bot.hand_end(HandResult(hand_no=hand_no, deltas=deltas, showdown={}, board=(), history=[]))
+            if deltas is None:
+                deltas = [0] * (n_players or max(1, self.seat + 1))
+                deltas[self.seat] = delta
+            self.bot.hand_end(HandResult(hand_no=hand_no, deltas=list(deltas), showdown={}, board=(),
+                                         history=list(history or [])))
         except Exception:  # noqa: BLE001
             pass
 

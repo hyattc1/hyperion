@@ -119,3 +119,26 @@ def test_ship_seats_in_the_simulator_with_its_dials():
         assert seat.impl.core.cfg.r3.open_scale == 1.1
     finally:
         B.REGISTRY.pop("ship", None)
+
+
+def test_adapter_hand_end_passes_the_kits_history_and_deltas():
+    """A kit whose hand-end signal carries the actions gives them to the bot (rival 3 replays them at hand end)."""
+    from hyperion.core.types import Action
+    from hyperion.drills.adapter import Adapter
+
+    got = []
+
+    class Bot:
+        def new_table(self, *a):
+            pass
+
+        def hand_end(self, result):
+            got.append(result)
+
+    ad = Adapter(Bot())
+    ad.start(1, 3)
+    ad.hand_end(4, 30)
+    hist = [(0, Action.raise_to(60)), (1, Action.call())]
+    ad.hand_end(5, -60, history=hist, deltas=[60, -60, 0])
+    assert got[0].deltas == [0, 30] and got[0].history == []
+    assert got[1].deltas == [60, -60, 0] and got[1].history == hist and got[1].hand_no == 5
