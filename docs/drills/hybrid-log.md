@@ -273,3 +273,39 @@ only replaces passive actions (a check postflop; a fold or check preflop), so it
 already took; its fires are counted as `exploit:<spot>`. Bestiary: `hybrid_x`, `hybrid3_x` (the layer with Hero's
 shipped params: the same as `hybrid` / `hybrid3` while Hero ships every spot off). The rival 2 hybrid stays
 bit-identical (563 decisions, same sha as v1.1 at 7e51197). Full suite 661 passed.
+
+## 04:43-05:14: round 2, all three candidates on the same seeds (200 x 8, seed 7, model mode, SafeBot panic off)
+
+Protocol change, and why: the host swung from load 2 to 35 under other sessions. In strict mode that moves the
+Monte Carlo and timeout bots' timeouts (so the field itself) and SafeBot's panic, and it did so differently for runs
+made at different times. Mode "model" (the engine's deterministic timeout model, 72440a6) folds the bots that model
+a cost over budget and never folds a bot on the wall clock; panic is off for every Hero, Hero clone and hybrid
+(`panic_after` 10^9), as in the exploit pass's screens. Timing is measured separately, in strict mode, with all three
+candidates seated at one table so they share the load. Worktree: 4973806 with `hyperion/strategy` at 7e51197.
+Hero runs and the hybrid runs of a field ran side by side. Ranks are among the field's bot names.
+
+| field | Hero 7e51197 (rank) | hybrid3 (rank) | hybrid3 - Hero | hybrid (rank) | hybrid - Hero |
+|---|---|---|---|---|---|
+| realistic | 5.528 ± 0.092 (2) | 5.984 ± 0.102 (1) | **+0.456 ± 0.126** | 5.526 ± 0.105 (2) | -0.002 ± 0.118 |
+| top | 4.648 ± 0.102 (4) | 4.892 ± 0.100 (2) | **+0.244 ± 0.138** | 5.064 ± 0.111 (1) | **+0.415 ± 0.132** |
+| top2 | 4.474 ± 0.102 (4) | 4.871 ± 0.115 (2) | **+0.397 ± 0.135** | 5.055 ± 0.105 (1) | **+0.581 ± 0.151** |
+| strong | 5.132 ± 0.104 (1) | 5.458 ± 0.117 (1) | **+0.326 ± 0.143** | 5.129 ± 0.107 (1) | -0.003 ± 0.136 |
+| realistic, brief 10/7/5/4/3/2/1/0 | 5.575 ± 0.144 (2) | 6.202 ± 0.170 (1) | **+0.628 ± 0.197** | 5.503 ± 0.163 (2) | -0.072 ± 0.188 |
+| top, brief 10/7/5/4/3/2/1/0 | 4.281 ± 0.148 (3) | 4.448 ± 0.159 (2) | +0.167 ± 0.204 | 4.563 ± 0.147 (2) | **+0.282 ± 0.191** |
+| realistic, top_heavy | 20.891 ± 0.879 (2) | 24.725 ± 1.015 (1) | **+3.834 ± 1.243** | 20.336 ± 0.925 (2) | -0.555 ± 1.116 |
+| top, top_heavy | 13.600 ± 0.815 (3) | 14.724 ± 0.830 (3) | **+1.123 ± 1.097** | 14.753 ± 0.768 (3) | **+1.153 ± 1.055** |
+
+Mirrors (same protocol; uniform 4.50):
+
+| room | Hero 7e51197 | hybrid3 | hybrid | hybrid3 - Hero | hybrid - Hero |
+|---|---|---|---|---|---|
+| candidate + 7 rival3 (candidate's points) | 4.312 ± 0.111 | 4.467 ± 0.070 | 4.996 ± 0.112 | +0.155 ± 0.136 | +0.684 ± 0.158 |
+| rival3 + 7 candidates (rival3's points, lower is better) | 4.833 ± 0.101 | 4.531 ± 0.077 | 4.053 ± 0.111 | -0.301 ± 0.128 | -0.780 ± 0.148 |
+| candidate + 7 rival2 (candidate's points) | 3.714 ± 0.099 | 4.084 ± 0.112 | 4.585 ± 0.082 | +0.370 ± 0.138 | +0.871 ± 0.125 |
+| rival2 + 7 candidates (rival2's points, lower is better) | 5.108 ± 0.095 | 4.985 ± 0.111 | 4.437 ± 0.089 | -0.124 ± 0.144 | -0.671 ± 0.127 |
+
+Readings. hybrid3 beats Hero on every room above, by more than noise on realistic (+0.46), top2 (+0.40), strong
+(+0.33) and the payout variants of realistic; it is first on realistic, strong and both realistic payout tables, and
+second to the rival 2 hybrid on top and top2. The rival 2 hybrid is level with Hero on realistic and strong and ahead
+in the rival rooms (top +0.42, top2 +0.58), as in round 1. Against rival 3 copies the rival 2 hybrid is the strongest
+bot here (5.00 alone among seven rival 3s; rival 3 alone among seven of it, 4.05).
