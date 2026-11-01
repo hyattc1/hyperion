@@ -1098,8 +1098,9 @@ for _name, _members in OPTIONAL_FIELDS.items():
 # seating with the table seed alone, so the bot sits where Hero sat, with the same deals and the same opponents' seeds:
 # `judge@hybrid3` - `judge` is paired seed for seed. Any field with one `hero` and any registered bot not already
 # seated works through field_names(); the candidate cores' judge swaps are also listed in FIELDS so that
-# `python -m hyperion.sim --field judge@hybrid3` accepts them. Hero with the exploit layer is `hero` with dotted
-# overrides (`--hero-config`, run_tournament's hero_config), in Hero's own seat.
+# `python -m hyperion.sim --field judge@hybrid3` accepts them. Hero with and without the exploit layer stays `hero` in
+# Hero's own seat: it ships with the layer; `--hero-config '{"exploit.bet_checked": false, "exploit.steal": false,
+# "exploit.steal_min_fold": 0}'` turns it off. Not on a hybrid run: the hybrids' fallback Hero takes HERO_CONFIG too.
 JUDGE_CANDIDATES = tuple(c for c in ("hybrid", "hybrid_x", "hybrid3", "hybrid3_x") if c in REGISTRY)
 
 

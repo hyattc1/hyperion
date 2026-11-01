@@ -40,7 +40,7 @@ not the bot's: see section 4.
 | Size | 657 lines (598 non-blank non-comment; three of them are the table literals, 18 KB), one file, stdlib only |
 | Rival's own engine, frozen file, 500 tables per field (uniform = 4.00; the rival's ± is one standard error) | weak 7.29 ± 0.12, mid 6.89 ± 0.12, strong 5.74 ± 0.14, mixed 6.08 ± 0.13, chaos 6.78 ± 0.11, pros 5.61 ± 0.14. It (or its second copy, SELF, in strong, mixed and pros) is first in every field |
 | Self-reported at the freeze | median 28 us, p99 73-150 us (load), import 0.015 s |
-| **In our engine** (`rival4`, rivals only; `docs/decisions.md`, "Rival 4 in the pool (the judge)") | see section 8 |
+| **In our engine** (`rival4`, rivals only, 1,600 duplicate tables, seed 7; `docs/decisions.md`, "Rival 4 in the pool (the judge)") | `judge_top` with tag in Hero's seat: rival3 4.97, rival2 4.93, rival4 4.82, rival1 4.82 (each pair within noise; rival4 - rival3 -0.15 ± 0.16). rival4 + 7 tag 6.08 ± 0.10 (+1.80 over tag). p50 15-22 us; over 1 ms 0.03-0.09% strict at load 11-14, 0 in mode "model" by construction |
 
 The rival's fields (`run.py`; its own archetypes from `bots.py` plus the bot, one seat each, random seats, no
 duplicate deals): weak = Random, Push, Station, Maniac, Folder (always folds: a dead seat), SemiSane, Tight; mid =
@@ -413,5 +413,20 @@ and nobody tunes on it. The measurements in this report and in the decisions ent
 
 ## 8. In our engine
 
-Integration (adapter, fields) and the rivals-only measurements are in `docs/decisions.md`, "Rival 4 in the pool (the
-judge)".
+Details, tables and scripts: `docs/decisions.md`, "Rival 4 in the pool (the judge)". Rivals only; no candidate core
+was seated next to it beyond smoke tests. 1,600 duplicate tables per run, seed 7, uniform 4.50.
+
+- **Adapter.** `bestiary.Rival4Bot` passes `Rules.payouts` in the rules dict (the rival reads it, so its ICM is exact
+  for our 8..1) and the hand's history at hand_end, as rival 3's adapter does. Its own engine passed neither.
+- **Fields.** `judge` = `holdout` with rival 4 in rival 3's seat; `judge_top` = hero and the four rivals with pushfold,
+  tag and loose_aggro. `judge@<bot>` / `judge_top@<bot>` seat a candidate in Hero's seat, paired seed for seed.
+- **Against the other rivals** (`judge_top`, tag in Hero's seat, strict): rival3 4.97, rival2 4.93, rival4 4.82,
+  rival1 4.82; rival4 - rival1 +0.00 ± 0.16, - rival2 -0.11 ± 0.15, - rival3 -0.15 ± 0.16. Level within noise. It
+  wins fewest (12% firsts against 22-27%) and busts least (79% of seats against 66-68%).
+- **Among seven tags:** 6.08 ± 0.10, 46% firsts, +1.80 ± 0.11 over tag.
+- **Adapter choices** (mode "model", same seeds): the payouts are worth +0.01 ± 0.09 on `judge_top` and -0.11 ± 0.05
+  among seven tags (it scores more pricing on the brief's table there); the history +0.09 to +0.11.
+- **Latency and timeouts.** p50 15-22 us, p99 89-138 us through the adapter; 0 exceptions, 0 illegal in 3.3 million
+  decisions. Strict: over 1 ms on 0.03-0.09% of decisions at load 11-14 and 0.40-0.56% at load 20-27, tracking the
+  host. Mode "model" folds only bots that report a modelled cost; rival 4 reports none, so it never times out
+  there by construction.

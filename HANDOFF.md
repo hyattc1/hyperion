@@ -34,6 +34,8 @@ Hero's, robust across the three payout tables. The owner makes the final call on
 - Hybrid candidate: DONE. `hybrid` (rival 2's core behind Hero's shell, `hyperion/hybrid/`) vs frozen Hero 7e51197:
   holdout -0.12 ± 0.13, realistic -0.11 ± 0.13, top +0.27, top2 +0.45; 1.5-3x Hero's timeouts. Recommendation: keep
   Hero, the switch is the owner's call (decisions entry "Hybrid candidate", log `docs/drills/hybrid-log.md`).
+- Rival 4 (the judge): integrated as `rival4`, fields `judge` and `judge_top`, hero seat swapped by `judge@hybrid3` etc.;
+  never tuned on; measured once in the final comparison (decisions entry "Rival 4 in the pool (the judge)").
 
 Agents commit as they finish tasks. If one was killed, `git log` shows what landed; the rest is below.
 

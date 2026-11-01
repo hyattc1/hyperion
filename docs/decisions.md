@@ -1851,3 +1851,138 @@ follow-up), and Hero's next lever (heads-up postflop), where the aggression pass
   submission's import takes several seconds. This applies to the hybrid and to `rival2` alike.
 - Not measured: MicroAgent against the hybrid; the hybrid in `top3`; the hybrid's play is reproducible only where the
   sampler's wall budget never binds (multiway spots and preempted calls are time-boxed).
+
+## Rival 4 in the pool (the judge) (2026-11-01)
+
+**What landed** (`fa51655` archive, `c477b22` report, `0d660dc` adapter, fields and tests). Red-team drill 4's bot
+(`docs/drills/redteam/redteam-4.md`) was built blind in 41 minutes against the same brief and kit as rivals 1 to 3,
+with no access to this repository or to any earlier rival, and with **no assigned philosophy** ("the strongest team in
+the room, build whatever scores most"). It is 657 lines, stdlib only, and is in the simulator as `rival4`. Its design:
+exact ICM at every all-in decision, read from the payout table it is given; an embedded 169-class equity table;
+push/fold at 8 bb or less; postflop equity from the made hand plus outs, with no Monte Carlo; and a per-seat model of
+three counters that flags seats that never play.
+
+**It is the judge.** It decides between the candidate cores in **one final comparison**: Hero, `hybrid` (rival 2's
+core) and `hybrid3` (rival 3's core), each with and without the exploit layer. Until then:
+- no candidate (Hero, a Hero preset, any hybrid) sits next to it beyond the smoke tests in `tests/test_sim_rival4.py`;
+- nobody tunes on it or on `judge` / `judge_top`;
+- no leak analysis of any candidate against it.
+
+Everything measured below is rivals only.
+
+`hyperion/sim/rivals/rival4.py` is the frozen file (md5 `28a0655f...`) below a seven-line origin header.
+`bestiary.Rival4Bot` is the shared kit adapter with two differences, both things the brief's kit may pass:
+- new_table's rules dict carries `payouts` (`Rules.payouts`). The rival reads it (keys `payouts`, `points`, ...),
+  so its ICM prices all-ins on the table that scores it, not the brief's 10/7/5/4/3/2/1/0 hard-coded by rivals
+  1 to 3. Its decomposition (base x players outlasted + bonuses for first and top two) is exact for any table whose
+  places from third down are equal steps. Operator check against brute-force Harville: exact to 1e-13 for the brief's
+  table and for our 8..1, off by up to 5.3 points on top_heavy with 4 or more alive.
+- hand_end passes the hand's history in the kit's `(seat, (kind, amount))` shape, as rival 3's adapter does. Rival 4
+  counts each seat's VPIP, raises and shoves from it.
+
+Its own engine passed neither. The shared rules dict moved into `RivalBot.kit_rules`, unchanged for rivals 1 to 3.
+
+Fields:
+- `judge` = `holdout` with rival 4 in rival 3's seat, seat for seat (so `realistic`'s bots with rival 4 for rival 1):
+  hero, rival4, montecarlo30, montecarlo, pushfold, loose_aggro, tag, timeout_then_recover;
+- `judge_top` = hero, rival1, rival2, rival3, rival4, pushfold, tag, loose_aggro.
+
+No other field changed.
+
+**The hero seat is swapped by name: `<field>@<bot>`.** `bestiary.field_names("judge@hybrid3")` returns the field with
+`hybrid3` in Hero's seat and every other entry unchanged. The runner shuffles a field's seating with the table seed
+alone, so the swapped bot sits exactly where Hero sat, with the same deals and the same opponents' seeds:
+`judge@X - judge` is paired seed for seed, as `realistic_h - realistic` is. It works for any field with one `hero` and
+any registered bot not already seated (a bot seated twice would merge in the report, so that is refused). The eight
+judge swaps for `hybrid`, `hybrid_x`, `hybrid3` and `hybrid3_x` are also listed in `FIELDS`, so
+`python -m hyperion.sim --field judge_top@hybrid3_x` works. Hero with or without the layer stays in Hero's own seat:
+- `hero` ships with the layer since `1957983`;
+- `--hero-config '{"exploit.bet_checked": false, "exploit.steal": false, "exploit.steal_min_fold": 0}'` switches it
+  off (7e51197's behaviour).
+
+Do not pass `--hero-config` on a hybrid run: the hybrids' fallback Hero takes it too.
+
+`tests/test_sim_rival4.py` has 12 tests:
+- 300 hands of eight copies, with its exception swallowing unwrapped;
+- the strict timeout rate (< 1%; skips if a fixed 30-us loop overruns too);
+- mode "model" never folds it;
+- the payouts and its ICM through the adapter;
+- the hand_end history round trip;
+- the folder flag;
+- push/fold sanity and reproducibility;
+- the fields and the swap;
+- one 12-table strict smoke run per judge field (conservation and legality only; no number from them is read).
+
+**Measurements (rivals only).** 1,600 duplicate tables each (`--tables 200 --rotate --seed 7`), from a clean worktree
+at `0d660dc`, two at a time. Hero's seat is taken by `tag`, so `judge_top` here seats two tags (one line in the
+report). Uniform is 4.50. Paired deltas are means of per-seed differences, with 95% intervals. Script:
+`rival4_measure/measure4.py` in the session scratchpad. It refuses any candidate name; raw output and per-seed samples
+are beside it.
+
+`judge_top` with tag in Hero's seat, strict, load 11-14:
+```
+bot             n    pts  ±95%    p1   p2   p3   p4   p5   p6   p7   p8  bust%   tmo   exc   ill safe_err safe_over  p50us  p99us  maxus  1st_us
+rival3        200  4.968 0.127    27   11    8    9   10   12   12   11   67.0   297     0     0        0         0     28    158  14323    4047
+rival2        200  4.932 0.110    22   14    9   10   11   11   13   10   68.2  1415     0     0        0         0    124    627  27294    5980
+rival4        200  4.822 0.085    12   13   15   15   16   14    9    6   79.2   229     0     0        0         0     22    128  10708     287
+rival1        200  4.819 0.124    26   13    7    6    8   12   14   13   66.0   198     0     0        0         0     21    116  15734     789
+tag           200  4.400 0.058     1   13   18   19   16   13   11    9   88.8    73     0     0        0         0      3     16  11125     211
+pushfold      200  4.194 0.088     2   14   16   14   14   13   12   14   86.8    51     0     0        0         0      4     20  12053    1176
+loose_aggro   200  3.466 0.114     7   10    8    7    9   12   18   29   85.6    28     0     0        0         0      3     12   4839     219
+```
+
+Paired, strict: rival4 - rival1 **+0.003 ± 0.163**, rival4 - rival2 **-0.109 ± 0.153**, rival4 - rival3 **-0.145 ±
+0.158**, rival4 - tag +0.423 ± 0.107. The other rivals: rival3 - rival1 +0.149 ± 0.196, rival3 - rival2 +0.036 ± 0.184,
+rival1 - rival2 -0.113 ± 0.171.
+
+Same seeds in mode "model", where nobody at this table is folded for time: rival4 4.802, rival2 4.985, rival3 4.925,
+rival1 4.785. Paired: rival4 - rival1 +0.018 ± 0.165, rival4 - rival2 -0.182 ± 0.146, rival4 - rival3 -0.123 ± 0.156.
+
+rival4 + 7 tag: rival4 **6.076 ± 0.098** (46% firsts, busts in 28.5% of seats); paired rival4 - tag **+1.801 ± 0.112**.
+Model mode: 6.071, +1.795 ± 0.112.
+
+The two adapter choices, same seeds, mode "model" (no timeouts at these tables, so the pairs are clean). A first pass
+in strict mode ran at load 20-27, where the timeouts rose 3-20x.
+| rival4 with ... minus without | `judge_top` (tag in Hero's seat) | rival4 + 7 tag |
+|---|---|---|
+| payouts passed (8..1) vs withheld (the brief's table) | +0.014 ± 0.089 | **-0.105 ± 0.050** (6.07 vs 6.18; 46% vs 51% firsts) |
+| hand_end history passed vs withheld | +0.090 ± 0.082 | +0.106 ± 0.085 |
+
+**Latency and timeouts in our engine.**
+- Through the adapter, rival 4 decides in p50 22 us (15 us among seven tags), p99 128-138 us (89-122 us).
+- 0 exceptions and 0 illegal actions in 3.3 million decisions over the 12 runs; no bot had any.
+- Strict (wall clock), at load 11-14:
+  - rival 4 is over 1 ms on 0.085% of decisions on `judge_top` and 0.026% among seven tags;
+  - at the same moments: tag 0.017%, rival1 0.077%, rival3 0.115%, rival2 0.56%.
+- Strict at load 20-27: rival 4 0.40% / 0.56%, rival1 0.36%, rival3 0.49%, rival2 2.3%, tag 0.07%.
+
+The rate follows the host. In the gate re-run it matched a fixed 30-us loop call for call (report §4).
+
+**Mode "model" cannot model rival 4, and says so by construction.** The mode folds or checks a bot only when the bot
+reports a modelled cost for the decision in `last_cost_ns`. Only the Monte Carlo and timeout bots do. Rival 4
+reports none, like rivals 1 to 3, Hero and the hybrids, so it is never folded for time there: 0 timeouts by
+construction. Its wall-clock time is still recorded: 0.03-0.43% of its decisions took over 1 ms of wall time in those
+runs, all of it host preemption. Its own work (table lookups, a few 1.3-us ICM calls, no sampler, no replay) never
+comes near the budget. A cost model for it would report a constant ~20 us and fold nothing, which is what the mode
+does already. So in mode "model" the judge never times out. In strict mode it times out about as often as a 30-us
+loop on the same host.
+
+**What it says.**
+1. *The rival built with no philosophy is level with the other three on `judge_top`.* Strict: 4.82, against
+   4.82-4.97 for rivals 1 to 3, every pair inside its interval. In mode "model" rival 2 gains (it is not folded for
+   its 0.56% overruns), and rival4 - rival2 is -0.18 ± 0.15.
+2. *Its style is different.* It wins the fewest tables of the four (12% firsts, against 22-27%). It busts the least
+   (in 79% of seats, against 66-68%) and is last the least (6%). Its ICM on our linear table values only outlasting.
+   It keeps that profile with the brief's table too (13% firsts), so the style is its own, not the table's.
+3. *Giving it our payout table does not help it.* On `judge_top` there is no difference. Against seven tags it scores
+   0.11 more pricing all-ins on the brief's top-heavy table, which plays for first more often. We pass the payouts
+   anyway, so it is judged on the table we play.
+4. *The history at hand_end is worth about +0.1 to it,* less than the +0.22 it is worth to rival 3. Its model is
+   three counters.
+
+**Not done here.**
+- No candidate is measured against rival 4, and none is tuned on it: not Hero, not a Hero preset, not a hybrid.
+- No `judge` run with a non-candidate in Hero's seat (not on the list).
+- No rival tuning, and no twists.
+- Every earlier field is unchanged.
+- The judge is never tuned on. It is measured once, in the final comparison.
