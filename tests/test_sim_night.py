@@ -6,6 +6,7 @@ import hashlib
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ import pytest
 from hyperion.core.types import Rules
 from hyperion.sim import bestiary as B
 from hyperion.sim.field import night as N
+from hyperion.sim.engine import play_table
 from hyperion.sim.runner import run_tournament
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,12 +27,19 @@ FROZEN = {  # registry name -> (archived original, copy in the package, header l
                      "8d684a439cabe518f86a1c471e343d2b"),
     "agent_default": ("docs/drills/field/agent_default_bot.py", "hyperion/sim/field/agent_default.py", 6,
                       "cd47da88b88071e7e1e7665aea06db41"),
+    "agent_montecarlo": ("docs/drills/field/agent_montecarlo_bot.py", "hyperion/sim/field/agent_montecarlo.py", 6,
+                         "653c9c29fe77708d6318d237ca88e17c"),
+    "agent_pushfold": ("docs/drills/field/agent_pushfold_bot.py", "hyperion/sim/field/agent_pushfold.py", 6,
+                       "d221bdd6e5ae76aa6c152fb2fa614490"),
 }
 SCRUBBED = {"trackb3", "trackb5"}  # the event's name dropped from the first docstring line for the public export
 # how to let each persona bot's exceptions through to the engine (each wraps its own act() in a try)
 PERSONA_UNWRAP = {
     "agent_charts": lambda cls, mp: mp.setattr(cls, "DEBUG", True),
     "agent_default": lambda cls, mp: mp.setattr(cls, "act", lambda self, obs: self._safe(obs, self._act(obs))),
+    "agent_montecarlo": lambda cls, mp: mp.setattr(
+        cls, "act", lambda self, obs: self._sanitize(self._act(obs, time.perf_counter()), obs)),
+    "agent_pushfold": lambda cls, mp: mp.setattr(cls, "DEBUG", True),
 }
 JUDGES = {"rival4", "rival5"}
 NOT_IN_POOLS = JUDGES | {"hero", "hero_tight", "hero_loose", "hybrid", "hybrid3", "hybrid_x", "hybrid3_x", "micro"}
@@ -101,14 +110,17 @@ def test_draw_is_the_same_in_another_process_with_another_hash_seed():
 def test_composition_follows_the_weights_where_groups_do_not_run_out():
     c = N.composition("night", 4000)["group"]
     assert abs(sum(c.values()) - 7) < 1e-9
-    # the agent group has only the Track B bots until the persona bots are registered, so it runs out at two seats
-    # and passes its share on; the other groups keep their ratio
     agent_members = [b for b, _ in N.members("night")[0][2]]
-    assert c[N.AGENT] <= len(agent_members) + 1e-9
-    assert 1.6 < c[N.WEAK] / c[N.DECENT] < 2.4  # 30% : 15%
-    assert 0.8 < c[N.STRONG] / c[N.DECENT] < 1.25  # 15% : 15%
+    assert set(agent_members) == set(N.PERSONAS) | set(N.TRACK_B)
+    for g, share in ((N.AGENT, 0.40), (N.WEAK, 0.30), (N.DECENT, 0.15), (N.STRONG, 0.15)):
+        assert abs(c[g] / 7 - share) < 0.02, (g, c[g])  # no group runs out: 40/30/15/15 of the seven seats
     hard = N.composition("night_hard", 4000)["group"]
     assert hard[N.STRONG] > 1.6 * c[N.STRONG] and hard[N.WEAK] < 0.5 * c[N.WEAK]
+    by_bot = N.composition("night_hard", 4000)["bot"]
+    assert by_bot["agent_default"] > 1.3 * by_bot["trackb3"]  # persona bots twice the Track B bots' weight
+    # night0 keeps the stand-in version: the agent group is the two Track B bots and runs out at two seats
+    c0 = N.composition("night0", 4000)["group"]
+    assert c0[N.AGENT] <= 2 + 1e-9 and 1.6 < c0[N.WEAK] / c0[N.DECENT] < 2.4
 
 
 def test_pool_seat_reads_the_table_seed_from_the_runner_seat_seed(monkeypatch):
@@ -253,3 +265,35 @@ def test_persona_bots_play_legal_poker_with_their_exceptions_let_through(name, m
     assert st.calls > 300 and st.exceptions == 0 and st.illegal == 0, st.last_error
     bot.new_table(Rules(), 3, 8)  # the adapter passes payouts and history, which the brief allows
     assert bot.kit_rules(Rules(), 8)["payouts"] == list(Rules().payouts)
+
+
+def test_agent_montecarlo_leaves_the_collector_on_samples_from_its_own_seat_rng_and_can_replay_exactly(monkeypatch):
+    import gc
+
+    from hyperion.sim.field import agent_montecarlo as m
+
+    bot = B.make_bot("agent_montecarlo", 5)
+    assert gc.isenabled()  # it disables the collector at import; field.load turns it back on
+    names = ["agent_montecarlo", "agent_pushfold", "tag", "station", "maniac", "nit", "naive", "random"]
+
+    def once():
+        bots = [B.make_bot(n, seed=s) for s, n in enumerate(names)]
+        r = play_table(bots, Rules(), seed=11, mode="model")
+        return r.points, r.hands, r.stacks
+
+    monkeypatch.setattr(B.AgentMonteCarloBot, "STEP_US", 3.5)
+    assert once() == once()  # its clock advances 3.5 us a read: sample counts no longer follow the host
+    bot.new_table(Rules(), 0, 8)
+    bot.act(_flop_obs())
+    assert m._rand == bot._rand and m._perf == bot._clock  # bound into the module before its decision
+
+
+def _flop_obs():
+    from hyperion.core.types import ActionKind, Observation, parse_cards
+
+    n = 8
+    return Observation(hole=parse_cards("AsKd"), board=parse_cards("Ah7c2d"), street=1, seat=0, button=7,
+                       stacks=[1900] * n, bets=[0] * n, in_hand=[True, True] + [False] * 6, pot=200, to_call=0,
+                       min_raise=20, max_raise=1900, legal=frozenset({ActionKind.FOLD, ActionKind.CHECK,
+                                                                      ActionKind.RAISE}), hand_no=3,
+                       blinds=(10, 20), history=[])

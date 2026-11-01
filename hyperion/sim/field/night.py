@@ -31,9 +31,13 @@ judges), and anything optional (`micro`).
 that still have an undrawn member, then a member of it proportional to its weight; no bot is drawn twice. A group that
 runs out passes its share to the others pro rata. The generator is seeded with "<pool>:<table seed>" (string seeds are
 hashed with SHA-512, so the draw is the same in every process and Python build). A member that is not registered is
-skipped. The persona bots join `night` and `night_hard` together, on the commit that sets PERSONAS_IN_POOL once all
-four are frozen, so `night` changes once; `night0` never has them (the stand-in version shipped before they froze, kept
-so runs made on it can be repeated).
+skipped. The persona bots joined `night` and `night_hard` together once all four were frozen (PERSONAS_IN_POOL), so
+`night` changed once; `night0` never has them (the stand-in version shipped before they froze, the two Track B bots
+carrying the agent group, kept so runs made on it can be repeated).
+
+Seats per table that the draw gives (20,000 tables): `night` 2.81 agent builds, 2.11 weak or broken, 1.05 decent, 1.03
+strong (the 40/30/15/15 of seven); `night_hard` 3.26 / 0.72 / 1.08 / 1.94 (strong runs short of 2.1 because it has three
+members); `night0` 1.82 / 2.61 / 1.28 / 1.28 (two agent builds at most).
 
 **Pairing.** A PoolSeat reads the table seed from the seat seed the runner gives every bot (table_seed * 64 +
 rotation * 8 + seat; tools/gate.py uses table_seed * 64 + seat), so all rotations of a deal and every `night@<bot>`
@@ -53,7 +57,7 @@ AGENT, WEAK, DECENT, STRONG = "one-hour agent builds", "weak or broken", "decent
 
 PERSONAS = ("agent_default", "agent_montecarlo", "agent_charts", "agent_pushfold")
 # the persona bots join the pools together, once all four are frozen and registered, so `night` changes once
-PERSONAS_IN_POOL: tuple = ()
+PERSONAS_IN_POOL: tuple = PERSONAS  # all four frozen and registered (2026-11-01 14:21)
 TRACK_B = ("trackb3", "trackb5")
 _WEAK_MEMBERS = (
     ("montecarlo", 3.0),  # honest 200 rollouts: times out on most postflop decisions

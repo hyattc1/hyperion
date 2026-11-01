@@ -12,6 +12,7 @@ from __future__ import annotations
 import dataclasses
 import os
 import random
+import sys
 import time
 from typing import Optional
 
@@ -1148,6 +1149,52 @@ class AgentChartsBot(PersonaBot):
     MODULE = "agent_charts"
 
 
+class AgentMonteCarloBot(PersonaBot):
+    """Persona `agent_montecarlo`: a three-person team that insisted on Monte Carlo equity against the players still in
+    the hand, compared with pot odds, as fast as pure Python allows. Preflop from equity tables simulated at import
+    (seeded); postflop a sampler with a 0.18 ms wall-clock budget and an early stop; no charts, no ICM, no bluffs.
+    Frozen at minute 46. Three adaptations, all about running in one process with every other bot:
+    - it calls gc.disable() at import, process-wide; hyperion.sim.field.load turns the collector back on (in the
+      tournament it runs alone in its process);
+    - its sampler draws from the global `random.random`, shared here with everything else in the process; each seat
+      gets its own generator seeded from the seat seed, bound into the module before each decision;
+    - its clock is the wall clock (as built). STEP_US, when set, replaces it with a clock that advances STEP_US per
+      read, so its sample counts no longer follow the host: 3.5 us is the CPU time of one four-trial block between
+      its clock checks on this box (0.8-1.1 us a trial, 1-3 opponents), so it then samples as on a quiet host and
+      replays exactly. Off by default."""
+
+    MODULE = "agent_montecarlo"
+    STEP_US: Optional[float] = None
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)  # hyperion.sim.field.load turns the garbage collector back on after the import
+        self.mod = sys.modules[type(self.impl).__module__]
+        self._rand = random.Random((seed or 0) * 1_000_003 + 0xF2).random
+        self._now = 0.0
+
+    def _clock(self) -> float:
+        self._now += self.STEP_US * 1e-6
+        return self._now
+
+    def act(self, obs: Observation) -> Action:
+        m = self.mod
+        m._rand = self._rand
+        if self.STEP_US is not None:
+            m._perf = self._clock
+        elif m._perf is not time.perf_counter:
+            m._perf = time.perf_counter
+        return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
+
+
+class AgentPushFoldBot(PersonaBot):
+    """Persona `agent_pushfold`: an ICM push/fold quant team. Exact Malmuth-Harville ICM (the brief's 10/7/5/4/3/2/1/0,
+    hard-coded), push charts typed from memory of Nash charts with a bubble-factor adjustment, ICM-required equity to
+    call shoves from an embedded 169-class equity table, tiered postflop. Frozen at minute 46. Reads no rules and
+    nothing at hand_end; one RNG with a fixed seed; a 260 us wall-clock guard before its heaviest jam EV."""
+
+    MODULE = "agent_pushfold"
+
+
 class AgentDefaultBot(PersonaBot):
     """Persona `agent_default`: a coding agent told only "build us the strongest bot you can". Rule-based TAG: Chen
     preflop by position, made-hand and draw classes postflop with pot-odds calls, short-stack push/fold, light per-seat
@@ -1240,6 +1287,8 @@ REGISTRY: dict[str, type] = {
     "trackb5": TrackBKitBBot,  # drill 5's Track B one-hour build (kit B), in the night pool
     "agent_charts": AgentChartsBot,  # persona: live-poker chart player's team (one-hour agent build), night pool
     "agent_default": AgentDefaultBot,  # persona: an agent told "build the strongest bot you can", night pool
+    "agent_montecarlo": AgentMonteCarloBot,  # persona: a Monte Carlo equity team, night pool
+    "agent_pushfold": AgentPushFoldBot,  # persona: an ICM push/fold quant team, night pool
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
