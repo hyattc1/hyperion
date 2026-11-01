@@ -63,7 +63,7 @@ def test_big_blind_reshoves_at_mid_depth_only_with_the_lever(tables):
     """18 bb in the big blind against a button min-raise: the default re-raises only its value slice (A8o folds);
     with the lever the solved re-shove set shoves A8o and 55 and still folds 72o."""
     st = [360] * 8
-    off = core_with(tables, {})
+    off = core_with(tables, {"preflop.reshove_mid_bb": 0})
     on = core_with(tables, {"preflop.reshove_mid_bb": 25})
     for hole in ("Ah 8c", "5h 5c"):
         obs = preflop_obs(hole, 1, button=7, stacks=st, actions=BTN_OPEN)
@@ -114,7 +114,7 @@ def test_first_in_shove_zone_above_push_fold_depth(tables):
     """13 bb on the button, folded to: the default min-raises 44 and K8o; with the zone at 13 bb the solved first-in
     table shoves 44 and folds K8o (outside the solved 30%), and with fi_rest_open K8o keeps the chart's raise."""
     off = core_with(tables, {}, seat=7)
-    a = off.act(_btn_first_in("4h 4c", 13))
+    a = off.act(_btn_first_in("4h 4c", 13))  # the first-in zone is off by default
     assert a.kind is ActionKind.RAISE and a.amount < 100
     zone = core_with(tables, {"pushfold.fi_threshold_bb": 13}, seat=7)
     obs = _btn_first_in("4h 4c", 13)
@@ -212,7 +212,7 @@ def test_middle_pair_calls_a_small_cbet_only_with_the_lever():
     prof = Profiler(8)
     prof.reset(8, 1)
     prof.pre_raiser = 7
-    off = Postflop(PostflopParams(), seed=1)
+    off = Postflop(PostflopParams(vs_cbet_margin=-1.0), seed=1)
     on = Postflop(PostflopParams(vs_cbet_margin=0.05), seed=1)
     spot = Spot(obs, obs.hole)
     assert off.act(spot, obs.hole, prof, False) == F  # middle pair (0.32) under pot odds 0.20 + 0.15
@@ -291,6 +291,16 @@ def test_exploitative_reshove_reads_the_openers_fold_rate(tables):
     assert act("Jh 7c", caller) == F
     assert act("7h 2c", folder) == F
     assert act("Ah 8c", caller).kind is ActionKind.RAISE  # a real hand still re-shoves against callers
-    table_only = core_with(tables, {"preflop.reshove_mid_bb": 25})
+    table_only = core_with(tables, {"preflop.reshove_mid_bb": 25})  # the shipped default: the solved set
     obs = preflop_obs("Jh 7c", 1, button=7, stacks=[360] * 8, actions=BTN_OPEN)
     assert table_only.preflop.act(Spot(obs, obs.hole), folder) == F
+
+
+def test_shipped_defaults_of_the_aggression_pass(tables):
+    """Shipped after screen S3: mid-depth re-shoves to 25 bb and the lower margin against small c-bets; everything
+    else from the pass stays off (see docs/decisions.md, "Mid-phase aggression pass")."""
+    cfg = config_from_dict({})
+    assert cfg.preflop.reshove_mid_bb == 25.0 and cfg.postflop.vs_cbet_margin == 0.05
+    assert cfg.pushfold.fi_threshold_bb == 0.0 and cfg.pushfold.fi_late_threshold_bb == 0.0
+    assert not cfg.pushfold.reshove_w_observed and not cfg.pushfold.reshove_exploit
+    assert cfg.preflop.shove_ctx_auto == 0.0 and cfg.preflop.reshove_threat == 0.0 and not cfg.postflop.cbet_ftc_read

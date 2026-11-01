@@ -39,11 +39,12 @@ def test_raises_are_rebuilt_from_the_bets():
 
 @pytest.mark.parametrize("hole", ["Ah 8c", "Kh 9c", "7h 2c", "Qh Qd"])
 def test_hero_decides_the_same_with_and_without_history(tables, hole):
-    """Big blind at 18 bb facing a button open: the inferred state gives the decision the full history gives."""
+    """Big blind at 18 bb facing a button open: the inferred state gives the decision the full history gives (the
+    profiler is off on both: with history it also reads this hand's raise, which a stripped profiler cannot)."""
     acts = FOLDS(2, 3, 4, 5, 6) + [(7, R(45)), (0, F)]
     obs = preflop_obs(hole, 1, button=7, stacks=[360] * 8, actions=acts)
-    a = HeroCore(config_from_dict({}, seed=1), tables)
-    b = HeroCore(config_from_dict({}, seed=1), tables)
+    a = HeroCore(config_from_dict({"use_profiler": False}, seed=1), tables)
+    b = HeroCore(config_from_dict({"use_profiler": False}, seed=1), tables)
     for core in (a, b):
         core.new_table(Rules(), 1, 8)
     assert a.act(obs) == b.act(replace(obs, history=[]))

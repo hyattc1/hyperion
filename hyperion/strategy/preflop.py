@@ -100,9 +100,9 @@ class PreflopParams:
     # mid-depth re-shoves: facing one open with no callers at push/fold threshold < effective stack <= reshove_mid_bb,
     # shove when the solved re-shove table (multiway.py: 4-25 bb over a 2.3 bb open, the opener's range the top w)
     # has the hand and push/fold's ICM gate passes. 0 = off: above push/fold depth only the value 3-bet slice
-    # re-raises. Filters: my seat (players still to act behind me), the opener's seat when it opened, the open size,
+    # re-raises (the default before the aggression pass). Filters: my seat (players still to act behind me), the opener's seat when it opened, the open size,
     # and a minimum estimated opener width (pushfold.opener_width).
-    reshove_mid_bb: float = 0.0
+    reshove_mid_bb: float = 25.0  # aggression pass S3 (200 seeds, with vs_cbet_margin): realistic +0.08, top +0.14, Hero + 7 rival1 +0.12
     reshove_mid_max_behind: int = 7  # 2 = the button and the blinds
     reshove_mid_opener_max_behind: int = 7  # 3 = cutoff, button and small blind opens
     reshove_mid_max_open_bb: float = 4.0

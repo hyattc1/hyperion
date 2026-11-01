@@ -113,7 +113,7 @@ class PostflopParams:
     # is vs_cbet_margin instead of call_margin (-1 = off): a c-bet range is wide, and a third-pot bet folded middle
     # pair. With cbet_ftc_read my heads-up c-bet bluffs scale by the caller's smoothed fold-to-c-bet over
     # cbet_ftc_prior (capped at cbet_ftc_max) instead of the general bluff dial.
-    vs_cbet_margin: float = -1.0
+    vs_cbet_margin: float = 0.05  # aggression pass: shipped with reshove_mid_bb 25 (see docs/decisions.md)
     vs_cbet_max_pot: float = 0.75
     vs_cbet_min_rate: float = 0.0
     cbet_ftc_read: bool = False
