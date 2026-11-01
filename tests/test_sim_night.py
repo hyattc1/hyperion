@@ -23,9 +23,15 @@ FROZEN = {  # registry name -> (archived original, copy in the package, header l
                 "aeb14d3b9bbc64a7db86450a66d1c4d0"),
     "agent_charts": ("docs/drills/field/agent_charts_bot.py", "hyperion/sim/field/agent_charts.py", 6,
                      "8d684a439cabe518f86a1c471e343d2b"),
+    "agent_default": ("docs/drills/field/agent_default_bot.py", "hyperion/sim/field/agent_default.py", 6,
+                      "cd47da88b88071e7e1e7665aea06db41"),
 }
 SCRUBBED = {"trackb3", "trackb5"}  # the event's name dropped from the first docstring line for the public export
-PERSONA_DEBUG = {"agent_charts": "DEBUG"}  # the class flag that lets the bot's exceptions through to the engine
+# how to let each persona bot's exceptions through to the engine (each wraps its own act() in a try)
+PERSONA_UNWRAP = {
+    "agent_charts": lambda cls, mp: mp.setattr(cls, "DEBUG", True),
+    "agent_default": lambda cls, mp: mp.setattr(cls, "act", lambda self, obs: self._safe(obs, self._act(obs))),
+}
 JUDGES = {"rival4", "rival5"}
 NOT_IN_POOLS = JUDGES | {"hero", "hero_tight", "hero_loose", "hybrid", "hybrid3", "hybrid_x", "hybrid3_x", "micro"}
 
@@ -235,11 +241,12 @@ def test_night_field_smoke_runs_in_model_mode():
     assert abs(sum(b.mean * b.seats for b in rep.bots.values()) / 3 - sum(Rules().payouts)) < 1e-6
 
 
-@pytest.mark.parametrize("name", sorted(PERSONA_DEBUG))
+@pytest.mark.parametrize("name", sorted(PERSONA_UNWRAP))
 def test_persona_bots_play_legal_poker_with_their_exceptions_let_through(name, monkeypatch):
     bot = B.make_bot(name)
     assert isinstance(bot, B.PersonaBot) and type(bot.impl).__module__ == f"hyperion.sim.field.{name}"
-    monkeypatch.setattr(type(bot.impl), PERSONA_DEBUG[name], True)
+    assert "kit" not in sys.modules  # the brief's kit is importable only while a persona bot loads
+    PERSONA_UNWRAP[name](type(bot.impl), monkeypatch)
     names = [name, "tag", "pushfold", "loose_aggro", "maniac", "station", "nit", "trackb5"]
     rep = run_tournament(names, tables=6, seed=13, mode="measure")
     st = rep.bots[name].stats

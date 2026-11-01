@@ -1123,6 +1123,15 @@ class PersonaBot(RivalBot):
     PACKAGE = ".field"
     MODULE = "agent_charts"
 
+    def __init__(self, seed: Optional[int] = None):
+        _Base.__init__(self, seed)
+        from .field import load
+
+        self.impl = load(self.MODULE).Bot()  # with the brief's kit importable as `kit` while it loads
+        self._hist: list = []
+        self._hist_n = 0
+        self._hist_hand = -1
+
     def kit_rules(self, rules: Rules, n_players: int) -> dict:
         return {**super().kit_rules(rules, n_players), "payouts": list(rules.payouts)}
 
@@ -1137,6 +1146,15 @@ class AgentChartsBot(PersonaBot):
     opponent model. Frozen at minute 17. Reads no rules and nothing at hand_end; one RNG with a fixed seed."""
 
     MODULE = "agent_charts"
+
+
+class AgentDefaultBot(PersonaBot):
+    """Persona `agent_default`: a coding agent told only "build us the strongest bot you can". Rule-based TAG: Chen
+    preflop by position, made-hand and draw classes postflop with pot-odds calls, short-stack push/fold, light per-seat
+    VPIP and raise counts from the history. Frozen at minute 45. Reads `starting_stack` from the rules; imports
+    `kit.Agent` with no fallback, so it loads with the brief's kit present."""
+
+    MODULE = "agent_default"
 
 
 # ----- the hybrid candidate: rival 2's decision core behind Hero's shell ---------------------------------------
@@ -1221,6 +1239,7 @@ REGISTRY: dict[str, type] = {
     "trackb3": TrackBKitABot,  # drill 3's Track B one-hour build (kit A), in the night pool
     "trackb5": TrackBKitBBot,  # drill 5's Track B one-hour build (kit B), in the night pool
     "agent_charts": AgentChartsBot,  # persona: live-poker chart player's team (one-hour agent build), night pool
+    "agent_default": AgentDefaultBot,  # persona: an agent told "build the strongest bot you can", night pool
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
