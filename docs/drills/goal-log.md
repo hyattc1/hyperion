@@ -548,3 +548,21 @@ and (in judges) `elite_judge`.
   seats pass the per-seat gate with sizes that do not mean what the read assumes. S12 resumed: survey the night seats
   against the simulator's truth on fresh diagnostic seeds, a rule from the survey (by observable behaviour, not
   identity), then night screened on 600 seeds so a 0.04 effect shows.
+
+## 14:51: V-e merged (6231ef6): F's variant play against twist-aware opponents; candidate on H10
+- Diagnoses (against V-d's generic aware field): short deck prices made hands as in hold'em though every hand holds 6
+  to ace; Omaha's label table had 300 hands a label (Spearman 0.62 against the variant's own); Hero's hand-written
+  wild map reads AA as premium (16th percentile in the variant's own table) and deuce hands as small pairs (top 15%);
+  three_card_keep continues 52% facing bets and busts there; lowball's collapse is the opponents (twist-blind seats
+  paid F off), not F; two_boards: no lever found.
+- Fixes, general where possible: each hand read as its hold'em twin from the variant's own prepared table
+  (`hero.twin_preflop`, tables/generic/, now carried by pack.py), Omaha's labels re-cut from it (`twin_multi`), call
+  shifts for extra dealt hole cards, must-use, removed ranks and wild cards (`multi_call_shift`, `mu_*`,
+  `call_shift_ex`), limited to dealt hole cards (a bought card's shift cost auction -0.073).
+- Screen, generic aware cell (200 x 8): wild_deuces +0.944 ± 0.132, omaha_four +0.448 ± 0.129, three_card_keep
+  +0.338 ± 0.100, short_deck +0.233 ± 0.081 (hand-built +0.235) UP; hi_lo +0.119, toss +0.074 level; margins over the
+  best opponent: wild +0.20 -> +1.36, Omaha +0.45 -> +1.04, keep +0.50 -> +0.96, short deck +0.28 -> +0.55. Nothing
+  down; plain hold'em identical (F identical after the merge, 14 cells). Likelihood-weighted about +0.08 on the
+  night's twist. Not included: lowball flats (+0.40 generic, -0.073 realistic). Night procedure: the twist's table
+  must be prepared before packing (stage 5's `--aware generic:<variant>` builds it), or the twins do nothing.
+- Candidate on H10 (29000-29399): aware (11 generic + 4 hand-built) and all 26 variants.
