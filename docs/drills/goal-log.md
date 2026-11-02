@@ -352,3 +352,13 @@ and (in judges) `elite_judge`.
   F lacks by oracle gain (bet size vs strength from showdowns, position frequencies, fold to c-bet by texture, never
   check-raises, ...) and builds the best ones behind dials, with priors so they do not act too soon (dead_seats and
   S2's first defence both lost by acting on thin reads at strong tables). Offence; S11 is defence.
+
+## 06:38: owner direction: strength against strong bots first
+- The owner noted that ten hours in, F's plain hold'em has not gained, and that slow-machine insurance is not points
+  (the sandbox's speed is unknown, not known to be slower). Agreed. From here the climb is judged by F's margin at
+  strong tables and short-handed (the elite and mirror fields, both exploiters, heads-up and three-handed, 1st-place
+  share under top-heavy payouts), not by robustness or variant numbers.
+- Priority: S11 (exploiter 2's leaks: win heads-up against it), S9 (strong tables; adopt rival 2's or elite2's
+  sections where they beat F), S12 (reads), then the 3-bet defence on H3. R2-R4 finishes its kit-shape checks (a crash
+  costs whole points) and robustness then drops to the bottom of the queue. The structural round will be strength
+  ideas (a stronger postflop, an adopted section) rather than tooling.
