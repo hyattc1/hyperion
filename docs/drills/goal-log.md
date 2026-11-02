@@ -520,3 +520,10 @@ and (in judges) `elite_judge`.
   variant +0.60 ± 0.40 UP; the other 22 variants identical. It keeps a third to a half of C7's strong-table gain.
   Latency p99 102 -> 101 us (decisions), hand end 100 -> 134 us.
 - F identical after the merge (14 cells). D1 on H8 (27000-27399) after H6 finishes.
+
+## 13:15: strong_route (S9's G2) accepted on H6
+- H6 (25000-25399), base batch 4, --aim strong, from goal/wt_measure2 at aa26ee4: mirror +0.101 ± 0.040 UP (H4 had
+  +0.078); night +0.025 ± 0.020 UP; exploit 8-max +0.092 ± 0.068 UP; elite +0.034, elite_night +0.013, every guard,
+  aware and all 26 variants level (twists identical by the holdem_table gate). ACCEPT (addendum 8). H6 used once.
+- Batch 5 candidates: strong_route (accepted), Z on H7 (running), D1 on H8 (starting). Then the three together,
+  the judges once, timing, freeze.
