@@ -343,3 +343,12 @@ and (in judges) `elite_judge`.
   `--aim exploit` (confirm, guards, elite, exploit, aware, variants); 3rd use, V-c's candidate
   `{"hero.long_board": true, "hero.keep_call_shift": 2, "hero.toss_call_shift": 1}` on aware (all four +
   realistic_keep2 under deal5_keep2) and variants. H3 retires after.
+
+## 06:34: owner question: are we reading opponents as hard as 100-300 hands allow? S12 started
+- The owner pointed out that 100-300 hands is a lot of evidence, and bots are more consistent than people. We do not
+  know how close F's reads come to that. S12 (goal/wt_s12, climb/s12-reads) measures the ceiling first: F with warm
+  reads (each seat's profile pre-loaded from a long run against that bot; a measuring device, never shipped) against
+  F as it ships, on night, realistic, night_hard, top and elite, under 8..1 and top-heavy. Then it ranks the reads
+  F lacks by oracle gain (bet size vs strength from showdowns, position frequencies, fold to c-bet by texture, never
+  check-raises, ...) and builds the best ones behind dials, with priors so they do not act too soon (dead_seats and
+  S2's first defence both lost by acting on thin reads at strong tables). Offence; S11 is defence.
