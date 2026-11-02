@@ -472,7 +472,13 @@ class ExposedCardHooks(VariantHooks):
 class BonusCardHooks(VariantHooks):
     """A fixed-price third hole card on the flop (the auction from MIT 2024, with the auction replaced by
     a posted price; `auction` is the auction itself). The bot answers {"decision": "buy_card", "price"} with
-    truthy to buy; the price goes into the pot. Default: buy."""
+    truthy to buy; the price goes into the pot. Default: buy.
+
+    The price is dead money (`charges_dead`), as in MIT's game: whoever wins the pot wins it, buyer or not. Until the
+    v-catalog fixes it was a contribution, so it formed a side pot only buyers could win (a lone buyer got it back at
+    showdown, a non-buyer could never win the buyers' prices)."""
+
+    charges_dead = True
 
     def __init__(self, price_bb: float = 1.0) -> None:
         self.price_bb = price_bb

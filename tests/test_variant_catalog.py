@@ -338,7 +338,9 @@ def test_bonus_card_charges_the_price_and_deals_a_third_card():
     t = Table(bots, rules, seed=3, variant=hooks)
     hs = t.play_hand()
     assert len(hs.holes[0]) == 3 and len(hs.holes[1]) == 2 and len(hs.holes[2]) == 3
-    assert hs.contrib[0] - hs.contrib[1] == 20 and sum(t.stacks) == 6000
+    # the two prices are dead money in the pot, not contributions: every seat contributed the same
+    assert hs.contrib[0] == hs.contrib[1] == hs.contrib[2] and sum(c for _, c in hs.dead) == 40
+    assert sum(t.stacks) == 6000 and sum(hs.deltas) == 0
     flop = [o for o in bots[1].obs if o.street == 1]
     assert flop and flop[0].extras["bought"] == {0: True, 1: False, 2: True}
 

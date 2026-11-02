@@ -151,8 +151,9 @@ def test_every_entry_keeps_the_rules_and_conserves_chips(name):
 # keep it. (Until the v-catalog fixes one digest also covered bonus_card and two_boards: 4359fed2...)
 DEFAULT_FINGERPRINT = "8253b28f64e88545383eae53c204225f6cde980b3a86b7e9daf4a162fa6f5031"
 # bonus_card and two_boards draw extra cards, which now come from the shuffled undealt cards (tests/test_variant_draws.py;
-# before, from the near-deck-order tail): this digest pins them at the fix, so later changes to them are deliberate.
-DRAWING_FINGERPRINT = "65125a358ca0fe1a7bc4d215f2adf969f49d5d5a91390896714e2789d0fed39b"
+# before, from the near-deck-order tail), and bonus_card's price is dead money (before, a contribution only buyers
+# could win back): this digest pins them after both fixes (65125a35... after the first), so later changes are deliberate.
+DRAWING_FINGERPRINT = "bfd7c3925ffbe24c159f56401cfe68bbdf11f590c875066da724896a07dc3306"
 
 
 def _play_digest(cases) -> str:
