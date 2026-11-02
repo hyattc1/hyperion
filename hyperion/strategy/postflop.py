@@ -29,7 +29,7 @@ value_threshold_shift (negative = value bet thinner), call_down_mult (>1 vs mani
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import combinations
 
 from ..core.eval import category, evaluate, evaluate_many, warm
@@ -228,6 +228,9 @@ class PostflopParams:
     # the strength. Off: big value 0.8, value 0.5 / 0.7, c-bets 0.33 / 0.5, semi-bluffs 0.5
     balance_sizes: bool = False
     balance_size: float = 0.5
+    # S11's probe read and balanced sizes only on hold'em tables (hero.holdem_table): they were built and measured
+    # against hold'em exploiters, and the one size cost against short-deck-aware opponents (held-out H7)
+    s11_holdem_only: bool = False
     # ... only heads-up against a seat that raises my heads-up flop and turn bets at a smoothed rate (prior 0.12 worth
     # 5) above balance_from: the reader of sizes shows itself by raising the small ones. 1.0 = off
     balance_from: float = 1.0
@@ -312,15 +315,29 @@ def _must_use_strength(hole, board, k: int) -> int:
 class Postflop:
     def __init__(self, params: PostflopParams, seed: int | None = None):
         self.p = params
+        self._p_all = params
+        self._p_twist = replace(params, probe_from=1.0, probe_trap=0.0, balance_sizes=False, balance_from=1.0) \
+            if params.s11_holdem_only else params
         self.rng = random.Random(seed)
         self.curve = _Linear()  # Hero installs its ICM curve; chip EV otherwise
         self.low = False
-        self.holdem = True  # a hold'em table (Hero sets it per table: hero.holdem_table)
+        self._holdem = True  # a hold'em table (Hero sets it per table: hero.holdem_table)
         self.wild_rank = -1  # canonical rank index of the wild card, -1 = none
         self.flush_over_full = False
         self.short = False  # short deck: A-6-7-8-9 a straight, its straights' outs, five flush outs, outs x SD_OUT_SCALE
         self._mult = 1.0  # bet-size multiplier for the current decision (two boards: 0.5)
         self.last = ""  # the sub-decision taken last (diagnostics: the runner's bust tracer reads it)
+
+
+    @property
+    def holdem(self) -> bool:
+        return self._holdem
+
+    @holdem.setter
+    def holdem(self, v: bool) -> None:
+        self._holdem = bool(v)
+        if self.p is self._p_all or self.p is self._p_twist:  # s11_holdem_only: the twist copy off hold'em
+            self.p = self._p_all if self._holdem else self._p_twist
 
     def set_mode(self, low: bool = False, wild_rank: int = -1, flush_over_full: bool = False,
                  short: bool = False) -> None:

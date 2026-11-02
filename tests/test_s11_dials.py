@@ -86,3 +86,35 @@ def test_s11_and_s12_size_read_compose_and_replay_at_eight_max():
          "hero.postflop.size_read_min_alive": 4, "hero.postflop.size_read_holdem_only": True}
     a = [_digest(d, t)[0] for t in range(2)]
     assert a == [_digest(d, t)[0] for t in range(2)]
+
+
+Z = {"r3.v3_bvb_prior": 0.15, "hero.postflop.probe_from": 0.75, "hero.postflop.probe_n": 2,
+     "hero.postflop.probe_margin": 0.03, "hero.postflop.probe_raise_tier": 5, "hero.postflop.probe_bluff": 0.4,
+     "hero.postflop.balance_sizes": True}
+
+
+def test_s11_holdem_only_turns_the_probe_and_one_size_off_on_a_twist_table():
+    from hyperion import ship
+    from hyperion.drills import variants as V
+
+    bot = ship.make_bot("composite", {**Z, "hero.postflop.s11_holdem_only": True})
+    hero = bot.core.members[1].core if hasattr(bot.core.members[1], "core") else bot.core.members[1]
+    pf = hero.postflop
+    hero.new_table(V.get("short_deck").rules, 0, 8)
+    assert pf.p.balance_sizes is False and pf.p.probe_from == 1.0
+    hero.new_table(Rules(), 0, 8)
+    assert pf.p.balance_sizes is True and pf.p.probe_from == 0.75
+    plain = ship.make_bot("composite", Z)  # the gate off: the dials reach a twist table as before
+    h2 = plain.core.members[1].core if hasattr(plain.core.members[1], "core") else plain.core.members[1]
+    h2.new_table(V.get("short_deck").rules, 0, 8)
+    assert h2.postflop.p.balance_sizes is True
+
+
+def test_s11_holdem_only_plays_a_twist_table_exactly_as_f():
+    from hyperion.drills import variants as V
+
+    rules = V.get("short_deck").rules
+    hooks = V.get("short_deck")
+    gated = {**Z, "hero.postflop.s11_holdem_only": True}
+    assert all(_digest({k: v for k, v in gated.items() if k.startswith("hero.")}, t, rules=rules)[0]
+               == _digest({}, t, rules=rules)[0] for t in range(2)), hooks.name
