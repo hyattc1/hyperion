@@ -35,3 +35,21 @@ Protocol: `docs/drills/goal-plan.md` section 2. Live held-out set: **H1 (20000-2
 - Kit E: a fresh agent with no repo access builds an organiser-style kit (event-driven player class, no state
   snapshot, string cards, its own payout table and schedule) with river_of_blood in its dealer.
 - The held-out catalog goes on branch climb/unseen-variants (engine support, default play bit-identical).
+
+## 21:00: research pass (variants ranked, official surfaces re-checked)
+Files: `docs/drills/climb/variants-ranked.md`, `docs/drills/climb/official-changes-2026-11-01.md`.
+- **Nothing about the game changed** on the official site since Oct 27 (diffed against Wayback captures). Only
+  eligibility moved (Canada; under-18s with consent).
+- **Top variants for Pittsburgh** (probability it is the main twist): toss_or_holdem 11%, bounty 8%, short_deck 7%,
+  a true sealed-bid auction for a third card 5% (not catalogued; bonus_card is a posted-price stand-in), omaha_four
+  5%, two_boards 5%, three_card_blind_discard 4%, permuted_ranks 4%, exposed_card 4%. Catalogue coverage about 81%;
+  gaps: auction, river_of_blood (2.5%), CMU 2026's deal 5 keep 2 (2%).
+- **Add-on levers:** a payout table steeper than 10/7/5/4/3/2/1/0 35%; blinds roughly doubling each level 40%;
+  antes somewhere 25%; all three regionals share one variant 55%.
+- **Field:** CMU has the most Castle Challenge entries of any school (364 of 3,740), so Pittsburgh's room is likely
+  stronger than the night pool assumes. night_hard weighs more as a guard.
+- Plan changes that follow (recorded here, protocol entry in docs/decisions.md with the first batch):
+  - a guard for a **doubling blind schedule** joins the payout guards (tools/swap.py paired gets `--rules`);
+  - track V works the ranked list top down and adds **auction** and **deal 5 keep 2** to the main catalogue;
+  - variant-aware opponents (fresh one-hour builds per top variant) so "first on 22 of 23" is not against bots that
+    ignore the twist.
