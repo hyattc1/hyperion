@@ -123,6 +123,8 @@ class Profiler:
         self.szc = [[[0] * 5 for _ in range(3)] for _ in range(n)]  # every bet seen (not raises): seat, street, bucket
         self.xr_opp = z()
         self.xr = z()
+        self.rr_n = 0  # my first-in preflop raises (not all-in) this table (track_s12) ...
+        self.rr_k = 0  # ... that another seat re-raised before the flop (the strong-table read, S9's strong_rr)
         self._dials = [dict(NEUTRAL_DIALS) for _ in range(n)]
         self._stale = False
         self._fresh = 0
@@ -160,6 +162,7 @@ class Profiler:
         self.pot_prev = 0  # chips from earlier streets (track_s12)
         self.sz_pend = []  # (seat, street 0..2, bucket) of this hand's postflop bets and raises (track_s12)
         self.chk_mask = 0  # seats that checked on the street being replayed (track_s12)
+        self.rr_open = False  # my first-in raise this hand, not yet re-raised (track_s12)
 
     def _start_hand(self, obs: Observation) -> None:
         self._start_blank()
@@ -396,6 +399,14 @@ class Profiler:
                     if not (self.pfr_mask & bit):
                         self.pfr_mask |= bit
                         self.pfr[seat] += 1
+                    if self.track_s12:
+                        if seat == self.me:
+                            if self.pre_raises == 0 and not self.pre_limped and amt < self.chips[seat] * 0.95:
+                                self.rr_n += 1
+                                self.rr_open = True
+                        elif self.rr_open:
+                            self.rr_k += 1
+                            self.rr_open = False
                     self.pre_raiser = seat
                     if self.pre_raises == 0:
                         self.pre_opener = seat
@@ -503,6 +514,21 @@ class Profiler:
             for b in range(5):
                 c[b] += row[b]
         return c, sum(c)
+
+    def strong_table(self, thr: float, prior: float, n0: float) -> bool:
+        """The table reads strong: the share of my first-in preflop raises re-raised, smoothed toward `prior` with the
+        weight of n0 raises, is at least thr (S9's strong_rr signal, counted here so Hero's reads can use it)."""
+        return (self.rr_k + prior * n0) / (self.rr_n + n0) >= thr
+
+    def size_evidence(self, s: int, min_bets: int, min_share: float, min_buckets: int) -> bool:
+        """Seat s has shown at least min_buckets bet-size buckets with at least min_bets bets and min_share of its bets
+        in each (every street pooled): its sizes carry information (a one-size bettor's do not)."""
+        c, n = self.size_shares(s)
+        k = 0
+        for x in c:
+            if x >= min_bets and x >= min_share * n:
+                k += 1
+        return k >= min_buckets
 
     def xr_rate(self, s: int, prior: float, n0: float) -> float:
         """How often seat s raises when it faces a bet after checking on the same street, smoothed toward `prior`."""

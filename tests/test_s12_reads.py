@@ -149,3 +149,40 @@ def test_holdem_only_plays_a_twist_table_as_f_and_holdem_as_without_the_gate():
     bounty = V.get("bounty", seed=7).rules
     assert any(_digest(base, t, rules=bounty)[0] != _digest({}, t, rules=bounty)[0] for t in range(3))
     assert all(_digest(gated, t, rules=bounty)[0] == _digest({}, t, rules=bounty)[0] for t in range(3))
+
+
+def test_size_evidence_needs_two_informative_buckets():
+    p = Profiler(8)
+    p.reset(8, 0)
+    p.szc[1][0][1], p.szc[1][1][2] = 4, 5  # two sizes, four and five bets
+    p.szc[2][0][1], p.szc[2][1][2] = 30, 2  # one size and a stray bet of another
+    p.szc[3][0][1], p.szc[3][0][2] = 2, 2  # two sizes, too few bets
+    assert p.size_evidence(1, 3, 0.15, 2)
+    assert not p.size_evidence(2, 3, 0.15, 2)
+    assert not p.size_evidence(3, 3, 0.15, 2)
+
+
+def test_strong_table_counts_my_first_in_raises_reraised():
+    for reraised in (False, True):
+        p = Profiler(3)
+        p.track_s12 = True
+        p.reset(3, 0)
+        hist = [_act(0, R, 60), _act(1, F)] + ([_act(2, R, 180), _act(0, F)] if reraised else [_act(2, F)])
+        res = HandResult(0, [0, 0, 0], {}, (), hist)
+        obs = Observation(hole=parse("3c 4d"), board=(), street=0, seat=0, button=2, stacks=[2000] * 3, bets=[0, 10, 20],
+                          in_hand=[True] * 3, pot=0, to_call=20, min_raise=40, max_raise=2000, legal=frozenset({F, C, R}),
+                          hand_no=0, blinds=(10, 20), history=[])
+        p.observe(obs)
+        p.hand_end(res)
+        assert (p.rr_n, p.rr_k) == (1, int(reraised))
+        assert p.strong_table(0.2, 0.15, 10.0) == (reraised and (1 + 1.5) / 11 >= 0.2)
+
+
+def test_the_evidence_gates_reach_decisions_and_change_nothing_off():
+    c7 = {"hero.postflop.size_read": 1.0, "hero.postflop.size_read_rank": 5.0, "hero.postflop.size_read_min_alive": 4,
+          "hero.postflop.size_read_holdem_only": True}
+    d1 = {**c7, "hero.postflop.size_read_min_bets": 2, "hero.postflop.size_read_skip_weak": True}
+    assert any(_digest(d1, t)[0] != _digest(c7, t)[0] for t in range(6))
+    assert any(_digest(d1, t)[0] != _digest({}, t)[0] for t in range(6))
+    off = {**c7, "hero.postflop.size_read_min_bets": 0, "hero.postflop.size_read_strong_rr": 0.0}
+    assert _digest(off, 1)[0] == _digest(c7, 1)[0]

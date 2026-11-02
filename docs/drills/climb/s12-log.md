@@ -421,3 +421,42 @@ there). `test_aware_bots_are_deterministic_for_a_seed` passed alone. tests/test_
 targeted suites (ship, compose, strategy, hybrid3, S2 / V-b / V-c dials, variants, API card, climb_accept): 207 passed.
 F's default play is unchanged on the branch: checked chunk for chunk (night 10000-10024 x 8) against 5c6af66 at
 0db5695, 36818ca, c56d1e2 and e34942b; at de6875e by the tests (every new dial is off by default and inert off).
+
+# S12b: the size read only where it has evidence (branch climb/s12b-gated from main 63bd29f)
+
+The coordinator's H5 run of C7 (24000-24399, base batch 4, `--aim strong`): elite +0.154 ± 0.071, elite_night +0.092
+± 0.065, mirror +0.415 ± 0.079, top +0.183 ± 0.068 (all up); rejected for realistic -0.096 ± 0.064 and the three
+structural variants the hold'em gate leaves the read on (antes_from_level_3 -0.103, fast_schedule -0.100, straddle
+-0.128; all played on realistic). Realistic's seats are one-size or broken bettors (loose_aggro, tag, the Monte Carlo
+bots, the bot that breaks).
+
+## 11:20-11:35: the gates, and the thresholds fixed before any screen
+
+New dials (Postflop, off by default; counters in the profiler only with `track_s12`):
+- per seat: `size_read_min_bets` / `size_read_min_share` / `size_read_min_buckets`: read a bettor only once it has
+  shown that many size buckets with that many bets and that share of its bets each (`Profiler.size_evidence`, every
+  street pooled); `size_read_skip_weak`: never a seat flagged dead, station, maniac or random;
+- per table: `size_read_strong_rr` (+ prior, weight): only while my first-in raises (not all-in) are re-raised at least
+  that often, smoothed (`Profiler.strong_table`: S9's strong_rr signal counted in the profiler, so Hero's reads and
+  any other part can share it).
+
+Firing diagnostic before choosing (no points; seeds 8000-8003 x 8, C7's read spots, the share each gate passes, by
+bettor; `goal/s12b/gaterate.py`):
+
+| field | spots | 3 bets per bucket | 2 bets per bucket | table reads strong (0.20 / 0.15 / 10) |
+|---|---|---|---|---|
+| realistic | 275 | 0.04 | 0.10 | 0.07 |
+| elite | 228 | 0.15 | 0.31 | 0.19 |
+| top | 227 | 0.14 | 0.22 | 0.18 |
+| mirror | 262 | 0.20 | 0.44 | 0.23 |
+| night | 268 | 0.12 | 0.22 | 0.12 |
+
+By bettor, 2 per bucket: one-size and broken bettors 0-2% (loose_aggro 0/73 and 0/66, tag 0/33, timeout_then_recover
+0/40, montecarlo30 1/43, naive 0/21, timeout_burst 0/17); two-size bettors 16-68% (rival1 33-47%, rival3 36%, elite1
+20-32%, elite2 35-46%, f_copy 55%, hybrid3_x 68%, agent_default 30-62%, agent_montecarlo 60%). 3 per bucket excludes
+the same bettors and halves the rest. The table signal is on in only 12-23% of spots even at the strong tables (its
+prior needs re-raises to accumulate), so as the only gate it would remove most of the read.
+
+**Pre-registered:** candidate **D1** = C7 + `size_read_min_bets` 2, `size_read_min_share` 0.15,
+`size_read_min_buckets` 2, `size_read_skip_weak` true. Fallback D2 = D1 + `size_read_strong_rr` 0.20 (prior 0.15,
+10 raises), only if D1 is still beyond noise down on realistic or a structural variant. No sweep.
