@@ -643,10 +643,11 @@ class HeroCore:
             self._label = t.scheme != "169"
         vp = cfg.variant_preflop
         if vp and ex.get("variant") and str(ex.get("variant")).lower() not in PLAIN_NAMES \
-                and rules.betting != "fixedlimit" and not rules.must_use_hole:
+                and rules.betting != "fixedlimit" and not rules.must_use_hole and not ex.get("lowball"):
             # a catalogued twist (rules.extras["variant"]): this table's preflop module with variant_preflop on top.
-            # Not fixed limit (a flat costs one bet, so the wide flat range pays) or must-use (Omaha: four-card hands
-            # run close): there the tighter flats measured -0.108 +- 0.073 and -0.065 +- 0.051
+            # Not fixed limit (a flat costs one bet, so the wide flat range pays), must-use (Omaha: four-card hands
+            # run close) or lowball (mirrored classes): there the tighter flats measured -0.108 +- 0.073,
+            # -0.065 +- 0.051 and -0.062 +- 0.047 (held-out H1)
             vkey = ("variant_preflop", id(pre))
             vpre = self._modules.get(vkey)
             if vpre is None:

@@ -15,7 +15,8 @@ Stages (comma-separated; default confirm,guards,variants):
 - confirm: night;
 - guards: night_hard, realistic, top, night under payouts 10/7/5/4/3/2/1/0 and 50/25/12/6/3/2/1/1, night under a
   doubling blind schedule;
-- variants: the 23 catalogued entries on realistic, the set's first 200 seeds;
+- variants: the catalogued entries on realistic, the set's first 200 seeds (`--variants NAME,...` and
+  `--variant-seeds N` for some; a lone variant cell down prints REPLICATE: addendum 7 re-runs it on the next set);
 - elite: the tuning fields elite (elite1, elite2 and the strong tunable bots) and elite_night (the two in a night room);
 - judges: judge, judge2, judge2_night, judge_top, outside, outside_strong, elite_judge (run these on `--set judge`).
 - aware: the three likeliest twists against variant-aware opponents, each field under its variant
@@ -257,6 +258,9 @@ def main(argv=None) -> int:
     p.add_argument("--out", default=os.path.join(ROOT, "scratch", "climb"))
     p.add_argument("--json", default=None, help="also write the verdict as JSON here")
     p.add_argument("--aware", default=None, help="the aware stage's fields (default: all three)")
+    p.add_argument("--variants", default=None, help="the variants stage's entries (default: the whole catalog)")
+    p.add_argument("--variant-seeds", type=int, default=VARIANT_SEEDS,
+                   help="seeds per variant cell, from the set's first (addendum 7's replication: 400)")
     a = p.parse_args(argv)
     version = code_version()
     base_raw, cand_raw = load_spec(a.base), load_spec(a.cand)
@@ -286,8 +290,9 @@ def main(argv=None) -> int:
     if "exploit" in stages:
         plan.append(("exploit", EXPLOIT, lo, hi))
     if "variants" in stages:
-        plan.append(("variants", [(VARIANT_FIELD, "lin", None, v) for v in V.catalog_names()], lo,
-                     min(hi, lo + VARIANT_SEEDS)))
+        names = a.variants.split(",") if a.variants else V.catalog_names()
+        plan.append(("variants", [(VARIANT_FIELD, "lin", None, v) for v in names], lo,
+                     min(hi, lo + a.variant_seeds)))
     for stage, cells, s_lo, s_hi in plan:
         cells4 = [c if len(c) == 4 else (*c, None) for c in cells]
         run_cells(a.out, specs, cells4, s_lo, s_hi, a.workers)
@@ -318,6 +323,11 @@ def main(argv=None) -> int:
         checks.append((f"timing: latency.py p99 {p99} us <= 200", p99 is not None and p99 <= 200))
     verdict["checks"] = checks
     verdict["accept"] = all(ok for _, ok in checks) if checks else None
+    # addendum 7: a lone variant cell down (with every other check passing) is not a reject yet: re-run that cell on
+    # the next held-out set at 400 seeds; it rejects if the re-run, or both sets pooled, is beyond noise down
+    vdowns = [r["cell"] for r in st.get("variants", []) if r["flag"] == "DOWN"]
+    others_ok = all(ok for txt, ok in checks if not txt.startswith("variants:"))
+    verdict["replicate"] = vdowns[0] if len(vdowns) == 1 and others_ok and not a.variants else None
     verdict["secs"] = time.time() - t0
     # print
     print(f"# climb_accept: set {a.set} ({lo}-{hi - 1}), code {version}, {verdict['secs'] / 60:.1f} min")
@@ -345,7 +355,11 @@ def main(argv=None) -> int:
     print("\n## verdict")
     for txt, ok in checks:
         print(f"- [{'x' if ok else ' '}] {txt}")
-    print(f"\n**{'ACCEPT' if verdict['accept'] else 'REJECT'}**" if checks else "")
+    if verdict["replicate"]:
+        print(f"\n**REPLICATE** {verdict['replicate']}: one variant cell down; addendum 7 re-runs it on the next "
+              f"held-out set with --variants NAME --variant-seeds 400")
+    else:
+        print(f"\n**{'ACCEPT' if verdict['accept'] else 'REJECT'}**" if checks else "")
     if a.json:
         with open(a.json, "w") as fh:
             json.dump(verdict, fh, indent=1)

@@ -129,7 +129,7 @@ def test_variant_preflop_reaches_catalogued_twists_only():
         h = HeroCore(cfg)
         h.new_table(V.get(name).rules, 0, 8)
         assert h.preflop.p.call_raise_frac == 0.15
-    for name in ("fixed_raise", "omaha_four"):  # fixed limit and must-use: measured worse, so not there
+    for name in ("fixed_raise", "omaha_four", "lowball"):  # fixed limit, must-use, lowball: measured worse, not there
         h = HeroCore(cfg)
         h.new_table(V.get(name).rules, 0, 8)
         assert h.preflop.p.call_raise_frac == 0.45
