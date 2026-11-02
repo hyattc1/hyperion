@@ -63,3 +63,24 @@ Files: `docs/drills/climb/variants-ranked.md`, `docs/drills/climb/official-chang
 F stays first under both tables; every member already prices all-ins from `Rules.payouts` (hybrid/core3.py). The
 cost is time: the exact ICM under a non-linear table lifts F's p99 (R1 has it). S1 closed as a diagnostic; the payout
 tables stay as guards.
+
+## 21:40: test sets in
+- **Outside field wired** (c1c18c7): four fresh one-hour builds, no repo access: `out_veterans` (minute 38),
+  `out_selfplay` (45), `out_lag` (39), `out_quants` (36). Fields `outside` (the four + three night-pool seats) and
+  `outside_strong` (the four + rival 4 + rival 5 + agent_pushfold: the stronger room Pittsburgh is expected to be).
+  The two Monte Carlo builds read the wall clock; in model mode they play at a fixed speed calibrated from measured
+  cost per sample (4.5 / 5.5 us). Both fields replay exactly (tests/test_sim_outside.py).
+- **Held-out catalog merged** (9e490a0, branch climb/unseen-variants): `hyperion/drills/variants_unseen.py`, optional
+  engine hooks, default play fingerprinted bit-identical. Full suite 848 passed. The implementer's findings:
+  1. On river_of_blood F checks or folds every decision on a board of 7+ cards, made hands included. Left alone
+     until drill 7 has run (the drill should find it).
+  2. **Bug:** four catalogued hooks (swap_holdem, swap_one_turn, two_boards, bonus_card) draw from an unshuffled deck
+     tail (two_boards' second board starts with the ace of spades in 60% of seeds on hand 0). Track V fixes it.
+  3. `python -m hyperion.sim --field night@ship --mode model` does not replay exactly under load: the ship's own
+     wall-clock guards stay on there. `tools/swap.py paired` turns them off, so the protocol's runs replay.
+  4. The engine's pot award can lose chips if a folded player put in more than anyone still in the hand (no default
+     play reaches it). Fix with a test.
+  5. showtime and unfold test little against this field (nobody reads reveals; nobody re-enters).
+- **Kit E built** (session scratchpad `goal/kitE`): an event-driven `Player` (take_seat, start_hand, see_cards,
+  see_action, see_showdown, end_hand, choose(request) with legal options and no state snapshot), raise-to amounts,
+  payouts 50/25/15/10/0/0/0/0, antes from level 4, river_of_blood in the dealer; self-test 141/141.
