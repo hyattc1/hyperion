@@ -639,3 +639,10 @@ and (in judges) `elite_judge`.
 - V-g (goal/wt_vg, climb/vg-ghost): Ghost Hold'em as a variant file in our hooks, then the drill's four candidates
   measured in our sim and in the kit's, to see if our sim ranks changes the way an engine we did not write does;
   then whether the general twist path (prepared tables, twins) finds the Ghost's edges by itself.
+
+## 18:44: Z3 (S11's fixes, both gates) accepted on H12; batch 5's combined check on H13
+- H12 (32000-32399), base batch 4, --aim exploit: exploit2_hu +0.352 ± 0.102, exploit_hu +0.180 ± 0.105, exploit2_3
+  +0.143 ± 0.107 UP (third fresh set showing them); night -0.018 ± 0.047, guards, elite, aware level; all 26 variants
+  level (the gates hold: twist tables play as F). ACCEPT (addendum 6). H12 used once.
+- Batch 5 = strong_route (H6) + V-e (H10) + D3 (H11) + Z3 (H12), 27 dials. Combined against batch 4 on H13
+  (33000-33399), --aim strong, every stage; judges once on the judge set and timing in parallel (goal/b14).
