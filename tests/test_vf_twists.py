@@ -32,6 +32,11 @@ def test_the_family_of_every_catalog_entry():
     assert twist_family(Rules(extras={"variant": "bounty", "bounty_ratio": 1.5, "swap_street": 2})) is None
     assert twist_family(Rules(extras={"variant": "swap_holdem", "swap_p_flop": 0.1, "wild_rank": 0})) is None
     assert twist_family(Rules(extras={"variant": "exposed_card", "exposed_index": 0}, n_suits=3)) is None
+    # tonight's own name for a twist of a known shape is that family; another family's catalog name is not
+    assert twist_family(Rules(hole_cards=3, extras={"variant": "pineapple_tonight", "discard_street": 1,
+                                                    "discard_face_up": True, "keep": 2})) == "discard"
+    assert twist_family(Rules(extras={"variant": "auction", "swap_p_flop": 0.1})) is None
+    assert twist_family(Rules(extras={"variant": "short_deck", "removed_ranks": [0, 1, 2, 3]})) is None
     assert set(FAMILY.values()) == set(TWIST_FAMILIES)
 
 

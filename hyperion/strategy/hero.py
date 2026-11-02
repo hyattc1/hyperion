@@ -620,7 +620,8 @@ def holdem_table(rules: Rules) -> bool:
 # family by a dial that lists it (postflop.size_read_twists, postflop.s11_twists, the composite's strong_route_twists).
 # A table is in a family when its structure is hold'em (52 cards, board 3/4/5, no-limit, rank order as dealt; two hole
 # cards, three only for a face-up discard down to two) and its extras hold that family's keys and nothing else; the
-# variant name, when given, must be one of the family's catalog entries. Anything else is no family: the gate stays shut
+# variant name may be any (tonight's own file names its twist its own way) but not another family's catalog entry.
+# Anything else is no family: the gate stays shut
 TWIST_FAMILIES: dict = {
     "discard": ({"toss_or_holdem", "three_card_blind_discard"},
                 {"discard_street", "discard_face_up", "keep", "blind_discard"}),
@@ -666,7 +667,9 @@ def twist_family(rules: Rules) -> str | None:
         return None
     names, keys = TWIST_FAMILIES[fam]
     v = ex.get("variant")
-    if (v is not None and v not in names) or not set(ex) <= keys | _HOLDEM_EXTRAS:
+    if v is not None and v not in names and any(v in n for f, (n, _) in TWIST_FAMILIES.items() if f != fam):
+        return None
+    if not set(ex) <= keys | _HOLDEM_EXTRAS:
         return None
     if fam == "discard":
         ok = rules.hole_cards == 3 and bool(ex.get("discard_face_up")) and int(ex.get("keep", 2) or 2) == 2
