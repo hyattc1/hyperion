@@ -89,6 +89,7 @@ TIER_EQUITY = (0.10, 0.20, 0.32, 0.42, 0.58, 0.72, 0.84, 0.92, 0.98)
 # every chance), heads-up, by the cards to come
 WIDE_EQUITY_FLOP = (0.33, 0.45, 0.58, 0.66, 0.75, 0.84, 0.91, 0.95, 0.99)
 WIDE_EQUITY_TURN = (0.25, 0.36, 0.55, 0.64, 0.76, 0.86, 0.93, 0.96, 0.99)
+_WEAK_TYPES = frozenset({"dead", "station", "maniac", "random"})  # size_read_skip_weak: seats whose sizes say nothing
 # size_read (S12): a tier race, a higher tier wins this often on the flop / turn / river (an equal tier splits)
 SIZE_WIN = (0.78, 0.86, 0.97)
 # size_read_rank: the population's betting range per street (tier shares of every bet, sizes pooled) and its share of
@@ -256,6 +257,18 @@ class PostflopParams:
     size_read_min_alive: int = 0  # the read plays only with at least this many players alive (short-handed ranges
     #                               widen, and a bot built against us sizes its bets its own way: S12, exploiter 1)
     size_read_holdem_only: bool = False  # ... and only on hold'em tables (hero.holdem_table: a twist turns it off)
+    # evidence gates (S12b, docs/drills/climb/s12-log.md; thresholds set before screening). Per seat: read a bettor only
+    # once it has shown size_read_min_buckets size buckets with size_read_min_bets bets and size_read_min_share of its
+    # bets each (0 = off); size_read_skip_weak: never a seat flagged dead, station, maniac or random. Per table: only
+    # while the table reads strong (Profiler.strong_table: my first-in raises re-raised at least size_read_strong_rr,
+    # smoothed toward size_read_strong_prior with size_read_strong_n raises; 0 = off)
+    size_read_min_bets: int = 0
+    size_read_min_share: float = 0.15
+    size_read_min_buckets: int = 2
+    size_read_skip_weak: bool = False
+    size_read_strong_rr: float = 0.0
+    size_read_strong_prior: float = 0.15
+    size_read_strong_n: float = 10.0
     # xr_shift: heads-up, nothing to call, the opponent checked to me on this street and its check-raise rate (prior
     # xr_prior worth xr_n0 chances) is at most xr_max: value-bet this many tiers thinner (a checked range with no
     # check-raises holds few strong hands)
@@ -989,6 +1002,14 @@ class Postflop:
     def _size_eq(self, spot: Spot, prof: Profiler, bettor: int, street: int, tier: int):
         """(equity against the bettor's read range for a bet of this size, weight) or None (size_read, S12)."""
         p = self.p
+        if p.size_read_min_bets > 0 and not prof.size_evidence(bettor, p.size_read_min_bets, p.size_read_min_share,
+                                                                p.size_read_min_buckets):
+            return None
+        if p.size_read_skip_weak and prof.archetype(bettor) in _WEAK_TYPES:
+            return None
+        if p.size_read_strong_rr > 0.0 and not prof.strong_table(p.size_read_strong_rr, p.size_read_strong_prior,
+                                                                  p.size_read_strong_n):
+            return None
         obs = spot.obs
         mine = obs.bets[spot.me]
         bet = obs.bets[bettor]

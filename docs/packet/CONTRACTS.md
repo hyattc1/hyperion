@@ -383,6 +383,13 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `postflop.size_read_call_tier` | 0 |
 | `postflop.size_read_min_alive` | 0 |
 | `postflop.size_read_holdem_only` | False |
+| `postflop.size_read_min_bets` | 0 |
+| `postflop.size_read_min_share` | 0.15 |
+| `postflop.size_read_min_buckets` | 2 |
+| `postflop.size_read_skip_weak` | False |
+| `postflop.size_read_strong_rr` | 0.0 |
+| `postflop.size_read_strong_prior` | 0.15 |
+| `postflop.size_read_strong_n` | 10.0 |
 | `postflop.xr_shift` | 0 |
 | `postflop.xr_max` | 0.04 |
 | `postflop.xr_prior` | 0.02 |
