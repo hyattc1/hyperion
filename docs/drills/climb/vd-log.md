@@ -303,7 +303,7 @@ What the board says:
 
 ## 10. Tests
 
-- tests/test_generic_aware.py (57 tests): the field and no night pool; a committed table for every catalog entry; the
+- tests/test_generic_aware.py (42 tests): the field and no night pool; a committed table for every catalog entry; the
   hold'em twins are the classes themselves; the rollout prices lowball, wild cards and bounties as the variant does;
   public cards dead or held; every variant decision type answers legally; every catalog entry plays 40 hands with zero
   exceptions and illegal actions; a variant written as a file registers and the generic bots find its hooks; every
