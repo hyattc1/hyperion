@@ -477,6 +477,11 @@ class Profiler:
         it has nothing to call (a c-bet, a barrel), smoothed toward `prior` with n0 chances."""
         return (self.ab_bet[s] + prior * n0) / (self.ab_opp[s] + n0)
 
+    def free_vs_me_rate(self, s: int, prior: float = 0.5, n0: float = 2.0) -> float:
+        """How often seat s bets a heads-up flop or turn against me when it has nothing to call, whoever has the
+        initiative (probe and aggressor chances together), smoothed toward `prior` with n0 chances."""
+        return (self.pb_bet[s] + self.ab_bet[s] + prior * n0) / (self.pb_opp[s] + self.ab_opp[s] + n0)
+
     def raise_my_bet_rate(self, s: int, prior: float = 0.12, n0: float = 5.0) -> float:
         """How often seat s raises a bet I made in a heads-up flop or turn, smoothed toward `prior` with n0 faced."""
         return (self.rb_raise[s] + prior * n0) / (self.rb_opp[s] + n0)

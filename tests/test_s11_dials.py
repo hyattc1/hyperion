@@ -58,6 +58,7 @@ def test_the_raise_guard_reads_raises_of_my_postflop_bets():
 
 @pytest.mark.parametrize("dials", [{"r3.v3_bvb_prior": 0.15}, {"hero.postflop.probe_from": 0.6},
                                    {"hero.postflop.cbet_from": 0.7}, {"hero.postflop.balance_sizes": True},
+                                   {"hero.postflop.wide_from": 0.65},
                                    {"exploit.raise_guard": 0.3},
                                    {"hero.postflop.probe_from": 0.6, "hero.postflop.probe_trap": 1.0}])
 def test_each_s11_dial_reaches_the_decisions(dials):
@@ -69,5 +70,7 @@ def test_each_s11_dial_reaches_the_decisions(dials):
 def test_three_handed_with_every_s11_dial_replays_exactly():
     d = {**FIN, "r3.v3_bvb_prior": 0.15, "r3.v3_bvb_f4_cap": 0.45, "hero.postflop.probe_from": 0.6,
          "hero.postflop.cbet_from": 0.7, "hero.postflop.probe_raise_tier": 5, "hero.postflop.probe_trap": 0.5,
+         "hero.postflop.probe_margin": 0.03, "hero.postflop.balance_from": 0.3, "hero.postflop.probe_bluff": 0.5,
+         "hero.postflop.wide_from": 0.65,
          "hero.postflop.raiser_from": 0.3, "hero.postflop.balance_sizes": True, "exploit.raise_guard": 0.3}
     assert _digest(d, 1, THREE, R3)[0] == _digest(d, 1, THREE, R3)[0]

@@ -168,6 +168,14 @@ class PostflopParams:
     probe_prior: float = 0.45
     probe_n: float = 6.0
     cbet_from: float = 1.0
+    # a third read, both kinds together (Profiler.free_vs_me_rate, prior wide_prior worth wide_n chances: it learns
+    # in a few hands where each kind alone takes a table); the weight is the larger of the reads that are on
+    wide_from: float = 1.0
+    wide_prior: float = 0.5
+    wide_n: float = 2.0
+    probe_margin: float = -1.0  # ... and the call margin moves toward this by the same weight (-1 = it stays)
+    probe_bluff: float = 0.0  # ... and air (tier 0-1) or a strong draw raises it with this chance times the weight
+    # (times the bluff dial when that is under 1: never a station or a maniac)
     probe_raise_tier: int = 9
     probe_trap: float = 0.0
     # a raiser of my bets (S11): facing a raise of my heads-up flop or turn bet from a seat that raises my bets at a
@@ -179,6 +187,9 @@ class PostflopParams:
     # value, c-bet, semi-bluff) is cbet_size_dry on a dry board and cbet_size_wet on a wet one, whatever the hand, so
     # the size no longer names the strength. Off: big value 0.8, value 0.5 / 0.7, c-bets 0.33 / 0.5, semi-bluffs 0.5
     balance_sizes: bool = False
+    # ... only heads-up against a seat that raises my heads-up flop and turn bets at a smoothed rate (prior 0.12 worth
+    # 5) above balance_from: the reader of sizes shows itself by raising the small ones. 1.0 = off
+    balance_from: float = 1.0
     # strength-axis knobs (prompt 05's short-deck patch): a made flush / straight lands this many tiers away from
     # its hold'em tier, and draw outs are scaled (short deck: an open-ender is worth about 1.2x its hold'em outs)
     flush_tier_shift: int = 0
@@ -721,16 +732,20 @@ class Postflop:
                     wide = p.probe_from < 1.0 and prof.probe_rate(o, p.probe_prior, p.probe_n) > p.probe_from
                 else:
                     wide = p.cbet_from < 1.0 and prof.aggr_bet_rate(o) > p.cbet_from
+                if not wide and p.wide_from < 1.0:
+                    wide = prof.free_vs_me_rate(o, p.wide_prior, p.wide_n) > p.wide_from
                 if wide and self.rng.random() < p.probe_trap:
                     self.last = "probe_trap"
                     return _CHECK
+            bal = p.balance_sizes or (p.balance_from < 1.0 and n_opp == 1 and prof is not None
+                                      and prof.raise_my_bet_rate(spot.opps[0]) > p.balance_from)
             if tier >= big_value_tier:
                 self.last = "big_value"
-                return self._bet(spot, (p.cbet_size_wet if wet else p.cbet_size_dry) if p.balance_sizes
+                return self._bet(spot, (p.cbet_size_wet if wet else p.cbet_size_dry) if bal
                                  else p.big_value_size, eq=eq)
             if tier >= value_tier:
                 self.last = "value"
-                if p.balance_sizes:
+                if bal:
                     return self._bet(spot, p.cbet_size_wet if wet else p.cbet_size_dry, eq=eq)
                 return self._bet(spot, p.value_size_wet if wet else p.value_size_dry, eq=eq)
             if bluff_mult <= 0.0 or spot.my_total <= 0:
@@ -753,7 +768,7 @@ class Postflop:
                         return self._bet(spot, size, bluff=True)
                 return _CHECK
             if tier == 3 and cards_to_come and self.rng.random() < p.semibluff_freq * bluff_mult:
-                size = (p.cbet_size_wet if wet else p.cbet_size_dry) if p.balance_sizes else p.bluff_size
+                size = (p.cbet_size_wet if wet else p.cbet_size_dry) if bal else p.bluff_size
                 if size * spot.pot_total <= p.bluff_max_stack_frac * spot.my_total:
                     self.last = "semibluff"
                     return self._bet(spot, size, bluff=True)
@@ -771,18 +786,24 @@ class Postflop:
                 if cd > call_down:
                     call_down = cd
         raise_tier = p.raise_tier
+        wide_w = 0.0
         if n_opp == 1 and bettor >= 0 and prof is not None and street <= 2 and not cheap:
-            if obs.bets[spot.me] == 0 and (p.probe_from < 1.0 or p.cbet_from < 1.0):
+            if obs.bets[spot.me] == 0 and (p.probe_from < 1.0 or p.cbet_from < 1.0 or p.wide_from < 1.0):
                 if bettor != prof.prev_aggressor(street):
                     fr, r = p.probe_from, (prof.probe_rate(bettor, p.probe_prior, p.probe_n) if p.probe_from < 1.0
                                            else 0.0)
                 else:
                     fr, r = p.cbet_from, (prof.aggr_bet_rate(bettor) if p.cbet_from < 1.0 else 0.0)
-                if r > fr:
-                    w = (r - fr) / (1.0 - fr)
+                w = (r - fr) / (1.0 - fr) if r > fr else 0.0
+                if p.wide_from < 1.0:
+                    r2 = prof.free_vs_me_rate(bettor, p.wide_prior, p.wide_n)
+                    if r2 > p.wide_from and (r2 - p.wide_from) / (1.0 - p.wide_from) > w:
+                        w = (r2 - p.wide_from) / (1.0 - p.wide_from)
+                if w > 0.0:
+                    wide_w = w if w < 1.0 else 1.0
                     we = (WIDE_EQUITY_FLOP if street == 1 else WIDE_EQUITY_TURN)[tier]
                     if we > eq:
-                        eq += (w if w < 1.0 else 1.0) * (we - eq)
+                        eq += wide_w * (we - eq)
                     if p.probe_raise_tier < raise_tier:
                         raise_tier = p.probe_raise_tier
             elif p.raiser_from < 1.0 and obs.bets[spot.me] > 0:
@@ -796,6 +817,8 @@ class Postflop:
                 and prof.pre_raiser == bettor and obs.bets[spot.me] == 0 and obs.pot > 0 \
                 and spot.to_call <= p.vs_cbet_max_pot * obs.pot and prof.cbet_rate(bettor) >= p.vs_cbet_min_rate:
             base_margin = p.vs_cbet_margin
+        if wide_w > 0.0 and 0.0 <= p.probe_margin < base_margin:
+            base_margin += wide_w * (p.probe_margin - base_margin)
         margin = base_margin / call_down if call_down > 0 else base_margin
         if p.tight_aggro_margin > 0.0 and street >= 2 and bettor >= 0 and prof is not None and not cheap \
                 and prof.vpip_rate(bettor) < p.tight_vpip and prof.aggression(bettor) > p.tight_agg:
@@ -810,6 +833,11 @@ class Postflop:
         if tier >= raise_tier + value_shift:
             self.last = "raise" if raise_tier == p.raise_tier else "probe_raise"
             return self._bet(spot, p.raise_size, eq=eq)
+        if wide_w > 0.0 and p.probe_bluff > 0.0 and bluff_mult > 0.0 and (tier <= 1 or (tier == 3 and outs >= 8)) \
+                and p.raise_size * (spot.pot_total + spot.to_call) <= p.bluff_max_stack_frac * spot.my_total \
+                and self.rng.random() < p.probe_bluff * wide_w * (bluff_mult if bluff_mult < 1.0 else 1.0):
+            self.last = "probe_bluff"
+            return self._bet(spot, p.raise_size, bluff=True)
         if eq >= pot_odds + margin:
             self.last = "call"
             if spot.to_call >= p.icm_gate_frac * obs.stacks[spot.me] and not self._commit_ok(spot, eq, spot.to_call):
