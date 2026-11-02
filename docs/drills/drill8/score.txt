@@ -1,0 +1,51 @@
+== R1: ship cheap ghostwise tight, duplicate 400, seed 81
+filling 8 seats from 4 bot(s): ship.zip, cheap.zip, ghostwise, tight.py, ship.zip, cheap.zip, ghostwise, tight.py
+
+Ghost Hold'em local simulator: 400 tables, seed 81, duplicate seating, act limit 1000 us, setup 50 ms, cpu clock
+points by place: 16/11/8/6/4/2/1/0
+
+slot  entry               points  +-95%   1st%  place decisions   p50us   p99us   maxus  tmout  error cbfail   auto
+-------------------------------------------------------------------------------------------------------------------
+1     ship                 7.756  0.554   24.8   3.78     57965     200     730   10140    280      0      0      0
+2     cheap                4.280  0.444    3.2   5.34     37194      80     280   11889     39      0      1      1
+3     ghostwise            6.591  0.574   20.8   4.37     50807      10     410   11837     75      0      0      0
+4     tight                6.157  0.353    2.0   4.13     50907      10      10     590      0      0      0      0
+5     ship                 7.527  0.555   24.5   3.88     57147     200     740   11505    276      0      1      1
+6     cheap                3.909  0.438    4.2   5.54     35469      80     270    9323     38      0      0      0
+7     ghostwise            6.180  0.572   19.2   4.57     49171      10     410    8655     62      0      1      1
+8     tight                5.599  0.330    1.2   4.38     49008      10      10     886      0      0      0      0
+
+tables 400 | hands/table 170.4 | finished before hand 200: 83% | showdowns/table 13.9
+Ghost: haunted 22.1% of showdowns, 2913 chips per haunt on average, 955 players knocked out by the Ghost, 715864 Haunt chips discarded at table end
+wall time 33.1 s (0.08 s/table)
+
+first error per slot:
+  slot 2: hand_over: TimeoutError: 1.39 ms > 1.00 ms budget
+  slot 5: hand_over: TimeoutError: 1.35 ms > 1.00 ms budget
+  slot 7: hand_over: TimeoutError: 2.47 ms > 1.00 ms budget
+Mean points per table; +-95% is 1.96 standard errors over tables (seats shuffled per table).
+== R2: ship + ghostwise x3, tight x2, station, random; 400, seed 82
+
+Ghost Hold'em local simulator: 400 tables, seed 82, shuffled seating, act limit 1000 us, setup 50 ms, cpu clock
+points by place: 16/11/8/6/4/2/1/0
+
+slot  entry               points  +-95%   1st%  place decisions   p50us   p99us   maxus  tmout  error cbfail   auto
+-------------------------------------------------------------------------------------------------------------------
+1     ship                 8.980  0.497   26.5   3.14     61756     190     660   11895    236      0      1      1
+2     ghostwise            7.839  0.524   22.8   3.65     54527      10     440    5797     71      0      0      0
+3     ghostwise            7.544  0.531   22.5   3.78     52205      10     440   11496     82      0      1      1
+4     ghostwise            7.637  0.532   22.0   3.75     52517      10     430    7812     60      0      1      1
+5     tight                6.874  0.324    2.8   3.73     50891      10      10     853      0      0      0      0
+6     tight                7.247  0.323    3.2   3.56     52303      10      10    2753      3      0      0      0
+7     station              0.541  0.123    0.0   7.47     13900      10      10     165      0      0      0      0
+8     random_bot           1.338  0.157    0.2   6.77     17426      10      10     420      0      0      0      0
+
+tables 400 | hands/table 171.0 | finished before hand 200: 76% | showdowns/table 21.6
+Ghost: haunted 22.9% of showdowns, 1598 chips per haunt on average, 723 players knocked out by the Ghost, 670214 Haunt chips discarded at table end
+wall time 20.0 s (0.05 s/table)
+
+first error per slot:
+  slot 1: hand_over: TimeoutError: 11.12 ms > 1.00 ms budget
+  slot 3: hand_over: TimeoutError: 1.24 ms > 1.00 ms budget
+  slot 4: hand_over: TimeoutError: 1.26 ms > 1.00 ms budget
+Mean points per table; +-95% is 1.96 standard errors over tables (seats shuffled per table).
