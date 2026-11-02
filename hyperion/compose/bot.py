@@ -598,7 +598,12 @@ def make_bot(route=None, seed: int | None = None, config: ComposeConfig | None =
 SHIP_ROUTE = "post=hero,pre_raised_short=hero"  # the route the composite ships with when the dials name none
 # ... and its other dials: the guarded climb's accepted step (docs/drills/compose-log.md, "climb round 2"). ship() puts the
 # dials it is given on top of these, so `hyperion.ship.make_bot("composite", {})` is the composite as measured ("F")
-SHIP_DIALS: dict = {"route": SHIP_ROUTE, "exploit.bet_min_fold": 0.4, "hero.postflop.call_margin": 0.2}
+# The shipped dials. The SafeBot governor and degradation ladder (hyperion/ship.py's `slow_box` recipe, backlog R1) are on
+# by default since the climb's batch 2: bit-identical on a normal box, +3.6 points of 100 (payouts 50/25/12/6/3/2/1/1)
+# and +0.14 (8..1) on a 3x slower box, held-out seeds 20000-20199 (docs/drills/goal-log.md; decisions "The climb").
+SHIP_DIALS: dict = {"route": SHIP_ROUTE, "exploit.bet_min_fold": 0.4, "hero.postflop.call_margin": 0.2,
+                    "deadline_ms": 0.8, "panic_window": 60, "panic_ladder": True, "panic_recover": 40,
+                    "degrade": "noshadow,lean,hero"}
 
 
 def parse_dials(dials: dict | None) -> tuple:

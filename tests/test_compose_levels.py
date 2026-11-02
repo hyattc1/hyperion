@@ -38,9 +38,14 @@ def _table(bot, seed=3, rules=None, level=None):
     return seat.h.hexdigest(), res.points[0]
 
 
-def test_defaults_have_no_levels_and_no_governor():
+def test_defaults_ship_the_governor_at_level_zero():
+    """Since the climb's batch 2, SHIP_DIALS carry the slow_box dials: three levels, the governor on, starting at 0;
+    without them (the dials set back to the old values) there are none."""
     b = ship.make_bot("composite", {})
-    assert b.core.levels == 0 and b.safe.gov is None and b.core.level == 0
+    assert b.core.levels == 3 and b.safe.gov is not None and b.core.level == 0
+    off = ship.make_bot("composite", {"degrade": "", "panic_window": 0, "panic_ladder": False, "panic_recover": 0,
+                                      "deadline_ms": 0.5})
+    assert off.core.levels == 0 and off.safe.gov is None and off.core.level == 0
 
 
 def test_level_zero_is_bit_identical():

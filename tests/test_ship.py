@@ -230,7 +230,7 @@ def test_recipes_resolve_for_whichever_bot_ships(tmp_path, capsys):
 
 
 def test_slow_box_recipe_turns_the_governor_on_for_each_bot():
-    """R1: `slow_box` resolves per bot; the composite gets its ladder levels; nothing changes without it."""
+    """R1: `slow_box` resolves per bot; the composite gets its ladder levels (and has them by default since batch 2)."""
     comp = ship.make_bot("composite", ship.recipe("slow_box", "composite"))
     assert comp.safe.gov is not None and comp.safe.gov.ladder and comp.core.levels == 3 and comp.safe.deadline == 0.0008
     hyb = ship.make_bot("hybrid3_x", ship.recipe("slow_box", "hybrid3_x"))
@@ -239,4 +239,6 @@ def test_slow_box_recipe_turns_the_governor_on_for_each_bot():
     assert hero.safe.gov is not None and not hero.safe.gov.ladder
     both = ship.recipe("slow_box+survival", "composite")
     assert both["r3.call_margin"] == 0.03 and both["panic_window"] == 60
-    assert ship.make_bot("composite", {}).safe.gov is None
+    # since the climb's batch 2 the composite ships with the governor on (SHIP_DIALS); hybrid3_x and Hero do not
+    assert ship.make_bot("composite", {}).safe.gov is not None and ship.make_bot("composite", {}).core.levels == 3
+    assert ship.make_bot("hybrid3_x", {}).safe.gov is None and ship.make_bot("hero", {}).safe.gov is None
