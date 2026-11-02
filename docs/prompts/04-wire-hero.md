@@ -27,6 +27,7 @@ Same adapter and `rules_tonight.json`. Verify in this order, pasting every outpu
    500 µs), over 1 ms under 0.3%; if not, the recipe `latency` (the core's exploit layer off, ~6 µs; Hero's
    profiler off), then `timeouts` (every decision Hero's cheap path; a point or two), each with `--dials` on
    latency and the sim, kept with `python -m hyperion.ship --set <recipe>`. Kill the generator.
+   A kit that times its hand-end callback (rule sheet): the entry's `HAND_END_TIMED` defers the bot's hand end to `idle()` at the next event; check `python tools/latency.py --hand-end --defer --payouts <tonight's table>` (hand_end and idle p99 under 300 µs) as well.
 5. `python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py
    submission/rules_tonight.json --note "ship bot"` (no `--bot`: the package records `hyperion/ship.py`'s
    bot; read its `bot` line): fails on a fresh-process import and bot build over 5 s (then load tables at
