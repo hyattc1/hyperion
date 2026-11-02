@@ -67,12 +67,19 @@ def _load(kind: str):
     try:
         with open(path) as fh:
             raw = json.load(fh)
-        t = {"q": raw["q"], "keys": sorted(float(k) for k in raw["solve"]), "solve": {}}
-        for k, v in raw["solve"].items():
-            t["solve"][float(k)] = {"meta": v["meta"], "nodes": v["nodes"]}
+        if "z" in raw:  # the compact form (tools/solve_short.py compact): nodes zlib-compressed, base85
+            import base64
+            import zlib
+
+            nodes = json.loads(zlib.decompress(base64.b85decode(raw["z"])))
+            solve = {k: {"meta": raw["meta"][k]["meta"], "nodes": v} for k, v in nodes.items()}
+        else:
+            solve = {k: {"meta": v["meta"], "nodes": v["nodes"]} for k, v in raw["solve"].items()}
         if kind == "3":
-            t["grid"] = raw["grid"]
-            t["rho"] = raw.get("rho", [0.4])
+            t = {"q": raw["q"], "grid": raw["grid"], "rho": raw.get("rho", [0.4]), "solve": solve}
+        else:
+            t = {"q": raw["q"], "keys": sorted(float(k) for k in solve),
+                 "solve": {float(k): v for k, v in solve.items()}}
     except (OSError, ValueError, KeyError):
         t = None
     _TABLES[kind] = t

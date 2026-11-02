@@ -37,7 +37,9 @@ three-handed. Every depth and configuration's iterations and exploitability are 
 
 **Output** (JSON): per depth (configuration), per node (the action string from the root: f fold, c call, r raise,
 j jam), the actions and, per class (169, in tables.CLASSES order), each action's probability quantized to 1/40
-(one character each, chr(48 + q)). hyperion/strategy/short.py loads it and decides by lookup.
+(one character each, chr(48 + q)). The three-handed file keeps those nodes zlib-compressed in one base85 string
+("z", 1.4 MB for 512 configurations instead of 5.2 MB) next to each configuration's convergence ("meta").
+hyperion/strategy/short.py loads both and decides by lookup.
 """
 from __future__ import annotations
 
@@ -895,8 +897,31 @@ def cmd_three(a):
     out["secs"] = round(time.time() - t0, 1)
     path = a.out or os.path.join(TABLES_DIR, "short_3.json")
     with open(path, "w") as fh:
-        json.dump(out, fh, separators=(",", ":"))
+        json.dump(compact(out), fh, separators=(",", ":"))
     print("wrote", path, os.path.getsize(path), "bytes")
+
+
+def compact(out):
+    """The solutions as one zlib-compressed, base85 string ("z": decoded once at load); convergence stays readable."""
+    import base64
+    import zlib
+
+    nodes = {k: v["nodes"] for k, v in out["solve"].items()}
+    raw = json.dumps(nodes, separators=(",", ":")).encode()
+    res = {k: v for k, v in out.items() if k != "solve"}
+    res["meta"] = {k: {kk: vv for kk, vv in v.items() if kk != "nodes"} for k, v in out["solve"].items()}
+    res["z"] = base64.b85encode(zlib.compress(raw, 9)).decode()
+    return res
+
+
+def cmd_compact(a):
+    with open(a.src) as fh:
+        out = json.load(fh)
+    if "z" in out:
+        raise SystemExit("already compact")
+    with open(a.dst, "w") as fh:
+        json.dump(compact(out), fh, separators=(",", ":"))
+    print("wrote", a.dst, os.path.getsize(a.dst), "bytes")
 
 
 # ------------------------------------------------------------------------------------------------ jobs
@@ -976,11 +1001,14 @@ def main(argv=None):
     t.add_argument("--rho", default="0.4")
     t.add_argument("--only", default=None)
     t.add_argument("--out", default=None)
+    k = sub.add_parser("compact")
+    k.add_argument("src")
+    k.add_argument("dst")
     c = sub.add_parser("check")
     c.add_argument("--depth", default="10")
     c.add_argument("--iters", type=int, default=300)
     a = p.parse_args(argv)
-    {"hu": cmd_hu, "three": cmd_three, "check": cmd_check}[a.cmd](a)
+    {"hu": cmd_hu, "three": cmd_three, "check": cmd_check, "compact": cmd_compact}[a.cmd](a)
 
 
 if __name__ == "__main__":
