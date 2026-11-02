@@ -542,6 +542,19 @@ def wild_map(wild_rank: int) -> dict[str, str]:
     return out
 
 
+# S12's size read (postflop.size_read_holdem_only): a table is hold'em when only its structure differs (payouts,
+# blinds, antes, a straddle); an unknown key in Rules.extras or any other variant entry turns the read off
+_HOLDEM_EXTRAS = frozenset({"variant", "ante_rule"})
+_HOLDEM_VARIANTS = frozenset({None, "top_heavy", "antes_from_level_3", "fast_schedule", "straddle"})
+
+
+def holdem_table(rules: Rules) -> bool:
+    ex = rules.extras or {}
+    return (rules.hole_cards == 2 and tuple(rules.board_sizes) == (0, 3, 4, 5) and rules.n_suits == 4
+            and not rules.must_use_hole and rules.betting == "nolimit" and is_identity_order(rules)
+            and set(ex) <= _HOLDEM_EXTRAS and ex.get("variant") in _HOLDEM_VARIANTS)
+
+
 class HeroCore:
     """The unguarded strategy. Hero wraps it in SafeBot; tests may poke it directly."""
 
@@ -648,6 +661,7 @@ class HeroCore:
         fof = ex.get("category_order") == "flush_over_full_house"
         short = cfg.short_deck_read and set(ex.get("removed_ranks") or ()) == {0, 1, 2, 3}
         self.postflop.set_mode(low=low, wild_rank=wild_c, flush_over_full=fof, short=short)
+        self.postflop.holdem = holdem_table(rules)
         self._cls_map = mirror_map(self.tables.rank) if low else wild_map(wild_c) if wild_c >= 0 else None
         t = tables_for(rules, self.tables, name=cfg.variant_tables or None)
         if t is self.tables:

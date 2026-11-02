@@ -274,3 +274,44 @@ the two smaller both mostly air (0.4-0.6 pot: 54% air), and the rank slice reads
 the read folds tier 2-3 hands there that F called (57 + 45 spots). Fixes, both dials (c56d1e2): the blend with the
 population map (`size_read_rank_mix` 0.5: the population's 0.4-0.6 bets are 43% air) and a floor (`size_read_call_tier`
 2: the read turns a fold into a call only with a pair or better). C3 = C1 + both.
+
+C1's variant subset (realistic under each entry, screen 10000-10099 x 8): bounty -0.092 ± 0.134, auction -0.106 ±
+0.128, river_of_blood -0.054 ± 0.131, top_heavy +0.699 ± 1.459 (of 100): all level, three point estimates negative.
+
+## 08:40-08:57: C3 (C1 + blend 0.5 + call floor tier 2; code c56d1e2), screen 10000-10099 x 8
+
+| cell | C3 - F | C1 - F on the same 100 seeds |
+|---|---|---|
+| night | +0.027 ± 0.107 | +0.025 ± 0.129 |
+| top | +0.016 ± 0.132 | +0.115 ± 0.155 |
+| elite | +0.117 ± 0.133 | +0.230 ± 0.146 |
+| exploit (8-max) | -0.024 ± 0.191 | |
+| exploit_3 | -0.150 ± 0.214 | (200 seeds: -0.283) |
+| exploit_hu | -0.105 ± 0.206 | (200 seeds: -0.285) |
+
+The blend and the floor halve the short-handed loss to exploiter 1 and halve the strong-table gain with it: the same
+calls that win against the rivals' air-heavy small bets are the ones a bot that bets small for value punishes.
+
+## 08:57-09:05: C4 (floor only) and C6 (the read off short-handed), screen 10000-10099 x 8
+
+| cell | C4 = C1 + `size_read_call_tier` 2 | C6 = C1 + `size_read_min_alive` 4 (e34942b) |
+|---|---|---|
+| night | | +0.013 ± 0.126 |
+| top | | +0.114 ± 0.157 |
+| elite | +0.080 ± 0.131 | +0.203 ± 0.146 |
+| exploit (8-max) | -0.093 ± 0.180 | (below, 200 seeds) |
+| exploit_3 | **-0.297 ± 0.209** | identical to F by construction (three alive: the read is off) |
+| exploit_hu | **-0.330 ± 0.194** | identical to F by construction |
+
+The floor alone fixes nothing (the tier-0 calls were not the short-handed leak; the blend's shift on the middle size
+was what helped C3) and costs the elite gain. The gate keeps C1's strong-table gains (top +0.114 against C1's
++0.115, elite +0.203 against +0.230 on the same seeds): those gains are made at seven- to four-handed tables against
+bots whose sizes follow the population, which is also where the read is right; heads-up and three-handed, ranges
+widen and a bot built against us sizes its own way. **C6 is the candidate**; its screens follow at 200 x 8.
+
+Full test suite (wt_s12 at 4260f66, load 13-18): 24 failed, 1,021 passed, 7 skipped (35 min). Re-run alone: the
+`replay exactly in model mode` tests of the outside, elite and exploit fields, `test_random_pick_is_seeded`,
+`test_auto_drill_hits_every_checkpoint[toss_or_holdem-c]`, slowbox timing and the pack's import-time row still fail;
+the same replay tests and `test_random_pick_is_seeded` fail on the base commit 5c6af66 under the same load (plain
+Hero's SafeBot reads the wall clock in those tests), so they are the host, not S12. `test_contracts_md_is_current`
+was real: the API card is regenerated with the new dials (e34942b).

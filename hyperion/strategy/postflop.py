@@ -213,6 +213,7 @@ class PostflopParams:
     size_read_call_tier: int = 0  # the read turns a fold into a call only from this tier (2: a pair; not with air)
     size_read_min_alive: int = 0  # the read plays only with at least this many players alive (short-handed ranges
     #                               widen, and a bot built against us sizes its bets its own way: S12, exploiter 1)
+    size_read_holdem_only: bool = False  # ... and only on hold'em tables (hero.holdem_table: a twist turns it off)
     # xr_shift: heads-up, nothing to call, the opponent checked to me on this street and its check-raise rate (prior
     # xr_prior worth xr_n0 chances) is at most xr_max: value-bet this many tiers thinner (a checked range with no
     # check-raises holds few strong hands)
@@ -259,6 +260,7 @@ class Postflop:
         self.rng = random.Random(seed)
         self.curve = _Linear()  # Hero installs its ICM curve; chip EV otherwise
         self.low = False
+        self.holdem = True  # a hold'em table (Hero sets it per table: hero.holdem_table)
         self.wild_rank = -1  # canonical rank index of the wild card, -1 = none
         self.flush_over_full = False
         self.short = False  # short deck: A-6-7-8-9 a straight, its straights' outs, five flush outs, outs x SD_OUT_SCALE
@@ -840,8 +842,9 @@ class Postflop:
             return self._bet(spot, p.raise_size, eq=eq)
         if p.size_read > 0.0 and n_opp == 1 and bettor >= 0 and prof is not None and not cheap and 1 <= street <= 3 \
                 and board2 is None and not must_use and self.wild_rank < 0 and not self.low \
-                and (p.size_read_min_alive <= 2 or obs.players_left >= p.size_read_min_alive):
-            sr = self._size_eq(spot, prof, bettor, street, tier)
+                and (p.size_read_min_alive <= 2 or obs.players_left >= p.size_read_min_alive) \
+                and (self.holdem or not p.size_read_holdem_only):
+            sr = self._size_eq(spot, prof, bettor, street, t_eq if t_eq > 0 else 0)  # call_shift as F's own rule
             if sr is not None:
                 eq_r, w = sr
                 if eq_r >= p.size_read_raise and tier >= 2:

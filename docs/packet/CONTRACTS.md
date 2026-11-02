@@ -359,6 +359,7 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `postflop.size_read_rank_mix` | 1.0 |
 | `postflop.size_read_call_tier` | 0 |
 | `postflop.size_read_min_alive` | 0 |
+| `postflop.size_read_holdem_only` | False |
 | `postflop.xr_shift` | 0 |
 | `postflop.xr_max` | 0.04 |
 | `postflop.xr_prior` | 0.02 |

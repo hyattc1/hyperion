@@ -122,3 +122,30 @@ def test_short_handed_gate_turns_the_size_read_off_heads_up():
     r = Rules(n_players=2, payouts=(10, 7))
     names = ["hero", "rival1"]
     assert _digest(d, 1, names, r)[0] == _digest({}, 1, names, r)[0]  # never three or more alive: F's own play
+
+
+def test_holdem_table_keeps_structure_variants_and_drops_every_twist():
+    import json
+    import os
+    from hyperion.drills import variants as V
+    from hyperion.strategy.hero import holdem_table
+    structure = {"top_heavy", "antes_from_level_3", "fast_schedule", "straddle"}
+    for name in V.catalog_names():
+        assert holdem_table(V.get(name, seed=7).rules) == (name in structure), name
+    assert holdem_table(Rules()) and holdem_table(Rules(payouts=(50, 25, 12, 6, 3, 2, 1, 1)))
+    path = os.path.join(os.path.dirname(__file__), "..", "docs", "drills", "climb", "rules", "double.json")
+    with open(path) as fh:
+        raw = json.load(fh)
+    assert holdem_table(Rules(**{k: tuple(tuple(x) if isinstance(x, list) else x for x in v) if isinstance(v, list)
+                                 else v for k, v in raw.items()}))
+    assert not holdem_table(Rules(extras={"something_new": 1}))  # an unseen twist: the read stays off
+
+
+def test_holdem_only_plays_a_twist_table_as_f_and_holdem_as_without_the_gate():
+    from hyperion.drills import variants as V
+    base = {"hero.postflop.size_read": 1.0, "hero.postflop.size_read_rank": 5.0, "hero.postflop.size_read_min_alive": 4}
+    gated = {**base, "hero.postflop.size_read_holdem_only": True}
+    assert _digest(gated, 0)[0] == _digest(base, 0)[0]  # hold'em: the gate changes nothing
+    bounty = V.get("bounty", seed=7).rules
+    assert any(_digest(base, t, rules=bounty)[0] != _digest({}, t, rules=bounty)[0] for t in range(3))
+    assert all(_digest(gated, t, rules=bounty)[0] == _digest({}, t, rules=bounty)[0] for t in range(3))
