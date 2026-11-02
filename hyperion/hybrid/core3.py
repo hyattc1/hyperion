@@ -27,7 +27,7 @@ from ..sim.rivals import rival3 as R3
 from ..sim.rivals.rival3 import CLASSES, PCT, _cls, _eqvs
 from ..strategy.hero import icm_me
 from .dials import Rival3Knobs
-from .kit import SoftDeadline
+from .kit import LeanICM, SoftDeadline
 
 
 def _linear_from(pays) -> tuple[float, float, int] | None:
@@ -85,6 +85,8 @@ class Rival3Core(R3.Bot):
 
     payouts = (8, 7, 6, 5, 4, 3, 2, 1)
     soft_us = 350.0
+    lean = False  # a lean level (HybridCore.set_lean): exact ICM gives the decision to Hero (LeanICM)
+    exact_icm = False  # this table's payouts have no closed form from the third place down: icm_points is exact
     _t0 = 0.0
     replay_errors = 0
     k = Rival3Knobs()  # the dials (hyperion/hybrid/dials.py); setup() takes HybridConfig.r3
@@ -94,6 +96,8 @@ class Rival3Core(R3.Bot):
         self.new_table({"starting_stack": rules.starting_stack, "hand_cap": rules.max_hands,
                         "n_players": n_players, "blinds": rules.blind_levels}, seat, n_players)
         self.payouts = tuple(rules.payouts)
+        lin = _linear_from([float(p) for p in self.payouts])
+        self.exact_icm = lin is None or lin[2] > 2
         self.soft_us = float(cfg.soft_us)
         self.k = getattr(cfg, "r3", None) or Rival3Knobs()
         self.replay_errors = 0
@@ -373,6 +377,8 @@ class Rival3Core(R3.Bot):
 
     def _allin(self, stacks, bets, inh, seat, opp, pot, n_alive):
         """Rival 3's `_allin` (ICM values of fold, steal, win, lose against `opp`) with this table's payouts."""
+        if self.lean and self.exact_icm:
+            raise LeanICM()
         pays = self.payouts
         n = len(stacks)
         tot = [stacks[j] + bets[j] for j in range(n)]

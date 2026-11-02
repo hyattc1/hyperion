@@ -271,6 +271,8 @@ class SlowSeat:
     the engine's timeout model folds or checks it over 1 ms exactly as strict mode would (module doc, Scope). Tracks
     SafeBot's panic and, with trace_us, records decisions slower than that many real us."""
 
+    free = False  # --free: never timed out (the seat as in a model-mode run)
+
     def __init__(self, bot, trace_us: float | None = None, payouts: str = "lin"):
         self.impl = bot
         self.safe = getattr(bot, "safe", None)
@@ -306,7 +308,7 @@ class SlowSeat:
             return self.impl.act(obs)
         finally:
             dt = pcn() - t0
-            self.last_cost_ns = dt
+            self.last_cost_ns = None if self.free else dt
             self.calls += 1
             if dt > self.worst_ns:
                 self.worst_ns = dt
@@ -439,7 +441,8 @@ def _init_worker(k: float, cpus, basis: str = "wall", noise=None):
 
 
 def _job(args):
-    spec_name, spec, field, ts, payouts, scope, trace_us, det = args
+    spec_name, spec, field, ts, payouts, scope, trace_us, det, free = args
+    SlowSeat.free = bool(free)
     from hyperion.core.types import Rules
     from hyperion.sim import bestiary as B
 
@@ -491,7 +494,9 @@ def cmd_run(a) -> list:
     noise = tuple(float(x) for x in a.noise.split(",")) if a.noise else None
     os.makedirs(a.out, exist_ok=True)
     chunks = [seeds[i:i + a.chunk] for i in range(0, len(seeds), a.chunk)]
-    jobs = [(nm, spec, a.field, ch, a.payouts, a.scope, a.trace_us, a.det) for nm, spec in specs.items() for ch in chunks]
+    # interleaved (chunk by chunk, every spec), so the specs of one run share the host's load as it varies
+    jobs = [(nm, spec, a.field, ch, a.payouts, a.scope, a.trace_us, a.det, a.free) for ch in chunks
+            for nm, spec in specs.items()]
     busy = start_busy(cpus[:a.workers], a.contend, on, off) if a.contend else []
     res: dict = {nm: {} for nm in specs}
     t0 = time.time()
@@ -509,9 +514,9 @@ def cmd_run(a) -> list:
         path = os.path.join(a.out, f"slow.{a.field}.{a.payouts}.{a.scope}.k{a.k:g}.{a.clock}"
                                    f"{'.n' + a.noise.replace(',', '-') if a.noise else ''}"
                                    f"{'.c' + str(a.contend) + 'x' + a.duty_ms.replace(',', '-') if a.contend else ''}"
-                                   f"{'.det' if a.det else ''}.{a.seeds.replace(':', '-')}.{a.tag}.{nm}.json")
+                                   f"{'.det' if a.det else ''}{'.free' if a.free else ''}.{a.seeds.replace(':', '-')}.{a.tag}.{nm}.json")
         out = {"spec": nm, "def": specs[nm], "field": a.field, "seeds": a.seeds, "payouts": a.payouts, "scope": a.scope,
-               "k": a.k, "clock": a.clock, "noise": a.noise, "contend": a.contend, "duty_ms": a.duty_ms if a.contend else "", "cpus": cpus, "det": a.det,
+               "k": a.k, "free": a.free, "clock": a.clock, "noise": a.noise, "contend": a.contend, "duty_ms": a.duty_ms if a.contend else "", "cpus": cpus, "det": a.det,
                "res": res[nm], "secs": time.time() - t0, "argv": sys.argv[1:]}
         with open(path + ".tmp", "w") as fh:
             json.dump(out, fh)
@@ -634,7 +639,7 @@ def cmd_quiet(a) -> list:
     seeds = parse_seeds(a.seeds)
     os.makedirs(a.out, exist_ok=True)
     chunks = [seeds[i:i + a.chunk] for i in range(0, len(seeds), a.chunk)]
-    jobs = [(nm, spec, a.field, ch, a.payouts, a.reps, a.profile_us) for nm, spec in specs.items() for ch in chunks]
+    jobs = [(nm, spec, a.field, ch, a.payouts, a.reps, a.profile_us) for ch in chunks for nm, spec in specs.items()]
     res: dict = {nm: {} for nm in specs}
     with Pool(a.workers, initializer=_init_worker, initargs=(1.0, [], "wall", None)) as p:
         for nm, off0, o in p.imap_unordered(_job_quiet, jobs):
@@ -777,6 +782,8 @@ def label(d) -> str:
         s += f" scope={d['scope']}"
     if d.get("det"):
         s += " det"
+    if d.get("free"):
+        s += " free"
     return s
 
 
@@ -896,6 +903,7 @@ def main(argv=None):
     r.add_argument("--chunk", type=int, default=10)
     r.add_argument("--trace-us", type=float, default=None, help="record decisions slower than this many real us")
     r.add_argument("--det", action="store_true", help="the model-mode settings (panic, soft deadlines off)")
+    r.add_argument("--free", action="store_true", help="the seat is never timed out (with --det: model mode exactly)")
     r.add_argument("--out", required=True)
     r.add_argument("--tag", default="run")
     r.add_argument("-v", "--verbose", action="store_true")

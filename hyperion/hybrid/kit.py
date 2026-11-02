@@ -14,6 +14,11 @@ class SoftDeadline(Exception):
     """The decision is already late when the core's expensive part would start: answer with Hero's cheap path."""
 
 
+class LeanICM(Exception):
+    """A lean level (SafeBot's governor on a slow box): the core would price an all-in with exact ICM under payouts
+    with no closed form (~50 us a call, four a decision); Hero decides instead, its ICM precomputed at hand_end."""
+
+
 class KitObs:
     """The observation shape the rivals were built against (red-team brief, kit.py): our fields with `legal` a set of
     strings, `history` a list of (seat, (kind, amount)) and `hand_no` 1-based."""

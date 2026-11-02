@@ -33,6 +33,19 @@ rank order, or a straddle, a section routed to rival1 or rival3 is played by the
 shadow that raises is counted and ignored. `late_us`: if the chosen member has already used this long, the shadows skip
 this decision (counted `shadow:late`); 10^9 in deterministic runs.
 
+**Degradation levels** (backlog R1, `degrade`, off by default). SafeBot's governor (hyperion/strategy/safe.py) can step
+the composite down through the levels `degrade` names, one per trigger, before the cheap path (panic) and back up when
+the box turns out fine; each level adds its saving to the ones above it:
+  noshadow   no full shadows (a member not chosen that would decide in full skips the decision; its record of its own
+             actions follows the one taken, as after a light shadow); light shadows stay, they keep the members' state
+  bare       no shadows at all
+  base       every section to the base's donor (hybrid3_x: rival 3's core + the layer), no full shadows (light ones
+             stay)
+  hero       every section to Hero (the hero member, the layer on), no full shadows (light ones stay)
+  lean       under payouts with no closed form (top-heavy), a decision the base would price with exact ICM (~50 us a
+             call, four an all-in) is Hero's (the base's own Hero, its ICM precomputed at hand_end: `hero:lean`)
+Counted `level:<n>` once per decision played at level n > 0.
+
 Routes: a dict or "section=donor,..." (sections.parse_route: section names, "pre", "post", "*"). Unrouted sections go
 to the base's donor (`base`).
 """
@@ -263,6 +276,13 @@ class ComposeConfig:
     deadline_ms: float = 0.5  # SafeBot, as Hero sets it
     panic_after: int = 5
     panic_rate: float = 0.02
+    # SafeBot's governor (hyperion/strategy/safe.py; all off = the single cliff) and the levels it steps through
+    panic_window: int = 0
+    panic_ladder: bool = False
+    panic_recover: int = 0
+    panic_backoff: float = 2.0
+    degrade: str = ""  # "noshadow,base": the intermediate levels, in order (module doc)
+    start_level: int = 0  # measurement: play every table at this level from its first decision (a level's strength)
     seed: int | None = None
 
 
@@ -276,7 +296,21 @@ def compose_config(route=None, seed=None, **kw) -> ComposeConfig:
             raise KeyError(f"unknown donor {d!r} for {sec}; known: {', '.join(DONORS)}")
     if cfg.base_donor not in DONORS or DONORS[cfg.base_donor][0] != "base":
         raise KeyError(f"base_donor must be a donor of the base member, got {cfg.base_donor!r}")
+    for lv in degrade_levels(cfg.degrade):
+        if lv not in LEVEL_KINDS:
+            raise KeyError(f"unknown degrade level {lv!r}; known: {', '.join(LEVEL_KINDS)}")
     return cfg
+
+
+LEVEL_KINDS = ("noshadow", "bare", "base", "hero", "lean")
+
+
+def degrade_levels(spec) -> list:
+    if not spec:
+        return []
+    if isinstance(spec, (list, tuple)):
+        return [str(x).strip() for x in spec if str(x).strip()]
+    return [x.strip() for x in str(spec).split(",") if x.strip()]
 
 
 # ---------------------------------------------------------------------------------------------- the core
@@ -322,12 +356,22 @@ class CompositeCore:
         self.plain = True
         self.late = cfg.late_us * 1e-6
         self.last_section = -1
+        # degradation levels (module doc): what each level n = 1 .. levels turns on, cumulatively
+        self._degrade = degrade_levels(cfg.degrade)
+        self.levels = len(self._degrade)
+        self.level = 0
+        self._full_shadows = True
+        self._shadows = True
+        self._force = None  # (member index, layer) every section goes to at a base / hero level
+        self._hero_idx = names.index("hero") if "hero" in names else -1
 
     # ------------------------------------------------------------------ Bot protocol
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
         self.panic = False
         for m in self.members:
             m.new_table(rules, seat, n_players)
+        if self.cfg.start_level or self.level:
+            self.set_level(self.cfg.start_level)
         b = self.base
         self.plain = getattr(b, "_table_why", None) is None and not getattr(b, "_straddle", False) \
             and is_identity_order(rules)
@@ -341,6 +385,25 @@ class CompositeCore:
             if sp is not None:
                 sp(on)
 
+    def set_level(self, n: int) -> None:
+        """Play at degradation level n (0 = full strength; module doc). SafeBot's governor calls it; panic is separate."""
+        n = max(0, min(int(n), self.levels))
+        self.level = n
+        on = set(self._degrade[:n])
+        self._shadows = "bare" not in on
+        self._force = None
+        if "hero" in on and self._hero_idx >= 0:
+            self._force = (self._hero_idx, True)
+        elif "base" in on:
+            self._force = (0, DONORS[self.cfg.base_donor][1])
+        # a forced level saves the full shadows too (the point of it); light ones keep the members' state
+        self._full_shadows = self._shadows and "noshadow" not in on and self._force is None
+        lean = "lean" in on
+        for m in self.members:
+            sl = getattr(m, "set_lean", None)
+            if sl is not None:
+                sl(lean)
+
     def act(self, obs: Observation) -> Action:
         t0 = perf_counter()
         ex = self.ex
@@ -353,6 +416,10 @@ class CompositeCore:
         self.last_section = sec
         mi, layer = self.route[sec]
         counts = self.counts
+        if self.level:
+            counts["level:%d" % self.level] += 1
+            if self._force is not None and not self.panic:
+                mi, layer = self._force
         if self.panic:  # SafeBot saw repeated overruns: the base alone (Hero's cheap path) for the rest of the table
             mi, layer = 0, True
         elif mi and self.plain_only[mi] and not self.plain:
@@ -387,12 +454,13 @@ class CompositeCore:
                 a = safe_action(obs)
         props[mi] = a
         shadowed = False
-        if not self.panic and nm > 1:
+        if not self.panic and nm > 1 and self._shadows:
             if perf_counter() - t0 > self.late:
                 counts["shadow:late"] += 1
             else:
                 shadowed = True
                 light, lit = self.light, self._lit
+                full = self._full_shadows
                 for j in range(nm):
                     if j != mi and j != failed:
                         lt = light[j]
@@ -400,8 +468,11 @@ class CompositeCore:
                             if lt is not None and lt[0](members[j], obs):
                                 lt[1](members[j], obs)
                                 lit[j] = True
-                            else:
+                            elif full:
                                 props[j] = members[j].act(obs)
+                            else:  # a degraded level: no full shadow; its record follows the action taken
+                                lit[j] = True
+                                counts["shadow:skip"] += 1
                         except Exception:  # noqa: BLE001 - a shadow's failure costs nothing
                             props[j] = None
                             counts["shadow:error:" + self.names[j]] += 1
@@ -465,9 +536,12 @@ class Composite:
     """SafeBot around CompositeCore, as Hero and the hybrids are built."""
 
     def __init__(self, config: ComposeConfig | None = None):
+        from ..strategy.safe import governor
+
         self.core = CompositeCore(config)
         cfg = self.core.cfg
-        self.safe = SafeBot(self.core, cfg.deadline_ms, cfg.panic_after, cfg.panic_rate)
+        self.safe = SafeBot(self.core, cfg.deadline_ms, cfg.panic_after, cfg.panic_rate,
+                            governor(cfg.panic_window, cfg.panic_ladder, cfg.panic_recover, cfg.panic_backoff))
 
     @property
     def config(self) -> ComposeConfig:
@@ -511,6 +585,8 @@ def parse_dials(dials: dict | None) -> tuple:
       base.<key>     any other dial for the base (`base.hero.<key>`: its fallback Hero; flat HybridConfig fields)
       cheap          every decision the base's cheap path (Hero's), no other member
       late_us, deadline_ms, panic_after, panic_rate   the shell's clocks
+      panic_window, panic_ladder, panic_recover, panic_backoff, degrade   SafeBot's governor and the composite's
+                     degradation levels (module doc; off by default)
       light          light shadows (ship() turns them on)
       soft_us, mc_max, ...   any flat HybridConfig field: every hybrid member (the base's soft deadline ...)"""
     d = dict(dials or {})

@@ -78,3 +78,19 @@ def test_cached_rounds_to_big_blind_and_keeps_short_stacks_alive():
     assert a[2] > 0 and a[3] == 0
     assert sum(a) == pytest.approx(8 + 7 + 6)
     assert icm_cached([3000, 1000], (10, 6), 20) == pytest.approx((9.0, 7.0))
+
+
+def test_icm_me_fast_pass_is_bit_identical_to_the_reference():
+    """R1: icm_me's precomputed subset plan does the same float operations in the same order as the first loop."""
+    import random
+
+    from hyperion.strategy.hero import _icm_me_ref, icm_me
+
+    rng = random.Random(11)
+    for pays in ((50, 25, 12, 6, 3, 2, 1, 1), (10, 7, 5, 4, 3, 2, 1, 0), (65, 35), (8, 7, 6, 5, 4, 3, 2, 1),
+                 (40, 30, 20, 10, 0, 0, 0, 0, 0)):
+        for _ in range(400):
+            n = rng.choice([2, 3, 4, 5, 6, 7, 8, 9])
+            st = [0 if rng.random() < 0.1 else int(rng.lognormvariate(0, 0.9) * 2000) + 1 for _ in range(n)]
+            me = rng.randrange(n)
+            assert icm_me(st, me, pays) == _icm_me_ref(st, me, pays)
