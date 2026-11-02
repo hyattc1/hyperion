@@ -647,7 +647,7 @@ and (in judges) `elite_judge`.
 - Batch 5 = strong_route (H6) + V-e (H10) + D3 (H11) + Z3 (H12), 27 dials. Combined against batch 4 on H13
   (33000-33399), --aim strong, every stage; judges once on the judge set and timing in parallel (goal/b14).
 
-## 19:00: caught before the freeze: a slim zip of batch 5 could not have built its bot
+## 18:49: caught before the freeze: a slim zip of batch 5 could not have built its bot
 - Batch 5's strong-table route plays elite1 in opened pots at strong tables; --slim dropped hyperion/sim/field, so the
   frozen kit B zip would have failed its own build check (and nothing at measure time would have shown it: every
   measurement runs from the repo). pack.py --slim now builds the recorded bot once from the repo and copies back every
