@@ -147,7 +147,8 @@ def test_the_active_variant_tables_are_vendored_without_a_flag(tmp_path):
     (tmp_path / "rules_bounty.json").write_text('{"extras": {"variant": "bounty"}}')
     assert pack.active_variant(tmp_path / "rules_bounty.json") == ("bounty", False)
     what = pack.build(tmp_path / "b", entry, [], False, None, "bounty")
-    assert what == "default"  # no set needed, none shipped, no warning
+    assert what.startswith("default + generic/bounty-") and "WARN" not in what  # no set needed; its prepared table
+    assert list((tmp_path / "b" / "tables" / "generic").glob("bounty-*.json"))  # (Hero's twin_preflop) rides along
     what = pack.build(tmp_path / "c", entry, [], False, None, "made_up_three_card", needs_variant=True)
     assert "WARN" in what and "label tables" in what
 

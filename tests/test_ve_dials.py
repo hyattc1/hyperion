@@ -1,0 +1,94 @@
+"""V-e's dials for twists against opponents that play them (Hero Config / PostflopParams, `hero.<key>` on F): each is
+off by default, and each does what it says when on. twin_preflop (two-card twists: the hold'em twin from the variant's
+own prepared table), postflop.split_call_margin (two boards), variant_preflop_ex (must-use, fixed limit, lowball)."""
+import json
+
+from hyperion.core.types import Action, ActionKind, Observation, Rules, parse_cards as P
+from hyperion.drills import variants as V
+from hyperion.strategy.hero import Config, HeroCore, config_from_dict, mirror_map, wild_map
+from hyperion.strategy.postflop import Postflop, PostflopParams
+from hyperion.strategy.spot import Spot
+from hyperion.strategy.tables import generic_doc, load, twin_classes, twin_shift
+
+from .strategy_helpers import street_obs
+
+R, C = Action.raise_to, Action.call()
+HU = [False, True, False, False, False, False, False, True]
+PRE = [(7, R(50)), (1, C)]
+
+
+def test_every_new_dial_is_off_by_default():
+    c = Config()
+    assert (c.twin_preflop, c.twin_force, c.variant_preflop_ex, c.postflop.split_call_margin) == (0.0, False, {}, -1.0)
+
+
+def test_twins_come_from_the_variants_own_table():
+    base = load(need_hu=True)
+    low = twin_classes(generic_doc(V.get("lowball").rules), base)
+    wild = twin_classes(generic_doc(V.get("wild_deuces").rules), base)
+    assert low["32o"] in ("AA", "KK", "QQ") and base.rank[low["AA"]] < 0.05  # 2-7: the wheel-ish hands lead, AA is trash
+    assert wild["22"] == "AA" and base.rank[wild["AA"]] < base.rank["AA"] - 0.1  # two wilds lead; AA is not a premium
+    assert twin_shift(low, base) > 0.3 and twin_shift(wild, base) > 0.1
+    holdem = twin_classes(generic_doc(V.get("fixed_raise").rules), base)  # hold'em cards: the classes themselves
+    assert holdem is not None and all(k == v for k, v in holdem.items())
+    assert generic_doc(Rules()) is None  # plain hold'em names no variant
+
+
+def _cls_map(dials, name):
+    h = HeroCore(config_from_dict(dials))
+    h.new_table(V.get(name).rules, 0, 8)
+    return h._cls_map
+
+
+def test_twin_preflop_replaces_the_hand_written_maps_only_when_on():
+    base = load(need_hu=True)
+    assert _cls_map({}, "lowball") == mirror_map(base.rank)
+    assert _cls_map({}, "wild_deuces") == wild_map(0)
+    assert _cls_map({}, "hi_lo") is None
+    on = {"twin_preflop": 0.05}
+    assert _cls_map(on, "wild_deuces")["AA"] != "AA" and _cls_map(on, "lowball") != mirror_map(base.rank)
+    assert _cls_map(on, "hi_lo") is not None
+    # under the threshold (a twist with hold'em's showdown: sampling noise), with a variant table set, or a rank
+    # remap: unchanged
+    for name in ("two_boards", "bounty", "short_deck", "permuted_ranks", "omaha_four"):
+        assert _cls_map(on, name) == _cls_map({}, name), name
+    h = HeroCore(config_from_dict(on))
+    h.new_table(Rules(), 0, 8)
+    assert h._cls_map is None
+    # twin_force: the short deck's twins in place of its variant set (the hold'em tables read through the twins)
+    h = HeroCore(config_from_dict({**on, "twin_force": True}))
+    h.new_table(V.get("short_deck").rules, 0, 8)
+    assert h.active is h.tables and h._cls_map["AA"] != "AA"
+
+
+def _two_board_call(margin):
+    pf = Postflop(PostflopParams(call_margin=0.2, split_call_margin=margin, vs_cbet_margin=-1.0))
+    obs = street_obs("Ah 8d", "Ac 7s 2h", seat=1, button=7, pot=100, bets=[0] * 7 + [50],
+                     in_hand=HU, history=PRE)
+    spot = Spot(obs, P("Ah 8d"), None)
+    # top pair on board 1, nothing on board 2: about half the pot back, at a price of a third
+    return pf.act(spot, P("Ah 8d"), None, False, board=P("Ac 7s 2h"), board2=P("Kd 9c 4s")).kind
+
+
+def test_split_call_margin_moves_two_board_calls_only():
+    assert _two_board_call(-1.0) is ActionKind.FOLD
+    assert _two_board_call(0.0) is ActionKind.CALL
+    pf = Postflop(PostflopParams(call_margin=0.2, split_call_margin=0.0, vs_cbet_margin=-1.0))
+    obs = street_obs("Kh 8d", "Ac 7s 2h", seat=1, button=7, pot=100, bets=[0] * 7 + [50],
+                     in_hand=HU, history=PRE)
+    spot = Spot(obs, P("Kh 8d"), None)
+    assert pf.act(spot, P("Kh 8d"), None, False, board=P("Ac 7s 2h")).kind is ActionKind.FOLD  # one board: as before
+
+
+def test_variant_preflop_ex_reaches_the_tables_variant_preflop_leaves_out():
+    vp = {"call_raise_frac": 0.15, "three_bet_frac": 0.05}
+    ex = {"must_use": {"call_raise_frac": 0.2}, "lowball": {"call_raise_frac": 0.25}, "fixedlimit": {"call_raise_frac": 0.3}}
+    got = {}
+    for name in ("omaha_four", "lowball", "fixed_raise", "short_deck", "hi_lo"):
+        h = HeroCore(config_from_dict({"variant_preflop": vp, "variant_preflop_ex": ex}))
+        h.new_table(V.get(name).rules, 0, 8)
+        got[name] = h.preflop.p.call_raise_frac
+    assert got == {"omaha_four": 0.2, "lowball": 0.25, "fixed_raise": 0.3, "short_deck": 0.15, "hi_lo": 0.15}
+    h = HeroCore(config_from_dict({"variant_preflop_ex": ex}))
+    h.new_table(Rules(), 0, 8)
+    assert h.preflop.p.call_raise_frac == Config().preflop.call_raise_frac  # plain hold'em untouched

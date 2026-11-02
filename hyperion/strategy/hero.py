@@ -406,6 +406,9 @@ class Config:
     # this mean percentile (tables.twin_shift: a prepared table of a twist with hold'em's showdown moves them 0.015-0.03
     # by sampling noise alone). 0 = off
     twin_preflop: float = 0.0
+    # ... also on a two-card twist that has a variant table set (short deck): its twins from the prepared table in place
+    # of the set (the hold'em tables, read through the twins). False = the set, as before
+    twin_force: bool = False
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5
@@ -703,10 +706,12 @@ class HeroCore:
         self.postflop.holdem = holdem_table(rules)
         self._cls_map = mirror_map(self.tables.rank) if low else wild_map(wild_c) if wild_c >= 0 else None
         t = tables_for(rules, self.tables, name=cfg.variant_tables or None)
-        if cfg.twin_preflop > 0.0 and t is self.tables and rules.hole_cards == 2 and self._remap is None:
+        if cfg.twin_preflop > 0.0 and rules.hole_cards == 2 and self._remap is None \
+                and (t is self.tables or (cfg.twin_force and t.scheme == "169")):
             tm = self._twins(rules)
             if tm is not None:
                 self._cls_map = tm
+                t = self.tables
         if t is self.tables:
             pre, pf = self._base
             self._label = False
