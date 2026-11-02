@@ -430,3 +430,23 @@ and (in judges) `elite_judge`.
 - S11 told: its base is now F with the defence; the dry c-bet stays out.
 - Round 3 so far: accepted V-b (V), F1 (H), the defence (S), V-c (V), R2-R4 (R); rejected FIN's c-bet (S). The stop
   counter stays at zero.
+
+## 09:59: S12 merged (5b4591a), its bet-size read queued on H5; S9's strong_route rejected on H4
+- S12 (reads, the owner's question): the ceiling (F with every per-seat read it keeps, warm from hand 0, 100 x 8):
+  night +0.04, realistic +0.18 UP, night_hard +0.02, top +0.02, elite -0.24 DOWN (rival 3's core's preflop
+  punishments are sized for weak seats: -0.11 at elite). Reads settle: VPIP/PFR/fold-to-raise by hands 60-100;
+  postflop reads still 0.10-0.24 off at hand 199. Missing reads by oracle gain: bet size names the hand (+0.10 /
+  +0.23 UP / +0.28 UP on night / top / elite: half-pot bets from the rivals and elite1 are 33-65% air, their
+  0.6-0.85 pot bets almost none), fold to a 3-bet (+0.06 / +0.08 / +0.02), never check-raises (level).
+  Built: a learner that ranks each seat's sizes by use (no showdowns needed): elite +0.277, elite_night +0.227,
+  top +0.108 UP, but exploit heads-up and 3-handed -0.28 DOWN, so it is off with 3 or fewer alive and on twist tables
+  (C7). C7 screen (200 x 8, --aim strong ACCEPT): elite +0.256 ± 0.105, elite_night +0.227 ± 0.096 UP; night -0.031,
+  guards, exploit level. Latency p99 100 -> 104 us (decisions), hand end 99 -> 138 us. Merge: F identical on 14
+  cells (against 83066ac). C7 queued on H5 (24000-24399), --aim strong, all stages.
+- S9's G2 on H4 (23000-23399, base batch 3): mirror +0.078 ± 0.039 UP; elite +0.020, elite_night +0.001; night,
+  guards, exploit, aware level; variants down three (auction -0.016 ± 0.014, bounty -0.027 ± 0.018, knockout_bounty
+  -0.030 ± 0.029): REJECT. Likely cause: elite1 is twist-blind, so routing opens to it on bounty and auction tables
+  loses the twist's value. Also the candidate's sim p99 ran about 4.1 ms against F's 0.5-0.6 ms on the guard cells
+  (model mode, play unaffected, load 17): a latency tail to find. Sent back to S9: route only on plain hold'em tables
+  (S12's holdem-table test), find and cap the tail, re-screen. H4 used once.
+- S11 told to rebase onto 5b4591a (S12 edits the same facing-a-bet block) and to screen its candidate with C7.
