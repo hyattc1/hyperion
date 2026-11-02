@@ -1291,6 +1291,84 @@ class AgentDefaultBot(PersonaBot):
     MODULE = "agent_default"
 
 
+# ----- the outside field: fresh one-hour builds for the climb (docs/drills/goal-plan.md), never tuned on ---------
+
+
+class OutsideVeteransBot(PersonaBot):
+    """Outside `out_veterans`: two former university pokerbots finalists who prepared for two weeks. ICM push/fold at
+    13 bb or less with seat-adjusted call chances, ICM all-in calls with a 0.15-point margin, re-shoves over one open
+    at 25 bb or less, wide positional opens, steals when the seats behind time out or fold, tight value postflop.
+    Frozen at minute 38 (md5 bffa539c). No clock, no RNG beyond its own; plays the same in every mode."""
+
+    MODULE = "outside_veterans"
+
+
+class OutsideSelfPlayBot(_FixedSpeedInModel, PersonaBot):
+    """Outside `out_selfplay`: a solo student whose agent self-play-tuned the bot in its own simulator for the hour.
+    Monte Carlo tables at import, percentile push/fold at 13 bb or less, very tight committed calls (equity over pot
+    odds + 0.35), a range-narrowed postflop Monte Carlo capped at 140 us of wall time (one clock read per sample) or
+    150 samples. Pauses the garbage collector inside act(). Frozen at minute 45 (md5 5e739fa4). In mode "model" it
+    plays at a fixed speed: its clock advances STEP_US per read. 4.5 us is the wall time per sample measured here (5.5 at
+    load 5-6, less the load), so it draws about 31 samples in its 140 us, as a quiet host would."""
+
+    MODULE = "outside_selfplay"
+    STEP_US = 4.5
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self.mod = sys.modules[type(self.impl).__module__]
+        self._ns = 0
+        self._clock_ns = types.SimpleNamespace(perf_counter_ns=self._clock)
+
+    def _clock(self) -> int:
+        self._ns += int(self.STEP_US * 1000)
+        return self._ns
+
+    def _set_speed(self, fixed: bool) -> None:
+        pass  # read at every act()
+
+    def act(self, obs: Observation) -> Action:
+        self.mod.time = self._clock_ns if self.fixed_speed else time
+        return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
+
+
+class OutsideLagBot(PersonaBot):
+    """Outside `out_lag`: three online grinders playing loose-aggressive. Percentile opens by position (about 20% UTG
+    to 85% SB), wide re-shoves over opens at 13-28 bb, push/fold at 13 bb or less, all-in calls with a margin up to
+    0.40, endgame pressure when covering, barrels when checked to. Frozen at minute 39 (md5 7f2cf887). Own seeded RNG,
+    no clock; plays the same in every mode."""
+
+    MODULE = "outside_lag"
+
+
+class OutsideQuantsBot(_FixedSpeedInModel, PersonaBot):
+    """Outside `out_quants`: two quant interns. An embedded 169x169 all-in equity table and fictitious-play push/fold
+    equilibria for 1-7 players behind and 1-30 bb, exact ICM for 10/7/5/4/3/2/1/0 (hard-coded), push/fold at 16 bb or
+    less, a range-narrowed postflop Monte Carlo with a 250 us wall-clock budget (one clock read per iteration after
+    the fourth). gc.freeze() at import, process-wide. Frozen at minute 36 (md5 27d9b2cb). In mode "model" it plays at
+    a fixed speed: its clock advances STEP_US per read. 5.5 us is the wall time per iteration measured here (6.9 at load
+    5-6, less the load), so it runs about 4 + 45 iterations in its 250 us, as a quiet host would."""
+
+    MODULE = "outside_quants"
+    STEP_US = 5.5
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self.mod = sys.modules[type(self.impl).__module__]
+        self._now = 0.0
+
+    def _clock(self) -> float:
+        self._now += self.STEP_US * 1e-6
+        return self._now
+
+    def _set_speed(self, fixed: bool) -> None:
+        pass  # read at every act()
+
+    def act(self, obs: Observation) -> Action:
+        self.mod.perf_counter = self._clock if self.fixed_speed else time.perf_counter
+        return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
+
+
 # ----- the hybrid candidate: rival 2's decision core behind Hero's shell ---------------------------------------
 
 
@@ -1377,6 +1455,10 @@ REGISTRY: dict[str, type] = {
     "agent_default": AgentDefaultBot,  # persona: an agent told "build the strongest bot you can", night pool
     "agent_montecarlo": AgentMonteCarloBot,  # persona: a Monte Carlo equity team, night pool
     "agent_pushfold": AgentPushFoldBot,  # persona: an ICM push/fold quant team, night pool
+    "out_veterans": OutsideVeteransBot,  # outside field (the climb): prepared veterans, never tuned on
+    "out_selfplay": OutsideSelfPlayBot,  # outside field: an agent self-play-tuned for the hour, never tuned on
+    "out_lag": OutsideLagBot,  # outside field: loose-aggressive grinders, never tuned on
+    "out_quants": OutsideQuantsBot,  # outside field: import-time equilibria and exact ICM, never tuned on
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
@@ -1470,6 +1552,12 @@ for _pool in ("night", "night_hard", "night0"):
 FIELDS["judge2"] = ("hero", "rival5", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "tag",
                     "timeout_then_recover")
 FIELDS["judge2_night"] = ("hero", "rival5") + _night.seat_names("judge2_night")
+# the climb's outside field (docs/drills/goal-plan.md): four fresh one-hour builds by agents with no repo access, plus
+# three seats drawn from the night pool; and a strong room (Pittsburgh's field is expected to be stronger): the four,
+# both judges and agent_pushfold. Judge-like: measured once per accepted batch, never tuned on.
+OUTSIDE = ("out_veterans", "out_selfplay", "out_lag", "out_quants")
+FIELDS["outside"] = ("hero",) + OUTSIDE + _night.seat_names("outside_rest")
+FIELDS["outside_strong"] = ("hero",) + OUTSIDE + ("rival4", "rival5", "agent_pushfold")
 
 # fields that seat an optional bot: present in FIELDS only when every bot in them is registered
 OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {

@@ -104,6 +104,8 @@ POOLS: dict[str, Pool] = {
     "night0": Pool("night0", _night_groups(0.40, 0.30, 0.15, 0.15), exclude=PERSONAS),
     # judge2_night: rival 5 sits in one seat (listed in the field itself) and these six are drawn around it
     "judge2_night": Pool("judge2_night", _night_groups(0.40, 0.30, 0.15, 0.15), seats=6),
+    # outside: the four outside bots sit in the field itself (bestiary.FIELDS["outside"]); three drawn around them
+    "outside_rest": Pool("outside_rest", _night_groups(0.40, 0.30, 0.15, 0.15), seats=3),
 }
 
 
