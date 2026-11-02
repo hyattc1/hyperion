@@ -133,3 +133,15 @@ the standard fields; the outside field (with its loose-aggressive 3-bettor) judg
 - Found for later: Hero ignores toss_or_holdem's face-up discards as dead cards (toss is the likeliest variant, 11%);
   F busts 76% of tables on deal5_keep2; boards past 8 cards still build an evaluator table inside the call (V3);
   gen_catalog.py crashes on five hole cards; two wall-clock tests flake at load 7-8.
+
+## 23:44: owner direction: prepare for the top teams, not only niche styles
+The owner pointed out that most strong teams will build a good general bot (as we did), not a niche style, and that
+Pittsburgh's top tables will hold prepared quant teams who adapt and exploit. Changes:
+- **Elite field.** Three fresh agents (no repo access), one shared brief: a prepared top team (quants and a
+  pokerbots finalist), two weeks of prep, may bring code and tables; "the strongest general bot, hard to exploit,
+  takes everything weak bots give away"; about 2.5 hours each (session scratchpad `goal/elite/e1..e3`).
+  Two (elite1, elite2) become a tuning field `elite`; the third stays a held-out judge. Plus mirror tables (strong
+  bots and copies of F), since empty seats are filled with copies of submitted bots.
+- The exploiter's findings (S2) are what a strong adaptive team would use; they stay first in the strength queue.
+- Backlog: **S8** play against the elite field (profile, fix the weakest section); **S9** mirror and strong-table play
+  (F against copies of itself and the elite bots).
