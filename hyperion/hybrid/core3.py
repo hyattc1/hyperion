@@ -79,12 +79,17 @@ def icm_points(st, i: int, payouts) -> float:
     return out
 
 
-def v3_scan(hist, me: int, others_w: float, chances: list, threes: list) -> None:
-    """Add one hand's 3-bet chances and 3-bets per seat (kit shape (seat, (kind, amount)), preflop first). The open
-    is the hand's first raise; a check before it means a limped preflop (only the big blind checks preflop), so no
-    open. After the open every other seat still in the hand acts once before anyone acts twice, so each seat's first
-    action after it, until the first re-raise, is a reply to the open: a chance, and a 3-bet if it raised. A chance
-    against our own open counts 1, one against another seat's `others_w`. Raises to at most the big blind are posts."""
+def v3_scan(hist, me: int, others_w: float, chances: list, threes: list, faced4: list | None = None,
+            folded4: list | None = None) -> None:
+    """Add one hand's 3-bet reads per seat (kit shape (seat, (kind, amount)), preflop first).
+
+    The open is the hand's first raise; a check before it means a limped preflop (only the big blind checks preflop),
+    so no open. After the open every other seat still in the hand acts once before anyone acts twice, so each seat's
+    first action after it, until the first re-raise, is a reply to the open: a chance, and a 3-bet if it raised. A
+    chance against our own open counts 1, one against another seat's `others_w`.
+    After the 3-bet the same holds: the first raise by a seat that has not yet acted since it is a 4-bet (a seat
+    acting twice, or the 3-bettor acting, with no raise between means the flop came), and the 3-bettor's next action
+    is its reply: `faced4` / `folded4` count 4-bets faced after 3-betting and folds to them, whoever 4-bet."""
     opener = -1
     i0 = -1
     for i, (s, a) in enumerate(hist):
@@ -98,14 +103,35 @@ def v3_scan(hist, me: int, others_w: float, chances: list, threes: list) -> None
         return
     w = 1.0 if opener == me else others_w
     seen = {opener}
+    n = len(chances)
+    t = -1
+    i3 = len(hist)
     for i in range(i0 + 1, len(hist)):
         s, a = hist[i]
-        if s in seen or not (0 <= s < len(chances)):
+        if s in seen or not (0 <= s < n):
             return
         seen.add(s)
         chances[s] += w
         if a[0] == 'raise':
             threes[s] += w
+            t, i3 = s, i
+            break
+    if t < 0 or faced4 is None:
+        return
+    acted = set()
+    four = False
+    for i in range(i3 + 1, len(hist)):
+        s, a = hist[i]
+        if not four:
+            if s == t or s in acted:
+                return
+            acted.add(s)
+            if a[0] == 'raise':
+                four = True
+        elif s == t:
+            faced4[t] += 1.0
+            if a[0] == 'fold':
+                folded4[t] += 1.0
             return
 
 
@@ -136,13 +162,12 @@ class Rival3Core(R3.Bot):
         self._v3_reset()
 
     def _v3_reset(self) -> None:
-        """The 3-bet reads (r3.v3_defend): per seat, chances to 3-bet an open and 3-bets (weighted, v3_scan), and our
-        4-bets it faced after 3-betting us and its folds to them; `_v4` is our last 4-bet (kit hand, seat, index)."""
+        """The 3-bet reads (r3.v3_defend, v3_scan): per seat, chances to 3-bet an open and 3-bets (weighted), and the
+        4-bets it faced after 3-betting and its folds to them."""
         self.v3o = [0.0] * 12
         self.v3n = [0.0] * 12
         self.v4o = [0.0] * 12
         self.v4f = [0.0] * 12
-        self._v4 = None
 
     def start_hand(self, kit_hand_no: int, totals) -> None:
         """Nothing to precompute: rival 3 prices each all-in from the stacks it sees."""
@@ -175,18 +200,8 @@ class Rival3Core(R3.Bot):
             self._v3_end(result.hand_no + 1, hist)
 
     def _v3_end(self, hand: int, hist) -> None:
-        v4, self._v4 = self._v4, None
         try:
-            v3_scan(hist, self.seat, self.k.v3_others_w, self.v3o, self.v3n)
-            if v4 is not None and v4[0] == hand and v4[2] < len(hist):
-                t, i = v4[1], v4[2]
-                if hist[i][0] == self.seat and hist[i][1][0] == 'raise':  # the 4-bet was the action taken
-                    for s, a in hist[i + 1:]:
-                        if s == t:  # its reply to our 4-bet (it must reply before the flop)
-                            self.v4o[t] += 1.0
-                            if a[0] == 'fold':
-                                self.v4f[t] += 1.0
-                            break
+            v3_scan(hist, self.seat, self.k.v3_others_w, self.v3o, self.v3n, self.v4o, self.v4f)
         except Exception:  # noqa: BLE001 - a malformed history leaves the reads as they were
             pass
 
@@ -445,10 +460,11 @@ class Rival3Core(R3.Bot):
         payouts) against the 3-bettor:
           call   a flip for the pot as it stands, won with our equity against its range times the share we realise
                  (v3_real_ip / v3_real_oop): q * win + (1 - q) * (lose the call);
-          4-bet  it folds with fo4 (the model 1 - v3_cont / t3, its observed folds to our 4-bets weighed in), else it
+          4-bet  it folds with fo4 (the model 1 - v3_cont / t3 capped at v3_f4_cap, weight v3_f4_n, and its observed
+                 folds to 4-bets), else it
                  goes all-in with the top t3 * (1 - fo4) of hands and we call or fold, whichever is worth more;
           jam    as the 4-bet, all in now.
-        The best line plays if it beats folding by v3_margin."""
+        The best line plays if it beats folding by v3_margin. Needs v3_min_n chances seen (completed hands)."""
         kn = self.k
         hist = o.history or ()
         opener = -1
@@ -462,11 +478,11 @@ class Rival3Core(R3.Bot):
         if opener != seat or not (0 <= agg < len(self.v3o)):
             return None
         t3 = (self.v3n[agg] + 1.0 + kn.v3_prior * kn.v3_prior_n) / (self.v3o[agg] + 1.0 + kn.v3_prior_n)
-        if t3 < kn.v3_min_rate:
+        if t3 < kn.v3_min_rate or self.v3o[agg] < kn.v3_min_n:
             return None
         w3 = min(1.0, t3)
         cont = min(w3, kn.v3_cont)
-        fo4 = (self.v4f[agg] + kn.v3_f4_n * (1.0 - cont / w3)) / (self.v4o[agg] + kn.v3_f4_n)
+        fo4 = (self.v4f[agg] + kn.v3_f4_n * min(kn.v3_f4_cap, 1.0 - cont / w3)) / (self.v4o[agg] + kn.v3_f4_n)
         eq = _eqvs(ci, w3)
         eqc = _eqvs(ci, max(0.015, w3 * (1.0 - fo4)))
         pays = self.payouts
@@ -498,7 +514,6 @@ class Rival3Core(R3.Bot):
             return ('call', 0) if 'call' in legal else self._call_or_check(legal)
         r = self._raise(legal, o, line)
         if r:
-            self._v4 = (self.hand, agg, len(hist))
             return r
         return ('call', 0) if 'call' in legal else self._call_or_check(legal)
 

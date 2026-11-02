@@ -62,7 +62,11 @@ class Rival3Knobs:
     v3_others_w: float = _dial(0.5, "weight of a chance to 3-bet another seat's open (one against our open counts 1)")
     v3_cont: float = _dial(0.04, "share of all hands a 3-bettor continues with against a 4-bet (about QQ+ and AK): "
                                  "its fold rate to a 4-bet is modelled as 1 - this / its 3-bet rate")
-    v3_f4_n: float = _dial(4.0, "weight of that model against the 3-bettor's observed folds to our 4-bets")
+    v3_f4_n: float = _dial(4.0, "weight of that model against the 3-bettor's observed folds to 4-bets")
+    v3_f4_cap: float = _dial(1.0, "the model's fold rate to a 4-bet is at most this before folds are observed (a "
+                                  "4-bet to 2.2x breaks even near 0.5: lower = no bluff 4-bets until it is seen "
+                                  "folding)")
+    v3_min_n: float = _dial(0.0, "chances to 3-bet (weighted) the 3-bettor must have shown in completed hands")
     v3_real_ip: float = _dial(0.85, "share of our equity a call of the 3-bet realises in position")
     v3_real_oop: float = _dial(0.7, "... out of position")
     v3_size: float = _dial(2.2, "4-bet to this multiple of the 3-bet (a 4-bet committing 40% of the stack is a jam)")
