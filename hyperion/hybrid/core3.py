@@ -524,12 +524,10 @@ class Rival3Core(R3.Bot):
                 break
         if opener != seat or not (0 <= agg < len(self.v3o)):
             return None
-        t3 = (self.v3n[agg] + 1.0 + kn.v3_prior * kn.v3_prior_n) / (self.v3o[agg] + 1.0 + kn.v3_prior_n)
-        if t3 < kn.v3_min_rate or self.v3o[agg] < kn.v3_min_n:
+        model = self._v3_model(stacks, bets, inh, n, seat, agg, button)
+        if model is None:
             return None
-        w3 = min(1.0, t3)
-        cont = min(w3, kn.v3_cont)
-        fo4 = (self.v4f[agg] + kn.v3_f4_n * min(kn.v3_f4_cap, 1.0 - cont / w3)) / (self.v4o[agg] + kn.v3_f4_n)
+        w3, fo4 = model
         eq = _eqvs(ci, w3)
         eqc = _eqvs(ci, max(0.015, w3 * (1.0 - fo4)))
         pays = self.payouts
@@ -563,6 +561,28 @@ class Rival3Core(R3.Bot):
         if r:
             return r
         return ('call', 0) if 'call' in legal else self._call_or_check(legal)
+
+    def _v3_model(self, stacks, bets, inh, n, seat, agg, button):
+        """(w3, fo4): the 3-bettor's range (the top w3 of hands, its estimated 3-bet rate) and its modelled fold rate
+        to a 4-bet, as _vs3bet reads them; None under the floor (rival 3 as built)."""
+        kn = self.k
+        prior, min_rate, f4_cap, cont = kn.v3_prior, kn.v3_min_rate, kn.v3_f4_cap, kn.v3_cont
+        if kn.v3_bvb_prior >= 0.0:  # S11: our small-blind open (heads-up: the button's) 3-bet by the big blind
+            alive = [i for i in range(n) if stacks[i] + bets[i] > 0 or inh[i]]
+            sbs, bbs = self._blind_seats(alive, button, n)
+            if seat == sbs and agg == bbs and sum(1 for i in range(n) if inh[i]) == 2:
+                prior, min_rate = kn.v3_bvb_prior, kn.v3_bvb_min_rate
+                if kn.v3_bvb_f4_cap >= 0.0:
+                    f4_cap = kn.v3_bvb_f4_cap
+                if kn.v3_bvb_cont >= 0.0:
+                    cont = kn.v3_bvb_cont
+        t3 = (self.v3n[agg] + 1.0 + prior * kn.v3_prior_n) / (self.v3o[agg] + 1.0 + kn.v3_prior_n)
+        if t3 < min_rate or self.v3o[agg] < kn.v3_min_n:
+            return None
+        w3 = min(1.0, t3)
+        cont = min(w3, cont)
+        fo4 = (self.v4f[agg] + kn.v3_f4_n * min(f4_cap, 1.0 - cont / w3)) / (self.v4o[agg] + kn.v3_f4_n)
+        return w3, fo4
 
     # ------------------------------------------------------------------ S12: a light 3-bet against a folding opener
     def _light3(self, o, legal, bets, seat, agg, bb, pot_tot, mytot, behind):

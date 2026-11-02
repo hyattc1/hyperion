@@ -13,6 +13,7 @@ built against, and the engine enforces the budget on adapter and bot together.
 """
 
 import gc
+import os
 import importlib
 import sys
 import types
@@ -63,5 +64,40 @@ def load(name: str):
     finally:
         if shim is not None and sys.modules.get("kit") is shim:
             del sys.modules["kit"]
+        if gc_on and not gc.isenabled():
+            gc.enable()
+
+
+def load_flat(package: str, parts: tuple, main: str, scrub_env: tuple = ()):
+    """Import a frozen multi-file bot, hyperion.sim.field.<package>, whose modules import each other by bare name (`from
+    base import Base`) and put their own directory on sys.path, as its author ran them from one folder. `parts` are its
+    modules in import order (each after the ones it imports), `main` the one defining Bot. Each is imported as
+    <package>.<part>, with its bare name pointing at that module only while the bundle imports (as `kit` in load());
+    afterwards the bare names and sys.path are as they were, so another bundle's `base` never meets this one. Environment
+    variables in `scrub_env` (a bot's experiment overrides read at import) are unset while it imports."""
+    full = f"{__name__}.{package}.{main}"
+    mod = sys.modules.get(full)
+    if mod is not None:
+        return mod
+    path = list(sys.path)
+    names = tuple(parts) + (main, "kit")
+    saved = {k: sys.modules[k] for k in names if k in sys.modules}
+    env = {k: os.environ.pop(k) for k in scrub_env if k in os.environ}
+    shim = types.ModuleType("kit")
+    shim.Agent, shim.Obs = Agent, Obs
+    sys.modules["kit"] = shim
+    gc_on = gc.isenabled()
+    try:
+        for part in tuple(parts) + (main,):
+            sys.modules[part] = importlib.import_module(f"{__name__}.{package}.{part}")
+        return sys.modules[full]
+    finally:
+        for k in names:
+            if k in saved:
+                sys.modules[k] = saved[k]
+            else:
+                sys.modules.pop(k, None)
+        sys.path[:] = path
+        os.environ.update(env)
         if gc_on and not gc.isenabled():
             gc.enable()

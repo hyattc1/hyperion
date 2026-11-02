@@ -117,6 +117,16 @@ class Profiler:
         self.cbets = z()
         self.fcb_opp = z()
         self.fcb_fold = z()
+        # S11 (docs/drills/climb/s11-log.md): heads-up pots with me, flop and turn. A probe chance: the seat has nothing
+        # to call and is not the last aggressor of the earlier streets (so not a c-bet): a lead into me, or a stab
+        # after my check; pb_bet counts the bets. An aggressor's chance: the same with the initiative its own (a c-bet
+        # or a barrel). A raise of my bet: the seat faces a bet I made this street.
+        self.pb_opp = z()
+        self.pb_bet = z()
+        self.ab_opp = z()
+        self.ab_bet = z()
+        self.rb_opp = z()
+        self.rb_raise = z()
         self.sz_hist = [[[[0] * 9 for _ in range(6)] for _ in range(3)] for _ in range(n)]  # seat, street, bucket, tier
         self.sz_n = [[[0] * 6 for _ in range(3)] for _ in range(n)]
         self.sz_oracle = None  # measurement only: per seat {(street 0..2, bucket): 9 tier weights} or None
@@ -157,6 +167,10 @@ class Profiler:
         self.oft_done = False
         self.counted = 0
         self.cb_state = 0  # this hand's flop: 0 nothing yet, 1 the raiser c-bet, 2 answered or not a c-bet spot
+        self.aggr_seat = -1  # the last seat to raise this hand, any street
+        self.prev_aggr = -1  # ... as it stood when street `pa_street` began (its first action consumed)
+        self.pa_street = 0
+        self.street_aggr = -1  # the last seat to raise on the street being consumed
         self.pot_prev = 0  # chips from earlier streets (track_s12)
         self.sz_pend = []  # (seat, street 0..2, bucket) of this hand's postflop bets and raises (track_s12)
         self.chk_mask = 0  # seats that checked on the street being replayed (track_s12)
@@ -330,6 +344,25 @@ class Profiler:
                         ch = self.chips[seat]
                         depth = (self.cur_bet if self.cur_bet < ch else ch) / (self.last_bb or 1)
                         self.faced_shove_exp[seat] += cp(depth)
+            if self.tstreet != self.pa_street:  # this street's first action: the earlier streets' last aggressor
+                self.pa_street = self.tstreet
+                self.prev_aggr = self.aggr_seat
+                self.street_aggr = -1
+            if not pre and self.tstreet <= 2 and seat != self.me and 0 <= self.me < n:
+                two = self.inhand == (bit | (1 << self.me))
+                if two:
+                    if not facing and seat != self.prev_aggr:
+                        self.pb_opp[seat] += 1
+                        if kind is _RAISE:
+                            self.pb_bet[seat] += 1
+                    elif not facing:
+                        self.ab_opp[seat] += 1
+                        if kind is _RAISE:
+                            self.ab_bet[seat] += 1
+                    elif facing and self.street_aggr == self.me:
+                        self.rb_opp[seat] += 1
+                        if kind is _RAISE:
+                            self.rb_raise[seat] += 1
             first_ctx = 0
             if pre and seat == self.pre_opener and self.pre_raises >= 2 and facing_raise and not self.oft_done:
                 self.oft_done = True
@@ -389,6 +422,8 @@ class Profiler:
             elif kind is _RAISE:
                 amt = act.amount
                 self.raises[seat] += 1
+                self.aggr_seat = seat
+                self.street_aggr = seat
                 if pre:
                     if not (self.vpip_mask & bit):
                         self.vpip_mask |= bit
@@ -538,6 +573,30 @@ class Profiler:
     def free_bet_rate(self, s: int, prior: float = 0.4, n0: float = 4.0) -> float:
         """How often seat s bets postflop when nothing is to call, smoothed toward `prior` with n0 chances."""
         return (self.post_free_bets[s] + prior * n0) / (self.post_free[s] + n0)
+
+    def probe_rate(self, s: int, prior: float = 0.45, n0: float = 6.0) -> float:
+        """How often seat s bets a heads-up flop or turn against me when it has nothing to call and the initiative is
+        not its own (a lead into me, a stab after my check), smoothed toward `prior` with n0 chances."""
+        return (self.pb_bet[s] + prior * n0) / (self.pb_opp[s] + n0)
+
+    def aggr_bet_rate(self, s: int, prior: float = 0.6, n0: float = 6.0) -> float:
+        """How often seat s, the last aggressor of the earlier streets, bets a heads-up flop or turn against me when
+        it has nothing to call (a c-bet, a barrel), smoothed toward `prior` with n0 chances."""
+        return (self.ab_bet[s] + prior * n0) / (self.ab_opp[s] + n0)
+
+    def free_vs_me_rate(self, s: int, prior: float = 0.5, n0: float = 2.0) -> float:
+        """How often seat s bets a heads-up flop or turn against me when it has nothing to call, whoever has the
+        initiative (probe and aggressor chances together), smoothed toward `prior` with n0 chances."""
+        return (self.pb_bet[s] + self.ab_bet[s] + prior * n0) / (self.pb_opp[s] + self.ab_opp[s] + n0)
+
+    def raise_my_bet_rate(self, s: int, prior: float = 0.12, n0: float = 5.0) -> float:
+        """How often seat s raises a bet I made in a heads-up flop or turn, smoothed toward `prior` with n0 faced."""
+        return (self.rb_raise[s] + prior * n0) / (self.rb_opp[s] + n0)
+
+    def prev_aggressor(self, street: int) -> int:
+        """The last seat to raise on the streets before `street` this hand (-1 = none): the preflop raiser on the flop,
+        the flop's bettor (else the preflop raiser) on the turn. Valid while the hand's history is consumed."""
+        return self.prev_aggr if self.pa_street == street else self.aggr_seat
 
     def open_fold_to_reraise(self, s: int, prior: float = 0.75, n0: float = 5.0) -> float:
         """How often seat s folds its open to a re-raise, smoothed toward `prior` with n0 answers."""

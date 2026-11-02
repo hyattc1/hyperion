@@ -77,6 +77,17 @@ class Rival3Knobs:
     v3_size: float = _dial(2.2, "4-bet to this multiple of the 3-bet (a 4-bet committing 40% of the stack is a jam)")
     v3_min_bb: float = _dial(12.0, "effective depth in big blinds from which the defence plays")
     v3_margin: float = _dial(0.002, "points a call, 4-bet or jam must beat folding by")
+    # blind against blind (S11, docs/drills/climb/s11-log.md): a big blind's 3-bet of our small-blind open (heads-up:
+    # the button's) comes from a wide range against a wide open, so the defence there reads it from its own prior
+    v3_bvb_prior: float = _dial(-1.0, "the prior 3-bet rate (weight v3_prior_n) when the big blind 3-bets our small-blind "
+                                      "open with nobody else in; -1 = the v3_prior and v3_min_rate as everywhere")
+    v3_bvb_min_rate: float = _dial(0.12, "... and the estimated rate from which the defence plays there")
+    v3_bvb_f4_cap: float = _dial(-1.0, "... and the cap on its modelled fold rate to a 4-bet there (a wide 3-bettor "
+                                       "need not fold its wide range to a 4-bet: 0.45 = no bluff 4-bets until it is "
+                                       "seen folding to one); -1 = v3_f4_cap")
+    v3_bvb_cont: float = _dial(-1.0, "... and the share of all hands it continues with against a 4-bet there (blind against "
+                                     "blind a 3-bettor defends wider than QQ+ / AK: 0.08 means a seat that 3-bets 18% "
+                                     "folds 56% in the model); -1 = v3_cont")
     # the big blind facing one raise and no callers, deep (S2): call when the equity it realises beats the price
     bb_defend: bool = _dial(False, "big blind facing one raise and no caller, not committed: also call when equity "
                                    "against the opener's range times bb_real beats the price (so the range widens "
