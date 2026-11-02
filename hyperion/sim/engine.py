@@ -14,7 +14,9 @@ on_deal / on_street / score_hand / on_payout are called at the points the contra
 `variant_decide(prompt) -> object` method (looked up on the bot, then bot.impl, then
 bot.impl.core so wrapped heroes are reached). A hook may also expose `score_splits` (split
 pots), `on_bust` (bonus points), `extras(hand)` (per-street Observation.extras) and `charges`
-(chips a hook moves into the pot, e.g. buying a card). With variant=None every hook is a no-op.
+(chips a hook moves into the pot, e.g. buying a card; dead money with `charges_dead`) and `wants_view` (the hook's
+`view` of stacks and pot before each street). The cards a hook pops come from the undealt cards shuffled by the
+table's `srng` each hand (the deal shuffles only the slots it deals). With variant=None every hook is a no-op.
 
 Optional hooks for twists that change the hand's shape (added 2026-11-01 for the held-out catalog,
 hyperion/drills/variants_unseen.py; each is None / False on the base Variant, so default play never calls them):
@@ -44,6 +46,9 @@ Conventions, also recorded in docs/decisions.md:
   rotation k is rotation 0 with every seat relabelled by +k.
 - Antes go straight into the pot (Observation.pot), never into bets; a seat that cannot cover the
   ante is all-in for what it has. Antes are posted before the blinds.
+- Side pots follow the contenders' contribution levels. What a folded player put in above every contender goes into
+  the top pot (no default hand gets there; a variant that hands chips back can), and a hook's dead money into the
+  first pot whose level reaches the payer's contribution when it paid.
 - Straddle (Rules.straddle = k big blinds): with three or more in the hand the seat after the big
   blind posts k bb as a live bet, action starts after it, and the min re-raise increment is the
   straddle. Heads-up there is no straddle.
@@ -180,7 +185,7 @@ class HandState:
     __slots__ = (
         "hand_no", "button", "blinds", "holes", "runout", "board", "stacks_start", "in_hand",
         "n_in_hand", "bets", "contrib", "pot", "current_bet", "last_inc", "history", "showdown",
-        "deltas", "ante", "spare", "extras",
+        "deltas", "ante", "spare", "extras", "dead",
     )
 
 
@@ -261,6 +266,7 @@ class HooksVariant(Variant):
         self.bust = getattr(h, "on_bust", None)
         self._extras = getattr(h, "extras", None)
         self._score = h.score_hand
+        self._view = bool(getattr(h, "wants_view", False))  # hooks.view: stacks, pot, ... before each on_street
         if callable(getattr(h, "forced_bets", None)):
             self.forced = self._forced
         if callable(getattr(h, "after_forced", None)):
@@ -277,7 +283,16 @@ class HooksVariant(Variant):
 
     def on_deal(self, hand: HandState, rng: random.Random) -> None:
         t = self.table
-        hand.spare = t.deck[t.cards_per_hand:]
+        # the undealt cards, shuffled: the deal shuffles only the slots it deals (partial Fisher-Yates), so the tail
+        # is in near-deck order and every card a hook pops from it was the ace of spades 60% of the time on hand 0.
+        # Its own RNG (srng), a fixed number of draws per hand: the deal and the hooks' vrng streams are untouched.
+        spare = t.deck[t.cards_per_hand:]
+        rnd = t.srng.random
+        size = len(spare)
+        for i in range(size - 1):
+            j = i + int(rnd() * (size - i))
+            spare[i], spare[j] = spare[j], spare[i]
+        hand.spare = spare
         in_hand = hand.in_hand
         holes = [hand.holes[s] if in_hand[s] else () for s in range(t.n)]
         out = self.hooks.on_deal(holes, hand.spare, rng)
@@ -292,6 +307,9 @@ class HooksVariant(Variant):
         t = self.table
         in_hand = hand.in_hand
         holes = [hand.holes[s] if in_hand[s] else () for s in range(t.n)]
+        if self._view:
+            self.hooks.view = {"stacks": t.stacks[:], "pot": hand.pot, "button": hand.button, "blinds": hand.blinds,
+                               "contrib": hand.contrib[:], "hand_no": hand.hand_no}
         board, out = self.hooks.on_street(street, hand.board, holes, hand.spare, rng, ask=t._ask_variant)
         board = tuple(board)
         if board != hand.board:
@@ -303,17 +321,28 @@ class HooksVariant(Variant):
         hand.extras = self._extras(hand) if self._extras else _NO_EXTRAS
 
     def _apply_charges(self, hand: HandState) -> None:
-        """Chips a hook asked to move into the pot (hooks.charges = {seat: chips}), capped at the stack."""
+        """Chips a hook asked to move into the pot (hooks.charges = {seat: chips}), capped at the stack.
+
+        By default a charge is a contribution like a bet (it raises the payer's side-pot level, so whatever nobody
+        else matched comes back to the payer at showdown). With `hooks.charges_dead = True` it is dead money: in the
+        pot, not a contribution, and won with the pot the payer was contesting when it paid (the first pot whose level
+        reaches the payer's contribution at that moment); see Table._award."""
         charges = getattr(self.hooks, "charges", None)
         if not charges:
             return
         stacks = self.table.stacks
+        dead = bool(getattr(self.hooks, "charges_dead", False))
         for s, amt in charges.items():
             if hand.in_hand[s] and amt > 0:
                 put = amt if amt < stacks[s] else stacks[s]
                 stacks[s] -= put
-                hand.contrib[s] += put
                 hand.pot += put
+                if dead:
+                    if hand.dead is None:
+                        hand.dead = []
+                    hand.dead.append((hand.contrib[s], put))
+                else:
+                    hand.contrib[s] += put
         charges.clear()
 
     def extras(self, hand: HandState) -> dict:
@@ -409,6 +438,7 @@ class Table:
             st.new_table()
         self.rng = random.Random(seed)  # used for deals only, so hand h's deck depends on (seed, h)
         self.vrng = random.Random(seed * 1_000_003 + 7)  # for variant hooks
+        self.srng = random.Random(seed * 1_000_033 + 11)  # shuffles the undealt cards hooks draw from (HooksVariant)
         removed = set(rules.extras.get("removed_ranks", ()) or ())
         self.deck = [c for c in deck_for(rules) if (c >> 2) not in removed]
         self.cards_per_hand = rules.hole_cards * n + rules.board_sizes[-1]
@@ -498,6 +528,7 @@ class Table:
         hs.history = []
         hs.showdown = {}
         hs.extras = _NO_EXTRAS
+        hs.dead = None  # [(level, chips)]: dead money a hook put in the pot (HooksVariant._apply_charges)
         hs.ante = ante = rules.ante_at(self.hand_no)
         self.variant.on_deal(hs, self.vrng)
         post_blinds, skip_pre = True, False
@@ -765,10 +796,14 @@ class Table:
     # ----- settlement --------------------------------------------------------------------------
 
     def _award(self, hs: HandState) -> None:
+        """Side pots by the contenders' contribution levels. Two rules no default hand reaches (both keep every chip):
+        what a folded player put in above the highest contender's level goes into the top pot, and a hook's dead money
+        (hs.dead) goes into the first pot whose level reaches the payer's contribution when it paid (else the top)."""
         n, stacks, contrib, in_hand = self.n, self.stacks, hs.contrib, hs.in_hand
         contenders = [s for s in range(n) if in_hand[s]]
+        dead = hs.dead
         if len(contenders) == 1:
-            stacks[contenders[0]] += sum(contrib)
+            stacks[contenders[0]] += sum(contrib) + (sum(c for _, c in dead) if dead else 0)
             return
         rules, board, variant = self.rules, hs.board, self.variant
         hs.showdown = {s: hs.holes[s] for s in contenders}
@@ -783,13 +818,24 @@ class Table:
         else:
             scores = {s: tuple(splits(hs.holes[s], board, rules)) for s in contenders}
             k = len(next(iter(scores.values())))
+        top = levels[-1]
+        extra = None
+        if dead:  # chips per pot index: the first level that reaches the payer's contribution when it paid, else the top
+            extra = [0] * len(levels)
+            for at, chips in dead:
+                i = 0
+                while i < len(levels) - 1 and levels[i] < at:
+                    i += 1
+                extra[i] += chips
         prev = 0
-        for lvl in levels:
-            pot = 0
+        for i, lvl in enumerate(levels):
+            pot = extra[i] if extra else 0
+            last = lvl == top
             for s in range(n):
                 c = contrib[s]
                 if c > prev:
-                    pot += (c if c < lvl else lvl) - prev
+                    # the top pot also takes whatever a folded player put in above every contender (else it is lost)
+                    pot += (c if (c < lvl or last) else lvl) - prev
             eligible = [s for s in contenders if contrib[s] >= lvl]
             if k == 1:
                 best = max(scores[s][0] for s in eligible)

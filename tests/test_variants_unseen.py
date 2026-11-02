@@ -145,16 +145,18 @@ def test_every_entry_keeps_the_rules_and_conserves_chips(name):
 
 # ----- default play is unchanged ----------------------------------------------------------------
 
-# sha256 of every hand's deltas, board and actions, and the final points, over default Rules, a straddle, antes,
-# fixed limit and three catalogued hooks, computed on 519dce1 (before the hand-shape hooks went into the engine)
-DEFAULT_FINGERPRINT = "4359fed2b6e1f65bbe401aadd417526080e019260c44f428b744144204daddd6"
+# sha256 of every hand's deltas, board and actions, and the final points. The first digest covers default Rules, a
+# straddle, antes, fixed limit and hi_lo (a hook that draws no card): computed on 519dce1, before the hand-shape hooks
+# went into the engine, and again on 27e0cff, before the v-catalog fixes; both engines agree, and every change since must
+# keep it. (Until the v-catalog fixes one digest also covered bonus_card and two_boards: 4359fed2...)
+DEFAULT_FINGERPRINT = "8253b28f64e88545383eae53c204225f6cde980b3a86b7e9daf4a162fa6f5031"
+# bonus_card and two_boards draw extra cards, which now come from the shuffled undealt cards (tests/test_variant_draws.py;
+# before, from the near-deck-order tail): this digest pins them at the fix, so later changes to them are deliberate.
+DRAWING_FINGERPRINT = "65125a358ca0fe1a7bc4d215f2adf969f49d5d5a91390896714e2789d0fed39b"
 
 
-def test_default_play_is_bit_identical_to_the_engine_before_the_hooks():
+def _play_digest(cases) -> str:
     h = hashlib.sha256()
-    cases = [(Rules(), None), (Rules(straddle=2), None), (Rules(ante=5, ante_from_level=1), None),
-             (Rules(betting="fixedlimit"), None), (V.get("bonus_card").rules, "bonus_card"),
-             (V.get("two_boards").rules, "two_boards"), (V.get("hi_lo").rules, "hi_lo")]
     for rules, vname in cases:
         for seed in range(3):
             for rot in (0, 3):
@@ -166,7 +168,18 @@ def test_default_play_is_bit_identical_to_the_engine_before_the_hooks():
                     h.update(repr((hs.hand_no, hs.deltas, hs.board,
                                    [(s, a.kind.value, a.amount) for s, a in hs.history])).encode())
                 h.update(repr((t.points, t.places)).encode())
-    assert h.hexdigest() == DEFAULT_FINGERPRINT
+    return h.hexdigest()
+
+
+def test_default_play_is_bit_identical_to_the_engine_before_the_hooks():
+    cases = [(Rules(), None), (Rules(straddle=2), None), (Rules(ante=5, ante_from_level=1), None),
+             (Rules(betting="fixedlimit"), None), (V.get("hi_lo").rules, "hi_lo")]
+    assert _play_digest(cases) == DEFAULT_FINGERPRINT
+
+
+def test_drawing_hooks_play_is_pinned():
+    cases = [(V.get("bonus_card").rules, "bonus_card"), (V.get("two_boards").rules, "two_boards")]
+    assert _play_digest(cases) == DRAWING_FINGERPRINT
 
 
 def test_default_hand_results_carry_empty_extras():

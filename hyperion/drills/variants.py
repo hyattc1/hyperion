@@ -17,8 +17,9 @@ is harmless; `hyperion.sim.engine.HooksVariant` is the implementation on the eng
 
   on_deal(holes, deck, rng) -> holes
       after hole cards are dealt, before preflop betting. holes: list[tuple[int,...]] per seat
-      (empty tuple for seats not in the hand); deck: list[int] of undealt cards the hook may pop
-      from; rng: random.Random owned by the table.
+      (empty tuple for seats not in the hand); deck: list[int] of undealt cards, shuffled, the hook may
+      pop from (the engine shuffles them with its own RNG each hand: tests/test_variant_draws.py);
+      rng: random.Random owned by the table.
   on_street(street, board, holes, deck, rng, ask=None) -> (board, holes)
       when the engine advances to `street` (1 = flop, ...), after that street's board cards are
       dealt and before betting. May change board and holes (swap, discard, second board).
@@ -40,7 +41,12 @@ is harmless; `hyperion.sim.engine.HooksVariant` is the implementation on the eng
       what goes into Observation.extras for the street (discards, boards, exposed cards, bounties).
   charges: dict[seat, chips]
       set by a hook during on_deal/on_street; the engine moves those chips from the stack into the
-      pot right after (buying a card) and clears the dict.
+      pot right after (buying a card) and clears the dict. As a contribution (it raises the payer's
+      side-pot level, so what nobody matched comes back at showdown) unless the hook sets
+      `charges_dead = True`: then it is dead money, won with the pot the payer was contesting.
+  wants_view = True
+      the engine sets `view` before each on_street: {"stacks", "pot", "button", "blinds", "contrib",
+      "hand_no"} as they stand when the street's cards are out (stacks behind, the pot so far).
 
 Cards everywhere are *displayed* ints (what the bot sees); rank_order maps them to strength.
 """
