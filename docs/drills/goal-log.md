@@ -192,3 +192,16 @@ and (in judges) `elite_judge`.
   3rd-5th places: a survival profile that fits 8..1 points and fits a top-heavy table (35% likely) worse.
 - Backlog: **S8** the elite tuning fields join the strength screens (climb_accept --stages elite); **S10** first-place
   conversion at strong tables under top-heavy payouts (endgame and heads-up, overlapping S2's heads-up fixes).
+
+## 02:11: V-b merged (ea4d36f); its candidate in held-out confirmation; V-c and F1 started
+- Variant-aware fields for toss_or_holdem, bounty, short_deck (hyperion/sim/aware.py; aware opponents in the realistic
+  seats of the Monte Carlo, push/fold and TAG bots, plus toss_rival1). Bounty hook fix: hands 0, 25, 50... were scored
+  with bounties other than the ones shown (bounty-only change to default play). Full suite 998 passed.
+- Candidate (screen, F's margin over the best aware bot before -> after; candidate - F):
+  toss +0.50 -> +0.67 (+0.156 ± 0.087), bounty +1.00 -> +1.32 (+0.298 ± 0.119), short_deck +0.28 -> +0.53
+  (+0.198 ± 0.097); plain hold'em identical on all seven confirm/guard cells; variants none down, eleven up.
+  Dials: hero.variant_preflop {call_raise_frac 0.15, three_bet_frac 0.05} (twist tables only, off on fixed-limit and
+  must-use), hero.toss_value_shift 2, hero.toss_dead, base.hero_on_bounty false (rival 3's core plays bounty preflop).
+- Confirmation running: H1 (2nd use), stages aware + variants.
+- Started: V-c (river_of_blood promoted to the main catalog; boards longer than 5 cards; deal5_keep2 busts; short-deck
+  shove calls) and F1 (the five windows rehearsed on F: every recipe re-checked, the signal table, a timed window).
