@@ -28,7 +28,11 @@ Stages (comma-separated; default confirm,guards,variants):
 - judges: judge, judge2, judge2_night, judge_top, outside, outside_strong, elite_judge (run these on `--set judge`).
 - aware: the likeliest twists against variant-aware opponents, each field under its variant (toss_or_holdem_aware,
   bounty_aware, short_deck_aware, river_of_blood_aware; hyperion/sim/aware.py); `--aware NAME,...` for some, and
-  `--aware FIELD:VARIANT` for any field under any entry (realistic_keep2:deal5_keep2).
+  `--aware FIELD:VARIANT` for any field under any entry (realistic_keep2:deal5_keep2). `--aware generic:VARIANT` is
+  the generic aware field (`generic_aware`: gen_mc, gen_tag, gen_pushfold, which read any variant's own hooks;
+  hyperion/sim/generic.py) under that entry, `generic:all` under every catalog entry, and VARIANT may be a file
+  (`generic:submission/tonight.py:variant`, a function returning a Variant). Each generic cell's table is built
+  first if missing (about a minute for a new variant; tables/generic/).
 - exploit: the S2 exploiter (`exploiter1`, docs/drills/exploiter/) at 8-max (`exploit`, payouts 10/7/5/4/3/2/1/0),
   heads-up (`exploit_hu`, rules hu.json: 10/7) and three-handed (`exploit_3`, three.json: 10/7/5); its own points are
   printed too. Part of the rule only with `--aim exploit` (addendum 6: an exploit field up, night not down);
@@ -205,9 +209,20 @@ def _job(args):
         "max_us": st.max_ns / 1000, "secs": time.time() - t0, "load": (l0, os.getloadavg()[0])}
 
 
+def _variant_tag(variant) -> str:
+    """A cell's variant in a file name: a catalog name as is, a file spec (path.py:factory) by its content."""
+    if not variant:
+        return "-"
+    if ".py" not in variant:
+        return variant
+    path, _, func = variant.rpartition(":") if ".py:" in variant else (variant, "", "")
+    with open(path, "rb") as fh:
+        return "v" + hashlib.md5(fh.read() + func.encode()).hexdigest()[:10]
+
+
 def cell_path(out: str, key: str, cell) -> str:
     field, pay, rules_name, variant, off = cell
-    return os.path.join(out, key, f"{field}.{pay}.{_rules_tag(rules_name)}.{variant or '-'}.{off}.json")
+    return os.path.join(out, key, f"{field}.{pay}.{_rules_tag(rules_name)}.{_variant_tag(variant)}.{off}.json")
 
 
 def run_cells(out: str, specs: dict, cells: list, lo: int, hi: int, workers: int) -> None:
@@ -354,8 +369,22 @@ def main(argv=None) -> int:
 
         names = a.aware.split(",") if a.aware else list(AW.AWARE_FIELDS)
         # FIELD (an aware field, under its variant) or FIELD:VARIANT (any field under any catalog entry, e.g.
-        # realistic_keep2:deal5_keep2)
-        pairs = [n.split(":", 1) if ":" in n else (n, AW.AWARE_VARIANT[n]) for n in names]
+        # realistic_keep2:deal5_keep2); generic:VARIANT / generic:all is the generic aware field (module doc)
+        pairs = []
+        for n in names:
+            f, v = n.split(":", 1) if ":" in n else (n, AW.AWARE_VARIANT[n])
+            if f == "generic":
+                f = "generic_aware"
+            pairs += [(f, x) for x in (V.catalog_names() if v == "all" else [v])]
+        if any(f == "generic_aware" for f, _ in pairs):
+            from hyperion.sim import generic as GEN
+
+            for f, v in pairs:
+                if f == "generic_aware":
+                    t1 = time.time()
+                    path, _doc = GEN.prepare(v, workers=a.workers)
+                    print(f"generic table for {v}: {os.path.relpath(path, ROOT)} ({time.time() - t1:.1f} s)",
+                          flush=True)
         plan.append(("aware", [(f, "lin", None, v) for f, v in pairs], lo, hi))
     if "exploit" in stages:
         plan.append(("exploit", EXPLOIT, lo, hi))

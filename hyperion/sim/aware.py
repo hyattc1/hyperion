@@ -831,3 +831,8 @@ AWARE_VARIANT = {"toss_or_holdem_aware": "toss_or_holdem", "bounty_aware": "boun
 _B.REGISTRY.update(AWARE)
 _B._BY_CLASS.update({cls.__name__.lower(): cls for cls in AWARE.values()})
 _B.FIELDS.update(AWARE_FIELDS)
+
+# the generic variant-aware opponents (gen_mc, gen_tag, gen_pushfold; field `generic_aware`, any variant): no per-twist
+# code, they read the variant's own hooks (hyperion/sim/generic.py; built on AwareMC above, so imported here, after it,
+# whichever of bestiary, aware and generic is imported first). Never in a night pool.
+from . import generic as _generic  # noqa: E402,F401

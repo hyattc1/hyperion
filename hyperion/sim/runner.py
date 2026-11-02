@@ -320,7 +320,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     a = p.parse_args(argv)
     if a.list:
         for nm, cls in REGISTRY.items():
-            print(f"{nm:<20} {cls.__name__:<20} {(cls.__doc__ or '').strip().splitlines()[0]}")
+            print(f"{nm:<20} {cls.__name__:<20} {((cls.__doc__ or '').strip().splitlines() or [''])[0]}")
         print()
         for nm, members in FIELDS.items():
             print(f"field {nm:<14} {','.join(members)}")
