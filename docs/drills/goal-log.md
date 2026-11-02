@@ -271,3 +271,18 @@ and (in judges) `elite_judge`.
   interact), then the judges once on the judge set against the batch-2 ship. H2 retires after; H3 is next.
 - Exploiter 2's restart stopped early (a safety check cut off its response to the brief's "attacking a bot"
   wording); restarted with the brief reworded as poker counter-strategy, same rules and deliverables.
+
+## 05:20: F1 merged (bdfdfcd): the five windows rehearsed on F
+- Six of the seven recipes needed a fix on F: three kept rival 3 core keys that never decide on F (rival 3's core
+  only plays preflop there; checked in play, identical over 1,600 tables), `dead_seats` named a key that reached
+  nothing, and `latency` cost -0.216 ± 0.089. New composite values (hyperion/ship.py COMPOSITE_RECIPES); hybrid3_x
+  and Hero keep theirs. `latency` is now `late_us 0` (17 us a call saved, level); `timeouts` stays the emergency
+  recipe (-1.58 on night) and is for errors, not slowness: the governor already steps F down on a slow box.
+- Only `dead_seats` gains on its own signal (+0.058 ± 0.047 on the timeouts field) and it loses at strong tables
+  (elite -0.160 ± 0.084): prompt 06 now says to apply it only on that signal.
+- A window rehearsed end to end on fake kit B, top-heavy: 3.96 min with the fixed prompt (measure 3.2 via
+  `climb_accept --stages window`, which passes unless night is beyond noise down); the old prompt's gate step failed
+  ("no submission.py"), now gate.py finds the entry. Tests: every recipe keeps the governor; every composite recipe
+  key reaches a part that decides.
+- Accepted as an hour-track change (play by default identical; the rehearsal is better, not worse). Full suite 1018
+  passed. Open: hybrid3_x's `dead_seats` has the same unreachable key (fallback bot, not measured).
