@@ -28,6 +28,8 @@ class Rival3Knobs:
     open_scale: float = _dial(1.0, "multiplies every position's raise-first-in threshold: above 1 opens wider, below 1 "
                                    "tighter")
     open_late_scale: float = _dial(1.0, "multiplies it again for the cutoff and the button (two or three seats behind)")
+    open_vs3b_scale: float = _dial(0.75, "multiplies it again when a seat behind re-raises more than 20% of the raises "
+                                         "it faces (1 = no narrowing)")
     # push or fold
     short_bb: float = _dial(10.0, "effective stack in big blinds at or under which an unopened pot is shove or fold")
     push_margin: float = _dial(0.002, "points (ICM on the table's payouts) a shove must beat folding by, open or "
@@ -52,3 +54,32 @@ class Rival3Knobs:
                                     "reads move sooner")
     dead_hands: int = _dial(22, "hands with no voluntary chip before a seat reads as dead (folds to everything): lower "
                                 "catches folding and timing-out seats sooner")
+    # facing a 3-bet after we opened (S2, docs/drills/s2-exploit-fixes-log.md). Off: rival 3 as built, which prices
+    # every 3-bet as an all-in against the top ~9% and so folds ~90% of its opens whatever the 3-bet's size
+    v3_defend: bool = _dial(False, "facing one 3-bet of our open, deep and not committed by the price: fold, call, "
+                                   "4-bet or jam by ICM against the 3-bettor's observed 3-bet rate (a prior, then "
+                                   "its 3-bets per chance) and its observed folds to 4-bets; off = as built")
+    v3_min_rate: float = _dial(0.2, "the 3-bettor's estimated 3-bet rate from which the defence plays; under it, as "
+                                    "built (tight: most seats rarely 3-bet)")
+    v3_prior: float = _dial(0.08, "prior 3-bet rate of a seat facing an open")
+    v3_prior_n: float = _dial(20.0, "weight of that prior, in chances: lower moves sooner (8 fired on two 3-bets of a "
+                                    "nit and lost on night)")
+    v3_others_w: float = _dial(0.5, "weight of a chance to 3-bet another seat's open (one against our open counts 1)")
+    v3_cont: float = _dial(0.04, "share of all hands a 3-bettor continues with against a 4-bet (about QQ+ and AK): "
+                                 "its fold rate to a 4-bet is modelled as 1 - this / its 3-bet rate")
+    v3_f4_n: float = _dial(4.0, "weight of that model against the 3-bettor's observed folds to 4-bets")
+    v3_f4_cap: float = _dial(0.6, "the model's fold rate to a 4-bet is at most this before folds are observed (a "
+                                  "4-bet to 2.2x breaks even near 0.5: lower = no bluff 4-bets until it is seen "
+                                  "folding)")
+    v3_min_n: float = _dial(0.0, "chances to 3-bet (weighted) the 3-bettor must have shown in completed hands")
+    v3_real_ip: float = _dial(0.85, "share of our equity a call of the 3-bet realises in position")
+    v3_real_oop: float = _dial(0.7, "... out of position")
+    v3_size: float = _dial(2.2, "4-bet to this multiple of the 3-bet (a 4-bet committing 40% of the stack is a jam)")
+    v3_min_bb: float = _dial(12.0, "effective depth in big blinds from which the defence plays")
+    v3_margin: float = _dial(0.002, "points a call, 4-bet or jam must beat folding by")
+    # the big blind facing one raise and no callers, deep (S2): call when the equity it realises beats the price
+    bb_defend: bool = _dial(False, "big blind facing one raise and no caller, not committed: also call when equity "
+                                   "against the opener's range times bb_real beats the price (so the range widens "
+                                   "against a small open); off = as built (bottom half folds at any price)")
+    bb_real: float = _dial(0.75, "share of its equity the big blind realises out of position")
+    bb_margin: float = _dial(0.0, "equity over the price a big-blind call needs")

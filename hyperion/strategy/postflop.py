@@ -141,6 +141,14 @@ class PostflopParams:
     cbet_ftc_read: bool = False
     cbet_ftc_prior: float = 0.5
     cbet_ftc_max: float = 1.8
+    # a wide bettor (S2, docs/drills/s2-exploit-fixes-log.md): facing a bet heads-up from a seat that bets this often
+    # or more when nothing is to call postflop (its smoothed free-bet rate: prior wide_bettor_prior worth
+    # wide_bettor_n chances), the call-down dial is at least 1 + wide_bettor_slope * (rate - wide_bettor_from), past
+    # the late cap: a seat that bets most of its chances bets most of its hands. 1.0 = off
+    wide_bettor_from: float = 1.0
+    wide_bettor_slope: float = 1.5
+    wide_bettor_prior: float = 0.4
+    wide_bettor_n: float = 4.0
     # strength-axis knobs (prompt 05's short-deck patch): a made flush / straight lands this many tiers away from
     # its hold'em tier, and draw outs are scaled (short deck: an open-ender is worth about 1.2x its hold'em outs)
     flush_tier_shift: int = 0
@@ -712,6 +720,12 @@ class Postflop:
         if street >= 2 and bettor >= 0 and prof is not None and not cheap:
             if call_down > p.late_calldown_cap and not (prof.maniac(bettor) or prof.random_like(bettor)):
                 call_down = p.late_calldown_cap
+        if p.wide_bettor_from < 1.0 and n_opp == 1 and bettor >= 0 and prof is not None:
+            r = prof.free_bet_rate(bettor, p.wide_bettor_prior, p.wide_bettor_n)
+            if r > p.wide_bettor_from:
+                cd = 1.0 + p.wide_bettor_slope * (r - p.wide_bettor_from)
+                if cd > call_down:
+                    call_down = cd
         base_margin = p.call_margin
         if p.vs_cbet_margin >= 0.0 and street == 1 and n_opp == 1 and bettor >= 0 and prof is not None \
                 and prof.pre_raiser == bettor and obs.bets[spot.me] == 0 and obs.pot > 0 \

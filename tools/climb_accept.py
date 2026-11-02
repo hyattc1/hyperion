@@ -20,6 +20,9 @@ Stages (comma-separated; default confirm,guards,variants):
 - judges: judge, judge2, judge2_night, judge_top, outside, outside_strong, elite_judge (run these on `--set judge`).
 - aware: the three likeliest twists against variant-aware opponents, each field under its variant
   (toss_or_holdem_aware, bounty_aware, short_deck_aware; hyperion/sim/aware.py); `--aware NAME,...` for some.
+- exploit: the S2 exploiter (`exploiter1`, docs/drills/exploiter/) at 8-max (`exploit`, payouts 10/7/5/4/3/2/1/0),
+  heads-up (`exploit_hu`, rules hu.json: 10/7) and three-handed (`exploit_3`, three.json: 10/7/5); its own points are
+  printed too. Diagnostic: not part of the acceptance rule (it is one opponent we know).
 - timing: tools/latency.py p99 for both specs (20,000 calls).
 
 Every run is model mode at fixed speed, eight rotations per seed, the same deals for both specs, with panic, soft
@@ -58,6 +61,8 @@ GUARDS = [("night_hard", "lin", None), ("realistic", "lin", None), ("top", "lin"
 JUDGES = [("judge", "lin", None), ("judge2", "lin", None), ("judge2_night", "lin", None), ("judge_top", "lin", None),
           ("outside", "lin", None), ("outside_strong", "lin", None), ("elite_judge", "lin", None)]
 ELITE = [("elite", "lin", None), ("elite_night", "lin", None)]
+EXPLOIT = [("exploit", "brief", None), ("exploit_hu", "lin", "hu"), ("exploit_3", "lin", "three")]
+EXPLOIT_BOT = "exploiter1"
 VARIANT_FIELD = "realistic"
 VARIANT_SEEDS = 200
 CHUNK = 25
@@ -146,8 +151,10 @@ def _job(args):
                          hero_config=B.HERO_CONFIG, table_offset=off, variant=v)
     b = rep.bots[nm]
     st = b.stats
+    ex = rep.bots.get(EXPLOIT_BOT)
     return key, (field, pay, rules_name, variant, off), {
-        "samples": b.samples, "tmo": st.over_budget, "exc": st.exceptions, "ill": st.illegal,
+        "samples": b.samples, "opp_samples": ex.samples if ex is not None else None, "tmo": st.over_budget,
+        "exc": st.exceptions, "ill": st.illegal,
         "safe_err": st.safe_err, "calls": st.calls, "p50": st.percentile_us(0.5), "p99": st.percentile_us(0.99),
         "max_us": st.max_ns / 1000, "secs": time.time() - t0, "load": (l0, os.getloadavg()[0])}
 
@@ -184,17 +191,19 @@ def run_cells(out: str, specs: dict, cells: list, lo: int, hi: int, workers: int
 
 def gather(out: str, key: str, cell4, lo: int, hi: int) -> dict:
     field, pay, rules_name, variant = cell4
-    samples, agg = [], {"tmo": 0, "exc": 0, "ill": 0, "safe_err": 0, "calls": 0, "p99": 0.0, "max_us": 0.0}
+    samples, opp, agg = [], [], {"tmo": 0, "exc": 0, "ill": 0, "safe_err": 0, "calls": 0, "p99": 0.0, "max_us": 0.0}
     for off in range(lo, hi, CHUNK):
         with open(cell_path(out, key, (field, pay, rules_name, variant, off))) as fh:
             r = json.load(fh)
         samples += r["samples"]
+        opp += r.get("opp_samples") or []
         for k in ("tmo", "exc", "ill", "safe_err", "calls"):
             agg[k] += r[k]
         agg["p99"] = max(agg["p99"], r["p99"])
         agg["max_us"] = max(agg["max_us"], r["max_us"])
     agg["samples"] = samples
     agg["mean"] = sum(samples) / len(samples)
+    agg["opp_mean"] = sum(opp) / len(opp) if opp else None
     return agg
 
 
@@ -274,6 +283,8 @@ def main(argv=None) -> int:
 
         names = a.aware.split(",") if a.aware else list(AW.AWARE_FIELDS)
         plan.append(("aware", [(f, "lin", None, AW.AWARE_VARIANT[f]) for f in names], lo, hi))
+    if "exploit" in stages:
+        plan.append(("exploit", EXPLOIT, lo, hi))
     if "variants" in stages:
         plan.append(("variants", [(VARIANT_FIELD, "lin", None, v) for v in V.catalog_names()], lo,
                      min(hi, lo + VARIANT_SEEDS)))
@@ -288,7 +299,7 @@ def main(argv=None) -> int:
             out.append({"cell": label(c), "base": gb["mean"], "cand": gc_["mean"], "delta": m, "ci": h,
                         "flag": flag(m, h), "n": len(gb["samples"]), "tmo": (gb["tmo"], gc_["tmo"]),
                         "exc": (gb["exc"] + gb["ill"] + gb["safe_err"], gc_["exc"] + gc_["ill"] + gc_["safe_err"]),
-                        "p99": (gb["p99"], gc_["p99"])})
+                        "p99": (gb["p99"], gc_["p99"]), "opp": (gb["opp_mean"], gc_["opp_mean"])})
         verdict["stages"][stage] = out
     if "timing" in stages:
         verdict["stages"]["timing"] = {"base": latency(base), "cand": latency(cand)}
@@ -312,6 +323,14 @@ def main(argv=None) -> int:
     print(f"# climb_accept: set {a.set} ({lo}-{hi - 1}), code {version}, {verdict['secs'] / 60:.1f} min")
     print(f"base {json.dumps(base_raw, sort_keys=True)} -> {json.dumps(base, sort_keys=True)}")
     print(f"cand {json.dumps(cand_raw, sort_keys=True)} -> {json.dumps(cand, sort_keys=True)}")
+    if "exploit" in st:
+        print(f"\n## exploit (diagnostic)\n\n| cell | base | cand | cand - base | | n | {EXPLOIT_BOT} b/c | p99 b/c |")
+        print("|---|---|---|---|---|---|---|---|")
+        for r in st["exploit"]:
+            ob, oc = r["opp"]
+            print(f"| {r['cell']} | {r['base']:.3f} | {r['cand']:.3f} | {r['delta']:+.3f} ± {r['ci']:.3f} | "
+                  f"{r['flag']} | {r['n']} | {ob if ob is None else round(ob, 3)}/{oc if oc is None else round(oc, 3)} | "
+                  f"{r['p99'][0]:.0f}/{r['p99'][1]:.0f} |")
     for s in ("confirm", "guards", "elite", "judges", "variants", "aware"):
         if s not in st:
             continue
