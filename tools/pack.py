@@ -13,7 +13,7 @@ Stage 2's Hero.cheap(); `--bot hero` restores Hero. The entry builds it with `hy
 
 Builds <out>/submission/: hyperion/ (never tests, docs or caches; with --slim also without
 drills/fakekits, the sim bestiary and the simulator's opponents: sim/field, sim/aware.py and every rival but
-rival 3), tables/ (the default tables, plus tables/variants/<name>/ when the rules name a variant; --tables-dir DIR
+rival 3, then puts back any module the recorded bot's build imports: a routed rival or elite member), tables/ (the default tables, plus tables/variants/<name>/ when the rules name a variant; --tables-dir DIR
 packages all of DIR instead), the entry file and any --extra files or directories beside it. The rules are --rules, else the first --extra JSON with Rules keys, else
 rules_tonight.json beside the entry; their extras["variant"] is the active variant (drill 6 shipped
 without its variant set because --tables-dir was not passed). Then, from a fresh Python started in another
@@ -50,11 +50,10 @@ SLIM_SKIPS = {ROOT / "hyperion" / "drills": {"fakekits"}, ROOT / "hyperion" / "s
 # variant-aware opponents (sim/aware.py) and every rival but rival 3, whose core hybrid3_x and the composite's base
 # run on. Measured by playing each ship bot (the composite with every recipe, hybrid3_x, hero, cheap) under the default
 # rules and every catalog variant: hyperion.sim.rivals and its rival3 are the only simulator modules any imports
-# (docs/drills/climb/r2-log.md, R4). A recorded route that names another rival's donor brings that rival back.
+# (docs/drills/climb/r2-log.md, R4). A recorded bot that routes a section to another member (a rival's donor, or
+# elite1 in batch 5's strong-table route) gets the modules its build imports back (keep_built_modules).
 SLIM_RIVALS = ROOT / "hyperion" / "sim" / "rivals"
 SLIM_RIVALS_KEEP = {"__init__.py", "rival3.py"}
-DONOR_RIVALS = {"rival1": "rival1.py", "rival1x": "rival1.py", "r2": "rival2.py", "r2x": "rival2.py",
-                "rival3": "rival3.py", "rival3x": "rival3.py"}  # hyperion/compose/bot.py DONORS that load a rival
 
 _IMPORT_PROBE = """
 import importlib, os, sys, time
@@ -112,39 +111,82 @@ def _ignore(slim: bool):
     return ignore
 
 
-def route_rivals(dest: Path, dials: dict) -> list[str]:
-    """A slim package whose recorded route names a rival's donor (rival1, r2, ...): copy that rival back in. Returns
-    the files copied."""
-    import re
+_BUILT_PROBE = """
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from hyperion import ship
+ship.make_bot(sys.argv[2], json.loads(sys.argv[3]))
+print(json.dumps(sorted(m.__file__ for n, m in list(sys.modules.items())
+                        if n.startswith("hyperion.") and getattr(m, "__file__", None))))
+"""
 
-    rivals = dest / "hyperion" / "sim" / "rivals"
-    if not rivals.is_dir():
-        return []
-    route = str((dials or {}).get("route", ""))
-    want = {DONOR_RIVALS[d] for d in re.findall(r"=\s*(\w+)", route) if d in DONOR_RIVALS}
+
+def keep_built_modules(dest: Path, bot: str, dials: dict) -> list[str]:
+    """--slim drops the simulator's opponents, but a recorded bot can route a section to one of them (a rival's donor
+    in `route`, elite1 in batch 5's `strong_route`). Build the recorded bot once from this repo and copy back every
+    hyperion module the build imported that the package lacks. Returns their paths."""
+    proc = subprocess.run([sys.executable, "-I", "-B", "-c", _BUILT_PROBE, str(ROOT), bot, json.dumps(dials)],
+                          cwd=ROOT, capture_output=True, text=True, timeout=300)
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout).strip().splitlines()[-3:]
+        raise SystemExit("FAIL building the recorded bot from the repo: " + " | ".join(tail))
     out = []
-    for f in sorted(want):
-        if not (rivals / f).exists():
-            shutil.copy2(SLIM_RIVALS / f, rivals / f)
-            out.append(f)
+    for f in json.loads(proc.stdout.strip().splitlines()[-1]):
+        src = Path(f).resolve()
+        if not src.is_relative_to(ROOT):
+            continue
+        rel = src.relative_to(ROOT)
+        if not (dest / rel).exists():
+            (dest / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dest / rel)
+            out.append(str(rel))
     return out
 
 
-_KIT_BASE = re.compile(r"try:\n[ \t]+from kit import Agent as (\w+)\nexcept Exception:[^\n]*\n[ \t]+\1 = object\n")
+def _strip_kit_try(text: str) -> tuple[str, bool]:
+    """Every `try:` whose body is one `from kit import ...` line, with its `except ...:` block, becomes that except
+    block alone (re-indented to the try): what the code does when no module named `kit` exists."""
+    lines = text.split("\n")
+    out, i, changed = [], 0, False
+    while i < len(lines):
+        m = re.match(r"^([ \t]*)try:\s*$", lines[i])
+        if m and i + 2 < len(lines):
+            ind = re.escape(m.group(1))
+            if (re.match(rf"^{ind}[ \t]+from kit import [\w ,]+\s*(#.*)?$", lines[i + 1])
+                    and re.match(rf"^{ind}except\b.*:\s*(#.*)?$", lines[i + 2])):
+                j, blk = i + 3, []
+                while j < len(lines) and (not lines[j].strip() or (
+                        lines[j].startswith(m.group(1)) and len(lines[j]) - len(lines[j].lstrip()) > len(m.group(1)))):
+                    blk.append(lines[j])
+                    j += 1
+                trail = []
+                while blk and not blk[-1].strip():
+                    trail.insert(0, blk.pop())
+                if blk:
+                    cut = min(len(b) - len(b.lstrip()) for b in blk if b.strip())
+                    out.append(f"{m.group(1)}# tools/pack.py: no kit import in the package (plays as with no kit)")
+                    out.extend(m.group(1) + b[cut:] if b.strip() else b for b in blk)
+                    out.extend(trail)
+                    i, changed = j, True
+                    continue
+        out.append(lines[i])
+        i += 1
+    return "\n".join(out), changed
 
 
 def drop_kit_imports(dest: Path) -> list[str]:
-    """The red-team rivals subclass the brief's kit Agent when a module named `kit` exists, else `object`, and never
-    call it. In the package that import goes: a kit whose checker allows only the stdlib and the zip's own modules
-    fails on it (drill 8, kit F), and on a night whose runner has a `kit` of its own the class would subclass theirs.
-    The packed copy plays as it does with no kit; the repo file is unchanged. Returns the files changed."""
+    """The red-team rivals and our elite builds import the brief's kit Agent in a try, falling back to a class of
+    their own, and override every method they use. In the package that import goes: a kit whose checker allows only
+    the stdlib and the zip's own modules fails on it (drill 8, kit F), and on a night whose runner has a `kit` of its
+    own the class would subclass theirs. The packed copy plays as it does with no kit; the repo file is unchanged.
+    Returns the files changed."""
     out = []
     for p in sorted((dest / "hyperion").rglob("*.py")):
         t = p.read_text()
         if "from kit import" not in t:
             continue
-        n = _KIT_BASE.sub(lambda m: f"{m.group(1)} = object  # tools/pack.py: no kit import in the package\n", t)
-        if n != t:
+        n, changed = _strip_kit_try(t)
+        if changed:
             p.write_text(n)
             out.append(str(p.relative_to(dest)))
     return out
@@ -382,9 +424,9 @@ def main(argv=None) -> int:
     tables = build(dest, entry, extras, a.slim, tables_dir, variant, needs_variant=needs)
     bot, dials = record_bot(dest, a.bot, a.dials)
     if a.slim:
-        back = route_rivals(dest, dials)
+        back = keep_built_modules(dest, bot, dials)
         if back:
-            print(f"slim     the route names {', '.join(back)}: kept")
+            print(f"slim     the recorded bot imports {', '.join(Path(b).name for b in back)}: kept ({', '.join(back)})")
 
     dropped = drop_kit_imports(dest)
     if dropped:

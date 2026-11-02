@@ -183,16 +183,21 @@ def test_slim_drops_the_opponents_and_every_ship_bot_still_builds_and_plays(tmp_
     r = run_pack(tmp_path, "--entry", "agent.py", "--out", "out", "--slim")
     assert r.returncode == 0, r.stdout + r.stderr
     hyp = tmp_path / "out" / "submission" / "hyperion"
-    assert not (hyp / "sim" / "field").exists() and not (hyp / "sim" / "aware.py").exists()
+    from hyperion.compose.bot import SHIP_DIALS
+
+    routed = " ".join(str(SHIP_DIALS.get(k, "")) for k in ("route", "strong_route"))
+    elite = "elite1" in routed  # batch 5's strong-table route plays elite1 in opened pots at strong tables
+    field = sorted(p.name for p in (hyp / "sim" / "field").glob("*.py"))
+    assert field == (["__init__.py", "elite1.py"] if elite else []) and not (hyp / "sim" / "aware.py").exists()
     assert sorted(p.name for p in (hyp / "sim" / "rivals").glob("*.py")) == ["__init__.py", "rival3.py"]
     # drill 8: kit F's checker allows only the stdlib and the zip's own modules; rival 3's `from kit import` failed it
     assert "imports  stdlib and the package only" in r.stdout and "kit      packed without" in r.stdout, r.stdout
     packed = (hyp / "sim" / "rivals" / "rival3.py").read_text()
-    assert "from kit import" not in packed and "_Base = object  # tools/pack.py" in packed
+    assert "from kit import" not in packed and "# tools/pack.py: no kit import" in packed and "\n_Base = object\n" in packed
     assert "from kit import Agent as _Base" in (ROOT / "hyperion" / "sim" / "rivals" / "rival3.py").read_text()
     names = zipfile.ZipFile(tmp_path / "out" / "submission.zip").namelist()
-    for bad in ("elite", "outside_", "exploiter", "judge", "rival1", "rival2", "rival4", "rival5", "agent_", "night.py",
-                "trackb", "aware.py", "bestiary.py"):
+    for bad in ("elite2", "elite3", "outside_", "exploiter", "judge", "rival1", "rival2", "rival4", "rival5", "agent_",
+                "night.py", "trackb", "aware.py", "bestiary.py") + (() if elite else ("elite",)):
         assert not [n for n in names if bad in n.rsplit("/", 1)[-1]], bad
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
@@ -209,5 +214,19 @@ def test_slim_keeps_a_rival_the_recorded_route_names(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     rivals = tmp_path / "out" / "submission" / "hyperion" / "sim" / "rivals"
     assert sorted(p.name for p in rivals.glob("*.py")) == ["__init__.py", "rival2.py", "rival3.py"]
-    assert "imports  WARN outside the stdlib and the package: kit (hyperion/sim/rivals/rival2.py)" in r.stdout
     assert "rival2.py: kept" in r.stdout and "import   ok" in r.stdout
+    assert "from kit import" not in (rivals / "rival2.py").read_text(), "both of rival 2's kit imports dropped"
+
+
+def test_slim_keeps_the_member_a_strong_table_route_names(tmp_path):
+    """Batch 5 plays opened pots at strong tables with elite1 (`strong_route`): --slim keeps the modules that build
+    imports (the field loader and elite1), no other field bot and no judge, and drops elite1's kit import."""
+    (tmp_path / "agent.py").write_text(SHIP_ENTRY)
+    r = run_pack(tmp_path, "--entry", "agent.py", "--out", "out", "--slim", "--dials",
+                 '{"strong_route": "pre_open_10=elite1x", "strong_rr": 0.2}', "--import-budget", "60")
+    assert r.returncode == 0, r.stdout + r.stderr
+    field = tmp_path / "out" / "submission" / "hyperion" / "sim" / "field"
+    assert sorted(p.name for p in field.glob("*.py")) == ["__init__.py", "elite1.py"], r.stdout
+    assert "elite1.py" in r.stdout and "import   ok" in r.stdout and "bot built in" in r.stdout
+    assert "imports  stdlib and the package only" in r.stdout, r.stdout
+    assert "from kit import" not in (field / "elite1.py").read_text()
