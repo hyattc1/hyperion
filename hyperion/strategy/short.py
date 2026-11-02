@@ -105,6 +105,11 @@ class ShortParams:
         # the base, v3n / v3o smoothed toward 0.12 with 8 chances): a 3-bettor far above equilibrium (exploiter 1
         # min-3-bets any two) meets F's 3-bet defence (r3.v3_defend) instead of tables solved for a balanced 3-bettor
         self.defer_3bet = 0.4
+        self.pre_roles = "sb,bb"  # heads-up preflop: the roles we play (sb = the button)
+        # a deviation on a clear read: limp -> min-raise at the root while the big blind folds to preflop raises at
+        # least this often (F's profiler, fold_to_bet_pre, with at least steal_n raises faced); 0 = off
+        self.steal_ftb = 0.0
+        self.steal_n = 10
         self.flop_size = 0.5
         self.turn_size = 0.66
         self.river_size = 0.75
@@ -132,6 +137,8 @@ class ShortMember:
         self.p = params or ShortParams()
         self.seed = 0 if seed is None else int(seed)
         self.defer = frozenset(x.strip() for x in str(self.p.defer).split(",") if x.strip())
+        self._roles = frozenset(x.strip() for x in str(self.p.pre_roles).split(",") if x.strip())
+        self._prof = None
         self.hu = _load("hu")
         self.t3 = _load("3") if self.p.three else None
         self.payouts = (1.0, 0.0)
@@ -179,6 +186,7 @@ class ShortMember:
         """This decision is ours: the hand maps onto our tables / heads-up postflop, and no opponent alive reads as a
         clear leak (module doc). `base`: the composite's base member, whose rival 3 core keeps the 3-bet read."""
         self.light_observe(obs)
+        self._prof = prof
         stacks, bets, in_hand = obs.stacks, obs.bets, obs.in_hand
         alive = [j for j in range(len(stacks)) if stacks[j] + bets[j] > 0 or in_hand[j]]
         if obs.street == 0 and base is not None and self.p.defer_3bet < 1.0:
@@ -199,7 +207,8 @@ class ShortMember:
                         return False
         if obs.street == 0:
             if len(alive) == 2:
-                return self._hu_node(obs) is not None
+                got = self._hu_node(obs)
+                return got is not None and ("sb" if got[3] == 0 else "bb") in self._roles
             if len(alive) == 3 and self.t3 is not None:
                 got = self._three_node(obs)
                 return got is not None and got[4] <= self.p.three_max * (obs.blinds[1] or 1)
@@ -341,6 +350,14 @@ class ShortMember:
             if cls is None:
                 return None
             ch = self._pick(node, cls, obs, self.hu["q"], "pre" + key)
+            if ch == "c" and key == "" and self.p.steal_ftb > 0 and "r" in node["a"] and self._prof is not None:
+                opp = next((j for j in range(len(obs.stacks)) if j != obs.seat and self._start[j] > 0), -1)
+                prof = self._prof
+                try:
+                    if prof.pre_faced[opp] >= self.p.steal_n and prof.fold_to_bet_pre(opp) >= self.p.steal_ftb:
+                        ch = "r"  # it folds to raises far above equilibrium: the limp becomes a min-raise
+                except Exception:  # noqa: BLE001
+                    pass
             self.counts["hu:" + key + ch] = self.counts.get("hu:" + key + ch, 0) + 1
             return self._to_action(ch, key, sol["meta"], obs, eff)
         if alive == 3 and self.t3 is not None:
@@ -430,7 +447,9 @@ class ShortMember:
         over a limp, then 3.5 times the open and 2.2 times a 3-bet."""
         n_raises = key.count("r") + key.count("j")
         if n_raises == 0:
-            return (meta["iso"] if key.endswith("c") else meta["r1"]) * bb
+            if key.endswith("c"):
+                return meta["iso"] * bb
+            return (meta.get("r1_sb", meta["r1"]) if key.startswith("f") else meta["r1"]) * bb
         return (3.5 if n_raises == 1 else 2.2) * cur
 
     def _to_action3(self, ch: str, key: str, meta: dict, obs: Observation, eff: float) -> Action:
