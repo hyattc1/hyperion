@@ -322,6 +322,9 @@ class Config:
     # thresholds this many tiers up (keep_value_shift's reason, a third as strong). Both off: the play before 2026-11-01
     toss_dead: bool = False
     toss_value_shift: int = 0
+    # ... and toss_call_shift: facing a bet on those tables, the made hand's equity read this many tiers lower (the
+    # call side of toss_value_shift, as keep_call_shift is of keep_value_shift on deal5_keep2). 0 = off
+    toss_call_shift: int = 0
     # bounty (MIT 2025: win a pot holding the bounty rank, in hand or on the board, and the house pays (ratio - 1) x the
     # net win + constant more). bounty_exact: the net win is the others' chips in the pot (not ours from earlier
     # streets), and every all-in EV also prices the bounty on the chips a caller adds (Spot.bounty_k).
@@ -344,6 +347,27 @@ class Config:
     # plays every preflop decision of the 14 Hero tables (short deck, three hole cards ...) and few elsewhere; this
     # reaches the first and none of the second. {} = off
     variant_preflop: dict = field(default_factory=dict)
+    # PushFoldParams overrides on the same tables (the same gate): the push/fold zone's decisions, e.g. calling a
+    # shove at 10 bb or less ({"call_equity_margin": 0.05}); deeper shove calls are the preflop module's
+    # (variant_preflop's shove_eq_margin, shove_range_mult). Decision-time fields only: the solved tables and the
+    # multiway switch are the table set's. {} = off
+    variant_pushfold: dict = field(default_factory=dict)
+    # boards longer than five cards (river_of_blood's run streets, or any rule that deals past the river). long_board:
+    # read them (core.eval.evaluate_many for any number of cards, never a table built in a decision; "playing the
+    # board" against the board's own best five; draws and outs while another card may come), and play a street that
+    # may not be the last as a turn (`long_to_come` cards to come, rule of 2 per out per card) and the last one as a
+    # river. Under `run_until_black` (rules.extras) a red last card on a board of five or more means another card
+    # comes. long_value_per_card: postflop value and raise thresholds this many tiers up per board card past five
+    # (every hand at the table uses the extra cards); long_call_per_card: facing a bet, the made hand's equity is read
+    # this many tiers lower per board card past five. Off: past 8 cards check or fold, a sixth board card is read as
+    # a river with no draws, a red river as the last street (the play before 2026-11-02)
+    long_board: bool = False
+    long_to_come: int = 1
+    long_value_per_card: int = 0
+    long_call_per_card: int = 0
+    # deal5_keep2: facing a bet, the made hand's equity read this many tiers lower (everyone kept their best two of
+    # five on this flop: keep_value_shift's reason, applied to calls; keep_value_shift moves only bets and raises). 0 = off
+    keep_call_shift: int = 0
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5
@@ -566,6 +590,7 @@ class HeroCore:
         # the held-out showtime uses the same key for folded hands, and the held-out set is not tuned on
         self._revealed_dead = False
         self._toss = False  # three hole cards and a face-up toss (toss_or_holdem, three_card_blind_discard)
+        self._run = False  # rules.extras["run_until_black"] (river_of_blood): a red last card deals another street
         self._pre_aggr = False  # my last preflop action this hand was a raise nobody re-raised (when history is absent)
         self.inferred = 0  # decisions whose betting state came from the bets because the history could not explain it
 
@@ -614,6 +639,7 @@ class HeroCore:
             self._auction = auction_table()
         self._revealed_dead = bool(ex.get("discard_count"))
         self._toss = bool(ex.get("discard_face_up")) and not ex.get("discard_count") and rules.hole_cards == 3
+        self._run = bool(ex.get("run_until_black"))
         low = bool(ex.get("lowball"))
         wild = ex.get("wild_rank", None)
         wild_c = int(rules.rank_order[int(wild)]) if wild is not None else -1
@@ -642,8 +668,10 @@ class HeroCore:
             pre, pf, t = mods  # the set the cached modules were built on (a label view is rebuilt per call)
             self._label = t.scheme != "169"
         vp = cfg.variant_preflop
-        if vp and ex.get("variant") and str(ex.get("variant")).lower() not in PLAIN_NAMES \
-                and rules.betting != "fixedlimit" and not rules.must_use_hole and not ex.get("lowball"):
+        vpf = cfg.variant_pushfold
+        twist = (vp or vpf) and ex.get("variant") and str(ex.get("variant")).lower() not in PLAIN_NAMES \
+            and rules.betting != "fixedlimit" and not rules.must_use_hole and not ex.get("lowball")
+        if vp and twist:
             # a catalogued twist (rules.extras["variant"]): this table's preflop module with variant_preflop on top.
             # Not fixed limit (a flat costs one bet, so the wide flat range pays), must-use (Omaha: four-card hands
             # run close) or lowball (mirrored classes): there the tighter flats measured -0.108 +- 0.073,
@@ -653,6 +681,16 @@ class HeroCore:
             if vpre is None:
                 vpre = self._modules[vkey] = Preflop(replace(pre.p, **vp), t)
             pre = vpre
+        if vpf and twist:
+            vkey = ("variant_pushfold", id(pf))
+            vpf_mod = self._modules.get(vkey)
+            if vpf_mod is None:
+                import copy
+
+                vpf_mod = copy.copy(pf)  # the same solved arrays and tables, other decision-time params
+                vpf_mod.p = replace(pf.p, **vpf)
+                self._modules[vkey] = vpf_mod
+            pf = vpf_mod
         self.active = t
         self.preflop, self.pushfold = pre, pf
         pf.pre = pre  # push/fold reads the shover's range through the preflop module
@@ -812,7 +850,7 @@ class HeroCore:
             if nh < mu or len(board) < 5 - mu:
                 self.last_path = "safe"
                 return safe_action(obs)
-        elif nh + len(board) > 8:
+        elif nh + len(board) > 8 and not (cfg.long_board and nh == 2):
             self.last_path = "safe"
             return safe_action(obs)
         if no_history:
@@ -820,13 +858,35 @@ class HeroCore:
         else:
             aggressor = prof is not None and prof.pre_raiser == obs.seat
         value_shift = 1 if (self._swap_street and obs.street < self._swap_street) else 0
+        call_shift = 0
         if self._revealed_dead:
             value_shift += cfg.keep_value_shift
+            call_shift += cfg.keep_call_shift
         elif self._toss:
             value_shift += cfg.toss_value_shift
+            call_shift += cfg.toss_call_shift
         self.last_path = "postflop"
+        nb = len(board)
+        if cfg.long_board and (nb > 5 or (self._run and nb >= 5)) and nh == 2 and not mu:
+            # a long board, or the last size with a run still possible (river_of_blood): one more card comes after a
+            # red last card under run_until_black; a board past five plays as a turn while one may come, a river when not
+            pf = self.postflop
+            if not pf.low and pf.wild_rank < 0:
+                more = self._run and (board[-1] & 3) in (1, 2)
+                extra = nb - 5 if nb > 5 else 0
+                self.last_path = "postflop.long"
+                a = pf.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
+                           value_shift=value_shift + cfg.long_value_per_card * extra,
+                           call_shift=call_shift + cfg.long_call_per_card * extra,
+                           street=2 if more else 3, to_come=cfg.long_to_come if more else 0, long=True, more=more)
+                if xl is not None and not cheap:
+                    a = self._exploit(xl, raw, a)
+                return a
+            if nh + nb > 8:
+                self.last_path = "safe"
+                return safe_action(obs)
         a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
-                              value_shift=value_shift)
+                              value_shift=value_shift, call_shift=call_shift)
         if cfg.bounty_bet_frac > 0.0 and bounty and a.kind is ActionKind.CHECK and spot.to_call == 0 \
                 and spot.n_opps <= 2 and not cheap and ActionKind.RAISE in obs.legal and self._bounty_hit(obs):
             a = self.postflop._bet(spot, cfg.bounty_bet_frac, bluff=True)

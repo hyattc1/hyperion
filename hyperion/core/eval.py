@@ -11,7 +11,9 @@ n-card table is grown from the (n-1)-card one (the best five of n cards is the b
 so 6, 7 and 8 cost about 3, 20 and 60 ms instead of 0.02, 0.12 and 0.61 s, with the same entries. An evaluate on
 6 to 8 cards whose table is not built yet never builds it inside the call (that would be a 1 ms decision spent on
 a 60 ms build): it takes the best of its (n-1)-card subsets, exact, and the next `warm()` builds the table. Past
-8 cards the table is still built on first use (seconds; hyperion/drills/variants_unseen.py guards it in the sim).
+8 cards `evaluate` still builds the table on first use (seconds: river_of_blood's guard in hyperion/drills/variants.py
+plays that as a timeout in the sim); `evaluate_many` takes any number of cards without a table (rank counts and suit
+masks, about 10 us at 12 cards), which is what a bot reading a board longer than five should call.
 
 Rank permutation variants: pass a Rules whose rank_order is not identity and call evaluate_displayed,
 or remap cards yourself with cards.remap. The tables never change.
@@ -296,6 +298,94 @@ def evaluate(cards: Sequence[int]) -> int:
             return _from_subsets(tuple(cards), n)
         table = unsuited_table(n)
     return table[p]
+
+
+# ------------------------------------------------------------------ any number of cards, no table
+
+# the ten straights as rank bitmasks, ace-high first, the wheel (A-2-3-4-5) last
+_STRAIGHTS_DESC = tuple(0b1111100000000 >> i for i in range(9)) + (0b1000000001111,)
+
+
+def _mask_ranks(mask: int) -> list[int]:
+    return [r for r in range(13) if mask >> r & 1]
+
+
+def _best_unsuited_ranks(counts: Sequence[int]) -> list[int]:
+    """The five ranks of the best non-flush hand in a rank multiset (any size >= 5)."""
+    desc = [r for r in range(12, -1, -1) if counts[r]]
+    for r in desc:
+        if counts[r] >= 4:
+            return [r] * 4 + [next(k for k in desc if k != r)]
+    trips = [r for r in desc if counts[r] >= 3]
+    if trips:
+        t = trips[0]
+        pair = next((r for r in desc if r != t and counts[r] >= 2), None)
+        if pair is not None:
+            return [t] * 3 + [pair] * 2
+    mask = 0
+    for r in desc:
+        mask |= 1 << r
+    for sm in _STRAIGHTS_DESC:
+        if mask & sm == sm:
+            return _mask_ranks(sm)
+    if trips:
+        t = trips[0]
+        return [t] * 3 + [r for r in desc if r != t][:2]
+    pairs = [r for r in desc if counts[r] >= 2]
+    if len(pairs) >= 2:
+        p1, p2 = pairs[0], pairs[1]
+        return [p1, p1, p2, p2, next(r for r in desc if r != p1 and r != p2)]
+    if pairs:
+        p = pairs[0]
+        return [p, p] + [r for r in desc if r != p][:3]
+    return desc[:5]
+
+
+def evaluate_many(cards: Sequence[int]) -> int:
+    """Best five-card strength of any number (>= 5) of canonical cards, on the same scale as `evaluate`.
+
+    Up to 8 cards it is `evaluate` itself. Past 8 that evaluator builds a lookup table per hand size (3 s at 9 cards,
+    about x3 per extra card, gigabytes by 14), so a board that runs on (river_of_blood: up to 30 board cards) takes
+    this direct path instead: the best flush or straight flush per suit from its rank mask, the best non-flush hand
+    from the rank counts, each looked up in the five-card tables. Never builds a table; tests compare it with
+    evaluate_slow. (Written for the held-out river_of_blood, hyperion/drills/variants_unseen.py; moved here when the
+    entry joined the catalog, 2026-11-02.)"""
+    n = len(cards)
+    if n <= 8:
+        return evaluate(cards)
+    counts = [0] * 13
+    suit_mask = [0, 0, 0, 0]
+    suit_n = [0, 0, 0, 0]
+    for c in cards:
+        r, s = c >> 2, c & 3
+        counts[r] += 1
+        suit_mask[s] |= 1 << r
+        suit_n[s] += 1
+    best = 0
+    for s in range(4):
+        if suit_n[s] >= 5:
+            m = suit_mask[s]
+            f = 0
+            for sm in _STRAIGHTS_DESC:
+                if m & sm == sm:
+                    f = FLUSH5[sm]
+                    break
+            if not f:
+                top, k = 0, 0
+                for r in range(12, -1, -1):
+                    if m >> r & 1:
+                        top |= 1 << r
+                        k += 1
+                        if k == 5:
+                            break
+                f = FLUSH5[top]
+            if f > best:
+                best = f
+    p = 1
+    for r in _best_unsuited_ranks(counts):
+        p *= PRIMES[r]
+    u = UNSUITED5[p]
+    return best if best > u else u
 
 
 def evaluate_displayed(cards: Sequence[int], rules: Rules) -> int:

@@ -183,6 +183,7 @@ The shell, flat keys (hybrid3_x sets `core` 'rival3' and `exploit` 'hero'; `chea
 | `hero_on_bounty` | True |
 | `hero_on_exposed` | True |
 | `hero_on_three_cards` | True |
+| `hero_on_long_board` | False |
 | `cheap` | False |
 
 The fallback Hero: `hero.<key>` for any key in the next table.
@@ -398,12 +399,19 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `keep_value_shift` | 1 |
 | `toss_dead` | False |
 | `toss_value_shift` | 0 |
+| `toss_call_shift` | 0 |
 | `bounty_exact` | False |
 | `bounty_call_scale` | 1.0 |
 | `bounty_bet_frac` | 0.0 |
 | `short_deck_read` | False |
 | `variant_tables` | '' |
 | `variant_preflop` | (factory) |
+| `variant_pushfold` | (factory) |
+| `long_board` | False |
+| `long_to_come` | 1 |
+| `long_value_per_card` | 0 |
+| `long_call_per_card` | 0 |
+| `keep_call_shift` | 0 |
 | `cheap` | False |
 | `deadline_ms` | 0.5 |
 | `panic_after` | 5 |

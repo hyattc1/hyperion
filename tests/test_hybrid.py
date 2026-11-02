@@ -64,8 +64,10 @@ HERO_ONLY = {"short_deck", "lowball", "wild_deuces", "flush_over_full_house", "o
 
 
 @pytest.mark.parametrize("name", V.catalog_names())
-def test_hybrid_plays_every_catalogue_entry_without_an_error(name):
+def test_hybrid_plays_every_catalogue_entry_without_an_error(name, monkeypatch):
     v = V.get(name, seed=3)
+    if name == "river_of_blood":  # rival 2's core evaluates with core.eval past 8 cards (the sim's guard): Hero plays those
+        monkeypatch.setattr(B, "HYBRID_CONFIG", {**(B.HYBRID_CONFIG or {}), "hero_on_long_board": True})
     bots = [B.make_bot(n, seed=40 + s) for s, n in enumerate(FAST_FIELD)]
     res = play_table(bots, v.rules, seed=11, mode="measure", variant=v.new_hooks())
     st = res.stats[0]
