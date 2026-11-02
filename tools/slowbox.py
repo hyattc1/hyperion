@@ -272,6 +272,7 @@ class SlowSeat:
     SafeBot's panic and, with trace_us, records decisions slower than that many real us."""
 
     free = False  # --free: never timed out (the seat as in a model-mode run)
+    defer = False  # --defer: each hand_end runs at the top of the next act(), inside the timed call (module doc)
 
     def __init__(self, bot, trace_us: float | None = None, payouts: str = "lin"):
         self.impl = bot
@@ -284,15 +285,19 @@ class SlowSeat:
         self.reset()
 
     def reset(self):
+        self._pending = None
         self.calls = 0
         self.panic_hand = -1
         self.panic_call = -1
+        self.panic_calls = 0  # calls played in panic (with a governor's recovery panic can end)
+        self.lvl = [0] * 8  # calls played at each governor level (index = SafeBot.degrade_level after the call)
         self.level_max = 0
         self.worst_ns = 0
         self.hand = -1
 
     def new_table(self, rules, seat, n_players):
         self.reset()
+        self._pending = None
         self.impl.new_table(rules, seat, n_players)
 
     def act(self, obs):
@@ -305,6 +310,9 @@ class SlowSeat:
         pcn = time.perf_counter_ns
         t0 = pcn()
         try:
+            if self._pending is not None:  # the adapter's deferred hand end, inside the kit's timer
+                r, self._pending = self._pending, None
+                self.impl.hand_end(r)
             return self.impl.act(obs)
         finally:
             dt = pcn() - t0
@@ -314,9 +322,13 @@ class SlowSeat:
                 self.worst_ns = dt
             safe = self.safe
             if safe is not None:
-                if self.panic_hand < 0 and getattr(safe, "panic_mode", False):
-                    self.panic_hand, self.panic_call = obs.hand_no, self.calls
+                pm = getattr(safe, "panic_mode", False)
+                if pm:
+                    self.panic_calls += 1
+                    if self.panic_hand < 0:
+                        self.panic_hand, self.panic_call = obs.hand_no, self.calls
                 lv = getattr(safe, "degrade_level", 0) or 0
+                self.lvl[lv if lv < 8 else 7] += 1
                 if lv > self.level_max:
                     self.level_max = lv
             first = obs.hand_no != self.hand
@@ -347,6 +359,9 @@ class SlowSeat:
         })
 
     def hand_end(self, result):
+        if self.defer:
+            self._pending = result
+            return
         self.impl.hand_end(result)
 
     def variant_decide(self, prompt):
@@ -427,7 +442,9 @@ def play(spec, field: str, t: int, rot: int, rules, scope: str = "seat", trace_u
     rec = {"t": t, "rot": rot, "pts": res.points[me], "place": res.places[me], "tmo": st.over_budget,
            "calls": st.calls + st.first_calls, "over": int(getattr(safe, "overruns", 0) or 0) if safe is not None else 0,
            "panic": seat.panic_hand >= 0, "panic_hand": seat.panic_hand, "panic_call": seat.panic_call,
-           "level": seat.level_max, "worst_us": round(seat.worst_ns / 1000.0, 1), "hands": res.hands}
+           "level": seat.level_max, "worst_us": round(seat.worst_ns / 1000.0, 1), "hands": res.hands,
+           "panic_calls": seat.panic_calls, "lvl": seat.lvl,
+           "changes": int(getattr(safe, "level_changes", 0) or 0) if safe is not None else 0}
     return rec, st, seat.traces, seat.base
 
 
@@ -441,8 +458,9 @@ def _init_worker(k: float, cpus, basis: str = "wall", noise=None):
 
 
 def _job(args):
-    spec_name, spec, field, ts, payouts, scope, trace_us, det, free = args
+    spec_name, spec, field, ts, payouts, scope, trace_us, det, free, defer = args
     SlowSeat.free = bool(free)
+    SlowSeat.defer = bool(defer)
     from hyperion.core.types import Rules
     from hyperion.sim import bestiary as B
 
@@ -495,7 +513,7 @@ def cmd_run(a) -> list:
     os.makedirs(a.out, exist_ok=True)
     chunks = [seeds[i:i + a.chunk] for i in range(0, len(seeds), a.chunk)]
     # interleaved (chunk by chunk, every spec), so the specs of one run share the host's load as it varies
-    jobs = [(nm, spec, a.field, ch, a.payouts, a.scope, a.trace_us, a.det, a.free) for ch in chunks
+    jobs = [(nm, spec, a.field, ch, a.payouts, a.scope, a.trace_us, a.det, a.free, a.defer) for ch in chunks
             for nm, spec in specs.items()]
     busy = start_busy(cpus[:a.workers], a.contend, on, off) if a.contend else []
     res: dict = {nm: {} for nm in specs}
@@ -514,9 +532,9 @@ def cmd_run(a) -> list:
         path = os.path.join(a.out, f"slow.{a.field}.{a.payouts}.{a.scope}.k{a.k:g}.{a.clock}"
                                    f"{'.n' + a.noise.replace(',', '-') if a.noise else ''}"
                                    f"{'.c' + str(a.contend) + 'x' + a.duty_ms.replace(',', '-') if a.contend else ''}"
-                                   f"{'.det' if a.det else ''}{'.free' if a.free else ''}.{a.seeds.replace(':', '-')}.{a.tag}.{nm}.json")
+                                   f"{'.det' if a.det else ''}{'.free' if a.free else ''}{'.defer' if a.defer else ''}.{a.seeds.replace(':', '-')}.{a.tag}.{nm}.json")
         out = {"spec": nm, "def": specs[nm], "field": a.field, "seeds": a.seeds, "payouts": a.payouts, "scope": a.scope,
-               "k": a.k, "free": a.free, "clock": a.clock, "noise": a.noise, "contend": a.contend, "duty_ms": a.duty_ms if a.contend else "", "cpus": cpus, "det": a.det,
+               "k": a.k, "free": a.free, "defer": a.defer, "clock": a.clock, "noise": a.noise, "contend": a.contend, "duty_ms": a.duty_ms if a.contend else "", "cpus": cpus, "det": a.det,
                "res": res[nm], "secs": time.time() - t0, "argv": sys.argv[1:]}
         with open(path + ".tmp", "w") as fh:
             json.dump(out, fh)
@@ -544,6 +562,7 @@ class QuietSeat(SlowSeat):
     def __init__(self, bot, trace_us=None, payouts="lin"):
         super().__init__(bot, None, payouts)
         self.cpu: list = []
+        self.he: list = []  # hand_end CPU ns, in order
         self.feat: list | None = None
         self.prof_calls = None
         self.profiler = None
@@ -573,6 +592,13 @@ class QuietSeat(SlowSeat):
                 feat.append((sec, street, first, n_in, alive, obs.to_call > 0, ",".join(moved),
                              getattr(core, "last_path", "") or "", obs.hand_no))
             self.hand = obs.hand_no
+
+    def hand_end(self, result):
+        c0 = time.thread_time_ns()
+        try:
+            self.impl.hand_end(result)
+        finally:
+            self.he.append(time.thread_time_ns() - c0)
 
 
 def _job_quiet(args):
@@ -606,11 +632,12 @@ def _job_quiet(args):
                 rec, st, _, _ = play(spec, field, t, rot, rules, det=True, payouts=payouts, seat_cls=mk)
                 q = holder["seat"]
                 if r == 0:
-                    feat, best, pts = q.feat, list(q.cpu), rec["pts"]
-                elif len(q.cpu) != len(best) or rec["pts"] != pts:
+                    feat, best, pts, he = q.feat, list(q.cpu), rec["pts"], list(q.he)
+                elif len(q.cpu) != len(best) or rec["pts"] != pts or len(q.he) != len(he):
                     mism += 1
                 else:
                     best = [min(x, y) for x, y in zip(best, q.cpu)]
+                    he = [min(x, y) for x, y in zip(he, q.he)]
             if prof is not None:
                 slow = {i for i, c in enumerate(best) if c > prof_us * 1000}
                 if slow:
@@ -620,7 +647,7 @@ def _job_quiet(args):
                         return q
 
                     play(spec, field, t, rot, rules, det=True, payouts=payouts, seat_cls=mkp)
-            out.append({"t": t, "rot": rot, "pts": pts, "cpu": best, "feat": feat})
+            out.append({"t": t, "rot": rot, "pts": pts, "cpu": best, "feat": feat, "he": he})
     pstat = None
     if prof is not None:
         import io
@@ -656,6 +683,15 @@ def cmd_quiet(a) -> list:
     return paths
 
 
+def _he_line(tabs) -> str:
+    he = sorted(c for x in tabs for c in x.get("he", []))
+    if not he:
+        return "  hand_end: not recorded"
+    n = len(he)
+    return (f"  hand_end (the adapter delivers it inside the next decision when the kit's signal has no chip deltas): "
+            f"p50 {he[n // 2] / 1000:.0f}  p99 {he[min(n - 1, int(.99 * n))] / 1000:.0f}  max {he[-1] / 1000:.0f} us")
+
+
 def safebot_replay(costs_ns, k: float, deadline_ms: float = 0.5, panic_after: int = 5, panic_rate: float = 0.02):
     """SafeBot's panic rule on one table's quiet costs at speed k (play after panic ignored): (overruns, timeouts,
     the call that would start panic or -1)."""
@@ -689,6 +725,7 @@ def quiet_report(path: str, ks=(1.0, 1.5, 2.0, 3.0), by="section,street,n_in,ali
            f"{d['seeds']} x 8: {len(tabs)} tables, {n} decisions, {mism} replay mismatches, load "
            f"{min(loads):.1f}-{max(loads):.1f}",
            f"  p50 {q(.5):.0f}  p90 {q(.9):.0f}  p99 {q(.99):.0f}  p99.9 {q(.999):.0f}  max {srt[-1] / 1000 if n else 0:.0f}",
+           _he_line(tabs),
            "", "| k | decisions over the 0.5 ms soft deadline | over 1 ms (timeouts) | tables that would panic | "
            "mean call of panic |", "|---|---|---|---|---|"]
     for k in ks:
@@ -784,6 +821,8 @@ def label(d) -> str:
         s += " det"
     if d.get("free"):
         s += " free"
+    if d.get("defer"):
+        s += " defer"
     return s
 
 
@@ -798,7 +837,13 @@ def summary(d) -> dict:
     n = len(recs)
     m, h = ci(list(per_seed(recs).values()))
     worst = max((r["worst_us"] for r in recs), default=0.0)
+    calls = sum(r["calls"] for r in recs)
+    pc = sum(r.get("panic_calls", 0) for r in recs)
+    lv = [sum(r.get("lvl", [0] * 8)[i] for r in recs) for i in range(8)]
     return {"n": n, "pts": m, "ci": h, "tmo": sum(r["tmo"] for r in recs) / max(1, n),
+            "panic_share": pc / max(1, calls), "lvl_share": [x / max(1, calls) for x in lv],
+            "has_lvl": any("lvl" in r for r in recs),
+            "changes": sum(r.get("changes", 0) for r in recs) / max(1, n),
             "tmo_tables": sum(1 for r in recs if r["tmo"]), "panic": sum(1 for r in recs if r["panic"]),
             "level": Counter(r.get("level", 0) for r in recs), "calls": sum(r["calls"] for r in recs),
             "tmo_all": sum(r["tmo"] for r in recs), "p50": pct(hist or [0], 0.5), "p99": pct(hist or [0], 0.99),
@@ -811,7 +856,7 @@ def table(paths, ref: str | None = None) -> str:
     rs = per_seed(recs_of(rd))
     out = [f"{ds[0]['field']} ({ds[0]['payouts']}), seeds {ds[0]['seeds']} x 8; paired against {label(rd)}", "",
            "| run | points ± 95% | - ref (paired) | timeouts / table | tables with a timeout | panic tables | "
-           "p50 / p99 / max us (box) | load |", "|---|---|---|---|---|---|---|---|"]
+           "calls in panic / below level 0 | p50 / p99 / max us (box) | load |", "|---|---|---|---|---|---|---|---|---|"]
     for d in ds:
         s = summary(d)
         ps = per_seed(recs_of(d))
@@ -823,9 +868,11 @@ def table(paths, ref: str | None = None) -> str:
             dd = f"{dm:+.3f} ± {dh:.3f}" + (" **" if abs(dm) > dh else "")
         lv = {k: v for k, v in s["level"].items() if k}
         lvs = (" (levels " + ", ".join(f"{k}: {v}" for k, v in sorted(lv.items())) + ")") if lv else ""
+        below = 1.0 - s["lvl_share"][0]
         out.append(f"| {label(d)} | {s['pts']:.3f} ± {s['ci']:.3f} | {dd} | {s['tmo']:.3f} ({s['tmo_all']} of "
                    f"{s['calls']}) | {s['tmo_tables']} of {s['n']} | {s['panic']} of {s['n']}{lvs} | "
-                   f"{s['p50']:.0f} / {s['p99']:.0f} / {s['max']:.0f} | {s['load'][0]:.1f}-{s['load'][1]:.1f} |")
+                   + (f"{100 * s['panic_share']:.1f}% / {100 * below:.1f}% | " if s["has_lvl"] else "- | ")
+                   + f"{s['p50']:.0f} / {s['p99']:.0f} / {s['max']:.0f} | {s['load'][0]:.1f}-{s['load'][1]:.1f} |")
     return "\n".join(out)
 
 
@@ -904,6 +951,7 @@ def main(argv=None):
     r.add_argument("--trace-us", type=float, default=None, help="record decisions slower than this many real us")
     r.add_argument("--det", action="store_true", help="the model-mode settings (panic, soft deadlines off)")
     r.add_argument("--free", action="store_true", help="the seat is never timed out (with --det: model mode exactly)")
+    r.add_argument("--defer", action="store_true", help="every hand_end inside the next act (the adapter's deferral)")
     r.add_argument("--out", required=True)
     r.add_argument("--tag", default="run")
     r.add_argument("-v", "--verbose", action="store_true")

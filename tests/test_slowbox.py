@@ -28,8 +28,16 @@ def _real_clock():
 
 
 def _busy(us: float) -> None:
+    """Spin for `us` of wall time (the wall-clock test)."""
     end = SB.real_ns() + int(us * 1000)
     while SB.real_ns() < end:
+        pass
+
+
+def _spin(us: float) -> None:
+    """Spin for `us` of this thread's CPU time (what --clock cpu counts, however busy the host is)."""
+    end = time.thread_time_ns() + int(us * 1000)
+    while time.thread_time_ns() < end:
         pass
 
 
@@ -60,10 +68,10 @@ def test_cpu_clock_counts_work_not_sleep():
     time.sleep(0.03)
     slept = time.perf_counter_ns() - t0
     t1 = time.perf_counter_ns()
-    _busy(3000)
+    _spin(3000)
     worked = time.perf_counter_ns() - t1
     assert slept < 3e6  # 30 ms asleep is (nearly) no CPU time
-    assert 4e6 < worked < 8e6  # 3 ms of work reads as ~6 ms (less if the guest scheduler preempted us)
+    assert 6e6 <= worked < 7e6  # 3 ms of CPU reads as 6 ms
 
 
 def test_virtual_noise_adds_pauses():
@@ -90,7 +98,7 @@ class _Slow:
     def act(self, obs):
         from hyperion.strategy.safe import safe_action
 
-        _busy(self.us)
+        _spin(self.us)
         return safe_action(obs)
 
     def hand_end(self, result):
