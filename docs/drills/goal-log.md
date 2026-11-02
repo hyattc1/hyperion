@@ -480,3 +480,17 @@ and (in judges) `elite_judge`.
   +0.307 ± 0.149 and exploit2_3 +0.237 ± 0.143 UP, nothing down; with C7 the two compose (mirror +0.431 UP). Not yet
   heads-up winning (7.85 vs 9.15). bonus_card risk from the one size (0.5 pot includes the dry c-bet). Awaiting its
   final commit before merging.
+
+## 11:38: S9's fixes merged (aa26ee4), strong_route on H6; the round-trip latency failures explained
+- S9: the elite members now play only tables that pass Hero's holdem_table test (with the route forced open the
+  candidate plays every catalogued twist exactly as F; test added); the H4 p99 tail was the measurement seats running
+  elite1 as a full shadow (35 us a decision thrown away), not the shipped light shadow, which is now always on.
+  Shipped-form per-call minimum: night act p99 88 -> 102 us, realistic 93 -> 101, max 151-168 us. Screen (batch 4
+  base): night -0.019, guards level, elite +0.040, elite_night +0.050 UP, mirror +0.098 UP, exploit level, the four
+  H4 cells now identical. F identical after the merge (14 cells). G2 on H6 (25000-25399), --aim strong, all stages.
+- The kit B/C/D round-trip latency tests that failed on main since R2: latency.py fed random hand numbers, which go
+  back about every other call; R2's adapter reads that as a new table with no table-start hook and restarts the bot,
+  and Hero's every-32nd table start does a full collection (10-20 ms). Fixed in the tool (hand numbers in order):
+  F through kit D now p99 440 us, 0 gen-2 collections in 2,000 calls at load 11 (was 61, p99 11.6 ms). Real cost
+  that remains: on a kit with no table-start hook, one table in 16 pays a 10-20 ms first decision (a timed-out
+  first action, usually a fold anyway). Backlog (robustness, low): run that collection outside the decision.
