@@ -62,8 +62,9 @@ from functools import lru_cache
 from itertools import combinations
 from typing import Callable, Sequence
 
-from hyperion.core.cards import remap
-from hyperion.core.eval import MAX_STRENGTH, category, evaluate, evaluate_displayed, warm
+from hyperion.core.cards import is_identity_order, remap
+from hyperion.core import eval as _eval
+from hyperion.core.eval import MAX_STRENGTH, category, evaluate, evaluate_displayed, evaluate_many, warm
 from hyperion.core.types import Observation, Rules
 
 Holes = list  # list[tuple[int, ...]] per seat
@@ -1350,6 +1351,139 @@ def straddle() -> Variant:
     )
 
 
+# ------------------------------------------------------------------------------- river_of_blood (promoted 2026-11-02)
+# Written as a held-out entry (hyperion/drills/variants_unseen.py, docs/drills/unseen-variants-log.md), rehearsed in
+# drill 7 (docs/drills/prompt-drill-7.md), then moved here so screens and the climb's variants stage cover it. The
+# engine side is the optional `next_card` hook (hyperion/sim/engine.py).
+
+RED_SUITS = (1, 2)  # cards are rank*4 + suit, suits c d h s = 0..3: diamonds and hearts are red
+
+
+class EvaluatorLimit(RuntimeError):
+    """core.eval.evaluate asked for more than 8 cards while River of Blood's guard is on (see install_eval_guard)."""
+
+
+_ORIGINAL_BUILD: Callable | None = None
+_PARKED: dict = {}  # 9+ card tables some earlier caller built in this process, set aside while the guard is on
+
+
+def install_eval_guard() -> None:
+    """Make core.eval.evaluate raise EvaluatorLimit on 9+ cards instead of building a lookup table for that size.
+
+    Why: a bot that evaluates hole + board with core.eval.evaluate builds the table for a new hand size lazily, inside
+    the call: 3 s at 9 cards, about x3 per extra card, hours and gigabytes by 14 or 15 (River of Blood boards reach 12+
+    cards a few times per thousand river hands). At the tournament's 1 ms per decision that decision is a timeout: a
+    check if checking is legal, otherwise a fold. Raising does the same thing here (SafeBot or the engine turns the
+    exception into a check or fold, and counts it), and keeps a run from stalling for hours. It is the 1 ms rule
+    applied to every such decision, a slightly pessimistic model: a bot whose process survived the first build would
+    be fast at that size afterwards. Process-wide and idempotent; remove_eval_guard() undoes it. Tables for 9+ cards
+    already built in the process are set aside meanwhile, so the guard does not depend on what ran before it. The
+    engine's own showdown never needs it (RiverOfBloodHooks.score_hand uses evaluate_many), and neither does a bot
+    that reads long boards with core.eval.evaluate_many (Hero with `long_board`)."""
+    global _ORIGINAL_BUILD
+    if _ORIGINAL_BUILD is not None:
+        return
+    _ORIGINAL_BUILD = _eval._build_unsuited
+    for k in [k for k in _eval._UNSUITED_N if k > 8]:
+        _PARKED[k] = _eval._UNSUITED_N.pop(k)
+
+    def guarded(n: int, _orig=_ORIGINAL_BUILD):
+        if n > 8:
+            raise EvaluatorLimit(f"core.eval.evaluate on {n} cards: its {n}-card table would be built inside a "
+                                 "1 ms decision (seconds to hours): played as a timeout")
+        return _orig(n)
+
+    _eval._build_unsuited = guarded
+
+
+def remove_eval_guard() -> None:
+    global _ORIGINAL_BUILD
+    if _ORIGINAL_BUILD is not None:
+        _eval._build_unsuited = _ORIGINAL_BUILD
+        _ORIGINAL_BUILD = None
+        _eval._UNSUITED_N.update(_PARKED)
+        _PARKED.clear()
+
+
+def eval_guard_on() -> bool:
+    return _ORIGINAL_BUILD is not None
+
+
+class RiverOfBloodHooks(VariantHooks):
+    """A red river (diamond or heart) deals one more board card and one more betting round; repeat until a black card.
+
+    Dealing: every hand the undealt cards (`deck`, the hand's own copy) are shuffled with the table's variant rng at
+    the deal, and the run is popped from it, so the run depends only on the table seed and the hand (duplicate
+    rotations see the same run) and never on how many cards a fold left undealt. Folds end the hand at once
+    (the engine stops asking for cards). An all-in hand deals the whole run, with no betting, then shows down.
+
+    Streets: Observation.street is our betting-round index, 0 preflop, 1 flop, 2 turn, 3 river, then 4, 5, ... for
+    run cards (the spec's MIT numbering is the board length: street 6 there is street 4 here; len(obs.board) is that
+    number). Each run street is a full no-limit round: bets reset, min bet one big blind, first to act the first
+    live seat left of the button. Nothing says a street is final (Rules.board_sizes stays (0, 3, 4, 5)); the rules'
+    extras say `run_until_black`, so a bot can tell a red last card means more to come.
+
+    Showdown: the best five of the two hole cards plus every board card, by evaluate_many.
+
+    Differs from the spec only in what the bots' own evaluator does past 8 cards (install_eval_guard): with
+    guard_bot_eval=False the bots are left to build those tables, which stalls a run for hours."""
+
+    def __init__(self, guard_bot_eval: bool = True) -> None:
+        if guard_bot_eval:
+            install_eval_guard()
+        self.run_cards = 0  # cards dealt past the river this hand
+
+    def on_deal(self, holes, deck, rng):
+        rng.shuffle(deck)
+        self.run_cards = 0
+        return holes
+
+    def next_card(self, street: int, board: tuple[int, ...], deck: list[int], rng) -> int | None:
+        if len(board) < 5 or (board[-1] & 3) not in RED_SUITS:
+            return None
+        if not deck:
+            raise RuntimeError("river_of_blood: the deck ran out during a run")
+        self.run_cards += 1
+        return deck.pop()
+
+    def score_hand(self, hole, board, rules):
+        cards = tuple(hole) + tuple(board)
+        if not is_identity_order(rules):
+            cards = remap(cards, rules)
+        return evaluate_many(cards)
+
+
+def river_of_blood() -> Variant:
+    rules = Rules(extras={"variant": "river_of_blood", "run_until_black": True})
+    return Variant(
+        name="river_of_blood",
+        summary="River of Blood Hold'em (MIT 2023): standard no-limit through the river. If the river card is red "
+                "(a heart or a diamond) another community card is dealt, followed by another betting round; this "
+                "repeats until a black card is dealt, and the black card gets its own betting round too. Showdown: "
+                "the best five of your two hole cards plus every board card.",
+        rules=rules,
+        breaks=(
+            "Street 3 is not the last street: on a red river at least one more card and round come, so draws still "
+            "have outs (a spade flush draw completes about 42% of the time in the run, a heart one 27%), thin "
+            "river value bets and bluffs are early, and geometric sizing over three postflop streets over-commits. "
+            "Code indexed by street 0-3 meets 4, 5, ...; an evaluator built for 5-7 (or 8) cards meets 9 to 30. "
+            "About half of all boards reaching the river grow, hands inflate, chops are more common. Hero's "
+            "`long_board` dial reads any board length (core.eval.evaluate_many, draws and cards still to come after "
+            "a red last card, value thresholds up per run card); without it Hero checks or folds past 8 cards."
+        ),
+        checklist=(
+            "Bot: read len(obs.board) and the last card's suit; street >= 3 with a black last card is the last round.",
+            "Bot: an evaluator for 7+ board cards (core.eval.evaluate_many: rank counts and suit masks).",
+            "Bot: equity sampling deals the run (until black), not a fixed river.",
+        ),
+        hooks_factory=RiverOfBloodHooks,
+        needs_engine=True,
+        axis="betting", tables="unsupported",
+        tables_note="the generator deals five board cards; no table knows the run",
+        playable_note="the bots' core.eval past 8 cards is played as a 1 ms timeout (install_eval_guard)",
+    )
+
+
 PRESETS: dict[str, Callable[..., Variant]] = {
     "permuted_ranks": permuted_ranks,
     "toss_or_holdem": toss_or_holdem,
@@ -1390,6 +1524,7 @@ CATALOG: dict[str, Callable[..., Variant]] = {
     "fixed_raise": fixed_raise,
     "fast_schedule": fast_schedule,
     "straddle": straddle,
+    "river_of_blood": river_of_blood,  # held out until drill 7 (2026-11-01); promoted 2026-11-02
 }
 
 

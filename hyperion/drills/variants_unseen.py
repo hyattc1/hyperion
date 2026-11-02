@@ -1,4 +1,4 @@
-"""Held-out variants: five twists nobody tunes on.
+"""Held-out variants: four twists nobody tunes on (a fifth, river_of_blood, joined the catalog after drill 7).
 
 HELD OUT. These entries are a test set, not a catalog to prepare against. They measure how the shipped bot, and a
 bot adapted in a rehearsal, cope with a twist we did not prepare for, which is the likeliest case on the night (the
@@ -11,10 +11,9 @@ table tuned on any of these stops measuring that, so:
   - no entry carries a Config patch, and nothing in hyperion/strategy, hybrid or compose may read their extras keys;
   - the climb's protocol (docs/drills/goal-plan.md) measures them only on the judge seeds 30000-30399, once per batch.
 
-The five were written by a fresh agent that knew only the names of our 23 entries, as handout text plus exact engine
+The five (four still held out) were written by a fresh agent that knew only the names of our 23 entries, as handout text plus exact engine
 rules; docs/drills/unseen-variants-log.md maps each engine rule to what the entry implements:
 
-  river_of_blood  a red river deals another card and another betting round, until a black card (MIT 2023)
   showtime        a folded hand is turned face up for the rest of the hand (PokerStars 2018)
   high_chicago    half of every showdown pot goes to the highest spade in the hole
   bomb_pot        every fifth hand: no blinds, a 2 bb ante from everyone, no preflop betting
@@ -41,220 +40,16 @@ from hyperion.core.types import ActionKind, Rules
 
 from .variants import Variant, VariantHooks
 
-RED_SUITS = (1, 2)  # cards are rank*4 + suit, suits c d h s = 0..3: diamonds and hearts are red
 SPADE = 3
 
-
-# ------------------------------------------------------------------------------- a best-five of any number of cards
-
-# the ten straights as rank bitmasks, ace-high first, the wheel (A-2-3-4-5) last
-_STRAIGHTS_DESC = tuple(0b1111100000000 >> i for i in range(9)) + (0b1000000001111,)
-
-
-def _mask_ranks(mask: int) -> list[int]:
-    return [r for r in range(13) if mask >> r & 1]
-
-
-def _best_unsuited_ranks(counts: Sequence[int]) -> list[int]:
-    """The five ranks of the best non-flush hand in a rank multiset (any size >= 5)."""
-    desc = [r for r in range(12, -1, -1) if counts[r]]
-    for r in desc:
-        if counts[r] >= 4:
-            return [r] * 4 + [next(k for k in desc if k != r)]
-    trips = [r for r in desc if counts[r] >= 3]
-    if trips:
-        t = trips[0]
-        pair = next((r for r in desc if r != t and counts[r] >= 2), None)
-        if pair is not None:
-            return [t] * 3 + [pair] * 2
-    mask = 0
-    for r in desc:
-        mask |= 1 << r
-    for sm in _STRAIGHTS_DESC:
-        if mask & sm == sm:
-            return _mask_ranks(sm)
-    if trips:
-        t = trips[0]
-        return [t] * 3 + [r for r in desc if r != t][:2]
-    pairs = [r for r in desc if counts[r] >= 2]
-    if len(pairs) >= 2:
-        p1, p2 = pairs[0], pairs[1]
-        return [p1, p1, p2, p2, next(r for r in desc if r != p1 and r != p2)]
-    if pairs:
-        p = pairs[0]
-        return [p, p] + [r for r in desc if r != p][:3]
-    return desc[:5]
-
-
-def evaluate_many(cards: Sequence[int]) -> int:
-    """Best five-card strength of any number (>= 5) of canonical cards, on the same scale as core.eval.evaluate.
-
-    Up to 8 cards it is core.eval.evaluate itself. Past 8 that evaluator builds a lookup table per hand size (3 s at
-    9 cards, about x3 per extra card, gigabytes by 14), so River of Blood's showdown, with a board of up to 30
-    cards, uses this direct path instead: the best flush or straight flush per suit from its rank mask, the best
-    non-flush hand from the rank counts, each looked up in the five-card tables. tests compare it with
-    core.eval.evaluate_slow."""
-    n = len(cards)
-    if n <= 8:
-        return evaluate(cards)
-    counts = [0] * 13
-    suit_mask = [0, 0, 0, 0]
-    suit_n = [0, 0, 0, 0]
-    for c in cards:
-        r, s = c >> 2, c & 3
-        counts[r] += 1
-        suit_mask[s] |= 1 << r
-        suit_n[s] += 1
-    best = 0
-    for s in range(4):
-        if suit_n[s] >= 5:
-            m = suit_mask[s]
-            f = 0
-            for sm in _STRAIGHTS_DESC:
-                if m & sm == sm:
-                    f = FLUSH5[sm]
-                    break
-            if not f:
-                top, k = 0, 0
-                for r in range(12, -1, -1):
-                    if m >> r & 1:
-                        top |= 1 << r
-                        k += 1
-                        if k == 5:
-                            break
-                f = FLUSH5[top]
-            if f > best:
-                best = f
-    p = 1
-    for r in _best_unsuited_ranks(counts):
-        p *= PRIMES[r]
-    u = UNSUITED5[p]
-    return best if best > u else u
-
-
-# ------------------------------------------------------------------------------- the bots' evaluator past 8 cards
-
-class EvaluatorLimit(RuntimeError):
-    """core.eval.evaluate asked for more than 8 cards while River of Blood's guard is on (see install_eval_guard)."""
-
-
-_ORIGINAL_BUILD: Callable | None = None
-_PARKED: dict = {}  # 9+ card tables some earlier caller built in this process, set aside while the guard is on
-
-
-def install_eval_guard() -> None:
-    """Make core.eval.evaluate raise EvaluatorLimit on 9+ cards instead of building a lookup table for that size.
-
-    Why: the bots evaluate hole + board with core.eval.evaluate, which builds its table for a new hand size lazily,
-    inside the call: 3 s at 9 cards, about x3 per extra card, hours and gigabytes by 14 or 15 (River of Blood boards
-    reach 12+ cards a few times per thousand river hands). At the tournament's 1 ms per decision that decision is a
-    timeout: a check if checking is legal, otherwise a fold. Raising does the same thing here (SafeBot or the engine
-    turns the exception into a check or fold, and counts it), and keeps a run from stalling for hours. It is the
-    1 ms rule applied to every such decision, a slightly pessimistic model: a bot whose process survived the first
-    build would be fast at that size afterwards. Process-wide and idempotent; remove_eval_guard() undoes it.
-    Tables for 9+ cards already built in the process are set aside meanwhile, so the guard does not depend on what
-    ran before it. The engine's own showdown never needs it (RiverOfBloodHooks.score_hand uses evaluate_many)."""
-    global _ORIGINAL_BUILD
-    if _ORIGINAL_BUILD is not None:
-        return
-    _ORIGINAL_BUILD = _eval._build_unsuited
-    for k in [k for k in _eval._UNSUITED_N if k > 8]:
-        _PARKED[k] = _eval._UNSUITED_N.pop(k)
-
-    def guarded(n: int, _orig=_ORIGINAL_BUILD):
-        if n > 8:
-            raise EvaluatorLimit(f"core.eval.evaluate on {n} cards: its {n}-card table would be built inside a "
-                                 "1 ms decision (seconds to hours): played as a timeout")
-        return _orig(n)
-
-    _eval._build_unsuited = guarded
-
-
-def remove_eval_guard() -> None:
-    global _ORIGINAL_BUILD
-    if _ORIGINAL_BUILD is not None:
-        _eval._build_unsuited = _ORIGINAL_BUILD
-        _ORIGINAL_BUILD = None
-        _eval._UNSUITED_N.update(_PARKED)
-        _PARKED.clear()
-
-
-def eval_guard_on() -> bool:
-    return _ORIGINAL_BUILD is not None
-
-
-# ------------------------------------------------------------------------------- 1. river_of_blood
-
-class RiverOfBloodHooks(VariantHooks):
-    """A red river (diamond or heart) deals one more board card and one more betting round; repeat until a black card.
-
-    Dealing: every hand the undealt cards (`deck`, the hand's own copy) are shuffled with the table's variant rng at
-    the deal, and the run is popped from it, so the run depends only on the table seed and the hand (duplicate
-    rotations see the same run) and never on how many cards a fold left undealt. Folds end the hand at once
-    (the engine stops asking for cards). An all-in hand deals the whole run, with no betting, then shows down.
-
-    Streets: Observation.street is our betting-round index, 0 preflop, 1 flop, 2 turn, 3 river, then 4, 5, ... for
-    run cards (the spec's MIT numbering is the board length: street 6 there is street 4 here; len(obs.board) is that
-    number). Each run street is a full no-limit round: bets reset, min bet one big blind, first to act the first
-    live seat left of the button. Nothing says a street is final (Rules.board_sizes stays (0, 3, 4, 5)).
-
-    Showdown: the best five of the two hole cards plus every board card, by evaluate_many.
-
-    Differs from the spec only in what the bots' own evaluator does past 8 cards (install_eval_guard): with
-    guard_bot_eval=False the bots are left to build those tables, which stalls a run for hours."""
-
-    def __init__(self, guard_bot_eval: bool = True) -> None:
-        if guard_bot_eval:
-            install_eval_guard()
-        self.run_cards = 0  # cards dealt past the river this hand
-
-    def on_deal(self, holes, deck, rng):
-        rng.shuffle(deck)
-        self.run_cards = 0
-        return holes
-
-    def next_card(self, street: int, board: tuple[int, ...], deck: list[int], rng) -> int | None:
-        if len(board) < 5 or (board[-1] & 3) not in RED_SUITS:
-            return None
-        if not deck:
-            raise RuntimeError("river_of_blood: the deck ran out during a run")
-        self.run_cards += 1
-        return deck.pop()
-
-    def score_hand(self, hole, board, rules):
-        cards = tuple(hole) + tuple(board)
-        if not is_identity_order(rules):
-            cards = remap(cards, rules)
-        return evaluate_many(cards)
-
-
-def river_of_blood() -> Variant:
-    rules = Rules(extras={"variant": "river_of_blood", "run_until_black": True})
-    return Variant(
-        name="river_of_blood",
-        summary="River of Blood Hold'em (MIT 2023): standard no-limit through the river. If the river card is red "
-                "(a heart or a diamond) another community card is dealt, followed by another betting round; this "
-                "repeats until a black card is dealt, and the black card gets its own betting round too. Showdown: "
-                "the best five of your two hole cards plus every board card.",
-        rules=rules,
-        breaks=(
-            "Street 3 is not the last street: on a red river at least one more card and round come, so draws still "
-            "have outs (a spade flush draw completes about 42% of the time in the run, a heart one 27%), thin "
-            "river value bets and bluffs are early, and geometric sizing over three postflop streets over-commits. "
-            "Code indexed by street 0-3 meets 4, 5, ...; an evaluator built for 5-7 (or 8) cards meets 9 to 30. "
-            "About half of all boards reaching the river grow, hands inflate, chops are more common."
-        ),
-        checklist=(
-            "Bot: read len(obs.board) and the last card's suit; street >= 3 with a black last card is the last round.",
-            "Bot: an evaluator for 7+ board cards (best five from rank counts and suit masks).",
-            "Bot: equity sampling deals the run (until black), not a fixed river.",
-        ),
-        hooks_factory=RiverOfBloodHooks,
-        needs_engine=True,
-        axis="betting", tables="unsupported",
-        tables_note="the generator deals five board cards; no table knows the run",
-        playable_note="the bots' core.eval past 8 cards is played as a 1 ms timeout (install_eval_guard)",
-    )
+# river_of_blood was the first of five held-out entries. After its rehearsal (drill 7, docs/drills/prompt-drill-7.md)
+# it joined the catalog (2026-11-02, branch climb/vc-long-boards): its hooks, the bots' evaluator guard and the
+# any-size evaluator now live in hyperion/drills/variants.py and hyperion/core/eval.py. These names stay importable
+# from here; the entry itself is no longer held out (variants.get("river_of_blood") finds it in the catalog).
+from hyperion.core.eval import evaluate_many  # noqa: E402,F401
+from .variants import (  # noqa: E402,F401
+    RED_SUITS, EvaluatorLimit, RiverOfBloodHooks, eval_guard_on, install_eval_guard, remove_eval_guard, river_of_blood,
+)
 
 
 # ------------------------------------------------------------------------------- 2. showtime
@@ -628,8 +423,7 @@ def unfold() -> Variant:
 
 # ------------------------------------------------------------------------------- the held-out catalog
 
-HELD_OUT: dict[str, Callable[[], Variant]] = {
-    "river_of_blood": river_of_blood,
+HELD_OUT: dict[str, Callable[[], Variant]] = {  # river_of_blood: promoted to the catalog (above)
     "showtime": showtime,
     "high_chicago": high_chicago,
     "bomb_pot": bomb_pot,
