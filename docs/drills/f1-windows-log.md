@@ -289,3 +289,11 @@ F's `latency` no longer turning the layer off, no composite stack mixes `{"explo
   room will mix them. The window check plays the night field, which is our guess at that mix.
 - Pack's zip is not byte-reproducible (file times): harmless for the windows, worth a deterministic zip if anyone
   compares hashes across packs.
+
+## 9. Checks
+
+Full suite on the final tree (b01d1a1 + this log), load 9-13: 999 passed, 2 skipped, 4 failed, all wall-clock or
+latency budgets under that load (`test_each_bot_in_a_mixed_field_stays_under_budget[out_quants]` and `[elite3]`: p99
+2.1 ms against 1 ms; `test_cheap_bot_round_trip_through_kit_d_passes`; `test_auto_drill_hits_every_checkpoint[short_deck-b]`);
+the four pass alone (48 passed with the whole budget file), as the goal log records for the load flakes.
+

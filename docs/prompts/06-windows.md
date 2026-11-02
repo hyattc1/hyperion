@@ -44,7 +44,7 @@ improvement.
 - We are finishing 1st often but busting often (high first-place share, high 7th and 8th): `survival`.
   Fewer all-in calls (11% to 7%) and deep 3-bets (6% to 4%); 7th and 8th places down about a point. Postflop stays
   Hero's play. Points level on night and on a table that busts us (`strong`: +0.04 ± 0.08); it gained among dead
-  seats (+0.08 ± 0.06) and on `night_hard` (+0.10 ± 0.07), where F's busts come from calling shoves.
+  seats (+0.08 ± 0.06) and on `night_hard` (+0.10 ± 0.07).
 - We are finishing mid-table, rarely 1st, rarely last: we are too passive for this field. `passive`: cutoff and button
   opens up 3-5 points, bets when checked to up 3-4 points (the exploit layer bets at a 0.35 fold read). Level on night;
   at a table of strong bots it does not help either (`elite`: -0.03 ± 0.07).
