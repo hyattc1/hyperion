@@ -1116,7 +1116,11 @@ def get(name: str, seed: int = 0) -> Variant:
         return PRESETS[name]()
     if name in CATALOG:
         return CATALOG[name]()
-    raise KeyError(f"unknown variant {name!r}; known: {', '.join(CATALOG)}")
+    from . import variants_unseen  # held out: reachable by name, never in CATALOG / PRESETS (see its docstring)
+
+    if name in variants_unseen.HELD_OUT:
+        return variants_unseen.get(name)
+    raise KeyError(f"unknown variant {name!r}; known: {', '.join(CATALOG)}; held out: {', '.join(variants_unseen.HELD_OUT)}")
 
 
 def names() -> list[str]:

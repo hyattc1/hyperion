@@ -3,6 +3,7 @@
 
     .venv/bin/python tools/variant_matrix.py --tables 300 --seed 7 --field realistic --workers 4
     .venv/bin/python tools/variant_matrix.py --only toss_or_holdem,omaha_four --tables 100
+    .venv/bin/python tools/variant_matrix.py --unseen --seed 30000 --tables 50     (the held-out five: measure, never tune)
 
 Per entry (one `python -m hyperion.sim --variant NAME --field F --tables N --seed S` in strict mode, in a
 worker process): Hero's points with the 95% interval, its rank among the field's bot names, engine
@@ -123,12 +124,22 @@ def main(argv=None) -> int:
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--field", default="realistic")
     p.add_argument("--workers", type=int, default=4)
-    p.add_argument("--only", default=None, help="comma-separated entry names (default: the whole catalog)")
+    p.add_argument("--only", default=None, help="comma-separated entry names (default: the whole catalog); held-out "
+                                                "names resolve too")
+    p.add_argument("--unseen", action="store_true", help="the held-out catalog (hyperion/drills/variants_unseen.py) "
+                                                         "instead of the 23 entries: a test set, never tuning input")
     p.add_argument("--out", default=None, help="also write the markdown here")
     a = p.parse_args(argv)
     from hyperion.drills import variants as V
 
-    names = a.only.split(",") if a.only else V.catalog_names()
+    if a.only:
+        names = a.only.split(",")
+    elif a.unseen:
+        from hyperion.drills import variants_unseen as U
+
+        names = U.names()
+    else:
+        names = V.catalog_names()
     jobs = [(n, a.field, a.tables, a.seed) for n in names]
     t0 = time.perf_counter()
     with Pool(a.workers) as pool:
