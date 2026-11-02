@@ -581,3 +581,11 @@ and (in judges) `elite_judge`.
 - S13 (structural, strength): a short-handed specialist member (3 or fewer alive) with near-equilibrium heads-up and
   three-handed preflop tables from our own offline solver, balanced heads-up postflop, deviations only on clear reads.
   Targets: win heads-up against exploiter2, hold against exploiter1, more 1st places at strong tables.
+
+## 16:21: V-e's variant play accepted on H10
+- H10 (29000-29399), base batch 4: generic aware wild_deuces +1.074 ± 0.096, three_card_keep +0.333 ± 0.067,
+  omaha_four +0.266 ± 0.085, short_deck +0.226 ± 0.062, hi_lo +0.098 ± 0.078, lowball +0.096 ± 0.072 UP; hand-built
+  short_deck_aware +0.197 ± 0.060 UP; toss, auction, bonus_card, blind discard level; two_boards, bounty, river of
+  blood identical. Variants (realistic): wild_deuces +0.373, three_card_keep +0.225, omaha_four +0.098, short_deck
+  +0.093 UP; none down. ACCEPT. H10 used once.
+- Batch 5 so far: strong_route (H6), V-e (H10). Pending: Z2 (H9), D3 (H11).
