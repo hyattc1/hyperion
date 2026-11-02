@@ -22,7 +22,7 @@ FAST_FIELD = ["hybrid3", "tag", "pushfold", "loose_aggro", "nit", "station", "ma
 NO_PANIC = {"core": "rival3", "panic_after": 10 ** 9, "soft_us": 1e6}  # these tests must not read the wall clock
 HERO_ONLY = {"short_deck", "lowball", "wild_deuces", "flush_over_full_house", "omaha_four", "exposed_card",
              "two_boards", "bounty", "knockout_bounty", "hi_lo", "fixed_raise", "toss_or_holdem",
-             "three_card_blind_discard", "three_card_keep"}
+             "three_card_blind_discard", "three_card_keep", "deal5_keep2"}
 
 
 def _routes(bot) -> dict:

@@ -400,6 +400,112 @@ class ChartTAG(_Base):
         return Action.fold()
 
 
+class AuctionTAG(ChartTAG):
+    """The auction entry's variant-aware opponent: what a team that read the auction rule ships in an hour. ChartTAG
+    preflop and postflop (its reads take three hole cards), plus:
+      bid    a share of the pot by how much a card should help: 0.45 heads-up, 0.30 three-way, 0.20 beyond, for a
+             hand that is at most one pair; half that with two pair or better; +-20% jitter so bids do not tie; never
+             more than a quarter of the stack.
+      reads  when someone else won a card and it did not, it continues only with two pair or better."""
+
+    def variant_decide(self, prompt: dict):
+        if prompt.get("decision") != "bid":
+            return None
+        pot = int(prompt.get("pot", 0) or 0)
+        stack = int(prompt.get("max_bid", 0) or 0)
+        k = int(prompt.get("n_bidders", 2) or 2)
+        share = 0.45 if k <= 2 else 0.30 if k == 3 else 0.20
+        hole, board = tuple(prompt.get("hole") or ()), tuple(prompt.get("board") or ())
+        if tuple(self.rules.rank_order) != tuple(range(13)):
+            hole, board = remap(hole, self.rules), remap(board, self.rules)
+        if len(hole) + len(board) >= 5 and made_category(hole, board) >= 2:
+            share *= 0.5
+        bid = int(pot * share * (0.8 + 0.4 * self.rng.random()))
+        return max(0, min(bid, stack // 4))
+
+    def act(self, obs: Observation) -> Action:
+        if obs.street >= 1 and obs.to_call > 0 and obs.extras:
+            won = obs.extras.get("auction_winners") or ()
+            if won and obs.seat not in won and any(obs.in_hand[s] for s in won if s != obs.seat):
+                v = strength_view(obs, self.rules)
+                if made_category(v.hole, v.board) < 2:
+                    return _check_or_fold(obs)
+        return super().act(obs)
+
+
+class Keep2TAG(ChartTAG):
+    """deal5_keep2's variant-aware opponent: a team that read 'five cards, keep two after the flop'. Preflop it plays
+    the best two of its five from ranges a notch tighter than ChartTAG's (everyone's best two of five is strong),
+    one notch wider with a second pair or a suited ace among the five; postflop ChartTAG on the kept two. Keep: the
+    pair with the best made hand on the flop, then live draws (flush and open-ended outs not among the revealed
+    discards, its own discards included), then high cards."""
+
+    EARLY5 = expand_range("JJ+ AKs")
+    MIDDLE5 = EARLY5 | expand_range("99+ AQs+ AKo")
+    LATE5 = MIDDLE5 | expand_range("66+ ATs+ AQo+ KQs KJs QJs JTs")
+    WIDE5 = LATE5 | expand_range("22+ A2s+ A9o+ KTs+ QTs+ JTs T9s 98s")
+
+    def act(self, obs: Observation) -> Action:
+        if obs.street == 0 and len(obs.hole) > 2:
+            v = strength_view(obs, self.rules)
+            cls = two_card_class(v.hole)
+            ranks = [c >> 2 for c in v.hole]
+            pairs = len({r for r in ranks if ranks.count(r) >= 2})
+            suited_ace = any((a >> 2) == 12 and (a & 3) == (b & 3) and a != b for a in v.hole for b in v.hole)
+            bonus = (pairs >= 2) + suited_ace
+            behind = players_behind(obs)
+            tiers = (self.EARLY5, self.MIDDLE5, self.LATE5)
+            t = (0 if behind >= 5 else 1 if behind >= 3 else 2) + bonus
+            rng_ = tiers[t] if t < 3 else self.WIDE5
+            bb = obs.big_blind
+            facing_raise = obs.to_call > bb or (obs.to_call > 0 and obs.bets[obs.seat] >= bb)
+            if obs.stack_bb <= self.push_below_bb:
+                return _raise_or_call(obs, obs.max_raise) if cls in (self.MIDDLE5 if facing_raise else rng_) \
+                    else _check_or_fold(obs)
+            if facing_raise:
+                if cls in self.EARLY5:
+                    return _raise_or_call(obs, obs.bets[obs.seat] + obs.to_call * 3)
+                if cls in self.MIDDLE5 and obs.to_call <= obs.my_stack // 8:
+                    return Action.call()
+                return _check_or_fold(obs)
+            if cls in rng_ and RAISE in obs.legal:
+                self.aggressor_hand = obs.hand_no
+                return _raise_or_call(obs, self.open_bb * bb)
+            return _check_or_fold(obs)
+        return super().act(obs)
+
+    def variant_decide(self, prompt: dict):
+        if prompt.get("decision") != "keep":
+            return None
+        hole, board = tuple(prompt.get("hole") or ()), tuple(prompt.get("board") or ())
+        rv = prompt.get("revealed") or {}
+        dead = [c for cards in rv.values() for c in cards]
+        if tuple(self.rules.rank_order) != tuple(range(13)):
+            hole, board, dead = remap(hole, self.rules), remap(board, self.rules), remap(tuple(dead), self.rules)
+        best, best_key = None, None
+        for i in range(len(hole)):
+            for j in range(i + 1, len(hole)):
+                a, b = hole[i], hole[j]
+                gone = set(dead) | {hole[m] for m in range(len(hole)) if m not in (i, j)} | set(board) | {a, b}
+                cat = made_category((a, b), board) if len(board) >= 3 else (1 if a >> 2 == b >> 2 else 0)
+                draw = 0
+                if len(board) >= 3:
+                    for suit in range(4):
+                        mine = sum(1 for c in (a, b) + board if c & 3 == suit)
+                        if mine == 4 and (a & 3 == suit or b & 3 == suit):
+                            draw = max(draw, sum(1 for r in range(13) if r * 4 + suit not in gone))
+                    ranks = {c >> 2 for c in (a, b) + board}
+                    for lo in range(-1, 9):
+                        window = {(r if r >= 0 else 12) for r in range(lo, lo + 5)}
+                        if len(window & ranks) == 4 and ({a >> 2, b >> 2} & window):
+                            need = (window - ranks).pop()
+                            draw = max(draw, sum(1 for su in range(4) if need * 4 + su not in gone))
+                key = (cat, draw, max(a >> 2, b >> 2), min(a >> 2, b >> 2))
+                if best_key is None or key > best_key:
+                    best, best_key = (i, j), key
+        return best
+
+
 HERO_CONFIG: Optional[dict] = None  # dotted Config overrides for every Hero built here (runner --hero-config, sweeps)
 
 
@@ -462,6 +568,8 @@ class MonteCarloBot(_CostModel, _Base):
         dead = set(hole) | set(board)
         stub = [c for c in self.deck if c not in dead]
         k = self.rules.hole_cards
+        if k + self.rules.board_sizes[-1] > 8:  # deal5_keep2: opponents hold the two they kept (else a 10-card evaluation)
+            k = int(self.rules.extras.get("keep", 2) or 2)
         need = self.rules.board_sizes[-1] - len(board)
         n_opp = max(1, n_opp)
         take = n_opp * k + need
@@ -1463,6 +1571,8 @@ REGISTRY: dict[str, type] = {
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
     "hybrid3_x": Hybrid3XBot,  # `hybrid3` with the exploit layer as Hero ships it
+    "auction_tag": AuctionTAG,  # the auction entry's variant-aware opponent (bids by hand, reads others' cards)
+    "keep2_tag": Keep2TAG,  # deal5_keep2's variant-aware opponent (five-card preflop, keeps by made hand and live draws)
 }
 
 # Opponents that need something from outside this repo. Each is registered only when its environment
@@ -1498,6 +1608,11 @@ FIELDS: dict[str, tuple[str, ...]] = {
     # until 2026-10-31), a TAG, and one bot that breaks mid-table
     "realistic": ("hero", "montecarlo30", "montecarlo", "pushfold", "loose_aggro", "rival1", "tag",
                   "timeout_then_recover"),
+    # realistic with the twist read: the honest Monte Carlo seat and the TAG replaced by the entry's variant-aware bot
+    "realistic_auction": ("hero", "montecarlo30", "auction_tag", "pushfold", "loose_aggro", "rival1", "auction_tag",
+                          "timeout_then_recover"),
+    "realistic_keep2": ("hero", "montecarlo30", "keep2_tag", "pushfold", "loose_aggro", "rival1", "keep2_tag",
+                        "timeout_then_recover"),
     # the table where everybody did their homework, plus two Hero copies with other settings
     "strong": ("hero", "pushfold", "pushfold", "tag", "hero_tight", "hero_loose", "nit", "loose_aggro"),
     # the strong room with both rivals: rival 1 twice, rival 2 (in the seat montecarlo30 had until

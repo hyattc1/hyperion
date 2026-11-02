@@ -361,7 +361,8 @@ def tables_for(rules: Rules, base: Tables | None = None, root: str = VARIANTS_DI
         except Exception as e:  # noqa: BLE001 - a broken variant set must not stop the bot
             log.warning("tables: variant set %r unusable (%s); falling back", d, e)
     if rules.hole_cards != 2:
-        return fallback_label_tables(base)
+        heads = head_tables(rules, base, root)
+        return heads if heads is not None else fallback_label_tables(base)
     return base
 
 
@@ -401,6 +402,26 @@ class LabelView:
 
     def __contains__(self, label: str) -> bool:
         return label.partition("+")[0] in self.base
+
+
+def head_tables(rules: Rules, base: Tables, root: str = VARIANTS_DIR) -> Tables | None:
+    """A 'headview': tables/variants/<extras["variant"]>/heads.json, equity and rank by the head of the label (the
+    Chen-best two) priced among hands of this game (tools/gen_keep2.py writes deal5_keep2's). No tag bonuses and no
+    extra tightening: the prices already are this game's. None when the variant has no such file or it is unreadable."""
+    name = (rules.extras or {}).get("variant")
+    if not name:
+        return None
+    raw = read_json("heads.json", os.path.join(root, str(name)))
+    if not raw:
+        return None
+    try:
+        eq = {c: [float(x) for x in raw["equity"][c]] for c in CLASSES}
+        rk = {c: float(raw["rank"][c]) for c in CLASSES}
+    except (KeyError, TypeError, ValueError) as e:
+        log.warning("tables: %s/heads.json unusable (%s); label view instead", name, e)
+        return None
+    return Tables(LabelView(eq, True, 0.0, 0.0, 0.0), LabelView(rk, False, 0.0, 0.0, 0.0), None,
+                  base.source + "+headview", os.path.join(root, str(name)), "best2+tags", rules.hole_cards, (), {})
 
 
 def fallback_label_tables(base: Tables) -> Tables:

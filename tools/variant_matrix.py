@@ -4,6 +4,11 @@
     .venv/bin/python tools/variant_matrix.py --tables 300 --seed 7 --field realistic --workers 4
     .venv/bin/python tools/variant_matrix.py --only toss_or_holdem,omaha_four --tables 100
     .venv/bin/python tools/variant_matrix.py --unseen --seed 30000 --tables 50     (the held-out five: measure, never tune)
+    .venv/bin/python tools/variant_matrix.py --bot ship --mode model --only auction,deal5_keep2 --tables 200
+
+`--bot ship` seats the shipped bot (F: the composite with SHIP_DIALS, as hyperion.ship builds it) in Hero's seat of the
+same tables (`<field>@ship`), with the same VPIP count; `--mode model` is the climb's replayable setup (tools/swap.py's
+setup_process: panic, soft deadlines and late_us off; the engine's timeout model), so a rerun gives the same numbers.
 
 Per entry (one `python -m hyperion.sim --variant NAME --field F --tables N --seed S` in strict mode, in a
 worker process): Hero's points with the 95% interval, its rank among the field's bot names, engine
@@ -32,12 +37,10 @@ from hyperion.core.types import ActionKind  # noqa: E402
 _STATE = {"hands": 0, "vpip": 0, "heroes": []}
 
 
-def _install_counting_hero():
-    from hyperion.sim import bestiary as B
+def _counting(base):
+    """`base` (a bestiary seat class) counting VPIP and keeping itself reachable for SafeBot's error count."""
 
-    class CountingHero(B.Hero):
-        """bestiary.Hero that counts VPIP and keeps itself reachable for SafeBot's error count."""
-
+    class Counting(base):
         def new_table(self, rules, seat, n_players):
             self._hand, self._in = -1, False
             _STATE["heroes"].append(self)
@@ -53,28 +56,66 @@ def _install_counting_hero():
                 _STATE["vpip"] += 1
             return a
 
-    B.REGISTRY["hero"] = CountingHero
+    Counting.__name__ = Counting.__qualname__ = "Counting" + base.__name__
+    return Counting
+
+
+def _install_counting_ship() -> str:
+    """F in Hero's seat: the composite with the shipped dials (hyperion.compose.bot.ship's set, light shadows on),
+    registered through compose.register so a model-mode run's HYBRID_CONFIG / HERO_CONFIG reach it."""
+    from hyperion.compose import bot as CB
+    from hyperion.sim import bestiary as B
+
+    seat = CB.register("ship", dials={**CB.SHIP_DIALS, "light": True})
+    B.REGISTRY["ship"] = _counting(seat)
+    return "ship"
+
+
+def _install_counting_hero():
+    from hyperion.sim import bestiary as B
+
+    B.REGISTRY["hero"] = _counting(B.Hero)
 
 
 def _job(args):
-    name, field, tables, seed = args
+    name, field, tables, seed = args[:4]
+    bot, mode = (args[4], args[5]) if len(args) > 5 else ("hero", "strict")
     from hyperion.drills import variants as V
+    from hyperion.sim import bestiary as B
     from hyperion.sim.bestiary import field_names
     from hyperion.sim.runner import run_tournament
 
+    hero_config = None
+    if mode == "model":
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("vm_swap_tool", str(ROOT / "tools" / "swap.py"))
+        sw = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(sw)
+        sw.setup_process("model")
+        hero_config = B.HERO_CONFIG
     _install_counting_hero()
+    me = "hero"
+    if bot == "ship":
+        me = _install_counting_ship()
+        field = f"{field}@{me}"
+    elif bot != "hero":
+        raise KeyError(f"--bot is hero or ship, got {bot!r}")
     _STATE.update(hands=0, vpip=0, heroes=[])
     v = V.get(name, seed=seed)
     t0 = time.perf_counter()
-    rep = run_tournament(field_names(field), tables, seed, variant=v)
+    rep = run_tournament(field_names(field), tables, seed, variant=v, mode=mode, hero_config=hero_config)
     secs = time.perf_counter() - t0
     order = sorted(rep.bots.values(), key=lambda b: -b.mean)
-    hero = rep.bots["hero"]
-    rank = [b.name for b in order].index("hero") + 1
+    hero = rep.bots[me]
+    rank = [b.name for b in order].index(me) + 1
     leader = order[0]
-    inner = sum(getattr(getattr(h, "impl", None), "safe", None).errors if getattr(getattr(h, "impl", None), "safe", None) else 0
-                for h in _STATE["heroes"])
     st = hero.stats
+    if bot == "hero":
+        inner = sum(getattr(getattr(h, "impl", None), "safe", None).errors if getattr(getattr(h, "impl", None), "safe", None) else 0
+                    for h in _STATE["heroes"])
+    else:  # the engine harvests every SafeBot's inner errors once per table (BotStats.safe_err)
+        inner = st.safe_err
     return {
         "variant": name, "axis": v.axis, "pts": hero.mean, "ci": hero.ci95, "rank": rank, "n_bots": len(order),
         "leader": leader.name, "leader_pts": leader.mean, "second": order[1].name if len(order) > 1 else "",
@@ -99,8 +140,9 @@ def verdict(r: dict) -> tuple[str, str]:
     return "READY", f"next {r['second']} {r['second_pts']:.2f}"
 
 
-def render(rows: list[dict], field: str, tables: int, seed: int) -> str:
-    lines = [f"Field `{field}`, {tables} tables, seed {seed}, strict mode; rank is Hero's place among the field's "
+def render(rows: list[dict], field: str, tables: int, seed: int, bot: str = "hero", mode: str = "strict") -> str:
+    who = "Hero" if bot == "hero" else "F (the ship bot, in Hero's seat)"
+    lines = [f"Bot {who}; field `{field}`, {tables} tables, seed {seed}, {mode} mode; rank is its place among the field's "
              f"bot names by points; exc = engine exceptions + SafeBot inner errors; VPIP over hands Hero acted in preflop.",
              "",
              "| variant | axis | hero pts (±95%) | rank | exc | ill | VPIP % | bust % | p99 us | verdict | reason |",
@@ -128,6 +170,10 @@ def main(argv=None) -> int:
                                                 "names resolve too")
     p.add_argument("--unseen", action="store_true", help="the held-out catalog (hyperion/drills/variants_unseen.py) "
                                                          "instead of the 23 entries: a test set, never tuning input")
+    p.add_argument("--bot", default="hero", help="hero (bestiary Hero, the default) | ship (F, hyperion/ship.py's "
+                                                  "composite with its shipped dials, in Hero's seat)")
+    p.add_argument("--mode", default="strict", choices=("strict", "model"),
+                   help="strict (as before) | model (replayable: the climb's fixed-speed setup)")
     p.add_argument("--out", default=None, help="also write the markdown here")
     a = p.parse_args(argv)
     from hyperion.drills import variants as V
@@ -140,13 +186,13 @@ def main(argv=None) -> int:
         names = U.names()
     else:
         names = V.catalog_names()
-    jobs = [(n, a.field, a.tables, a.seed) for n in names]
+    jobs = [(n, a.field, a.tables, a.seed, a.bot, a.mode) for n in names]
     t0 = time.perf_counter()
     with Pool(a.workers) as pool:
         rows = pool.map(_job, jobs, chunksize=1)
     by_name = {r["variant"]: r for r in rows}
     rows = [by_name[n] for n in names]
-    text = render(rows, a.field, a.tables, a.seed)
+    text = render(rows, a.field, a.tables, a.seed, a.bot, a.mode)
     print(text)
     print(f"\n{len(rows)} entries in {time.perf_counter() - t0:.0f}s on {a.workers} workers")
     if a.out:

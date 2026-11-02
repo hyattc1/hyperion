@@ -26,8 +26,8 @@ applies one patch for the axis the variant moved.
 
 **What we ship.** The ship bot is whatever `hyperion/ship.py` names (the switch: `SHIP`, printed by `python -m
 hyperion.ship`). It says `composite` (since 2026-11-01, decisions entry "Composite bot"). Preflop is hybrid3_x's
-play: rival 3's decision core plus the exploit layer behind Hero's shell (adapter, `Rules`, rank remap, the 23
-variant hooks, SafeBot), where Hero plays the 14 tables the core cannot represent. Postflop, and preflop when facing
+play: rival 3's decision core plus the exploit layer behind Hero's shell (adapter, `Rules`, rank remap, the 25
+variant hooks, SafeBot), where Hero plays the 15 tables the core cannot represent. Postflop, and preflop when facing
 a raise short, Hero plays, with the same layer in front. Measured once, 400 x 8, it beats both hybrid3_x and Hero
 beyond noise on night, night_hard, realistic, top and three of the four judge fields, and is ahead on the fourth.
 `--bot hybrid3_x` and `--bot hero` are the fallbacks. Every tool follows it: the entry's
@@ -252,9 +252,16 @@ BROKEN = exceptions. Full table with VPIP, bust rate and reasons: `docs/decision
 | Axis | READY | PLAYS | Notes for the night |
 |---|---|---|---|
 | Strength ordering | permuted_ranks, short_deck, lowball, wild_deuces, flush_over_full_house | | Stage 3 regenerates; lowball and wild cards use the variant's score hook; permuted_ranks re-measured 2026-11-01 with tag, nit and pushfold remapping too: Hero first, 5.95 ± 0.23, next rival1 5.52 |
-| Information | toss_or_holdem, three_card_blind_discard, three_card_keep, omaha_four, swap_holdem, swap_one_turn, exposed_card, bonus_card | two_boards | Hero discards and buys via `variant_decide`; two boards still loses to the rival |
+| Information | toss_or_holdem, three_card_blind_discard, three_card_keep, omaha_four, swap_holdem, swap_one_turn, exposed_card, bonus_card, auction, deal5_keep2 | two_boards | Hero discards, buys, bids (`auction`: the price at which winning and losing the card come out level, `tables/auction_bid.json`) and keeps (`deal5_keep2`: best pair by the flop read, revealed discards dead; five cards priced by `tables/variants/deal5_keep2/heads.json`) via `variant_decide`; two boards still loses to the rival |
 | Payoff | bounty, knockout_bounty, top_heavy, hi_lo | | hi_lo plays high only; bounty reads only our own posted rank |
 | Betting | pot_limit, antes_from_level_3, fixed_raise, fast_schedule, straddle | | antes and straddle feed `stack_bb` |
+
+**2026-11-01, branch climb/v-catalog:** two entries added from the research's gaps, `auction` (MIT 2024's sealed-bid
+second-price auction for a third card) and `deal5_keep2` (CMU 2026), and the four drawing hooks now draw from shuffled
+undealt cards (they drew the ace of spades first in 60% of seeds). F (`tools/variant_matrix.py --bot ship --mode model`,
+realistic, 300 tables, seed 7): **25 READY, first on 24** (second on fixed_raise, level with rival1); auction 6.52 ±
+0.23 (next tag 5.14; 6.35 against two variant-aware bidders, `realistic_auction`), deal5_keep2 6.61 ± 0.14 (next
+rival1 6.25; 6.51 on `realistic_keep2`). Log: `docs/drills/v-catalog-log.md`.
 
 22 READY, 1 PLAYS, 0 WEAK, 0 BROKEN as of 2026-10-31. hybrid3_x and Hero with the exploit layer
 are both 23 READY, first on 22 (final core comparison, 2026-11-01); on hybrid3_x Hero plays 14 of these tables
