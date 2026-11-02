@@ -589,3 +589,13 @@ and (in judges) `elite_judge`.
   blood identical. Variants (realistic): wild_deuces +0.373, three_card_keep +0.225, omaha_four +0.098, short_deck
   +0.093 UP; none down. ACCEPT. H10 used once.
 - Batch 5 so far: strong_route (H6), V-e (H10). Pending: Z2 (H9), D3 (H11).
+
+## 16:29: drill 8 started: the hour on kit F (Ghost Hold'em), fresh player agent
+- Kit F (a fresh organiser agent, no repo access; goal/drill8/kit; 50 engine tests, 1,400 tables clean): the twist,
+  Ghost Hold'em, deals a ninth face-down hand every hand; a pot whose showdown the Ghost beats goes to nobody and
+  haunts into the next hand's main pot (won even by everyone folding). Interface: the action is one int (chips put in
+  now: 0 check/fold, owe calls, at least min_raise raises, negative folds; no legal list); cards are ints 0-51;
+  seats are relative (0 is us, session-wide ids); the history a compact string log; one Agent for a session of
+  hundreds of tables (import + Agent() 2 s once, new_table 50 ms, act 1 ms, hand_over 1 ms). Points 16/11/8/6/4/2/1/0.
+- Player: a fresh agent with the repo pinned at 15df280 (batch 4's ship), the handout zip only, prompts 00-05 and the
+  playbook, 60 minutes, no docs/drills, decisions, HANDOFF or research (goal/drill8/night).
