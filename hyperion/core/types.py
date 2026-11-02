@@ -193,6 +193,9 @@ class HandResult:
     showdown: dict[int, tuple[int, ...]]  # seat -> revealed hole cards, if shown
     board: tuple[int, ...]
     history: list[tuple[int, Action]]
+    # what a variant reports at hand end beyond the above (folded hands shown, a side game's showdown, per-pot
+    # winners); empty in standard hold'em, so every bot that ignores it keeps working
+    extras: dict = field(default_factory=dict)
 
 
 class Bot(Protocol):

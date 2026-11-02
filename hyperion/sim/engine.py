@@ -16,6 +16,16 @@ bot.impl.core so wrapped heroes are reached). A hook may also expose `score_spli
 pots), `on_bust` (bonus points), `extras(hand)` (per-street Observation.extras) and `charges`
 (chips a hook moves into the pot, e.g. buying a card). With variant=None every hook is a no-op.
 
+Optional hooks for twists that change the hand's shape (added 2026-11-01 for the held-out catalog,
+hyperion/drills/variants_unseen.py; each is None / False on the base Variant, so default play never calls them):
+`forced_bets(hand_no, blinds, n_in_hand) -> dict | None` replaces one hand's forced bets ({"ante": chips,
+"blinds": False, "preflop": False}: a bomb pot); `after_forced(table, hand)` runs after the blinds are posted (a side
+pot's antes); `next_card(street, board, deck, rng) -> card | None` deals one more board card after the last street of
+Rules.board_sizes and runs another betting round, until it returns None (River of Blood); `on_fold(seat, hole,
+street)` runs after each fold, and the observations after it carry the recomputed extras (folded hands shown);
+`free_fold_checks = True` plays a fold with nothing to call as a check; `settle(table, hand)` runs after the main
+award, before the deltas (a side game's payout); `result_extras(hand) -> dict` goes into HandResult.extras.
+
 Conventions, also recorded in docs/decisions.md:
 - Button: moves to the next live seat each hand. Small blind is the next live seat after it, big
   blind the next after that; heads-up the button posts the small blind. No dead button, so a seat
@@ -204,6 +214,14 @@ class Variant:
     splits: Optional[Callable] = None  # (hole, board, rules) -> list[int | None], one score per pot share
     payout: Optional[Callable] = None  # (deltas, holes, board, hand_no, rules, rng) -> deltas
     bust: Optional[Callable] = None  # (busted_seats, deltas, hand_no, rules) -> {seat: bonus points}
+    # hand-shape hooks (see the module docstring); None / False = the standard hand, never called
+    forced: Optional[Callable] = None  # (hand) -> dict | None: this hand's ante / blinds / preflop round
+    after_forced: Optional[Callable] = None  # (hand) -> None, after the blinds are posted
+    extra_street: Optional[Callable] = None  # (hand, street, rng) -> bool: one more board card and betting round
+    on_fold: Optional[Callable] = None  # (hand, seat) -> None, after a fold; may set hand.extras
+    free_fold_checks: bool = False  # a fold with nothing to call is played as a check
+    settle: Optional[Callable] = None  # (hand) -> None, after the main pots are awarded
+    result_extras: Optional[Callable] = None  # (hand) -> dict for HandResult.extras
 
     def on_deal(self, hand: HandState, rng: random.Random) -> None:
         """After hole cards and the street-0 board are set, before any action."""
@@ -243,6 +261,19 @@ class HooksVariant(Variant):
         self.bust = getattr(h, "on_bust", None)
         self._extras = getattr(h, "extras", None)
         self._score = h.score_hand
+        if callable(getattr(h, "forced_bets", None)):
+            self.forced = self._forced
+        if callable(getattr(h, "after_forced", None)):
+            self.after_forced = self._after_forced
+        if callable(getattr(h, "next_card", None)):
+            self.extra_street = self._extra_street
+        if callable(getattr(h, "on_fold", None)):
+            self.on_fold = self._on_fold
+        self.free_fold_checks = bool(getattr(h, "free_fold_checks", False))
+        if callable(getattr(h, "settle", None)):
+            self.settle = self._settle
+        if callable(getattr(h, "result_extras", None)):
+            self.result_extras = h.result_extras
 
     def on_deal(self, hand: HandState, rng: random.Random) -> None:
         t = self.table
@@ -290,6 +321,33 @@ class HooksVariant(Variant):
 
     def evaluate(self, hole, board, rules):
         return self._score(hole, board, rules)
+
+    # ----- the hand-shape hooks (bound in __init__ only when the hooks object has them)
+    def _refresh(self, hand: HandState) -> None:
+        hand.extras = self._extras(hand) if self._extras else _NO_EXTRAS
+
+    def _forced(self, hand: HandState):
+        return self.hooks.forced_bets(hand.hand_no, hand.blinds, hand.n_in_hand)
+
+    def _after_forced(self, hand: HandState) -> None:
+        self.hooks.after_forced(self.table, hand)
+        self._refresh(hand)
+
+    def _extra_street(self, hand: HandState, street: int, rng: random.Random) -> bool:
+        card = self.hooks.next_card(street, hand.board, hand.spare, rng)
+        if card is None:
+            return False
+        hand.board = hand.board + (card,)
+        hand.runout.append(card)
+        self._refresh(hand)
+        return True
+
+    def _on_fold(self, hand: HandState, seat: int) -> None:
+        self.hooks.on_fold(seat, hand.holes[seat], len(hand.board))
+        self._refresh(hand)
+
+    def _settle(self, hand: HandState) -> None:
+        self.hooks.settle(self.table, hand)
 
 
 def _hooks_base_method(h, name: str):
@@ -442,6 +500,14 @@ class Table:
         hs.extras = _NO_EXTRAS
         hs.ante = ante = rules.ante_at(self.hand_no)
         self.variant.on_deal(hs, self.vrng)
+        post_blinds, skip_pre = True, False
+        forced = self.variant.forced
+        if forced is not None:
+            spec = forced(hs)
+            if spec:
+                hs.ante = ante = int(spec.get("ante", ante))
+                post_blinds = bool(spec.get("blinds", True))
+                skip_pre = not spec.get("preflop", True)
 
         if ante:
             for s in range(n):
@@ -450,15 +516,16 @@ class Table:
                     stacks[s] -= put
                     contrib[s] += put
                     hs.pot += put
-        for seat, amt in ((sb, blinds[0]), (bb, blinds[1])):
-            put = amt if amt < stacks[seat] else stacks[seat]
-            stacks[seat] -= put
-            bets[seat] += put
-            contrib[seat] += put
+        if post_blinds:
+            for seat, amt in ((sb, blinds[0]), (bb, blinds[1])):
+                put = amt if amt < stacks[seat] else stacks[seat]
+                stacks[seat] -= put
+                bets[seat] += put
+                contrib[seat] += put
         hs.current_bet = max(bets)
         hs.last_inc = blinds[1]
         last_blind = bb
-        if rules.straddle and n_in >= 3:
+        if post_blinds and rules.straddle and n_in >= 3:
             st_seat = self._after(bb, in_hand)
             amt = rules.straddle * blinds[1]
             put = amt if amt < stacks[st_seat] else stacks[st_seat]
@@ -471,6 +538,9 @@ class Table:
             last_blind = st_seat
         if self.betting == 2:
             hs.last_inc = blinds[1]
+        after_forced = self.variant.after_forced
+        if after_forced is not None:
+            after_forced(hs)
 
         first = self._after(last_blind, in_hand)
         for street in range(rules.streets):
@@ -483,11 +553,33 @@ class Table:
                 hs.board = tuple(hs.runout[: rules.board_sizes[street]])
                 self.variant.on_street(hs, street, self.vrng)
                 first = self._after(b, in_hand)
-            if self._needs_betting(hs):
+            if (street or not skip_pre) and self._needs_betting(hs):
                 self._betting_round(hs, street, first)
             if hs.n_in_hand == 1:
                 break
+        else:
+            more = self.variant.extra_street
+            if more is not None:  # extra streets past the last listed one (River of Blood), each with a betting round
+                street = rules.streets
+                while True:
+                    hs.pot += sum(bets)
+                    for i in range(n):
+                        bets[i] = 0
+                    hs.current_bet = 0
+                    hs.last_inc = blinds[1] * (2 if self.betting == 2 else 1)
+                    if not more(hs, street, self.vrng):
+                        break
+                    if street > 64:
+                        raise RuntimeError("extra_street ran past 64 streets")
+                    if self._needs_betting(hs):
+                        self._betting_round(hs, street, self._after(b, in_hand))
+                    if hs.n_in_hand == 1:
+                        break
+                    street += 1
         self._award(hs)
+        settle = self.variant.settle
+        if settle is not None:
+            settle(hs)
         self._finish_hand(hs)
         return hs
 
@@ -510,6 +602,8 @@ class Table:
         betting = self.betting
         fixed_inc = hs.blinds[1] * (2 if street >= 2 else 1)
         extras = hs.extras
+        on_fold = self.variant.on_fold
+        free_check = self.variant.free_fold_checks
         need = [in_hand[s] and stacks[s] > 0 for s in range(n)]
         can_raise = [True] * n
         pending = sum(need)
@@ -552,10 +646,15 @@ class Table:
                     )
                     a = self._ask(s, obs)
                     k = a.kind
+                    if k is FOLD and free_check and owe <= 0:
+                        a, k = A_CHECK, CHECK
                     if k is FOLD:
                         in_hand[s] = False
                         hs.n_in_hand -= 1
                         history.append((s, a))
+                        if on_fold is not None:
+                            on_fold(hs, s)
+                            extras = hs.extras
                         if hs.n_in_hand == 1:
                             return
                     elif k is CALL:
@@ -738,6 +837,9 @@ class Table:
                 stacks[s] = start[s] + d if start[s] + d > 0 else 0
         hs.deltas = deltas = [stacks[s] - start[s] for s in range(n)]
         result = HandResult(hs.hand_no, deltas, hs.showdown, hs.board, hs.history)
+        result_extras = self.variant.result_extras
+        if result_extras is not None:
+            result.extras = result_extras(hs)
         alive_before = [s for s in range(n) if start[s] > 0]
         for s in alive_before:
             try:
