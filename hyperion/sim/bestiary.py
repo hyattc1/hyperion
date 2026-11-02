@@ -568,6 +568,8 @@ class MonteCarloBot(_CostModel, _Base):
         dead = set(hole) | set(board)
         stub = [c for c in self.deck if c not in dead]
         k = self.rules.hole_cards
+        if k + self.rules.board_sizes[-1] > 8:  # deal5_keep2: opponents hold the two they kept (else a 10-card evaluation)
+            k = int(self.rules.extras.get("keep", 2) or 2)
         need = self.rules.board_sizes[-1] - len(board)
         n_opp = max(1, n_opp)
         take = n_opp * k + need

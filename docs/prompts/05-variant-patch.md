@@ -35,6 +35,10 @@ caption every line "on hold'em tables" and expect the patch to do nothing. Patch
   Postflop needs no change: the evaluator takes 5 to 8 cards.
 - Discard decisions (toss or hold'em): the shell's Hero already chooses through `variant_decide` (keeps the
   best two by its flop read); the patch is the adapter routing the kit's discard there (prompt 02). No new rule.
+- Deal five, keep two (CMU 2026, catalog `deal5_keep2`): Hero answers `{"decision": "keep", "hole", "board",
+  "revealed"}` with two indices (the best pair by its flop read, revealed discards dead) and prices five cards
+  from `tables/variants/deal5_keep2/heads.json` when the rules name the variant; another deal-N-keep-2 needs
+  `tools/gen_keep2.py` rerun for its N (or Hero plays the label view: loose, measured 78% VPIP at N = 5).
 - Swaps on later streets (the core plays them; swap_holdem and swap_one_turn are READY in the variant matrix,
   hybrid3 +0.59 ± 0.38 over Hero on swap_holdem): no dial on a core-based ship bot. With `--bot hero`: a made hand
   on the flop is worth less; multiply value thresholds on streets before the last swap by 1.15 and prefer
@@ -47,8 +51,12 @@ caption every line "on hold'em tables" and expect the patch to do nothing. Patch
 - Bounties (Hero's table): when a bounty applies to the current hand for us, add its expected chip value to
   the pot in every pot-odds and shove-EV comparison (a `bounty_bonus` term in `Spot`). Do not chase bounties
   with hands below the normal threshold by more than one rank step.
-- Auctions for a card (`variant_decide`, Hero): bid the chip EV of the card discounted by 30 percent, capped
-  at 10 percent of the effective stack; never bid when under 15 big blinds.
+- Auctions for a card (MIT 2024, catalog `auction`): the shell's Hero bids through `variant_decide({"decision":
+  "bid", "hole", "board", "pot", "max_bid", "n_bidders"})` with the price at which winning and losing the card come
+  out level (`tables/auction_bid.json`), capped at a third of the stack: the patch is the adapter routing the kit's
+  bid request there, and `charges_dead`-style accounting in the sim if the price goes to the pot. Bidding nothing
+  measured -0.56 ± 0.34 a table (Hero, realistic_auction, 200 seeds). A first-price auction (pay your own bid)
+  wants the bid shaded, by (n - 1) / n for n bidders on the textbook uniform-value rule: not measured here.
 - Point tables: `Rules.payouts` in `rules_tonight.json` is the whole patch; Hero's ICM curve and the core's
   all-in prices are both built from it (print the payouts of the `Rules` passed to `new_table` to confirm).
   No ICM-premium key exists; `preflop.shove_call_margin` (Hero) and `r3.push_margin` / `r3.call_margin` (the
