@@ -431,3 +431,140 @@ def head_tables(rules: Rules, base: Tables, root: str = VARIANTS_DIR) -> Tables 
 def fallback_label_tables(base: Tables) -> Tables:
     return Tables(LabelView(base.equity, True), LabelView(base.rank, False), None, base.source + "+labelview",
                   base.dir, "best2+tags", 3, (), {})
+
+
+# ---------------------------------------------------------------- the variant's own preflop table (twins)
+
+GENERIC_DIR = os.path.join(TABLES_DIR, "generic")
+
+
+def generic_doc(rules: Rules, root: str = GENERIC_DIR) -> dict | None:
+    """The variant's own preflop table for rules.extras["variant"]: hyperion/sim/generic.py's `prepare` writes
+    tables/generic/<name>-<hash>.json (the value share of every hole class against one random hand, dealt and scored
+    through the variant's own hooks). Among files with the name, the one whose rules match `rules`, else the first with
+    the same hole-card count. None when there is none or it is unreadable."""
+    name = (rules.extras or {}).get("variant")
+    if not name or not os.path.isdir(root):
+        return None
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in str(name))[:40]
+    from ..tablegen import rules_to_dict
+
+    want = json.dumps(rules_to_dict(rules), sort_keys=True, default=str)
+    first = None
+    for fn in sorted(os.listdir(root)):
+        if not (fn.startswith(safe + "-") and fn.endswith(".json")) or "-" in fn[len(safe) + 1:-5]:
+            continue
+        try:
+            with open(os.path.join(root, fn)) as fh:
+                doc = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if str(doc.get("variant")) != str(name) or int(doc.get("k", 0) or 0) != rules.hole_cards:
+            continue
+        if json.dumps(doc.get("rules"), sort_keys=True, default=str) == want:
+            return doc
+        if first is None:
+            first = doc
+    return first
+
+
+def twin_classes(doc: dict | None, base: Tables) -> dict[str, str] | None:
+    """Each two-card class of the variant -> its hold'em twin: the hold'em class at the same combo percentile, the
+    variant's classes ordered by their value share in the variant's own table (`generic_doc`), hold'em's by heads-up
+    equity in `base` (hyperion/sim/generic.py's Table.twin, the same rule). So charts, push/fold and every equity
+    table read the twin and play the same share of hands, the variant's best ones. None for a table with labels that
+    are not 169-style two-card classes, or with classes missing."""
+    if not doc:
+        return None
+    labels = doc.get("labels") or {}
+    try:
+        if not labels or any(lb not in CLASS_INDEX for lb in labels):
+            return None
+        order = sorted(labels, key=lambda lb: (-float(labels[lb][0]), lb))
+        total = sum(float(labels[lb][1]) for lb in order) or 1.0
+        ref = sorted(CLASSES, key=lambda c: (-float(base.equity[c][0]), c))
+    except (KeyError, TypeError, ValueError, IndexError):
+        return None
+    cums, acc = [], 0.0
+    for c in ref:
+        acc += combos_of(c) / TOTAL_COMBOS
+        cums.append(acc)
+    from bisect import bisect_left
+
+    out, acc = {}, 0.0
+    for lb in order:
+        sh = float(labels[lb][1]) / total
+        q = acc + sh / 2
+        acc += sh
+        out[lb] = ref[min(len(ref) - 1, bisect_left(cums, q))]
+    for c in CLASSES:  # a class the variant cannot deal (none in a full deck) keeps itself
+        out.setdefault(c, c)
+    return out
+
+
+def twin_shift(twins: dict[str, str], base: Tables) -> float:
+    """How far the twins move hands: the combo-weighted mean |rank(twin) - rank(class)| in `base` (0 = hold'em's
+    order; sampling noise in a prepared table of a twist that keeps hold'em's showdown is 0.015-0.03, lowball 0.50,
+    wild deuces 0.21, hi-lo 0.10)."""
+    rank = base.rank
+    return sum(abs(rank[twins.get(c, c)] - rank[c]) * combos_of(c) for c in CLASSES) / TOTAL_COMBOS
+
+
+def recut_label_tables(doc: dict | None, t: Tables) -> tuple[Tables, float] | None:
+    """A 3- or 4-card variant's label tables re-cut from its own prepared table (`generic_doc`: best2+tags labels,
+    hundreds of thousands of hands dealt and scored through the hooks, against the catalog sets' 300-1,500 a label):
+    rank = the label's combo percentile by its value share there; equity vs n opponents = the set's combo-weighted
+    n-opponent equity at that percentile (the set's distribution, the doc's order, so one noisy label no longer moves
+    its own number). Returns (tables, shift), shift the combo-weighted mean |new rank - old rank|; None when there is
+    no prepared table or it is not a label table of this hole-card count."""
+    if not doc or t.scheme == "169" or int(doc.get("k", 0) or 0) != t.hole_cards or not isinstance(t.rank, dict):
+        return None
+    labels = doc.get("labels") or {}
+    try:
+        lab = {lb: (float(v[0]), float(v[1])) for lb, v in labels.items() if "+" in lb and float(v[1]) > 0.0}
+        old = {lb: (float(t.rank[lb]), [float(x) for x in t.equity[lb]]) for lb in lab if lb in t.rank}
+    except (KeyError, TypeError, ValueError, IndexError):
+        return None
+    if not lab or len(old) < 0.5 * len(lab):
+        return None
+    tot = sum(sh for _, sh in lab.values())
+    order = sorted(lab, key=lambda lb: (-lab[lb][0], lb))
+    pct, acc = {}, 0.0
+    for lb in order:  # combo percentile, weakest 0: the set's rank convention
+        sh = lab[lb][1] / tot
+        pct[lb] = 1.0 - (acc + sh / 2)
+        acc += sh
+    n_eq = len(next(iter(old.values()))[1])
+    cols = []  # per n: the set's equities sorted, with cumulative combo share (weights: the doc's combo shares)
+    for k in range(n_eq):
+        pts = sorted((old[lb][1][k], lab[lb][1]) for lb in old)
+        w = sum(x for _, x in pts)
+        cum, a = [], 0.0
+        for e, x in pts:
+            a += x / w
+            cum.append((a - x / w / 2, e))
+        cols.append(cum)
+    from bisect import bisect_left
+
+    def at(k: int, q: float) -> float:
+        col = cols[k]
+        i = bisect_left(col, (q, -1.0))
+        if i <= 0:
+            return col[0][1]
+        if i >= len(col):
+            return col[-1][1]
+        (q0, e0), (q1, e1) = col[i - 1], col[i]
+        return e0 + (e1 - e0) * ((q - q0) / (q1 - q0) if q1 > q0 else 0.0)
+
+    rank = dict(t.rank) if isinstance(t.rank, dict) else {}
+    equity = dict(t.equity) if isinstance(t.equity, dict) else {}
+    shift = 0.0
+    for lb in lab:
+        q = pct[lb]
+        if lb in old:
+            shift += abs(q - old[lb][0]) * lab[lb][1] / tot
+        rank[lb] = round(q, 4)
+        equity[lb] = [round(at(k, q), 4) for k in range(n_eq)]
+    out = Tables(equity, rank, t.hu, t.source + "+recut", t.dir, t.scheme, t.hole_cards, tuple(rank),
+                 dict(t.combo_count) if t.combo_count else None)
+    return out, shift

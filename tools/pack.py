@@ -191,6 +191,14 @@ def build(dest: Path, entry: Path, extras: list[Path], slim: bool, tables_dir: P
             elif needs_variant:
                 what += (f"; WARN the rules name variant {variant!r} and change the cards, but {vdir} does not "
                          f"exist: Hero plays label tables (Stage 3 writes tables/variants/<name>/)")
+            # the variant's own preflop table (hyperion/sim/generic.py --prepare): Hero's twin_preflop reads it
+            safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in str(variant))[:40]
+            gen = sorted((tables_root / "generic").glob(f"{safe}-*.json"))
+            if gen:
+                (dest / "tables" / "generic").mkdir(exist_ok=True)
+                for f in gen:
+                    shutil.copy2(f, dest / "tables" / "generic" / f.name)
+                what += f" + generic/{', '.join(f.name for f in gen)}"
     shutil.copy2(entry, dest / entry.name)
     for x in extras:
         if x.is_dir():

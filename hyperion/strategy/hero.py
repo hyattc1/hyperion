@@ -378,6 +378,12 @@ class Config:
     # (variant_preflop's shove_eq_margin, shove_range_mult). Decision-time fields only: the solved tables and the
     # multiway switch are the table set's. {} = off
     variant_pushfold: dict = field(default_factory=dict)
+    # PreflopParams overrides by the table's rule, for the twist tables variant_preflop leaves out ("must_use":
+    # Omaha-style must-use-k, "fixedlimit", "lowball": in place of the hold'em params) and, on top of variant_preflop,
+    # for a short deck ("deck": ranks removed), two boards ("boards"), wild cards ("wild"); the first that applies, in
+    # that order. E.g. {"must_use": {"call_raise_frac": 0.15}}. Measured against opponents that play the twist (the
+    # generic aware field), where variant_preflop was measured against twist-blind ones. {} = off
+    variant_preflop_ex: dict = field(default_factory=dict)
     # boards longer than five cards (river_of_blood's run streets, or any rule that deals past the river). long_board:
     # read them (core.eval.evaluate_many for any number of cards, never a table built in a decision; "playing the
     # board" against the board's own best five; draws and outs while another card may come), and play a street that
@@ -394,6 +400,34 @@ class Config:
     # deal5_keep2: facing a bet, the made hand's equity read this many tiers lower (everyone kept their best two of
     # five on this flop: keep_value_shift's reason, applied to calls; keep_value_shift moves only bets and raises). 0 = off
     keep_call_shift: int = 0
+    # three or more hole cards dealt and still held after the flop (three_card_keep: all kept; Omaha: must use two; not a
+    # third card bought, as in bonus_card and auction, where it measured +0.12 and -0.07 apart): facing a bet,
+    # the made hand's equity read this many tiers lower (every hand at the table is stronger; read_multi already takes
+    # multi_tier_penalty off pairs and two pairs for bets and calls alike). multi_call_shift for hands kept whole,
+    # mu_call_shift for must-use-k. 0 = off
+    multi_call_shift: int = 0
+    mu_call_shift: int = 0
+    # ... and the bet / raise side there: value, big-value and raise thresholds this many tiers up. 0 = off
+    multi_value_shift: int = 0
+    mu_value_shift: int = 0
+    # ... and by the table's rule (variant_preflop_ex's gates: "must_use", "fixedlimit", "lowball", "deck", "boards",
+    # "wild"), added to the above, e.g. {"deck": 1}. {} = off
+    call_shift_ex: dict = field(default_factory=dict)
+    # two-card twists with no variant table set (lowball, wild cards, hi-lo, any new showdown): read each hand as its
+    # hold'em twin from the variant's own preflop table (tables/generic/, hyperion/sim/generic.py's prepare: the value
+    # share of every class dealt and scored through the variant's hooks), the hold'em class at the same combo
+    # percentile, in place of the hand-written lowball mirror and wild map; used when the twins move hands by at least
+    # this mean percentile (tables.twin_shift: a prepared table of a twist with hold'em's showdown moves them 0.015-0.03
+    # by sampling noise alone). 0 = off
+    twin_preflop: float = 0.0
+    # ... also on a two-card twist that has a variant table set (short deck): its twins from the prepared table in place
+    # of the set (the hold'em tables, read through the twins). False = the set, as before
+    twin_force: bool = False
+    # three or four hole cards (Omaha, the three-card games): the variant's label tables re-cut from its own prepared
+    # table (tables.recut_label_tables: rank by the doc's value share, equity the set's distribution at that rank),
+    # used when the re-cut moves labels by at least this mean percentile (Omaha's catalog set, 300 samples a label,
+    # 0.17; the three-card sets 0.06-0.08). 0 = off
+    twin_multi: float = 0.0
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5
@@ -581,6 +615,9 @@ def holdem_table(rules: Rules) -> bool:
             and set(ex) <= _HOLDEM_EXTRAS and ex.get("variant") in _HOLDEM_VARIANTS)
 
 
+_TWINS: dict = {}  # HeroCore._twins' cache: (variant, extras, hole cards, threshold, tables) -> twin map or None
+
+
 class HeroCore:
     """The unguarded strategy. Hero wraps it in SafeBot; tests may poke it directly."""
 
@@ -631,6 +668,7 @@ class HeroCore:
         # the held-out showtime uses the same key for folded hands, and the held-out set is not tuned on
         self._revealed_dead = False
         self._toss = False  # three hole cards and a face-up toss (toss_or_holdem, three_card_blind_discard)
+        self._gate = None  # the twist table's rule for the *_ex dials (_configure)
         self._run = False  # rules.extras["run_until_black"] (river_of_blood): a red last card deals another street
         self._pre_aggr = False  # my last preflop action this hand was a raise nobody re-raised (when history is absent)
         self.inferred = 0  # decisions whose betting state came from the bets because the history could not explain it
@@ -691,6 +729,12 @@ class HeroCore:
         self.postflop.holdem = holdem_table(rules)
         self._cls_map = mirror_map(self.tables.rank) if low else wild_map(wild_c) if wild_c >= 0 else None
         t = tables_for(rules, self.tables, name=cfg.variant_tables or None)
+        if cfg.twin_preflop > 0.0 and rules.hole_cards == 2 and self._remap is None \
+                and (t is self.tables or (cfg.twin_force and t.scheme == "169")):
+            tm = self._twins(rules)
+            if tm is not None:
+                self._cls_map = tm
+                t = self.tables
         if t is self.tables:
             pre, pf = self._base
             self._label = False
@@ -710,6 +754,10 @@ class HeroCore:
                 mods = self._modules[key] = (pre, pf, t)
             pre, pf, t = mods  # the set the cached modules were built on (a label view is rebuilt per call)
             self._label = t.scheme != "169"
+            if cfg.twin_multi > 0.0 and self._label:
+                rc = self._recut(rules, t)
+                if rc is not None:
+                    pre, pf, t = rc
         vp = cfg.variant_preflop
         vpf = cfg.variant_pushfold
         twist = (vp or vpf) and ex.get("variant") and str(ex.get("variant")).lower() not in PLAIN_NAMES \
@@ -724,6 +772,21 @@ class HeroCore:
             if vpre is None:
                 vpre = self._modules[vkey] = Preflop(replace(pre.p, **vp), t)
             pre = vpre
+        gate = None  # the table's rule for the *_ex dials: the first that applies
+        if ex.get("variant") and str(ex.get("variant")).lower() not in PLAIN_NAMES:
+            gate = "must_use" if rules.must_use_hole else "fixedlimit" if rules.betting == "fixedlimit" else \
+                "lowball" if ex.get("lowball") else "deck" if ex.get("removed_ranks") else \
+                "boards" if int(ex.get("n_boards", 1) or 1) > 1 else "wild" if ex.get("wild_rank") is not None else None
+        self._gate = gate
+        vx = cfg.variant_preflop_ex
+        if vx and gate:
+            over = vx.get(gate)
+            if over:
+                vkey = ("variant_preflop_ex", gate, id(pre))
+                vpre = self._modules.get(vkey)
+                if vpre is None:
+                    vpre = self._modules[vkey] = Preflop(replace(pre.p, **over), t)
+                pre = vpre
         if vpf and twist:
             vkey = ("variant_pushfold", id(pf))
             vpf_mod = self._modules.get(vkey)
@@ -740,6 +803,39 @@ class HeroCore:
         pre.pf = pf
         if cfg.use_icm:
             pre.curve = pf.curve = self.curve
+
+    def _twins(self, rules: Rules) -> dict | None:
+        """The variant's twin map (Config.twin_preflop), read once per variant and rules; None when the variant has
+        no prepared table or its twins stay within the threshold."""
+        import json as _json
+
+        from .tables import generic_doc, twin_classes, twin_shift
+
+        key = (str((rules.extras or {}).get("variant")), _json.dumps(rules.extras or {}, sort_keys=True, default=str),
+               rules.hole_cards, self.cfg.twin_preflop, self.tables.dir, self.tables.source)
+        cache = _TWINS  # once per process: reading the table is ~1.5 ms, at a table start
+        if key not in cache:
+            tm = twin_classes(generic_doc(rules), self.tables)
+            cache[key] = tm if tm is not None and twin_shift(tm, self.tables) >= self.cfg.twin_preflop else None
+        return cache[key]
+
+    def _recut(self, rules: Rules, t):
+        """(Preflop, PushFold, Tables) on the re-cut label tables (Config.twin_multi), built once per set and process;
+        None when the variant has no prepared table or the re-cut moves labels less than the threshold."""
+        from .tables import generic_doc, recut_label_tables
+
+        key = ("recut", t.dir, t.source, str((rules.extras or {}).get("variant")), self.cfg.twin_multi)
+        if key not in _TWINS:
+            res = recut_label_tables(generic_doc(rules), t)
+            _TWINS[key] = res[0] if res is not None and res[1] >= self.cfg.twin_multi else None
+        t2 = _TWINS[key]
+        if t2 is None:
+            return None
+        mkey = ("recut", id(t2))
+        mods = self._modules.get(mkey)
+        if mods is None:
+            mods = self._modules[mkey] = (Preflop(self.cfg.preflop, t2), self._base[1].with_tables(t2), t2)
+        return mods
 
     def set_panic(self, on: bool) -> None:
         self.panic = on
@@ -908,6 +1004,11 @@ class HeroCore:
         elif self._toss:
             value_shift += cfg.toss_value_shift
             call_shift += cfg.toss_call_shift
+        elif nh >= 3 and self.rules.hole_cards >= 3:  # dealt, not bought (bonus_card, auction: measured apart)
+            call_shift += cfg.mu_call_shift if mu else cfg.multi_call_shift
+            value_shift += cfg.mu_value_shift if mu else cfg.multi_value_shift
+        if cfg.call_shift_ex and self._gate:
+            call_shift += int(cfg.call_shift_ex.get(self._gate, 0) or 0)
         self.last_path = "postflop"
         nb = len(board)
         if cfg.long_board and (nb > 5 or (self._run and nb >= 5)) and nh == 2 and not mu:
