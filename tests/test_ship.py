@@ -242,3 +242,44 @@ def test_slow_box_recipe_turns_the_governor_on_for_each_bot():
     # since the climb's batch 2 the composite ships with the governor on (SHIP_DIALS); hybrid3_x and Hero do not
     assert ship.make_bot("composite", {}).safe.gov is not None and ship.make_bot("composite", {}).core.levels == 3
     assert ship.make_bot("hybrid3_x", {}).safe.gov is None and ship.make_bot("hero", {}).safe.gov is None
+
+
+def _governor(bot):
+    """SafeBot's governor as built: (deadline s, window, ladder, recover, the core's degradation levels), or None."""
+    g = bot.safe.gov
+    return None if g is None else (bot.safe.deadline, g.window, g.ladder, g.recover, getattr(bot.core, "levels", 0))
+
+
+def test_set_keeps_the_composites_governor(tmp_path):
+    """F1: the governor is in the composite's SHIP_DIALS (batch 2), and `python -m hyperion.ship --set <recipes>` writes
+    only the recipes' dials into DIALS, which ship() lays on top of SHIP_DIALS. So every window's bot, alone or stacked,
+    and the package built from the record (tools/pack.py writes it, the entry and tools/gate.py build from it), keeps
+    the governor exactly as shipped: no recipe silently drops it."""
+    from hyperion.compose import bot as CB
+
+    ref = _governor(ship.make_bot("composite", {}))
+    assert ref == (0.0008, 60, True, 40, 3)
+    gov_keys = {"deadline_ms", "panic_window", "panic_ladder", "panic_recover", "degrade"}
+    assert gov_keys <= set(CB.SHIP_DIALS)
+    copy = tmp_path / "ship.py"
+    copy.write_text(Path(ship.__file__).read_text())
+    assert ship.read_record(copy)[0] == "composite"
+    names = [*ship.HERO_RECIPES, *ship.SLOW_RECIPES, "survival+passive", "slow_box+survival", "survival+slow_box",
+             "dead_seats+latency", "latency+dead_seats", "passive+timeouts", "strong_field+survival+passive"]
+    for spec in names:
+        ship.main(["--set", spec], path=copy)
+        bot, dials = ship.read_record(copy)
+        assert bot == "composite" and dials == ship.recipe(spec, "composite"), spec
+        if "slow_box" not in spec:  # the record carries the recipe alone; the governor comes from SHIP_DIALS
+            assert not gov_keys & set(dials), spec
+        built = ship.make_bot(bot, dials)
+        assert _governor(built) == ref, spec
+        assert built.core.cfg.degrade == CB.SHIP_DIALS["degrade"], spec
+    # the record a package carries is read back the same way (tools/pack.py write_record, tools/gate.py read_record)
+    ship.write_record(copy, "composite", ship.recipe("survival", "composite"))
+    assert _governor(ship.make_bot(*ship.read_record(copy))) == ref
+    # the fallbacks do not have it by default; slow_box gives it to them
+    ship.main(["--set", "survival", "--bot", "hybrid3_x"], path=copy)
+    assert _governor(ship.make_bot(*ship.read_record(copy))) is None
+    ship.main(["--set", "slow_box+survival", "--bot", "hybrid3_x"], path=copy)
+    assert _governor(ship.make_bot(*ship.read_record(copy))) is not None
