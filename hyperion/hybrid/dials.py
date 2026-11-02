@@ -83,3 +83,16 @@ class Rival3Knobs:
                                    "against a small open); off = as built (bottom half folds at any price)")
     bb_real: float = _dial(0.75, "share of its equity the big blind realises out of position")
     bb_margin: float = _dial(0.0, "equity over the price a big-blind call needs")
+    # a light 3-bet against an opener that folds to 3-bets (S12, docs/drills/climb/s12-log.md). Off: rival 3 as built,
+    # which 3-bets only its value range (top 2.5-6%) whoever opened
+    l3_on: bool = _dial(False, "facing one open and no caller, deep: also 3-bet a hand inside l3_max_pct when the "
+                               "opener's read fold-to-3-bet (a prior, then its folds per 3-bet faced in completed "
+                               "hands) times the folds of the seats still behind pays for the raise")
+    l3_prior: float = _dial(0.6, "prior fold-to-3-bet of an opener (the tuning fields' openers fold 0.43-0.9; a low "
+                                 "prior waits for evidence)")
+    l3_prior_n: float = _dial(6.0, "weight of that prior, in 3-bets faced")
+    l3_min_n: float = _dial(0.0, "3-bets the opener must have been seen facing before a light 3-bet")
+    l3_min_fold: float = _dial(0.65, "the opener's read fold-to-3-bet from which a light 3-bet is considered")
+    l3_max_pct: float = _dial(0.35, "light 3-bets only with hands inside this share of rival 3's preflop ranking")
+    l3_lose: float = _dial(0.75, "share of the raise lost when the light 3-bet is not folded to (called or 4-bet)")
+    l3_min_bb: float = _dial(25.0, "effective depth in big blinds from which a light 3-bet is considered")

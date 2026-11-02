@@ -29,6 +29,12 @@ def _rate(k: int, n: int, prior_mean: float, prior_n: float) -> float:
 class Profiler:
     # prior means for the Beta-smoothed rates
     P_VPIP, P_PFR, P_FTB, P_SHOVE, P_CALL_SHOVE, P_WTSD, P_AGG = 0.25, 0.15, 0.5, 0.05, 0.25, 0.3, 0.4
+    # S12 reads (docs/drills/climb/s12-log.md), counted only when a dial reads them (`track_s12`, set by Hero):
+    # postflop bet sizes, as a fraction of the pot before the bet, in buckets split at SZ_EDGES (bucket 5: a raise over
+    # a bet), with the bettor's tier (Postflop.read) when its cards are shown; and check-raises (a seat that checked
+    # this street, then faced a bet: did it raise)
+    track_s12 = False
+    SZ_EDGES = (0.4, 0.6, 0.85, 1.2)
     SHOVE_BUCKETS_BB = (12.0, 25.0, 50.0)  # depth buckets (bb at its first preflop action) for shove_counts
     LATE_BEHIND = 3  # an open with at most this many players behind (cutoff, button, small blind) is a late open
 
@@ -111,6 +117,12 @@ class Profiler:
         self.cbets = z()
         self.fcb_opp = z()
         self.fcb_fold = z()
+        self.sz_hist = [[[[0] * 9 for _ in range(6)] for _ in range(3)] for _ in range(n)]  # seat, street, bucket, tier
+        self.sz_n = [[[0] * 6 for _ in range(3)] for _ in range(n)]
+        self.sz_oracle = None  # measurement only: per seat {(street 0..2, bucket): 9 tier weights} or None
+        self.szc = [[[0] * 5 for _ in range(3)] for _ in range(n)]  # every bet seen (not raises): seat, street, bucket
+        self.xr_opp = z()
+        self.xr = z()
         self._dials = [dict(NEUTRAL_DIALS) for _ in range(n)]
         self._stale = False
         self._fresh = 0
@@ -145,6 +157,9 @@ class Profiler:
         self.oft_done = False
         self.counted = 0
         self.cb_state = 0  # this hand's flop: 0 nothing yet, 1 the raiser c-bet, 2 answered or not a c-bet spot
+        self.pot_prev = 0  # chips from earlier streets (track_s12)
+        self.sz_pend = []  # (seat, street 0..2, bucket) of this hand's postflop bets and raises (track_s12)
+        self.chk_mask = 0  # seats that checked on the street being replayed (track_s12)
 
     def _start_hand(self, obs: Observation) -> None:
         self._start_blank()
@@ -208,6 +223,7 @@ class Profiler:
         if lost:
             self.tstreet = obs.street
             self.shove_pending = False
+            self.chk_mask = 0
             need = 0
             my_pos = (me - obs.button - 1) % n
         for s in range(n):
@@ -218,6 +234,8 @@ class Profiler:
                     need |= 1 << s
         self.inhand = inhand
         self.need = (need & inhand) | (1 << me)
+        if self.track_s12:
+            self.pot_prev = obs.pot
 
     # `lazy`: hand_end leaves the dials stale instead of computing every seat's; exploit_dials computes a seat's on
     # first read and the next observe() settles the rest before it changes a counter, so every read sees the dials of
@@ -262,6 +280,8 @@ class Profiler:
         for s in result.showdown:
             if 0 <= s < self.n:
                 self.showdowns[s] += 1
+        if self.track_s12 and self.sz_pend:
+            self._size_end(result)
         self._finished = True
         if self.lazy:
             self._fresh = 0
@@ -275,6 +295,9 @@ class Profiler:
             self.tstreet += 1
         self.cur_bet = 0
         c = self.committed
+        if self.track_s12:
+            self.pot_prev += sum(c)
+            self.chk_mask = 0
         for s in range(self.n):
             c[s] = 0
         self.need = self.inhand
@@ -315,6 +338,8 @@ class Profiler:
                     self.oft_fold[seat] += 1
             if self.tstreet == 1 and self.cb_state < 2:
                 self._cbet_obs(seat, kind)
+            if not pre and self.track_s12:
+                self._s12_obs(seat, bit, kind, act.amount, facing)
             if not pre:
                 self.post_actions[seat] += 1
                 if not facing:
@@ -400,6 +425,88 @@ class Profiler:
             if self.need == 0 and self.inhand:
                 self._advance()
         self.consumed = len(hist)
+
+    def _s12_obs(self, seat: int, bit: int, kind, amt, facing: bool) -> None:
+        """S12 counters for one postflop action, before it is applied (cur_bet / committed are what the seat faces)."""
+        if facing and self.chk_mask & bit:
+            self.chk_mask &= ~bit
+            self.xr_opp[seat] += 1
+            if kind is _RAISE:
+                self.xr[seat] += 1
+        if kind is _CHECK:
+            self.chk_mask |= bit
+        elif kind is _RAISE:
+            if facing:
+                b = 5
+            else:
+                pot = self.pot_prev + sum(self.committed)
+                b = self.size_bucket((amt - self.committed[seat]) / pot if pot > 0 else 9.0)
+            st = self.tstreet - 1
+            if 0 <= st <= 2:
+                if b < 5:
+                    self.szc[seat][st][b] += 1
+                if len(self.sz_pend) < 32:
+                    self.sz_pend.append((seat, st, b))
+
+    def size_bucket(self, frac: float) -> int:
+        e = self.SZ_EDGES
+        if frac < e[0]:
+            return 0
+        if frac < e[1]:
+            return 1
+        if frac < e[2]:
+            return 2
+        if frac < e[3]:
+            return 3
+        return 4
+
+    def _size_end(self, result: HandResult) -> None:
+        """Shown cards: the tier each shown seat held at each of its bets this hand (the board as it stood then)."""
+        pend, self.sz_pend = self.sz_pend, []
+        board = result.board
+        sd = result.showdown
+        if not sd or len(board) < 3:
+            return
+        from .postflop import Postflop
+
+        read = Postflop.read
+        for seat, st, b in pend:
+            cards = sd.get(seat)
+            if cards is None or len(cards) != 2 or not 0 <= seat < self.n:
+                continue
+            nb = 3 + st
+            if len(board) < nb:
+                continue
+            try:
+                tier = read(cards, board[:nb])[0]
+            except Exception:  # noqa: BLE001 - a card the evaluator cannot read costs this sample
+                continue
+            self.sz_hist[seat][st][b][tier] += 1
+            self.sz_n[seat][st][b] += 1
+
+    def size_hist(self, s: int, st: int, b: int):
+        """(tier counts, n) of seat s's shown bets of bucket b on street st (0 flop .. 2 river); the oracle's weights
+        (and n = None) when one is installed for the seat."""
+        o = self.sz_oracle
+        if o is not None:
+            d = o[s] if 0 <= s < len(o) else None
+            if d is not None:
+                h = d.get((st, b))
+                if h is not None:
+                    return h, None
+        return self.sz_hist[s][st][b], self.sz_n[s][st][b]
+
+    def size_shares(self, s: int) -> tuple[list, int]:
+        """(bets seen of each size bucket 0..4 on every street, their total) for seat s."""
+        c = [0] * 5
+        for row in self.szc[s]:
+            for b in range(5):
+                c[b] += row[b]
+        return c, sum(c)
+
+    def xr_rate(self, s: int, prior: float, n0: float) -> float:
+        """How often seat s raises when it faces a bet after checking on the same street, smoothed toward `prior`."""
+        return (self.xr[s] + prior * n0) / (self.xr_opp[s] + n0)
 
     def _cbet_obs(self, seat: int, kind) -> None:
         """Count c-bet chances and answers on a heads-up flop after a single preflop raiser (before the action

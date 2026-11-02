@@ -568,6 +568,19 @@ def wild_map(wild_rank: int) -> dict[str, str]:
     return out
 
 
+# S12's size read (postflop.size_read_holdem_only): a table is hold'em when only its structure differs (payouts,
+# blinds, antes, a straddle); an unknown key in Rules.extras or any other variant entry turns the read off
+_HOLDEM_EXTRAS = frozenset({"variant", "ante_rule"})
+_HOLDEM_VARIANTS = frozenset({None, "top_heavy", "antes_from_level_3", "fast_schedule", "straddle"})
+
+
+def holdem_table(rules: Rules) -> bool:
+    ex = rules.extras or {}
+    return (rules.hole_cards == 2 and tuple(rules.board_sizes) == (0, 3, 4, 5) and rules.n_suits == 4
+            and not rules.must_use_hole and rules.betting == "nolimit" and is_identity_order(rules)
+            and set(ex) <= _HOLDEM_EXTRAS and ex.get("variant") in _HOLDEM_VARIANTS)
+
+
 class HeroCore:
     """The unguarded strategy. Hero wraps it in SafeBot; tests may poke it directly."""
 
@@ -587,6 +600,8 @@ class HeroCore:
         self.exploit = Exploit(cfg.exploit) if cfg.exploit.active and not cfg.cheap else None  # cheap: no reads
         if self.prof is not None and self.pushfold.mw is not None:
             self.prof.call_prior = self.pushfold.call_prior  # shove calls are read against a solved caller's
+        if self.prof is not None and (cfg.postflop.size_read > 0.0 or cfg.postflop.xr_shift):
+            self.prof.track_s12 = True  # S12 reads: count bet sizes, shown tiers and check-raises (off: no cost)
         self._base = (self.preflop, self.pushfold)
         self._modules: dict = {}  # (tables dir, scheme) -> (Preflop, PushFold) built for a variant set
         self.curve = IcmCurve()
@@ -673,6 +688,7 @@ class HeroCore:
         fof = ex.get("category_order") == "flush_over_full_house"
         short = cfg.short_deck_read and set(ex.get("removed_ranks") or ()) == {0, 1, 2, 3}
         self.postflop.set_mode(low=low, wild_rank=wild_c, flush_over_full=fof, short=short)
+        self.postflop.holdem = holdem_table(rules)
         self._cls_map = mirror_map(self.tables.rank) if low else wild_map(wild_c) if wild_c >= 0 else None
         t = tables_for(rules, self.tables, name=cfg.variant_tables or None)
         if t is self.tables:
