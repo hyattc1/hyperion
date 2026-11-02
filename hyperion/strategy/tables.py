@@ -327,9 +327,10 @@ def _card_rules(d: dict) -> tuple:
             tuple(sorted(ex.get("removed_ranks") or ())), int(ex.get("keep", 0) or 0))
 
 
-def variant_dir_for(rules: Rules, root: str = VARIANTS_DIR) -> str | None:
-    """tables/variants/<extras["variant"]>/ when it exists and its meta.json card rules match `rules`."""
-    name = (rules.extras or {}).get("variant")
+def variant_dir_for(rules: Rules, root: str = VARIANTS_DIR, name: str | None = None) -> str | None:
+    """tables/variants/<extras["variant"]>/ (or tables/variants/<name>/) when it exists and its meta.json card rules
+    match `rules`."""
+    name = name or (rules.extras or {}).get("variant")
     if not name:
         return None
     d = os.path.join(root, str(name))
@@ -347,14 +348,17 @@ def needs_variant_tables(rules: Rules) -> bool:
     return rules.hole_cards != 2 or bool(ex.get("removed_ranks")) or bool(rules.must_use_hole)
 
 
-def tables_for(rules: Rules, base: Tables | None = None, root: str = VARIANTS_DIR) -> Tables:
+def tables_for(rules: Rules, base: Tables | None = None, root: str = VARIANTS_DIR, name: str | None = None) -> Tables:
     """The set Hero should play `rules` with. Default hold'em (and anything a rank remap fixes, like
     permuted ranks) keeps `base`; otherwise the matching catalog directory, strictly loaded; and when no
-    directory matches a 3- or 4-card game, a label view derived from `base` (best-two class plus tag bonuses)."""
+    directory matches a 3- or 4-card game, a label view derived from `base` (best-two class plus tag bonuses).
+    `name` (Hero's Config.variant_tables) tries tables/variants/<name>/ first; its card rules must match too."""
     base = base if base is not None else load(need_hu=True)
     if not needs_variant_tables(rules):
         return base
-    d = variant_dir_for(rules, root)
+    d = variant_dir_for(rules, root, name) if name else None
+    if d is None:
+        d = variant_dir_for(rules, root)
     if d is not None:
         try:
             return load(d, need_hu=rules.hole_cards == 2, strict=True)

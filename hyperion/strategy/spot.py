@@ -66,7 +66,7 @@ class Spot:
         "obs", "cls", "n", "me", "bb", "sb_seat", "bb_seat", "my_total", "my_bb", "cur_bet", "to_call",
         "pot_total", "opps", "n_opps", "behind", "limpers", "n_in", "n_raises", "raiser", "facing_shove",
         "shover", "max_opp_total", "eff", "eff_bb", "i_raised_last", "pot_odds",
-        "bounty_bonus", "ko_points", "cover_frac", "shover_covered", "dead", "exposed", "ror",
+        "bounty_bonus", "ko_points", "cover_frac", "shover_covered", "dead", "exposed", "ror", "bounty_k",
     )
 
     def __init__(self, obs: Observation, hole: tuple[int, ...], cls: str | None = None, bounty_bonus: float = 0.0,
@@ -78,6 +78,9 @@ class Spot:
         self.dead = dead
         self.exposed = exposed
         self.ror = 0.0  # risk-of-ruin margin for stack-offs (Hero sets it from Config per decision)
+        # bounty (Config.bounty_exact): extra chips per chip a caller adds to a pot we win, p(hit) x (ratio - 1); the
+        # all-in EVs add bounty_k x the caller's chips to the winning branch. 0 = off (the play before 2026-11-01)
+        self.bounty_k = 0.0
         n = self.n = len(obs.stacks)
         me = self.me = obs.seat
         stacks, bets, in_hand, button = obs.stacks, obs.bets, obs.in_hand, obs.button

@@ -50,6 +50,7 @@ from .tables import CLASSES, Tables, load as load_tables, tables_for
 
 _CHECK = Action(ActionKind.CHECK)
 _FOLD = Action(ActionKind.FOLD)
+PLAIN_NAMES = ("", "holdem", "hold'em", "plain", "nlhe", "default")  # rules.extras["variant"] values that are no twist
 
 ICM_BUCKETS = 100  # default Config.icm_buckets: opponents' stacks are rounded to 1/100 of the chips in play before the (memoised) exact ICM call
 ICM_ME_SUBDIV = 4  # default Config.icm_me_subdiv: my own units are chosen so my *share* of the chips is kept, to 1/4 of an opponent unit
@@ -314,6 +315,34 @@ class Config:
     # deal5_keep2: everyone kept their best two of five on this flop, so a made hand is worth less than its board-relative
     # tier says: postflop value thresholds this many tiers up (as before a swap street)
     keep_value_shift: int = 1
+    # toss_or_holdem (and the blind discard): three hole cards, one tossed face up on the flop (obs.extras['discards'],
+    # {seat: card}). toss_dead: every face-up toss, ours included, is a dead card: off the postflop draw outs, and the
+    # toss itself (variant_decide 'discard') reads the tosses made before ours (the prompt's 'discards') and the card it
+    # throws as dead. toss_value_shift: everyone kept their best two of three on this flop, so postflop value
+    # thresholds this many tiers up (keep_value_shift's reason, a third as strong). Both off: the play before 2026-11-01
+    toss_dead: bool = False
+    toss_value_shift: int = 0
+    # bounty (MIT 2025: win a pot holding the bounty rank, in hand or on the board, and the house pays (ratio - 1) x the
+    # net win + constant more). bounty_exact: the net win is the others' chips in the pot (not ours from earlier
+    # streets), and every all-in EV also prices the bounty on the chips a caller adds (Spot.bounty_k).
+    # bounty_call_scale: the bounty's share in the pot odds of a call (1 = as before; 0 = calls priced without it).
+    # bounty_bet_frac: with the bounty hit, nothing to call and at most three players in, bet this share of the pot
+    # where the postflop rules would check (0 = off): the bounty pays for winning the pot, so fold equity is worth 1.5x
+    bounty_exact: bool = False
+    bounty_call_scale: float = 1.0
+    bounty_bet_frac: float = 0.0
+    # short deck (6 to ace): the postflop read knows the 36-card deck: A-6-7-8-9 is a straight (made and drawn to),
+    # no wheel, a flush draw has five outs, and an out is worth 1.45x the rule of 4 and 2 (31 unseen cards). Off: the
+    # hold'em read with the flush-over-full-house tier (the play before 2026-11-01)
+    short_deck_read: bool = False
+    # the variant table set by directory name under tables/variants/ (its meta.json card rules must match the table's
+    # rules, else the usual set): "short_deck_v2" is the short deck regenerated with its own showdown (A-6-7-8-9, flush
+    # over full house), more samples and a multiway push/fold solve. "" = the set extras["variant"] names
+    variant_tables: str = ""
+    # PreflopParams overrides for a catalogued twist's tables only (rules.extras["variant"] names one, not plain
+    # hold'em): e.g. {"call_raise_frac": 0.15}. On F, Hero plays every preflop decision of the 14 Hero tables (short deck,
+    # three hole cards, bounties ...) and few elsewhere; this reaches the first and none of the second. {} = off
+    variant_preflop: dict = field(default_factory=dict)
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5
@@ -535,6 +564,7 @@ class HeroCore:
         # deal5_keep2 (rules.extras discard_count): obs.extras["revealed"] discards are dead cards. Scoped to the rule:
         # the held-out showtime uses the same key for folded hands, and the held-out set is not tuned on
         self._revealed_dead = False
+        self._toss = False  # three hole cards and a face-up toss (toss_or_holdem, three_card_blind_discard)
         self._pre_aggr = False  # my last preflop action this hand was a raise nobody re-raised (when history is absent)
         self.inferred = 0  # decisions whose betting state came from the bets because the history could not explain it
 
@@ -582,13 +612,15 @@ class HeroCore:
         if self._auction is None and (ex.get("variant") == "auction" or "auction_price" in ex):
             self._auction = auction_table()
         self._revealed_dead = bool(ex.get("discard_count"))
+        self._toss = bool(ex.get("discard_face_up")) and not ex.get("discard_count") and rules.hole_cards == 3
         low = bool(ex.get("lowball"))
         wild = ex.get("wild_rank", None)
         wild_c = int(rules.rank_order[int(wild)]) if wild is not None else -1
         fof = ex.get("category_order") == "flush_over_full_house"
-        self.postflop.set_mode(low=low, wild_rank=wild_c, flush_over_full=fof)
+        short = cfg.short_deck_read and set(ex.get("removed_ranks") or ()) == {0, 1, 2, 3}
+        self.postflop.set_mode(low=low, wild_rank=wild_c, flush_over_full=fof, short=short)
         self._cls_map = mirror_map(self.tables.rank) if low else wild_map(wild_c) if wild_c >= 0 else None
-        t = tables_for(rules, self.tables)
+        t = tables_for(rules, self.tables, name=cfg.variant_tables or None)
         if t is self.tables:
             pre, pf = self._base
             self._label = False
@@ -608,6 +640,14 @@ class HeroCore:
                 mods = self._modules[key] = (pre, pf, t)
             pre, pf, t = mods  # the set the cached modules were built on (a label view is rebuilt per call)
             self._label = t.scheme != "169"
+        vp = cfg.variant_preflop
+        if vp and ex.get("variant") and str(ex.get("variant")).lower() not in PLAIN_NAMES:
+            # a catalogued twist (rules.extras["variant"]): this table's preflop module with variant_preflop on top
+            vkey = ("variant_preflop", id(pre))
+            vpre = self._modules.get(vkey)
+            if vpre is None:
+                vpre = self._modules[vkey] = Preflop(replace(pre.p, **vp), t)
+            pre = vpre
         self.active = t
         self.preflop, self.pushfold = pre, pf
         pf.pre = pre  # push/fold reads the shover's range through the preflop module
@@ -700,9 +740,13 @@ class HeroCore:
         dead = ()
         exposed = None
         board2 = None
+        bounty_k = 0.0
         if extras:
             if self._bounty is not None:
-                bounty = self._bounty_bonus(obs, extras)
+                if self.cfg.bounty_exact:
+                    bounty, bounty_k = self._bounty_exact(obs, extras)
+                else:
+                    bounty = self._bounty_bonus(obs, extras)
             ex = extras.get("exposed")
             if ex:
                 exposed, dead = self._exposed(ex, obs.seat)
@@ -710,6 +754,10 @@ class HeroCore:
                 rv = extras.get("revealed")
                 if rv:  # deal5_keep2: every face-up discard, our own included, is out of the deck
                     dead = dead + self._revealed(rv)
+            elif self._toss and self.cfg.toss_dead:
+                dc = extras.get("discards")
+                if dc:  # toss_or_holdem: every face-up toss, our own included, is out of the deck
+                    dead = dead + self._tossed(dc)
             if obs.street > 0:
                 bs = extras.get("boards")
                 if bs and len(bs) > 1 and len(bs[1]) == len(board):
@@ -718,6 +766,10 @@ class HeroCore:
                         board2 = remap(board2, rm)
         spot = Spot(obs, hole, cls, bounty, self._ko, dead, exposed)
         cfg = self.cfg
+        if bounty:
+            spot.bounty_k = bounty_k
+            if cfg.bounty_call_scale != 1.0 and spot.to_call > 0:
+                spot.pot_odds = spot.to_call / (spot.pot_total + spot.to_call + bounty * cfg.bounty_call_scale)
         if cfg.ror_margin > 0.0:
             spot.ror = self.ror_for(spot.my_bb, obs.hand_no)
         cheap = cfg.cheap or self.panic
@@ -765,9 +817,15 @@ class HeroCore:
         value_shift = 1 if (self._swap_street and obs.street < self._swap_street) else 0
         if self._revealed_dead:
             value_shift += cfg.keep_value_shift
+        elif self._toss:
+            value_shift += cfg.toss_value_shift
         self.last_path = "postflop"
         a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
                               value_shift=value_shift)
+        if cfg.bounty_bet_frac > 0.0 and bounty and a.kind is ActionKind.CHECK and spot.to_call == 0 \
+                and spot.n_opps <= 2 and not cheap and ActionKind.RAISE in obs.legal and self._bounty_hit(obs):
+            a = self.postflop._bet(spot, cfg.bounty_bet_frac, bluff=True)
+            self.last_path = "postflop.bounty_bet"
         if xl is not None and not cheap:
             a = self._exploit(xl, raw, a)
         return a
@@ -887,6 +945,57 @@ class HeroCore:
         win = obs.pot + sum(obs.bets) - obs.bets[obs.seat]
         return p * ((ratio - 1.0) * (win if win > 0 else 0) + const)
 
+    def _bounty_rank(self, obs: Observation, extras: dict):
+        b = extras.get("bounties")
+        if not b:
+            return None
+        r = b.get(obs.seat)
+        return b.get(str(obs.seat)) if r is None else r
+
+    def _bounty_hit(self, obs: Observation) -> bool:
+        """My bounty rank is in my hand or on the board (displayed ranks, as the hook reads them)."""
+        r = self._bounty_rank(obs, obs.extras or {})
+        if r is None:
+            return False
+        return any((c >> 2) == r for c in obs.hole) or any((c >> 2) == r for c in obs.board)
+
+    def _bounty_exact(self, obs: Observation, extras: dict) -> tuple[float, float]:
+        """(expected extra chips if we win this pot now, extra chips per chip a caller adds): p x ((ratio - 1) x the
+        net win + constant) and p x (ratio - 1), the net win being the other players' chips in the pot (the pot less
+        everything we put in this hand), p the chance the bounty rank is in my hand or on the board at the end."""
+        r = self._bounty_rank(obs, extras)
+        if r is None:
+            return 0.0, 0.0
+        ratio, const = self._bounty
+        if any((c >> 2) == r for c in obs.hole) or any((c >> 2) == r for c in obs.board):
+            p = 1.0
+        else:
+            rules = self.rules
+            to_come = rules.board_sizes[-1] - len(obs.board)
+            if to_come <= 0:
+                return 0.0, 0.0
+            unseen = rules.deck_size - len(obs.hole) - len(obs.board)
+            outs = rules.n_suits
+            p_none = 1.0
+            for k in range(to_come):
+                p_none *= (unseen - outs - k) / (unseen - k)
+            p = 1.0 - p_none
+        me = obs.seat
+        start = self.hand_start[me] if self.hand_start is not None else obs.stacks[me] + obs.bets[me]
+        win = obs.pot + sum(obs.bets) - (start - obs.stacks[me])
+        return p * ((ratio - 1.0) * (win if win > 0 else 0) + const), p * (ratio - 1.0)
+
+    def _tossed(self, dc: dict) -> tuple:
+        """toss_or_holdem's face-up tosses ({seat: card}), every seat's, as canonical cards."""
+        rm = self._remap
+        out = []
+        for c in dc.values():
+            if c is None:
+                continue
+            c = int(c)
+            out.append(rm.rank_order[c >> 2] * 4 + (c & 3) if rm is not None else c)
+        return tuple(out)
+
     def _revealed(self, rv: dict) -> tuple:
         """deal5_keep2's face-up discards ({seat: cards}), every seat's, as canonical cards."""
         rm = self._remap
@@ -925,7 +1034,11 @@ class HeroCore:
         if rm is not None:
             hole, board = remap(hole, rm), remap(board, rm)
         if kind == "discard":
-            return self._discard(hole, board)
+            dead = ()
+            if self._toss and self.cfg.toss_dead:
+                dc = prompt.get("discards")
+                dead = self._tossed(dc) if dc else ()
+            return self._discard(hole, board, dead)
         if kind == "swap":
             return self._swap(hole, board)
         if kind == "buy_card":
@@ -995,17 +1108,19 @@ class HeroCore:
                     best_s, best = s, (i, j)
         return best
 
-    def _keep_score(self, keep, board) -> float:
-        """How good the two kept cards are: the flop read when a board is shown, else the preflop rank."""
+    def _keep_score(self, keep, board, dead: tuple = ()) -> float:
+        """How good the two kept cards are: the flop read when a board is shown (`dead` cards off the outs), else the
+        preflop rank."""
         rank = self.tables.rank[hole_class(keep)]
         if len(board) >= 3:
-            tier, outs, _ = self.postflop._read(keep, board, 0, ())
+            tier, outs, _ = self.postflop._read(keep, board, 0, dead)
             draw = outs * 0.04
             return max(TIER_EQUITY[tier], draw) + 0.01 * rank
         return rank
 
-    def _discard(self, hole, board):
-        """Index of the card whose removal leaves the best two."""
+    def _discard(self, hole, board, dead: tuple = ()):
+        """Index of the card whose removal leaves the best two. With `dead` (toss_dead: the tosses made before ours)
+        those and the card thrown come off the kept two's outs."""
         n = len(hole)
         if n < 3:
             return None
@@ -1014,7 +1129,7 @@ class HeroCore:
             keep = hole[:k] + hole[k + 1:]
             if len(keep) != 2:
                 continue
-            s = self._keep_score(keep, board)
+            s = self._keep_score(keep, board, dead + (hole[k],) if dead else ())
             if s > best:
                 best, best_k = s, k
         return best_k

@@ -147,8 +147,10 @@ _MUST_USE: int = 0  # Rules.must_use_hole: exactly k hole cards with 5 - k board
 
 
 def _init_worker(rules_dict: dict, classes: dict | None = None) -> None:
-    global _R, _DECK, _CMAP, _CLASSES, _KEEP, _MUST_USE
+    global _R, _DECK, _CMAP, _CLASSES, _KEEP, _MUST_USE, _FOF, _LOW6
     _R = rules_from_dict(rules_dict)
+    _FOF = _R.extras.get("category_order") == "flush_over_full_house"
+    _LOW6 = _R.extras.get("low_straight") == "A6789"
     _DECK = live_deck(_R)
     _CMAP = canon_map(_R)
     _CLASSES = classes or {}
@@ -159,8 +161,45 @@ def _init_worker(rules_dict: dict, classes: dict | None = None) -> None:
     warm(5 if _MUST_USE else min(8, (_KEEP or _R.hole_cards) + _R.board_sizes[-1]))
 
 
+_FOF = False  # extras['category_order'] == 'flush_over_full_house': a flush beats a full house
+_LOW6 = False  # extras['low_straight'] == 'A6789': the short deck's lowest straight
+# category -> its place in the reordered ranking (flush above full house); a strength is then place * 10000 + the
+# hold'em strength (at most 7462), and _CAT_OF_PLACE turns a place back into the category
+_PLACE = (0, 1, 2, 3, 4, 6, 5, 7, 8)
+_CAT_OF_PLACE = {p: c for c, p in enumerate(_PLACE)}
+_LOW6_MASK = (1 << 12) | (0b1111 << 4)
+
+
 def _strength(cards: Iterable[int]) -> int:
-    return evaluate([_CMAP[c] for c in cards])
+    cc = [_CMAP[c] for c in cards]
+    if not (_FOF or _LOW6):
+        return evaluate(cc)
+    return _reordered(cc)
+
+
+def _reordered(cc: list[int]) -> int:
+    """The strength under the short deck's showdown (ShortDeckHooks.score_hand): A-6-7-8-9 a straight (or a straight
+    flush) when _LOW6, a flush above a full house when _FOF."""
+    s = evaluate(cc)
+    cat = category(s)
+    if _LOW6 and (cat < 4 or cat == 5):
+        m = 0
+        by_suit = [0, 0, 0, 0]
+        for c in cc:
+            m |= 1 << (c >> 2)
+            by_suit[c & 3] |= 1 << (c >> 2)
+        if any(x & _LOW6_MASK == _LOW6_MASK for x in by_suit):
+            return _PLACE[8] * 10000 + 1
+        if cat < 4 and m & _LOW6_MASK == _LOW6_MASK:
+            return _PLACE[4] * 10000 + 1
+    return (_PLACE[cat] if _FOF else cat) * 10000 + s
+
+
+def _category(s: int) -> int:
+    """core.eval's category of a _strength value."""
+    if not (_FOF or _LOW6):
+        return category(s)
+    return _CAT_OF_PLACE[s // 10000] if _FOF else s // 10000
 
 
 def _showdown(hole: Sequence[int], board: Sequence[int]) -> int:
@@ -328,7 +367,7 @@ def flop_job(args: tuple[tuple[int, ...], int, int, int]) -> tuple[str, int, lis
         hs = (below + 0.5 * ties) / others if others > 0 else 0.5
         hs = min(1.0, max(0.0, hs))
         hist[min(HS_BINS - 1, int(hs * HS_BINS))] += 1
-        cat = cats[category(s)]
+        cat = cats[_category(s)]
         cat[0] += 1
         cat[1] += hs
     return texture_key(flop), weight, hist, cats
