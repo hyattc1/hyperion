@@ -60,9 +60,11 @@ Files: `docs/drills/climb/variants-ranked.md`, `docs/drills/climb/official-chang
 | 10/7/5/4/3/2/1/0 | 6.072 | -0.155 ± 0.177 | **-0.255 ± 0.192** | 395 |
 | 50/25/12/6/3/2/1/1 (points out of 100) | 23.636 | -0.250 ± 1.166 | -1.223 ± 1.231 | 366 |
 
-F stays first under both tables; every member already prices all-ins from `Rules.payouts` (hybrid/core3.py). The
-cost is time: the exact ICM under a non-linear table lifts F's p99 (R1 has it). S1 closed as a diagnostic; the payout
-tables stay as guards.
+**Correction (21:55):** the spec `{"dials": {}}` in `tools/swap.py paired` is NOT F: swap.py hands a spec's dials to
+`parse_dials` alone, without `SHIP_DIALS`, so the "F" above is P (F before the last climb's two dials: layer fold read
+0.5, Hero call margin 0.15). The numbers stand for P. `tools/climb_accept.py` resolves dials on top of `SHIP_DIALS`
+(as `hyperion.ship` builds the bot); S1 is re-measured on F with it. Every member already prices all-ins from
+`Rules.payouts` (hybrid/core3.py); the cost is time (R1 has it).
 
 ## 21:40: test sets in
 - **Outside field wired** (c1c18c7): four fresh one-hour builds, no repo access: `out_veterans` (minute 38),
@@ -84,3 +86,8 @@ tables stay as guards.
 - **Kit E built** (session scratchpad `goal/kitE`): an event-driven `Player` (take_seat, start_hand, see_cards,
   see_action, see_showdown, end_hand, choose(request) with legal options and no state snapshot), raise-to amounts,
   payouts 50/25/15/10/0/0/0/0, antes from level 4, river_of_blood in the dealer; self-test 141/141.
+
+## 21:55: tools/climb_accept.py
+One command for the protocol's acceptance rule: a candidate spec against the ship on a set (`screen`, `H1`.., `judge`)
+through stages confirm, guards, variants, judges, timing; per-spec cached results keyed by the code tree, so a batch's
+base runs once. Dials specs are resolved on top of `SHIP_DIALS`, so `{"dials": {}}` is F (the trap above).
