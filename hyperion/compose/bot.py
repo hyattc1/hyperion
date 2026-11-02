@@ -352,6 +352,9 @@ class ComposeConfig:
     strong_rr: float = 0.0  # 0 = always strong (the strong route always on, when it is set)
     strong_prior: float = 0.15
     strong_prior_n: float = 10.0
+    # ... and in an unopened pot with one opponent left in the hand (the small blind against the big, or folded round to
+    # the button with the small blind out): off = never there (blind-vs-blind play is S11's, climb/s11-exploiter2-fixes)
+    strong_bvb: bool = False
     seed: int | None = None
 
 
@@ -382,6 +385,17 @@ def degrade_levels(spec) -> list:
     if isinstance(spec, (list, tuple)):
         return [str(x).strip() for x in spec if str(x).strip()]
     return [x.strip() for x in str(spec).split(",") if x.strip()]
+
+
+def _bvb(obs: Observation) -> bool:
+    """Preflop, unopened, and one opponent left in the hand (blind against blind)."""
+    if max(obs.bets) > obs.blinds[1]:
+        return False
+    n = 0
+    for j, x in enumerate(obs.in_hand):
+        if x and j != obs.seat:
+            n += 1
+    return n == 1
 
 
 # ---------------------------------------------------------------------------------------------- the core
@@ -513,7 +527,7 @@ class CompositeCore:
                     self._rr_k += 1  # we act again before the flop, facing a bet: our raise was re-raised
                 self._rr_open = False
             sr = strong[sec]
-            if sr is not None and self.strong_table():
+            if sr is not None and self.strong_table() and (self.cfg.strong_bvb or obs.street or not _bvb(obs)):
                 mi, layer = sr
                 counts["strong"] += 1
         if self.level:
