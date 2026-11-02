@@ -1,25 +1,37 @@
 """The short-handed specialist (S13): a composite member for tables with three or fewer players alive.
 
 Close to unexploitable by default, so a counter-strategy bot finds no big leak, and played only where the composite's
-`short_route` sends it (hyperion/compose/bot.py; off by default). It deviates by handing the decision back: while any
-opponent still alive reads as a clear leak to F's profiler (dead or station by default), the composite
-plays F's normal route there, F's reads and the exploit layer included.
+`short_route` sends it (hyperion/compose/bot.py; off by default). Its deviations are of two kinds: it hands the decision
+back to F (F's reads and the exploit layer) where a seat shows a clear leak, and it switches to a table solved against
+a locked opponent where a read says how far that seat is from equilibrium. docs/drills/climb/s13-log.md has the
+measurements behind every default.
 
 **Preflop** is a lookup in tables solved offline by tools/solve_short.py (CFR+ on an abstracted tree, the module doc
 there): heads-up by effective stack (5 to 100 bb, tables/short_hu.json, chip EV), three-handed by the three stacks at
-ICM (tables/short_3.json). The hand's preflop history is mapped onto the tree's lines (f fold, c call, r the tree's raise,
-j all-in; a raise between the tree's size and all-in maps to either by a log-scale split drawn once per hand); a line
-the tree does not have (a limp-raise, a flat in a three-way pot) is not ours: `wants` says no and F plays. The tree's
-raise sizes follow the actual bet: the 3-bet is 3.5 times the open, the 4-bet 2.2 times the 3-bet.
+ICM (tables/short_3.json). The hand's preflop history is mapped onto the tree's lines (f fold, c call, r the tree's
+raise, j all-in; a raise between the tree's size and all-in maps to either by a log-scale split drawn once per hand); a
+line the tree does not have (a limp-raise, a flat in a three-way pot) is not ours: `wants` says no and F plays. The
+tree's raise sizes follow the actual bet: the 3-bet is 3.5 times the open, the 4-bet 2.2 times the 3-bet.
+- `pre_roles`: the heads-up roles played (sb = the button, bb). Facing a 3-bet of m times its open, the button's nodes
+  come from the tree re-solved with that size (2.2x, 2.75x: tables/short_hu_t3.json; `t3_sizes`).
+- `wide_open`: the big blind facing an open from a seat that opens at least that share of its buttons (F's profiler)
+  plays the counter solved against a small blind locked to open the top w of hands (tables/short_hu_lock.json).
+- `steal_ftb`: the button's limp becomes a min-raise against a big blind that folds to raises that often.
+- `defer_3bet`: preflop goes back to F against a seat that 3-bets our opens far above equilibrium (rival 3's read).
+- `three`, `three_max`: three-handed preflop (and its depth cap).
 
-**Postflop, heads-up pots** (two in the hand, at most `post_alive` alive): one size per street (flop 0.5 pot, turn 0.66,
-river 0.75) for value and bluffs alike, so a size names nothing. The hand's place in its range is read from Hero's
-tier read (postflop.read: tier, draw outs) as a percentile of random holdings on this kind of board, ordered inside a
-tier by kicker and outs, and moved up by what the range has already shown (each bet we called keeps the top
+**Postflop, heads-up pots** (two in the hand, at most `post_alive` alive): one size per street (flop 0.5 pot, turn
+0.66, river 0.75) for value and bluffs alike, so a size names nothing. The hand's place in its range is read from
+Hero's tier read (postflop.read: tier, draw outs) as a percentile of random holdings on this kind of board, ordered
+inside a tier by kicker and outs, and moved up by what the range has already shown (each bet we called keeps the top
 minimum-defence share). Facing a bet of b into a pot P we continue with the top P / (P + b) of the range (minimum
 defence), raise the top part of that with value and strong draws, and add a few bluff raises from the folding part;
 with nothing to call the aggressor bets its top share and draws or bottom air in a ratio that the size makes
-balanced; the defender stabs a little less when checked to.
+balanced; the defender stabs a little less when checked to, and checks out of position. `post_aggr`: only against a
+seat that bets into heads-up pots at least that often (F's profiler); against a passive seat F's reads take more.
+
+**Handing back** (`defer`): every decision goes back to F while an opponent alive reads to F's profiler as dead or a
+station (maniac and random fire on both exploiters short-handed: not clear leaks there).
 
 Every random choice is drawn from a hash of (seed, hand, street, hole cards), so a decision replays exactly and a
 hand's mix is stable across calls. The member keeps no state that depends on its own answers (it reads the hand from
@@ -110,7 +122,7 @@ class ShortParams:
         # on the flop and turn, leads and stabs with the aggressor's bets, smoothed toward 0.4 with 4 chances): the
         # balanced play defends against bettors; against a passive seat F's reads take more (0 = always)
         self.post_aggr = 0.0
-        self.three = True  # play three-handed preflop (tables/short_3.json)
+        self.three = False  # play three-handed preflop (tables/short_3.json, loaded only then; route pre_3way too)
         self.three_max = 1000.0  # ... only while the effective stack is at most this many big blinds
         # preflop goes back to F while an opponent alive 3-bets our opens at least this often (rival 3's core's read in
         # the base, v3n / v3o smoothed toward 0.12 with 8 chances): a 3-bettor far above equilibrium (exploiter 1

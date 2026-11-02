@@ -57,6 +57,12 @@ before the flop, smoothed toward `strong_prior` with the weight of `strong_prior
 while it is at least `strong_rr` (0: always). At night's tables about 14% of F's opens are re-raised, at tables of
 strong general bots and copies of F 24-26% (docs/drills/climb/s9-log.md). Never in a blind-vs-blind unopened pot unless
 `strong_bvb`. Its donors' members run (and shadow) on every decision, like any routed member's.
+
+**The short-handed route** (S13, `short_route`, off by default): sections played by another donor (the specialist
+`short`, hyperion/strategy/short.py) while at most `short_alive` players have chips and that member `wants` the decision
+(the hand maps onto its tables, no opponent alive reads as a clear leak); otherwise the section's donor as above. The
+member's dials are `short.<name>` (short_params). Plain hold'em tables only (holdem_only, plain_only), like the elite
+builds; its light shadow records only the hand's starting chips.
 """
 from __future__ import annotations
 

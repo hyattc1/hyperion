@@ -114,3 +114,68 @@ button calling a 3-bet and playing the flop (Hero's postflop, -95 and -30 chips 
 - **C12 is the first clean candidate (S1)**: the big blind's preflop from the tables, every heads-up pot postflop
   (three-handed tables included), F everywhere else. It wins heads-up against exploiter 2 (8.560 to 8.440 on these 100
   seeds) and is level or up everywhere.
+
+### S1's first cells, and where the 8-max loss is (code 422b7ab, 200 seeds unless noted)
+
+S1 = C12 = R3, `short.post_alive` 3, `short.pre_roles` bb.
+
+| cell | F | S1 | S1 - F | exploiter F / S1 |
+|---|---|---|---|---|
+| exploit_hu | 9.115 | 9.227 | +0.113 ± 0.149 | 7.885 / 7.772 |
+| exploit2_hu | 7.540 | 8.477 | **+0.938 ± 0.148** | 9.460 / 8.523 |
+| exploit_3 | 8.354 | 8.270 | -0.084 ± 0.176 | 6.993 / 7.073 |
+| exploit2_3 | 7.142 | 7.430 | **+0.288 ± 0.182** | 8.573 / 7.940 |
+| exploit (8-max) | 5.619 | 5.492 | **-0.126 ± 0.062** | 4.727 / 4.718 |
+| exploit2 (8-max) | 5.754 | 5.710 | -0.044 ± 0.070 | 5.175 / 5.025 |
+| elite | 4.681 | 4.676 | -0.005 ± 0.018 | |
+
+On 200 seeds S1 no longer wins heads-up against exploiter 2 (8.48 to 8.52). The 8-max exploit cell is down while
+exploiter 1's own points do not move: the points go to the pool seats (night bots) we meet in endgames. Located on
+that cell (100 seeds, F 5.648):
+
+| candidate | exploit (8-max) |
+|---|---|
+| P1: RP, `post_alive` 3 (= C14) | **-0.102 ± 0.088** |
+| P0: RP, `post_alive` 2 | -0.031 ± 0.047 |
+
+The heads-up pots of three-handed tables are where the balanced postflop gives up what F's reads take from weak seats;
+true heads-up costs nothing measurable. `post_alive` stays 2 (the default) from here; S1 was stopped there.
+
+### Two more solves: a counter to a wide opener, and small 3-bets
+
+- **Node-locked counter** (`solve_short.py lock`, `tables/short_hu_lock.json`, 153 KB, 17 min on one worker): the
+  heads-up tree with the small blind's first action locked to "open the top w of hands (preflop_rank), fold the rest"
+  (how both exploiters play: 85-95% opens, never a limp), the rest solved; w = 0.75, 0.9, 1.0 at 12 depths 6-100 bb,
+  400 iterations. Exploitability of the unlocked part 0.01-0.05 mbb/hand at 6-16 bb, 0.3-0.6 at 20-25, 0.8-1.2 at
+  32-50, 1.1-1.8 at 70-100. At 20 bb against a 90% opener the big blind folds 0% (equilibrium 6%) and jams 36% (21%).
+  Used (`short.wide_open`, off by default) as the big blind facing an open from a seat whose open rate from the
+  button (F's profiler, `open_rate` late, smoothed toward 0.5 with 6) is at least the dial, with the nearest w.
+- **Small 3-bets** (`solve_short.py sizes`, `tables/short_hu_t3.json`, 127 KB, 17 min): the tree rebuilt with the
+  big blind's 3-bet at 2.2x and 2.75x the open, the small blind's first action and the big blind's answer to the open
+  locked to the equilibrium of short_hu.json (the 3-bet's mass moved to the new size), the rest solved; 14 depths
+  18-100 bb (below 18 bb a 3.5x 3-bet is a jam in the tree), 400 iterations, exploitability 0.15-0.41 mbb/hand. At
+  40 bb the small blind's open range folds 0% to a 2.2x 3-bet and calls 94%, against 50% folds to the 3.5x one: the
+  old mapping (every 3-bet onto the 3.5x node) folded half the range to exploiter 1's ~2.2x 3-bets. Used
+  (`short.t3_sizes`, on whenever the small blind's preflop is routed) with a log-scale split between 2.2, 2.75 and 3.5.
+
+### Dev batch 5 (code 632a59b, 200 seeds): both blinds' preflop with the new tables; the big blind alone
+
+| candidate | exploit_hu | exploit_3 | exploit2_hu | exploit2_3 |
+|---|---|---|---|---|
+| S2d: R3, both roles, `steal_ftb` 0.42, `wide_open` 0.72 | **-0.345 ± 0.168** | **-0.112 ± 0.097** | **+1.087 ± 0.174** | **+0.315 ± 0.106** |
+
+And on the 8-max exploit cell (100 seeds): P2 = R3 with the big blind's preflop only (`post_alive` 2) **-0.060 ± 0.059**;
+P3 = the big blind's preflop alone (no postflop) +0.024 ± 0.045.
+
+S2d wins heads-up against exploiter 2 (8.627 to 8.373) but the small blind's preflop still loses against exploiter 1.
+Its lines (diagnostic seeds 9600-9659, 120 tables): the small 3-bets are now answered from their own table (357 times
+at 2.2x, 40 at 2.75x; the open range calls them instead of folding half), the steal read turns most limps into opens
+(exploiter 1 then folds 68% of its big blinds: +32.7 chips a steal), but the pots it calls (-47.9 chips a hand, 118) and
+the 3-bet pots we call (-17.4, 326) lose: as the preflop raiser in a called pot our postflop does worse than F's against
+this seat. The small blind's preflop stays off (`pre_roles` bb) in the candidates below.
+
+Postflop against the pool's seats: the balanced postflop defends against bettors and gives up what F's reads take
+from passive seats (P0 -0.031, P1 -0.102 above). S11's survey of heads-up bets per chance (flop and turn, leads and
+stabs with the aggressor's bets): exploiter 2 0.84, exploiter 1 0.86, elite2 0.76, elite1 0.56, rival3 0.43, rival1
+0.18, night's seats 0.34. So `short.post_aggr` (6e8b62f): the specialist plays a heads-up pot postflop only while the
+opponent's rate (F's profiler counters, smoothed toward 0.4 with 4 chances) is at least the dial; S3a uses 0.5.

@@ -14,7 +14,7 @@ HU = ["hero", "exploiter2"]
 THREE = ["hero", "exploiter2", "loose_aggro"]
 R2, R3 = Rules(n_players=2, payouts=(10, 7)), Rules(n_players=3, payouts=(10, 7, 5))
 ROUTE = "pre_hu=short,pre_3way=short,pre_allin=short,post_hu_bet=short,post_hu_chk=short"
-ON = {"short_route": ROUTE}
+ON = {"short_route": ROUTE, "short.three": True}
 
 
 def _freq(node, cls, act):
@@ -178,3 +178,20 @@ def test_a_wide_opener_meets_the_locked_counter():
     m.act(o)
     assert m.counts.get("wide", 0) == 1
     assert m.wants(o, _Prof(0.5)) and not m._wide  # a normal opener: the equilibrium tables
+
+
+def test_postflop_only_against_a_seat_that_bets_into_us():
+    class P(_Prof):
+        def __init__(self, bets, chances):
+            super().__init__(0.5)
+            self.pb_bet, self.ab_bet, self.pb_opp, self.ab_opp = [bets] * 2, [0] * 2, [chances] * 2, [0] * 2
+
+    m = SH.ShortMember(SH.ShortParams(post_aggr=0.5))
+    m.new_table(R2, 1, 2)
+    pre = [(0, Action.raise_to(40)), (1, Action.call())]
+    m.light_observe(_obs([], bets=(10, 20), stacks=(1990, 1980), to_call=10, hand_no=5))
+    hist = pre + [(1, Action.check()), (0, Action.raise_to(40))]
+    o = _obs(hist, bets=(40, 0), stacks=(1920, 1960), to_call=40, street=1, board=(0, 21, 46), pot=80, hand_no=5,
+             hole=(44, 45))
+    assert m.wants(o, P(9, 10))  # it bets 9 chances in 10: ours
+    assert not m.wants(o, P(1, 10))  # a passive seat: F plays
