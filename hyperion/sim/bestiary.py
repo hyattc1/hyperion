@@ -1539,6 +1539,40 @@ class Elite3Bot(_FixedSpeedInModel, _EliteBot):
         return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
 
 
+# ----- the exploiter: a black-box attacker of the ship bot (S2), a test opponent, never in a night pool -------------
+
+
+class Exploiter1Bot(_FixedSpeedInModel, PersonaBot):
+    """Test opponent `exploiter1`: the climb's red-team exploiter (docs/drills/exploiter/FINDINGS.md), built in ~80
+    minutes by a fresh agent that played the packed F (d3a7ca5) only as a black box. It finds F's seat from its bet-size
+    fingerprint, then 3-bets F's opens at the minimum, opens 90% heads-up, reads F's bet sizes and barrels it; against
+    the rest it is a push/fold and equity-chart bot with a Monte Carlo postflop. Reads `payouts` from the rules.
+    Frozen at md5 183c150c. Its postflop Monte Carlo stops on `time.perf_counter` (a 200 us budget, one clock read per
+    sample after the tenth), so as built its play follows the host; in mode "model" it plays at a fixed speed: its clock
+    advances STEP_US per read (calibration in docs/drills/s2-exploit-fixes-log.md), so it replays exactly. Never in a
+    night pool (fields `exploit`, `exploit_hu`, `exploit_3`)."""
+
+    MODULE = "exploiter1"
+    STEP_US = 5.5  # wall time per clock read over a whole Monte Carlo decision: 5.8 heads-up, 6.6 at 8-max at load 5
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self.mod = sys.modules[type(self.impl).__module__]
+        self._now = 0.0
+        self._clock_ns = types.SimpleNamespace(perf_counter=self._clock)
+
+    def _clock(self) -> float:
+        self._now += self.STEP_US * 1e-6
+        return self._now
+
+    def _set_speed(self, fixed: bool) -> None:
+        pass  # read at every act()
+
+    def act(self, obs: Observation) -> Action:
+        self.mod.time = self._clock_ns if self.fixed_speed else time
+        return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
+
+
 # ----- the hybrid candidate: rival 2's decision core behind Hero's shell ---------------------------------------
 
 
@@ -1632,6 +1666,7 @@ REGISTRY: dict[str, type] = {
     "elite1": Elite1Bot,  # elite field (prepared top-team build): tuning fields elite, elite_night
     "elite2": Elite2Bot,  # elite field: tuning fields elite, elite_night
     "elite3": Elite3Bot,  # elite field: the held-out elite judge (elite_judge), never tuned on
+    "exploiter1": Exploiter1Bot,  # the S2 exploiter of F (black-box attacker): a test opponent, never in a night pool
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
@@ -1744,6 +1779,13 @@ FIELDS["outside_strong"] = ("hero",) + OUTSIDE + ("rival4", "rival5", "agent_pus
 FIELDS["elite"] = ("hero", "elite1", "elite2", "rival1", "rival2", "rival3", "agent_pushfold", "agent_default")
 FIELDS["elite_night"] = ("hero", "elite1", "elite2") + _night.seat_names("elite_rest")
 FIELDS["elite_judge"] = ("hero", "elite3", "elite1", "elite2", "rival4", "rival5", "out_veterans", "out_quants")
+# the exploiter's fields (S2, docs/drills/exploiter/): as its arena seated it, the hero seat and exploiter1 with six
+# night-pool seats at 8-max, alone heads-up, and with the first night-pool seat three-handed (play them with Rules of
+# n_players 2 / 3: docs/drills/climb/rules/hu.json, three.json). A test opponent, never in a night pool.
+EXPLOITERS = ("exploiter1",)
+FIELDS["exploit"] = ("hero", "exploiter1") + _night.seat_names("night")[:6]
+FIELDS["exploit_hu"] = ("hero", "exploiter1")
+FIELDS["exploit_3"] = ("hero", "exploiter1") + _night.seat_names("night")[:1]
 
 # fields that seat an optional bot: present in FIELDS only when every bot in them is registered
 OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {
