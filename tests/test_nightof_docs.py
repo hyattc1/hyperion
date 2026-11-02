@@ -76,7 +76,7 @@ def rule_sheet_bullets(text: str) -> list[str]:
 def test_night_template_carries_prompt_01_fields_verbatim():
     prompt, template = read(PROMPTS / "01-rule-sheet.md"), read(PACKET / "NIGHT-template.md")
     bullets = rule_sheet_bullets(prompt)
-    assert len(bullets) == 8
+    assert len(bullets) == 11  # 8, then setup budget, timed events, size cap (drill 7)
     flat = norm(template)
     for b in bullets:
         assert b in flat, b
