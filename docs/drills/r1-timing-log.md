@@ -7,6 +7,46 @@ only (x 8 rotations = 1,600 tables per row), night field, payouts `lin` (8..1, t
 (50/25/12/6/3/2/1/1). Every number below has the 1-minute load average of the host next to it (8 cores, shared with
 other agents' jobs; at most 2 of my timing processes at once).
 
+## Summary (2026-11-01 23:55; screen seeds only, the coordinator runs the held-out confirmation)
+
+- **The cliff, not the clock, is what a slow box costs F.** Panic (Hero's cheap path for the rest of the table) is
+  worth -13.2 points a table on th and -1.58 on 8..1 when played whole, and on this host it fires on noise: F's own
+  decisions never reach 0.3 ms quiet (max 142 us on 8..1, 235 us on th with the fast ICM), but this WSL2 host inflates
+  ~1% of calls 2-7x, in CPU time too, and k multiplies that. Timeouts themselves are cheap (0.1-0.2 points each on th):
+  F without panic and F with panic time out equally (a preemption lands whatever path runs).
+- **Fix, behind dials (default = today's cliff, bit-identical in model mode):** SafeBot's governor (0.8 ms
+  near-timeouts, counted only in clusters of 5 in 60 calls, a ladder of levels before the cheap path, recovery after 40
+  quiet calls with backoff) and the composite's levels (noshadow, lean, hero). One word: `--dials slow_box`
+  (hyperion/ship.py `SLOW_RECIPES`; to ship it, `python -m hyperion.ship --set slow_box`).
+- **Fix without a dial (bit-identical play):** exact ICM (`icm_me`) at half the cost, which halves F's own tail under
+  top-heavy payouts.
+
+F as shipped (no dials, fast ICM) against F with `slow_box`, same seeds and same run (interleaved), night, 1,600
+tables a row:
+
+| payouts | k | F points | timeouts / table | panic tables | F + slow_box points | timeouts / table | panic tables | slow_box - F (paired) |
+|---|---|---|---|---|---|---|---|---|
+| th | 1 | 24.394 | 0.064 | 2 | 24.512 | 0.041 | 0 | +0.118 ± 0.173 |
+| th | 2 | 24.366 | 0.039 | 3 | 24.396 | 0.036 | 0 | +0.030 ± 0.177 |
+| th | 3 | 22.284 | 0.314 | 477 | 24.460 | 0.375 | 0 | +2.176 ± 0.642 |
+| th | 5 | 16.830 | 0.749 | 1372 | 24.348 | 0.775 | 0 | +7.517 ± 1.005 |
+| th | 8 | 13.961 | 1.833 | 1587 | 23.210 | 4.169 | 2 | +9.249 ± 1.166 |
+| lin | 1 | 5.979 | 0.026 | 0 | 5.972 | 0.024 | 0 | -0.007 ± 0.010 |
+| lin | 2 | 5.977 | 0.141 | 2 | 5.971 | 0.146 | 0 | -0.006 ± 0.021 |
+| lin | 3 | 5.937 | 0.138 | 60 | 5.976 | 0.142 | 0 | +0.039 ± 0.029 |
+| lin | 5 | 5.589 | 0.611 | 1127 | 5.971 | 0.716 | 0 | +0.382 ± 0.085 |
+| lin | 8 | 4.724 | 1.542 | 1590 | 5.907 | 2.572 | 3 | +1.183 ± 0.124 |
+
+With slow_box, F at k = 3 against F at k = 1 on the same seeds: th +0.066 ± 0.300, lin -0.003 ± 0.020 (as shipped:
+-2.110 ± 0.593 and -0.042 ± 0.025). Today's ship at 01baada (old ICM, separate runs at other loads): th k = 1 / 2 / 3
+24.316 / 24.137 / 22.171 with 5 / 61 / 438 panic tables; lin 5.980 / 5.923 / 5.825 with 13 / 219 / 519.
+Real contention (a busy process on each pinned core): slow_box +0.023 ± 0.052 (lin), +0.158 ± 0.686 (th), no panic.
+
+- **Largest risk left, not mine:** a kit whose hand-end signal has no chip deltas makes the adapter run hand_end inside
+  the next decision; F's hand_end (two full Heroes) is twice its decision. With every hand_end there, F on a 3x box
+  times out on 25% of decisions (-4.7 points on th). climb/h3-kit-fixes owns hand-end cost; numbers and two fixes are in
+  the section "The adapter's deferred hand_end".
+
 ## The harness: tools/slowbox.py (commit 01baada)
 
 - **Dilated clock.** `install(k, basis)` replaces `time.perf_counter`, `perf_counter_ns`, `monotonic`, `monotonic_ns`
@@ -190,3 +230,125 @@ cliff's cost follows the host's noise, from 0.03 to 0.16 a table on 8..1. Every 
 Recipe (hyperion/ship.py `SLOW_RECIPES`, not a window recipe): `--dials slow_box` = F_lad8 on the composite, the same
 governor with hybrid3_x's one level (lean) on the core bots, window / recover / 0.8 ms on Hero; stacks with the
 window recipes (`slow_box+survival`).
+
+## Candidates on lin, k = 1 and k = 2 (22:14-22:32, load 3.4-8.1)
+
+k = 1: F 5.979 ± 0.111, 0.026 timeouts a table, no panic; candidates -0.011 to +0.001 (F_lean -0.011 ± 0.010, its
+governor never fired: timeout noise), F_lad8 -0.007 ± 0.010. k = 2: F 5.977, 0.141 timeouts, 2 panic tables;
+candidates -0.024 to +0.002, none beyond noise (F_lad8 -0.006 ± 0.021). The baseline run at k = 2 had 219 panic
+tables at load 6.8-7.9; this one 2 at 5.7-8.1: how often this host's noise clusters varies from run to run, and the
+cliff's cost with it.
+
+## What each level costs in strength (model mode: --det --free, k = 1, seeds 10000-10199 x 8; 22:33-22:46)
+
+A whole table played at the level (`start_level`), paired against F on the same deals:
+
+| level | th (100-point table) | lin (8..1) |
+|---|---|---|
+| F_dl8, F_lad8 (the governor itself) | +0.000 ± 0.000 (bit-identical) | +0.000 ± 0.000 (bit-identical) |
+| noshadow | +0.056 ± 0.364 | -0.026 ± 0.029 |
+| lean | -0.627 ± 1.005 | +0.000 ± 0.000 (no exact ICM under 8..1) |
+| hero (every section to the hero member) | -1.306 ± 1.247 | -0.150 ± 0.118 |
+| base (hybrid3_x's play) | -1.817 ± 1.172 | -0.225 ± 0.114 |
+| cheap (today's panic) | -13.237 ± 1.131 | -1.580 ± 0.141 |
+
+The ladder's order (noshadow, lean, hero, then cheap) is the order of these costs; the cliff jumps straight to the
+last row. In model mode the governor cannot fire (panic_after is 10^9), so F with the recipe plays F's exact game.
+
+## Safety: far slower boxes, th (22:46-22:58, load 3.4-7.0 at k = 5, 4.4-5.2 at k = 8)
+
+| bot | k | points ± 95% | - F same run | timeouts / table | panic tables | calls in panic / degraded |
+|---|---|---|---|---|---|---|
+| F | 5 | 16.830 ± 0.917 | - | 0.749 | 1372 | 56.3% / - |
+| F_nopanic | 5 | 23.847 ± 1.056 | +7.016 ± 0.947 | 0.808 | 0 | 0 / 0 |
+| F_dl8 | 5 | 23.221 ± 1.017 | +6.391 ± 0.907 | 0.769 | 218 | 5.7% / 0 |
+| F_lad8 (slow_box) | 5 | 24.348 ± 1.084 | +7.517 ± 1.005 | 0.775 | 0 | 0 / 1.7% |
+| Hero | 5 | 23.281 ± 1.054 | +6.450 ± 1.186 | 0.160 | 7 | 0.1% / - |
+| F | 8 | 13.961 ± 0.730 | - | 1.833 | 1587 | 95.0% / - |
+| F_nopanic | 8 | 23.588 ± 1.057 | +9.627 ± 1.121 | 5.918 | 0 | 0 / 0 |
+| F_dl8 | 8 | 16.811 ± 0.845 | +2.850 ± 0.933 | 3.054 | 1392 | 55.4% / - |
+| F_lad8 (slow_box) | 8 | 23.210 ± 1.094 | +9.249 ± 1.166 | 4.169 | 2 | 0 / 41.3% (levels 1-3) |
+| Hero | 8 | 19.825 ± 0.961 | +5.864 ± 1.073 | 0.690 | 500 | 11.9% / - |
+
+The cliff is a collapse on a slow box: F at k = 5 is 7.5 below F with the recipe, at k = 8 9.2. With the recipe F at
+k = 5 is still at its k = 1 level (24.35 vs 24.39). At k = 8 even six timeouts a table cost less than any level
+(F_nopanic 23.59 vs the recipe's 23.21, inside noise), but a bot that never degrades folds every decision once the box
+is slow enough that its median decision passes 1 ms (k of about 15-20 for F); the ladder's last step is there for
+that box.
+
+## Safety: far slower boxes, lin (22:58-23:09, load 3.9-6.6)
+
+| bot | k | points ± 95% | - F same run | timeouts / table | panic tables | calls in panic / degraded |
+|---|---|---|---|---|---|---|
+| F | 5 | 5.589 ± 0.107 | - | 0.611 | 1127 | 34.3% / - |
+| F_nopanic | 5 | 5.962 ± 0.113 | +0.373 ± 0.088 | 0.581 | 0 | 0 / 0 |
+| F_dl8 | 5 | 5.929 ± 0.113 | +0.340 ± 0.085 | 0.639 | 53 | 1.2% / 0 |
+| F_lad8 (slow_box) | 5 | 5.971 ± 0.111 | +0.382 ± 0.085 | 0.716 | 0 | 0 / 0.5% |
+| Hero | 5 | 5.770 ± 0.099 | +0.181 ± 0.123 | 0.191 | 24 | 0.6% / - |
+| F | 8 | 4.724 ± 0.101 | - | 1.542 | 1590 | 94.4% / - |
+| F_nopanic | 8 | 5.966 ± 0.114 | +1.242 ± 0.127 | 2.751 | 0 | 0 / 0 |
+| F_dl8 | 8 | 5.575 ± 0.106 | +0.851 ± 0.118 | 2.067 | 1224 | 36.0% / - |
+| F_lad8 (slow_box) | 8 | 5.907 ± 0.108 | +1.183 ± 0.124 | 2.572 | 3 | 0.1% / 19.4% |
+| Hero | 8 | 5.566 ± 0.099 | +0.842 ± 0.119 | 0.795 | 533 | 12.4% / - |
+
+F with the recipe holds its k = 1 level (5.98) to k = 5 and loses 0.07 at k = 8; F as shipped loses 0.39 at k = 5
+and 1.25 at k = 8.
+
+## The adapter's deferred hand_end on a slow box (`--defer`, th, 23:09-23:22, load 6.1-7.7)
+
+`--defer` delivers every hand_end at the top of the next act, inside the timed call: the adapter's behaviour for a kit
+whose hand-end signal has no chip deltas, final stacks or showdown, on every hand (`hold_all`; by default only on hands
+where a seat acted after our reply). Most of our decisions are the first of a hand (a preflop fold), so most calls
+carry a hand_end.
+
+| bot | k | points ± 95% | - F same run | timeouts / table | p50 / p99 us (box) |
+|---|---|---|---|---|---|
+| F | 1 | 24.550 ± 1.073 | - | 0.629 | 244 / 737 |
+| F_lad8 (slow_box) | 1 | 24.438 ± 1.030 | -0.112 ± 0.518 | 0.705 | 245 / 759 |
+| Hero | 1 | 23.045 ± 1.028 | -1.506 ± 1.251 | 0.215 | 116 / 447 |
+| F | 3 | 19.663 ± 1.059 | - | 38.423 | 764 / 2124 |
+| F_nopanic | 3 | 19.609 ± 1.076 | -0.054 ± 1.036 | 41.304 | 781 / 2193 |
+| F_lad8 (slow_box) | 3 | 20.241 ± 1.038 | +0.578 ± 1.071 | 41.654 | 785 / 2135 |
+| Hero | 3 | 22.684 ± 1.027 | +3.022 ± 1.299 | 4.826 | 350 / 1221 |
+
+With hand_end in the timed call, F on a 3x box times out on a quarter of its decisions and loses ~4.7 points (of 100);
+the governor cannot help (SafeBot times act only, and no level makes hand_end cheaper). This is the largest timing risk
+found, and it is not mine to fix (climb/h3-kit-fixes owns hand-end cost). What I would hand them: (1) on a kit with no
+chip deltas at hand end, `defer_hand_end = False` on the adapter keeps hand_end out of the timed call; (2) F runs two
+full Hero hand_ends per hand (finding 3); the base's fallback Hero acts on ~0.1% of plain-table decisions
+(`hero:core_none`: 3 in 4,495 on 16 tables), so computing its ICM curve lazily, at its first act after a hand end, is
+bit-identical play and removes ~28% of F's hand_end; its profiler pass is another ~13%.
+
+## Real contention (`--contend 1 --duty-ms 5,5 --cpus 6,7 --clock wall`, k = 1; 23:22-23:40, load 6.3-9.6)
+
+Each worker pinned to a core shared with one busy process that wants half of it (exponential 5 ms busy / 5 ms asleep):
+
+| bot | payouts | points ± 95% | - F same run | timeouts / table | panic tables |
+|---|---|---|---|---|---|
+| F | lin | 5.939 ± 0.112 | - | 1.239 | 32 |
+| F_nopanic | lin | 5.969 ± 0.113 | +0.029 ± 0.058 | 1.256 | 0 |
+| F_dl8 | lin | 5.975 ± 0.112 | +0.036 ± 0.055 | 1.289 | 19 |
+| F_lad8 (slow_box) | lin | 5.962 ± 0.115 | +0.023 ± 0.052 | 1.268 | 0 |
+| Hero | lin | 5.779 ± 0.102 | -0.160 ± 0.120 | 0.664 | 3 |
+| F | th | 23.981 ± 0.997 | - | 1.413 | 87 |
+| F_nopanic | th | 24.213 ± 1.075 | +0.232 ± 0.720 | 1.496 | 0 |
+| F_dl8 | th | 24.204 ± 1.091 | +0.224 ± 0.739 | 1.457 | 50 |
+| F_lad8 (slow_box) | th | 24.139 ± 1.057 | +0.158 ± 0.686 | 1.551 | 0 |
+| Hero | th | 23.293 ± 1.019 | -0.687 ± 1.241 | 0.718 | 12 |
+
+A shared core costs F 1.2-1.5 timeouts a table, the same with or without panic: a preemption lands mid-decision
+whatever path is running. Hero's are half (decisions half as long, half the exposure) but it is weaker. The recipe
+removes the panics and is level-to-ahead of F inside noise.
+
+## What I would still try
+
+- Hand-end cost in the timed call (owned by climb/h3-kit-fixes): `defer_hand_end = False` on a no-delta kit; a lazy
+  ICM curve for the base's fallback Hero (bit-identical, ~28% of F's hand_end); then `slowbox run --defer` again.
+- The ladder at k >= 8 steps down sooner than it pays (F_nopanic 23.59 vs 23.21 on th, 5.97 vs 5.91 on lin, inside
+  noise): try 0.9 ms or 8 overruns in the window; and a speed estimate (the minimum of recent call times) to pick the
+  level at table start instead of after the first cluster.
+- `slow_box` on the fallbacks: it resolves for hybrid3_x (ladder: lean, then cheap) and Hero (window, recover) but is
+  unmeasured there.
+- The adapter's own cost (to_observation, the history rebuild) is in the kit's timer and dilates with k; the harness
+  times bot.act only (the gate's p99 329 us vs ~240 us at a table). A `--kit` seat through hyperion/drills/adapter.py.
+- The dilation model on real slower hardware (one run on a slower machine would calibrate it).
