@@ -382,3 +382,13 @@ and (in judges) `elite_judge`.
   `--aim strong`, all stages, from goal/wt_measure2 at da4bd64, after H3's two runs.
 - Backlog from S9: a per-seat gate; rival2 for the section (needs a light shadow: its Monte Carlo costs ~260 us as a
   shadow); a mirror whose copies follow the candidate.
+
+## 08:09: owner question: sim opponents must adapt to the twist too; V-d started
+- The owner pointed out that on the night every team's bot knows the twist, so our sim's opponents must too. Today
+  only four twists (toss, bounty, short deck, river of blood) plus auction and keep2 have aware opponents, each
+  hand-built; 20 catalog entries and any unseen twist have only twist-blind opponents, which flatter F.
+- V-d (goal/wt_vd, climb/vd-generic-aware): generic aware archetypes that take their play from the Rules and the
+  variant's own hooks (gen_mc: Monte Carlo through the engine's own deal and showdown code; gen_tag, gen_pushfold:
+  ranges re-cut from the variant's own equity table), one command to field them under any variant (target under 2
+  minutes, usable in the hour), validated against the hand-built aware bots, then F's margin against them on every
+  catalog entry: the new honest variant board and the variants track's targets.
