@@ -125,6 +125,7 @@ def test_elite1_light_shadow_plays_as_the_full_one(monkeypatch):
     _model(monkeypatch)
     out = []
     for light in (False, True):
+        monkeypatch.setattr(CB, "ALWAYS_LIGHT", {"elite1"} if light else set())
         nm = f"s9_light{int(light)}"
         CB.register(nm, dials={**CB.SHIP_DIALS, "route": ROUTE_E1, "light": light})
         rep = R.run_tournament(B.field_names(f"mirror@{nm}"), 1, seed=1, rotate=True, mode="model",
@@ -163,3 +164,24 @@ def test_strong_route_gate(monkeypatch):
     assert _bvb(preflop_obs("AsAh", 0, actions=folds))
     assert not _bvb(preflop_obs("AsAh", 7, actions=folds[:-1]))  # the button, both blinds still in
     assert not _bvb(preflop_obs("AsAh", 0, actions=folds[:-1] + [(7, Action.raise_to(50))]))  # opened
+
+
+def test_the_strong_route_plays_exactly_as_f_on_every_twist(monkeypatch):
+    """elite1 is twist-blind: on a table that is not hold'em by Hero's test (hero.holdem_table: only payouts, blinds,
+    antes or a straddle may differ) the composite plays the base in its sections, so with the gate open the candidate
+    plays every catalogued twist exactly as F (on H4 it lost on auction, bounty and knockout_bounty before this)."""
+    from hyperion.drills import variants as V
+    from hyperion.strategy.hero import holdem_table
+
+    _model(monkeypatch)
+    CB.register("s9_tw_f", dials=dict(CB.SHIP_DIALS))
+    CB.register("s9_tw_c", dials={**CB.SHIP_DIALS, "strong_route": "pre_open_10=elite1x,pre_open_20=elite1x"})
+    twists = [n for n in V.catalog_names() if not holdem_table(V.get(n, seed=7).rules)]
+    assert {"bounty", "knockout_bounty", "auction", "pot_limit", "swap_holdem"} <= set(twists)
+    for name in twists:
+        res = []
+        for nm in ("s9_tw_f", "s9_tw_c"):
+            rep = R.run_tournament(B.field_names(f"realistic@{nm}"), 1, seed=7, rotate=False, mode="model",
+                                   hero_config=dict(MODEL_HERO), table_offset=10000, variant=V.get(name, seed=7))
+            res.append(rep.bots[nm].samples)
+        assert res[0] == res[1], name
