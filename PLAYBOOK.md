@@ -196,7 +196,16 @@ One axis, one patch, as dials or a single small function. The axis sections in `
 are the pre-reasoned fixes; on a ship bot built on rival 3's core most axes either move a table Hero plays whole (its patch as
 `hero.<key>` dials) or need nothing, and antes are the core's one dial set. Run the sim in model mode with
 and without the dials; keep only if points did not drop beyond the confidence interval, then strict, errors
-zero. A kept patch goes into `DIALS` (`python -m hyperion.ship --set '<dict>'`), so every tool and the package carry it. Drill 2's lesson: when the sim is
+zero. The realistic field plays the twist only where we wrote aware bots (toss, bounty, short deck, river of blood,
+auction, keep-two), so on any other twist it flatters both lines: measure the same dials against opponents that play
+the twist, one command, `python tools/climb_accept.py --stages aware --aware generic:<variant> --base '' --cand
+'<the dict>' --set 10000:10100 --workers 2`. `<variant>` is the catalog name, or tonight's hooks file when the twist
+is new (`submission/tonight.py:variant`, in the shape of `hyperion/drills/variant_file_example.py`: Rules naming the
+variant plus hooks). It builds the variant's generic table first when missing (a catalog entry's is committed: 0 s; a
+new twist 15-45 s at two workers, by load) and seats F and the candidate, paired, in `generic_aware` (gen_mc, gen_tag,
+gen_pushfold deal, score and pay through the variant's own hooks: hyperion/sim/generic.py). Rehearsed on a twist the
+catalog lacks (three boards, as a file): 2.4 minutes end to end at load 12 with two workers (its table
+14 s, then F and the candidate on 100 seeds x 8). Keep the patch only if it is not beyond noise down there either. A kept patch goes into `DIALS` (`python -m hyperion.ship --set '<dict>'`), so every tool and the package carry it. Drill 2's lesson: when the sim is
 blind to what the patch compensates for (it could not play antes), the prompt's own revert rule
 fires and the patch is dropped. That is correct behaviour, not a failure. Ship unpatched rather than
 ship unverified.
@@ -206,7 +215,8 @@ ship unverified.
 Submit the ship bot. Hash it. `cp` it to `frozen/T1`. Write the hash and minute in `NIGHT.md`. Then, while T1 plays,
 warm the windows' cache once (about 1.5 minutes; the bot is not touched): `python tools/climb_accept.py --stages window
 --base '' --cand '' --rules submission/rules_tonight.json --workers 4` (plus `--variant <name>`), so the first
-window plays only its candidate. From 0:55 to 1:00 touch nothing else; re-read the submission rules once: under 100 MB,
+window plays only its candidate; and, if Stage 5 did not build it, the twist's generic table (`python -m
+hyperion.sim.generic --prepare <variant>`), so a window can check a recipe against the aware field too. From 0:55 to 1:00 touch nothing else; re-read the submission rules once: under 100 MB,
 no network, entry point named exactly as the kit wants.
 
 ### Stage 6: WINDOWS (after T1, five times)
@@ -465,6 +475,7 @@ The track is decided in Stage 0, never on the night.
 | 2026-11-01 | Ship the composite: `SHIP = "composite"` (rival 3's core preflop, Hero postflop and short facing a raise, two climb dials; `hyperion/compose/`); section 0 "What we ship" says so; section 6 evidence. hybrid3_x and Hero stay one word away (`--bot`) | compose |
 
 | 2026-11-02 | The windows on F (backlog F1): the composite's own recipes (`COMPOSITE_RECIPES`: no dead keys, the layer's `exploit.*` keys, `latency` = no shadow decisions instead of the layer off), checked on F on night and on a field showing each signal; section 5 rewritten with F's column and the stale tables removed; Stage 6 and prompt 06 use `tools/climb_accept.py --stages window` (paired, tonight's rules) with rehearsed step times; warm its cache at the freeze; the gate finds the entry | F1 worker |
+| 2026-11-02 | Opponents that read any twist: `gen_mc`, `gen_tag`, `gen_pushfold` (hyperion/sim/generic.py) deal, score and pay through the variant's own hooks, no per-twist code; field `generic_aware`. Stage 5 (and prompt 05) measures a patch against them in one command, `tools/climb_accept.py --stages aware --aware generic:<variant or file>`; a new twist is a file in the shape of `hyperion/drills/variant_file_example.py`; the freeze warms its table. Section 4b: F against them on all 26 entries (`tools/aware_board.py`) | V-d worker, docs/drills/climb/vd-log.md |
 ---
 
 ## 10. The email (send before the event)

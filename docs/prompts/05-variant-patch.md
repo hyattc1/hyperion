@@ -17,6 +17,16 @@ then the same with `--dials '<the dict>'`. Keep the patch only if the ship line'
 their CI, else revert it and say so. Kept: `python -m hyperion.ship --set '<the dict>'` writes it into `DIALS` in
 `hyperion/ship.py` (the kit simulator, latency, pack and the sim all read it), then one strict run: errors zero.
 
+The realistic field ignores most twists (only toss, bounty, short deck, river of blood, auction and keep-two have
+opponents that play them), so check the patch against opponents that read tonight's rules too, in one command:
+`python tools/climb_accept.py --stages aware --aware generic:<variant> --base '' --cand '<the dict>' --set
+10000:10100 --workers 2`. `<variant>` is the catalog name; for a twist the catalog lacks, first write its Rules and
+hooks as a file (copy `hyperion/drills/variant_file_example.py`: name the variant in `Rules.extras["variant"]`, give
+the hooks `restore()` if their public state is published under another name) and pass `generic:path/to/file.py:variant`.
+The command builds the twist's table if missing (catalog: committed; a new twist 15-45 s) and pairs F and the
+candidate in `generic_aware`, whose Monte Carlo, TAG and push/fold seats deal, score and pay through the variant's own
+hooks. Rehearsed on a twist the catalog lacks: 2.4 minutes end to end (table 14 s) at two workers. A patch beyond noise down there is reverted even if realistic liked it.
+
 ## Strength ordering moved (permuted ranks, short deck, new categories)
 The evaluator remaps ranks through `Rules.rank_order`. If prompt 03 ended on its restore branch,
 caption every line "on hold'em tables" and expect the patch to do nothing. Patch:
