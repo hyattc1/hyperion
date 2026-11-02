@@ -91,27 +91,42 @@ def icm_me(stacks, me: int, payouts) -> float:
     size = 1 << m
     dp = [0.0] * size
     held = [0.0] * size
-    cnt = [0] * size
     dp[0] = 1.0
     out = 0.0
-    for mask in range(size):
+    for mask, (j, prev, cnt, succ) in enumerate(_subset_plan(m)):
         if mask:
-            low = mask & -mask
-            j = low.bit_length() - 1
-            prev = mask ^ low
             held[mask] = held[prev] + opp[j]
-            cnt[mask] = cnt[prev] + 1
         pr = dp[mask]
         if pr == 0.0:
             continue
         rem = total - held[mask]
-        out += pr * mine / rem * pays[cnt[mask]]
+        out += pr * mine / rem * pays[cnt]
         q = pr / rem
-        for j in range(m):
-            b = 1 << j
-            if not mask & b:
-                dp[mask | b] += q * opp[j]
+        for t, k in succ:
+            dp[t] += q * opp[k]
     return out
+
+
+_PLANS: dict = {}
+
+
+def _subset_plan(m: int) -> list:
+    """For each mask of m opponents: (its lowest seat index, the mask without it, its size, and the (mask | 1 << k, k)
+    for every k outside it, k ascending). icm_me walks this instead of testing bits: the same additions in the same
+    order, so the same floats, about 1.6x faster (built once per m, at import for m <= 9)."""
+    plan = _PLANS.get(m)
+    if plan is None:
+        plan = []
+        for mask in range(1 << m):
+            low = mask & -mask
+            plan.append((low.bit_length() - 1 if mask else -1, mask ^ low, bin(mask).count("1"),
+                         tuple((mask | 1 << k, k) for k in range(m) if not mask >> k & 1)))
+        _PLANS[m] = plan
+    return plan
+
+
+for _m in range(1, 10):  # up to ten seats
+    _subset_plan(_m)
 
 
 def _cap_value(stacks, me: int, pays, cap) -> float:
@@ -147,6 +162,11 @@ def icm_value(stacks, me: int, payouts, buckets: int = ICM_BUCKETS, subdiv: int 
             k += 1
     if _linear_step([float(x) for x in payouts[:k]]) is not None and len(payouts) >= k:
         return icm_me(stacks, me, payouts)
+    return _icm_rounded(stacks, me, tuple(float(p) for p in payouts), buckets, subdiv)
+
+
+def _icm_rounded(stacks, me: int, pays_t: tuple, buckets: int, subdiv: int) -> float:
+    """icm_value's non-linear case: the memoised exact value on the rounded key (`pays_t` the payouts as floats)."""
     total = 0.0
     for s in stacks:
         if s > 0:
@@ -164,7 +184,7 @@ def icm_value(stacks, me: int, payouts, buckets: int = ICM_BUCKETS, subdiv: int 
     if mine > 0:
         rest = total - mine
         key[me] = max(1, int(mine / rest * others + 0.5)) if rest > 0 and others > 0 else sub * buckets
-    return _icm_bucketed(tuple(key), me, tuple(float(p) for p in payouts))
+    return _icm_bucketed(tuple(key), me, pays_t)
 
 
 @dataclass
@@ -284,9 +304,13 @@ class IcmCurve:
                     points.append(t - d)
                     points.append(t + d)
             points = sorted({x for x in points if x >= 0.0})
+        lin: dict = {}  # players with chips -> (their payouts as floats, the linear step) or None: icm_value's test
+        pays_t = None
         for x in points:
             if x > total:
                 x = total
+            if xs and x <= xs[-1]:  # a repeat (several multiples past every chip): dropped before it is priced
+                continue
             if x <= 0:
                 v = bust_value
             else:
@@ -295,9 +319,30 @@ class IcmCurve:
                     st = [x if s == me else (stacks[s] * scale if stacks[s] > 0 else 0) for s in range(len(stacks))]
                 else:
                     st = [x if s == me else 0 for s in range(len(stacks))]
-                v = icm_value(st, me, pays, buckets, subdiv) if cap is None else _cap_value(st, me, pays, cap)
-            if xs and x <= xs[-1]:
-                continue
+                if cap is not None:
+                    v = _cap_value(st, me, pays, cap)
+                else:
+                    # icm_value(st, me, pays, buckets, subdiv), with its per-call payout tests done once per k
+                    opp = [c for i, c in enumerate(st) if i != me and c > 0]
+                    k = len(opp) + 1
+                    lk = lin.get(k, False)
+                    if lk is False:
+                        pk = [float(p) for p in pays[:k]]
+                        step = _linear_step(pk)
+                        lk = lin[k] = (pk, step) if step is not None and len(pays) >= k else None
+                    if lk is not None:  # icm_me's linear branch: the same sum in the same order
+                        pk, step = lk
+                        if k == 1:
+                            v = pk[0]
+                        else:
+                            acc = 0.0
+                            for c in opp:
+                                acc += c / (x + c)
+                            v = pk[0] - step * acc
+                    else:
+                        if pays_t is None:
+                            pays_t = tuple(float(p) for p in pays)
+                        v = _icm_rounded(st, me, pays_t, buckets, subdiv)
             xs.append(x)
             vs.append(v)
         if xs[-1] < total:  # holding every chip is first place exactly: the curve's ceiling
@@ -430,6 +475,7 @@ class HeroCore:
             self.prof.reset(n_players, seat)
         if self.exploit is not None:
             self.exploit.new_table(n_players, seat)
+        self._curve_todo = None
         if self.cfg.use_icm:
             self._curve(self.last_stacks, 0)
         gc.freeze()  # tables and evaluator dicts leave the collector's reach: no gen-2 pause mid-decision
@@ -480,8 +526,41 @@ class HeroCore:
     def set_panic(self, on: bool) -> None:
         self.panic = on
 
+    # A kit that times the hand end (drill 7's kit E: 1 ms per event, interrupted at 1.05 ms): `defer_hand_end(True)`
+    # leaves the ICM curve and the profiler's dials pending at hand end, and `idle()` (an event callback with time to
+    # spare, the next hand's start) computes them; a decision that comes first computes them itself. Either way every
+    # read sees the values the eager hand end would have computed. `lazy`: the owner's standing choice (the hybrids'
+    # fallback Hero is lazy and idle() leaves it so; it computes when it decides).
+    lazy = False
+    deferred = False
+
+    def defer_hand_end(self, on: bool) -> None:
+        self.deferred = bool(on)
+        self._lazy_now()
+
+    def set_lazy(self, on: bool) -> None:
+        self.lazy = bool(on)
+        self._lazy_now()
+
+    def _lazy_now(self) -> None:
+        on = self.lazy or self.deferred
+        self.lazy_curve = on
+        if self.prof is not None:
+            self.prof.lazy = on
+
+    def idle(self) -> None:
+        """Pending hand-end work, now (outside any decision). A lazy Hero keeps its own pending until it decides."""
+        if self.lazy:
+            return
+        self.settle()
+        prof = self.prof
+        if prof is not None and prof._stale:
+            prof._settle()
+
     def act(self, obs: Observation) -> Action:
         self.last_path = "act"  # until a module is chosen: an error before that point is attributed here
+        if self._curve_todo is not None:
+            self.settle()
         hole = obs.hole
         board = obs.board
         rm = self._remap
@@ -615,6 +694,16 @@ class HeroCore:
         return 0.0 if t <= 0.0 else cfg.ror_margin * (1.0 if t > 1.0 else t)
 
     def hand_end(self, result: HandResult) -> None:
+        """The chips after the hand first (a few assignments: an interrupted hand end leaves the chain whole), then the
+        reads, then the ICM curve for the next hand. `lazy_curve`: the curve waits until a decision needs it (settle(),
+        at the top of act and variant_decide): the same curve from the same chips, paid only on hands this Hero
+        plays (the hybrids' fallback Hero). An interrupted curve stays pending and is computed at the next settle()."""
+        base = self.hand_start if (self.hand_start is not None and result.hand_no == self.hand_no) else self.last_stacks
+        after = None
+        if base is not None and len(result.deltas) == len(base):
+            after = [max(0, base[s] + result.deltas[s]) for s in range(len(base))]
+            self.last_stacks = after
+        self.hand_start = None
         if self.prof is not None:
             self.prof.hand_end(result)
         if self.exploit is not None:
@@ -622,13 +711,20 @@ class HeroCore:
                 self.exploit.hand_end(result)
             except Exception:  # noqa: BLE001
                 pass
-        base = self.hand_start if (self.hand_start is not None and result.hand_no == self.hand_no) else self.last_stacks
-        if base is not None and len(result.deltas) == len(base):
-            after = [max(0, base[s] + result.deltas[s]) for s in range(len(base))]
-            self.last_stacks = after
-            if self.cfg.use_icm and after[self.seat] > 0:
-                self._curve(after, result.hand_no + 1)
-        self.hand_start = None
+        if after is not None and self.cfg.use_icm and after[self.seat] > 0:
+            self._curve_todo = (after, result.hand_no + 1)
+            if not self.lazy_curve:
+                self.settle()
+
+    lazy_curve = False
+    _curve_todo = None  # (chips after the last hand, its next hand number): the curve still to compute
+
+    def settle(self) -> None:
+        """Compute the ICM curve the last hand end left pending, if any (cleared only once it is done)."""
+        todo = self._curve_todo
+        if todo is not None:
+            self._curve(todo[0], todo[1])
+            self._curve_todo = None
 
     def _curve(self, stacks, next_hand: int) -> None:
         """Recompute the ICM value curve for `stacks` (once per hand, outside the decision budget)."""
@@ -712,6 +808,8 @@ class HeroCore:
     # ------------------------------------------------------------------ variant decisions
     def variant_decide(self, prompt: dict):
         """The engine's ask(): discard / swap / buy_card. None means the hook's default."""
+        if self._curve_todo is not None:
+            self.settle()
         kind = prompt.get("decision")
         hole = tuple(prompt.get("hole") or ())
         board = tuple(prompt.get("board") or ())
@@ -809,6 +907,16 @@ class Hero:
         except Exception:  # noqa: BLE001
             self.safe.errors += 1
             return None
+
+    def defer_hand_end(self, on: bool = True) -> None:
+        """HeroCore.defer_hand_end: for a kit that times the hand end; call idle() from a callback with time to spare."""
+        self.core.defer_hand_end(on)
+
+    def idle(self) -> None:
+        try:
+            self.core.idle()
+        except Exception:  # noqa: BLE001
+            self.safe.errors += 1
 
 
 def make_bot(config: Config | None = None) -> Hero:

@@ -17,6 +17,17 @@ The cards follow the rules (--rules, else --variant's): the hole-card count (the
 street), the board sizes and the deck (removed ranks left out), so a three-card game is timed on three-card
 decisions and its variant tables, not on hold'em hands its tables do not hold (drill 6: 468 SafeBot errors).
 Stdlib only, plus tests/strategy_helpers.py's generator for the betting state.
+
+    python tools/latency.py --hand-end [--bot ...] [--tables 20] [--field realistic] [--rules ...] [--reps 3]
+
+`--hand-end` times the bot's hand end (kits that time it: drill 7's kit E gave every event 1 ms) and a table's first
+decision. A hand end's cost depends on the table's history, so random states will not do: it plays `--tables` tables
+in the simulator (model mode, the bot in Hero's seat of `--field`), records the bot's calls, then replays them on a
+fresh bot per table, `--reps` times, each hand_end timed alone into a preallocated list. It prints the first pass and
+the per-call minimum over the passes (a preempted call reports the scheduler, not the bot), the decisions of the same
+replay, and each table's first decision. Each table starts with the ICM memos empty, as in a fresh process per table
+(the worst case: a kit that keeps one process warms them over the tables). Exit 1 if the minimum's p99 exceeds
+--p99-us.
 """
 from __future__ import annotations
 
@@ -24,6 +35,7 @@ import argparse
 import gc
 import importlib
 import json
+import os
 import random
 import sys
 import time
@@ -198,6 +210,150 @@ def line(label: str, m: dict) -> str:
             f"  wall {m['wall'] * 1e3:.0f} ms  cpu {m['cpu'] * 1e3:.0f} ms  gc gen0/1/2 {m['gc'][0]}/{m['gc'][1]}/{m['gc'][2]}")
 
 
+class _Recorder:
+    """A seat that plays `impl` and keeps its calls (copies: the engine reuses nothing, but a bot may)."""
+
+    def __init__(self, impl):
+        self.impl, self.log = impl, []
+
+    def new_table(self, rules, seat, n):
+        self.log.append(("nt", rules, seat, n))
+        self.impl.new_table(rules, seat, n)
+
+    def act(self, obs):
+        import copy
+        self.log.append(("act", copy.deepcopy(obs)))
+        return self.impl.act(obs)
+
+    def hand_end(self, result):
+        import copy
+        self.log.append(("he", copy.deepcopy(result)))
+        self.impl.hand_end(result)
+
+    def variant_decide(self, prompt):
+        import copy
+        self.log.append(("vd", copy.deepcopy(prompt)))
+        return self.impl.variant_decide(prompt)
+
+
+def record_tables(make, rules: Rules, field: str, tables: int, seed: int, variant=None) -> list[list]:
+    """Each table's call log for the bot `make(seed)` in Hero's seat of `field` (model mode, rotation 0)."""
+    from hyperion.sim import bestiary as B
+    from hyperion.sim.engine import play_table
+
+    logs = []
+    for t in range(tables):
+        table_seed = seed * 1_000_003 + t
+        rng = random.Random(table_seed)
+        names = B.field_names(field)
+        rng.shuffle(names)
+        bots, rec = [], None
+        for s_, nm in enumerate(names):
+            if nm == "hero" and rec is None:
+                rec = _Recorder(make(table_seed * 64 + s_))
+                bots.append(rec)
+            else:
+                bots.append(B.make_bot(nm, seed=table_seed * 64 + s_))
+        if rec is None:
+            raise SystemExit(f"field {field!r} has no hero seat")
+        play_table(bots, rules, seed=table_seed, mode="model", variant=variant.new_hooks() if variant else None)
+        logs.append(rec.log)
+    return logs
+
+
+def _cold_caches() -> None:
+    """Empty the process-wide ICM memos (Hero's rounded-key exact ICM, core.icm's equities)."""
+    try:
+        from hyperion.strategy.hero import _icm_bucketed
+        _icm_bucketed.cache_clear()
+    except ImportError:
+        pass
+    try:
+        from hyperion.core.icm import _cached
+        _cached.cache_clear()
+    except ImportError:
+        pass
+
+
+def replay(make, logs: list[list], seed: int, defer: bool = False) -> dict:
+    """Replay each table's calls on a fresh bot; every hand_end and act timed alone (preallocated lists). `defer`:
+    the bot's defer_hand_end(True), and its idle() timed alone right after each hand end, as the kit's next event."""
+    n_he = sum(1 for log in logs for ev in log if ev[0] == "he")
+    n_act = sum(1 for log in logs for ev in log if ev[0] == "act")
+    he, acts, first, idle = [0.0] * n_he, [0.0] * n_act, [], [0.0] * n_he
+    pc = time.perf_counter
+    i = j = 0
+    for t, log in enumerate(logs):
+        _cold_caches()  # each table as in a fresh process: the recording (and the last pass) warmed the ICM memos
+        bot = make(seed * 64 + t)
+        if defer:
+            bot.defer_hand_end(True)
+        k = 0
+        for ev in log:
+            op = ev[0]
+            if op == "he":
+                x = ev[1]
+                t0 = pc()
+                bot.hand_end(x)
+                he[i] = pc() - t0
+                if defer:
+                    t0 = pc()
+                    bot.idle()
+                    idle[i] = pc() - t0
+                i += 1
+            elif op == "act":
+                x = ev[1]
+                t0 = pc()
+                bot.act(x)
+                acts[j] = pc() - t0
+                if k == 0:
+                    first.append(acts[j])
+                j += 1
+                k += 1
+            elif op == "nt":
+                bot.new_table(ev[1], ev[2], ev[3])
+            else:
+                bot.variant_decide(ev[1])
+    return {"he": he, "act": acts, "first": first, "idle": idle}
+
+
+def hand_end_main(a, rules: Rules, dials) -> int:
+    from hyperion import ship
+
+    variant = None
+    if a.variant and not a.rules:
+        from hyperion.drills import variants
+        variant = variants.get(a.variant)
+
+    def make(seed):
+        if a.bot == "ship":
+            return ship.make_bot(None, dials, seed=seed)
+        if a.bot in ship.BUILDERS:
+            return ship.make_bot(a.bot, {} if dials is None else dials, seed=seed)
+        return load_bot(a.bot, dials)
+
+    logs = record_tables(make, rules, a.field, a.tables, a.seed, variant)
+    passes = [replay(make, logs, a.seed, a.defer) for _ in range(max(1, a.reps))]
+    best = {k: [min(p[k][i] for p in passes) for i in range(len(passes[0][k]))] for k in ("he", "act", "first", "idle")}
+    label = ship.describe(None, dials) if a.bot == "ship" else a.bot
+    print(f"bot {label}  rules {a.rules or (a.variant and 'variant ' + a.variant) or 'default'}  payouts {rules.payouts}  "
+          f"field {a.field}  tables {a.tables}  seed {a.seed}  reps {len(passes)}{'  defer' if a.defer else ''}  "
+          f"load {os.getloadavg()[0]:.1f}")
+    nul = {"wall": 0.0, "cpu": 0.0, "gc": [0, 0, 0]}
+    print(line("hand_end", {**nul, "times": passes[0]["he"]}) + "   (first pass)")
+    print(line("hand_end min", {**nul, "times": best["he"]}) + f"   (per-call minimum of {len(passes)})")
+    if a.defer:
+        print(line("idle min", {**nul, "times": best["idle"]}) + "   (defer_hand_end: the pending work, after each hand end)")
+    print(line("act min", {**nul, "times": best["act"]}))
+    print(line("first act min", {**nul, "times": best["first"]}) + "   (each table's first decision)")
+    p99 = stats(best["he"])["p99"]
+    if p99 * 1e6 > a.p99_us:
+        print(f"FAIL hand_end p99 {p99 * 1e6:.1f} µs > {a.p99_us:g} µs")
+        return 1
+    print(f"OK hand_end p99 {p99 * 1e6:.1f} µs <= {a.p99_us:g} µs")
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--bot", default="ship", help="ship (hyperion/ship.py's bot, the default) | hybrid3_x | hero | "
@@ -213,12 +369,24 @@ def main(argv=None) -> int:
     p.add_argument("--seed", type=int, default=2026)
     p.add_argument("--seat", type=int, default=0, help="our seat in every observation (default 0)")
     p.add_argument("--p99-us", type=float, default=500.0, help="exit 1 above this p99 (default 500)")
+    p.add_argument("--hand-end", action="store_true", help="time the bot's hand end on recorded tables (module doc)")
+    p.add_argument("--tables", type=int, default=20, help="--hand-end: tables to record (default 20)")
+    p.add_argument("--field", default="realistic", help="--hand-end: the field, the bot in Hero's seat")
+    p.add_argument("--reps", type=int, default=3, help="--hand-end: replays; each call's minimum is kept (default 3)")
+    p.add_argument("--defer", action="store_true", help="--hand-end: the bot's defer_hand_end(True), idle() timed after "
+                                                        "each hand end (a kit that times its events)")
+    p.add_argument("--payouts", help="comma-separated points by finish on top of the rules (e.g. 50,25,15,10,0,0,0,0)")
     a = p.parse_args(argv)
 
     rules = load_rules(a.rules, a.variant)
+    if a.payouts:
+        import dataclasses
+        rules = dataclasses.replace(rules, payouts=tuple(float(x) for x in a.payouts.split(",")))
     from hyperion import ship
 
     dials = ship.parse_dials(a.dials, None if a.bot == "ship" else a.bot) if a.dials else None
+    if a.hand_end:
+        return hand_end_main(a, rules, dials)
     bot = load_bot(a.bot, dials)
     obs = observations(a.n, a.seed, rules.n_players, a.seat, rules)
     warm = obs[: min(a.warm, len(obs))]
