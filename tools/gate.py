@@ -260,7 +260,7 @@ class HostProxy(Proxy):
         if self.fatal or self.proc is None:
             return
         res = None
-        if self.kind == "direct":
+        if self.kind in ("direct", "seat"):  # a seat file passes on what tonight's kit's hand end would carry
             res = {"deltas": list(result.deltas), "board": list(result.board),
                    "showdown": {str(s): list(h) for s, h in (result.showdown or {}).items()},
                    "history": history_rows(result.history)}

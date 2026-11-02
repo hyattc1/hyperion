@@ -24,6 +24,9 @@ discards {seat: card}. Cards are ints, rank * 4 + suit.
 Writing a seat file for tonight's kit (in-process kits only): copy class KitA, rename it Seat, and change
 `native` (dealer dict -> the kit's state object, using the kit's own classes), `parse` (the bot's reply ->
 (kind, raise-to total), kind in fold/check/call/raise/discard) and the lifecycle calls. Only `call` is timed.
+A seat's `end(hand_no, delta, result)` gets the hand's `result` dict (deltas of every seat, board, showdown
+{seat: cards}, history rows): pass on what the kit's own hand end carries, never more. An event-driven kit (no
+state snapshot): hyperion/drills/gate_seat_template.py.
 """
 from __future__ import annotations
 
