@@ -738,7 +738,10 @@ SHIP_DIALS: dict = {"route": SHIP_ROUTE, "exploit.bet_min_fold": 0.4, "hero.post
                     "degrade": "noshadow,lean,hero",
                     # batch 3 (V-b): twist tables only, plain hold'em identical (docs/decisions.md)
                     "hero.variant_preflop": {"call_raise_frac": 0.15, "three_bet_frac": 0.05},
-                    "hero.toss_value_shift": 2, "hero.toss_dead": True, "base.hero_on_bounty": False}
+                    "hero.toss_value_shift": 2, "hero.toss_dead": True, "base.hero_on_bounty": False,
+                    # batch 4: the 3-bet defence (exploit resistance, addendum 6) and V-c's variant dials
+                    "r3.v3_defend": True,
+                    "hero.long_board": True, "hero.keep_call_shift": 2, "hero.toss_call_shift": 1}
 
 
 def parse_dials(dials: dict | None) -> tuple:
