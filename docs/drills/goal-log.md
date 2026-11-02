@@ -450,3 +450,18 @@ and (in judges) `elite_judge`.
   (model mode, play unaffected, load 17): a latency tail to find. Sent back to S9: route only on plain hold'em tables
   (S12's holdem-table test), find and cap the tail, re-screen. H4 used once.
 - S11 told to rebase onto 5b4591a (S12 edits the same facing-a-bet block) and to screen its candidate with C7.
+
+## 10:58: V-d merged (127fe04): the honest variant board; V-e started on the twists where F's lead shrinks
+- Generic twist-aware opponents (hyperion/sim/generic.py: gen_mc plays out hands through a private copy of the
+  variant's own hooks; gen_tag and gen_pushfold map each hand to its hold'em equivalent by percentile of the variant's
+  own preflop table; tables/generic/, not packed). `climb_accept --aware generic:NAME | generic:all | path.py:factory`.
+  New variant: table 14-24 s, the rehearsed in-hour command (table + F vs a candidate, 100 x 8) 143 s; PLAYBOOK
+  stage 5 and prompt 05 updated. Validation: no generic bot below its hand-built match (toss: all three above);
+  plain hold'em level with the archetypes; 0 exceptions, 0 illegal on all 26 entries. F identical (14 cells).
+- The board (200 x 8): F first on all 26 against the generic aware field. Its margin over the best opponent shrinks
+  most on lowball (+3.13 -> +0.86), wild_deuces (+1.73 -> +0.20) and short_deck (+0.78 -> +0.28); smallest leads
+  also omaha_four +0.45, two_boards, three_card_keep, hi_lo about +0.5.
+- climb_accept's code version now hashes untracked modules' content (V-d's cache hazard; 8286990).
+- V-e (goal/wt_ve, climb/ve-variant-strength): profile F under short_deck, omaha_four, two_boards, wild_deuces, lowball
+  against the generic aware field, fix the weakest sections behind variant gates (general fixes from the Rules and
+  hooks preferred, so they carry to an unseen twist), acceptance on held-out generic aware cells.
