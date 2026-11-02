@@ -179,3 +179,37 @@ from passive seats (P0 -0.031, P1 -0.102 above). S11's survey of heads-up bets p
 stabs with the aggressor's bets): exploiter 2 0.84, exploiter 1 0.86, elite2 0.76, elite1 0.56, rival3 0.43, rival1
 0.18, night's seats 0.34. So `short.post_aggr` (6e8b62f): the specialist plays a heads-up pot postflop only while the
 opponent's rate (F's profiler counters, smoothed toward 0.4 with 4 chances) is at least the dial; S3a uses 0.5.
+
+### S3a: the big blind's preflop and gated heads-up postflop (code 6e8b62f, 200 seeds)
+
+S3a = `{"short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short", "short.pre_roles": "bb",
+"short.post_aggr": 0.5}`.
+
+| cell | F | S3a | S3a - F | | exploiter F / S3a |
+|---|---|---|---|---|---|
+| exploit (8-max, 10/7/5/4/3/2/1/0) | 5.619 | 5.613 | -0.005 ± 0.035 | level | 4.727 / 4.725 |
+| exploit_hu (10/7) | 9.115 | 9.213 | +0.098 ± 0.137 | level | 7.885 / 7.787 |
+| exploit_3 (10/7/5) | 8.354 | 8.447 | **+0.093 ± 0.089** | UP | 6.993 / 6.898 |
+| exploit2 (8-max) | 5.754 | 5.810 | **+0.055 ± 0.038** | UP | 5.175 / 5.106 |
+| exploit2_hu | 7.540 | 8.470 | **+0.930 ± 0.145** | UP | 9.460 / 8.530 |
+| exploit2_3 | 7.142 | 7.457 | **+0.315 ± 0.099** | UP | 8.573 / 8.258 |
+| night (confirm) | 5.968 | 5.968 | -0.000 ± 0.012 | level | |
+| elite | 4.681 | 4.679 | -0.003 ± 0.008 | level | |
+| elite_night | 5.328 | 5.333 | +0.005 ± 0.011 | level | |
+| mirror | 4.414 | 4.417 | +0.002 ± 0.009 | level | |
+
+The gate takes the 8-max cost away (exploit -0.005, night -0.000) and keeps the gains against both exploiters short-
+handed: no exploit cell down, four up. Heads-up against exploiter 2 it is level, not yet a win (8.47 to 8.53).
+
+Finish positions (the simulator's places for our seat, 200 seeds x 8; F / S3a): reach heads-up and reach three-handed
+are identical (the specialist plays only once two are left), so the changes are conversions:
+
+| field | 1st | heads-up win | win from three-handed |
+|---|---|---|---|
+| night | 37.4% / 38.0% | 75.2% / 76.4% | 60.5% / 61.4% |
+| elite | 11.6% / 11.1% | 51.7% / 49.4% | 30.6% / 29.2% |
+| elite_night | 18.3% / 18.7% | 53.6% / 54.7% | 36.2% / 36.9% |
+| mirror | 8.9% / 9.1% | 44.1% / 45.1% | 26.0% / 26.5% |
+
+(F reaches heads-up at 21.5% of elite tables and 19.0% of mirror tables; under 8..1 a heads-up win is one point, so a
+few points of heads-up win rate move a seat's mean by about 0.01.)

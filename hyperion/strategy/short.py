@@ -18,6 +18,8 @@ tree's raise sizes follow the actual bet: the 3-bet is 3.5 times the open, the 4
   plays the counter solved against a small blind locked to open the top w of hands (tables/short_hu_lock.json).
 - `steal_ftb`: the button's limp becomes a min-raise against a big blind that folds to raises that often.
 - `defer_3bet`: preflop goes back to F against a seat that 3-bets our opens far above equilibrium (rival 3's read).
+- `pre_open_min`: the big blind's preflop only against a seat that opens at least that share of its buttons.
+- Never with antes in the pot (obs.pot > 0 preflop): the trees have none.
 - `three`, `three_max`: three-handed preflop (and its depth cap).
 
 **Postflop, heads-up pots** (two in the hand, at most `post_alive` alive): one size per street (flop 0.5 pot, turn
@@ -138,6 +140,10 @@ class ShortParams:
         # exploitative opens take what an over-folder gives; the equilibrium button plays big blinds that defend.
         # 1.0 = off
         self.sb_ftb_max = 1.0
+        # the big blind's preflop is ours only against a seat that opens at least this share of its buttons (F's
+        # profiler, open_rate late, smoothed toward 0.5 with 6): the equilibrium defends against a wide opener (both
+        # exploiters open 85-95%); against the rest F's big blind and its reads play (0 = always)
+        self.pre_open_min = 0.0
         # a deviation on a clear read: as the big blind facing an open from a seat that opens at least this share of
         # its small blinds (F's profiler, open_rate late, smoothed toward 0.5 with 6), the nodes after the open come
         # from the counter solved against a small blind locked to open the top w of hands (tables/short_hu_lock.json,
@@ -263,10 +269,19 @@ class ShortMember:
                     except Exception:  # noqa: BLE001
                         return False
         if obs.street == 0:
+            if obs.pot > 0:
+                return False  # antes (or dead money) in the pot: the trees have none
             if len(alive) == 2:
                 got = self._hu_node(obs)
                 if got is None or ("sb" if got[3] == 0 else "bb") not in self._roles:
                     return False
+                if got[3] == 1 and self.p.pre_open_min > 0 and prof is not None:
+                    opp = next((j for j in alive if j != obs.seat), -1)
+                    try:
+                        if prof.open_rate(opp, True, 0.5, 6.0) < self.p.pre_open_min:
+                            return False
+                    except Exception:  # noqa: BLE001
+                        return False
                 if got[3] == 0 and self.p.sb_ftb_max < 1.0:
                     opp = next((j for j in alive if j != obs.seat), -1)
                     if 0 <= opp < len(self._fo) and (self._ff[opp] + 1.5) / (self._fo[opp] + 6.0) > self.p.sb_ftb_max:

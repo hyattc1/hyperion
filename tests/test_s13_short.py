@@ -195,3 +195,12 @@ def test_postflop_only_against_a_seat_that_bets_into_us():
              hole=(44, 45))
     assert m.wants(o, P(9, 10))  # it bets 9 chances in 10: ours
     assert not m.wants(o, P(1, 10))  # a passive seat: F plays
+
+
+def test_no_preflop_with_antes_and_the_big_blind_only_against_a_wide_opener():
+    m = SH.ShortMember(SH.ShortParams(pre_open_min=0.65))
+    m.new_table(R2, 1, 2)
+    o = _obs([(0, Action.raise_to(50))], bets=(50, 20), stacks=(1950, 1980), to_call=30)
+    assert m.wants(o, _Prof(0.9)) and not m.wants(o, _Prof(0.4))
+    o.pot = 10  # antes in the pot
+    assert not m.wants(o, _Prof(0.9))
