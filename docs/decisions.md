@@ -3182,3 +3182,66 @@ night field under tonight's rules file and variant; recipe names as specs; its c
 unpaired 300-table `realistic@ship` runs whose ±2.5 points of 100 under top-heavy payouts could not verify anything.
 The gate finds an entry not named submission.py (a rehearsal failed on it). Prompt 06, PLAYBOOK section 5 and Stage 6
 carry F's recipes and the rehearsed step times.
+
+## The climb: batch 3 (variant play) and addenda 7-8 (2026-11-02, builder: the climb's coordinator)
+
+**Protocol addenda** (continuing the list in "The climb: protocol addenda and batches 1-2"):
+6. *Exploit resistance* (logged 02:41): a change aimed at adaptive, exploiting opponents, which no tuning field holds, is
+   accepted when on a held-out set it is beyond noise up on at least one exploit field and beyond noise down on nothing
+   (night, guards, elite fields, variants, and the judges at batch end). Night need not rise.
+7. *A lone variant cell down is replicated.* The variants stage checks 25-26 cells at a 95% interval each, so a change
+   that does nothing shows at least one cell beyond noise down about 47% of the time; the frozen rule rejected sound
+   changes on a coin flip and would have fired the stop rule on noise. When exactly one variant cell is down and every
+   other check passes, that cell is re-run on the next held-out set at 400 seeds; the change fails if the re-run, or
+   both sets pooled (seed-weighted), is beyond noise down. A real loss of 0.02 fails the re-run about 999 times in
+   1000; two or more cells down still reject outright; guards, elite, judges and confirm are unchanged.
+8. *Strong tables* (written before any result): a change aimed at tables of strong general bots (elite, elite_night,
+   mirror) is accepted as in 6, with those fields in place of the exploit fields.
+`tools/climb_accept.py --aim exploit|strong` applies 6 and 8 in its verdict; REPLICATE marks 7.
+
+**Batch 3 (9e620c8): V-b ships.** Hero's preflop on catalogued twist tables flats and 3-bets tighter
+(`hero.variant_preflop` call_raise_frac 0.15, three_bet_frac 0.05; off on fixed limit, must-use and lowball, where
+it measured worse), the toss variant counts tossed cards dead and shifts value a tier (`hero.toss_dead`,
+`hero.toss_value_shift` 2), and rival 3's core plays bounty preflop (`base.hero_on_bounty` false). Plain hold'em is
+identical by construction, so night, guards and judges do not move.
+- H1 (20000-20399): aware fields all up, variants eleven up but lowball down (-0.062 ± 0.047): the preflop dial reached
+  lowball's mirrored classes. Off in lowball (e0e338d); re-confirmed on a fresh set rather than on the one that showed
+  the loss.
+- H2 (21000-21399): aware toss_or_holdem +0.128 ± 0.059, bounty +0.298 ± 0.081, short_deck +0.178 ± 0.065 (against
+  variant-aware opponents); variants none down, ten up (wild_deuces +0.193, three_card_keep +0.129, deal5_keep2 +0.081,
+  bounty +0.145 ...). Timing: per-call minimum p99 on plain, bounty, toss, short deck, wild deuces 65-109 us, same as F.
+- Frozen: frozen/B3-9e620c8, kit B zip sha256 774f06361fd312ae3c0aafd0e0b137e7e7982540a1241c114a063f089bcf6f20; gate
+  passes (40 tables strict, 0 exceptions, 0 illegal).
+
+**Not shipped: FIN** (`r3.v3_defend` + `hero.postflop.cbet_size_dry` 0.5, the S2 fixes against exploiter1). On H1 it
+was up on all three exploit fields (+0.58, +1.08, +1.34; F then beats the exploiter in every format), level on night,
+guards and elite, and down on one variant (toss_or_holdem -0.018 ± 0.016), which replicated level on H2. Stacked with
+V-b on H2 the judges were all level, but bonus_card was down (-0.049 ± 0.040); its H3 re-run was level
+(-0.020 ± 0.032) and the two pooled were down (-0.030 ± 0.025), so under addendum 7 the pair failed. The split on 400
+extra screen seeds puts the loss on the dry c-bet (-0.025 ± 0.027; the 3-bet defence plays bonus_card identically), and
+a second exploiter found the same c-bet folds 78% to a check-raise. Next: the 3-bet defence alone, which carries nearly
+all of FIN's exploit gain on S2's screens (+0.62 / +1.11 / +1.33) and never fires on night.
+
+## The climb: batch 4 (the 3-bet defence, keep2 and toss calls, kit robustness) (2026-11-02, builder: the climb's coordinator)
+
+**Batch 4 (e3cec13).** On top of batch 3's ship:
+- `r3.v3_defend`: rival 3's core, facing one 3-bet of its own open, reads that seat's observed 3-bet rate (prior 0.08
+  worth 20 chances; plays from an estimated rate of 0.2; fold to a 4-bet capped at 0.6) and defends wider against a
+  frequent 3-bettor. Built against the first black-box exploiter (S2). Held-out H3 (22000-22399), `--aim exploit`
+  (addendum 6): exploit +0.629 ± 0.077 (8-max), +1.087 ± 0.120 (heads-up), +1.402 ± 0.136 (three-handed); F now beats
+  exploiter1 in every format. Night +0.000 ± 0.007 (it almost never fires against our fields); guards, elite, aware
+  and all 26 variants level. FIN's other half, the half-pot dry c-bet, stays off (batch 3's entry).
+- V-c's variant dials: `hero.long_board` (any board length read correctly; about 1% of decisions, a correctness fix),
+  `hero.keep_call_shift` 2 (deal5_keep2: calls one tier tighter after the flop), `hero.toss_call_shift` 1. H3:
+  deal5_keep2 +0.286 ± 0.045 (realistic) and +0.307 ± 0.039 (keep2-aware), toss aware +0.095 ± 0.044; nothing down.
+- R2-R4's robustness fixes, play identical (addendum 2 widened: a demonstrated failure fixed with bit-identical play
+  counts as a gain): the adapter reads 20 kit shapes (seven had broken it, five sending every decision to
+  check/fold); memory flat per table for a fresh bot (was +71 KB) and per fresh import (was +28 MB, kit E's 256 MB cap
+  by table 8); a kit with no table-start hook restarts the bot when hand numbers go back. `--slim` keeps only what the
+  ship bots import (no judges or test opponents in a submission).
+- Judges once on the judge set against batch 3's ship: all seven level (judge, judge2, judge_top, outside_strong,
+  elite_judge identical; judge2_night +0.001, outside +0.002). Timing by per-call minimum: p99 64-87 us on plain,
+  deal5_keep2, toss and river_of_blood, same as batch 3.
+- Frozen: frozen/B4-e3cec13, kit B zip sha256 bb5820cc2c5439f48aa0bf1177c3ffac425f27842621120935ee6a3d746197fe
+  (813 KB, slim); gate pass (40 tables strict, 0 exceptions, 0 illegal; 0.79% timeouts at load 17, the gate's load
+  clause).

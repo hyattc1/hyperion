@@ -95,6 +95,21 @@ def test_bounty_bots_bet_a_hit_bounty_when_checked_to():
     assert B.make_bot("bounty_pushfold", seed=1).act(_obs("7c 2d", "Kh 9s 4c", bounty=11)).kind is ActionKind.RAISE
 
 
+def test_river_of_blood_read_is_relative_to_the_whole_board_and_knows_a_card_may_come():
+    P = parse_cards
+    assert A.rob_read(P("Ah Jh"), P("Kc 7d 3s 9h 4h Qh 8c")) == (True, True, False)  # a flush on seven cards
+    assert A.rob_read(P("2c 3d"), P("Ks Kd 7h 7c 9s Qh 4d"))[:2] == (False, False)  # the board's two pair
+    assert A.rob_read(P("Kh 2c"), P("Ks Kd 7h 7c 9s Qh 4d"))[:2] == (True, True)  # kings full
+    assert A.rob_read(P("Qc 2c"), P("Ks Kd 7h 7c 9s Qh 4d"))[0] is False  # two pair past six board cards: not enough
+    assert A.rob_read(P("Ah 5h"), P("Kh 9h 2c 7d 4s"))[2] is False  # black river: the last street, no draw
+    assert A.rob_read(P("Ah 5h"), P("Kh 9h 2c 7d 4d"))[2] is True  # red river: another card comes
+    tag = B.make_bot("rob_tag", seed=1)
+    tag.new_table(V.river_of_blood().rules, 0, 8)
+    o = _obs("Ah Jh", "Kc 7d 3s 9h 4h Qh 8c", street=5)
+    assert tag.act(o).kind is ActionKind.RAISE  # bets the flush on a seven-card board (blind ChartTAG checks)
+    assert B.make_bot("tag", seed=1).act(o).kind is ActionKind.CHECK
+
+
 @pytest.mark.parametrize("field", sorted(A.AWARE_VARIANT))
 def test_aware_fields_play_their_variant_cleanly(field):
     v = V.get(A.AWARE_VARIANT[field], seed=3)

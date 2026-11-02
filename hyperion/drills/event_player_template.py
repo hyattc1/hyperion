@@ -49,7 +49,8 @@ RULES = load_rules()
 HAND_END_TIMED = True
 
 
-# TODO 1  CARDS -> ints, rank * 4 + suit (parse_card("Th") == 34). Traps: "10h", suit case, dicts, their int order.
+# TODO 1  CARDS -> ints, rank * 4 + suit (parse_card("Th") == 34; it also reads "10h", "th", "T\u2665", "hT", (rank,
+#   suit) pairs and {"rank", "suit"} dicts). Trap left: ints, whose order is the kit's.
 def card(c) -> int:
     return parse_card(c)
 

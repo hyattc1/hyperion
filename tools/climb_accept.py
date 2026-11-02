@@ -20,17 +20,20 @@ Stages (comma-separated; default confirm,guards,variants):
 - confirm: night;
 - guards: night_hard, realistic, top, night under payouts 10/7/5/4/3/2/1/0 and 50/25/12/6/3/2/1/1, night under a
   doubling blind schedule;
-- variants: the catalogued entries on realistic, the set's first 200 seeds (`--variants NAME,...` and
-  `--variant-seeds N` for some; a lone variant cell down prints REPLICATE: addendum 7 re-runs it on the next set);
-- elite: the tuning fields elite (elite1, elite2 and the strong tunable bots) and elite_night (the two in a night room);
+- variants: the catalogued entries (26 since river_of_blood joined) on realistic, the set's first 200 seeds
+  (`--variants NAME,...` and `--variant-seeds N` for some; a lone variant cell down prints REPLICATE: addendum 7
+  re-runs it on the next set);
+- elite: the tuning fields elite (elite1, elite2 and the strong tunable bots), elite_night (the two in a night room) and
+  mirror (three copies of F, `f_copy`, with rival 2, elite1, elite2 and hybrid3_x: a table of near-equals, backlog S9);
 - judges: judge, judge2, judge2_night, judge_top, outside, outside_strong, elite_judge (run these on `--set judge`).
-- aware: the three likeliest twists against variant-aware opponents, each field under its variant
-  (toss_or_holdem_aware, bounty_aware, short_deck_aware; hyperion/sim/aware.py); `--aware NAME,...` for some.
+- aware: the likeliest twists against variant-aware opponents, each field under its variant (toss_or_holdem_aware,
+  bounty_aware, short_deck_aware, river_of_blood_aware; hyperion/sim/aware.py); `--aware NAME,...` for some, and
+  `--aware FIELD:VARIANT` for any field under any entry (realistic_keep2:deal5_keep2).
 - exploit: the S2 exploiter (`exploiter1`, docs/drills/exploiter/) at 8-max (`exploit`, payouts 10/7/5/4/3/2/1/0),
   heads-up (`exploit_hu`, rules hu.json: 10/7) and three-handed (`exploit_3`, three.json: 10/7/5), and the second
   exploiter (`exploiter2`, docs/drills/exploiter2/) in the same three formats (`exploit2`, `exploit2_hu`,
-  `exploit2_3`); the exploiter's own points are printed too. Diagnostic: not part of the acceptance rule (they are
-  opponents we know).
+  `exploit2_3`); the exploiter's own points are printed too. Part of the rule only with `--aim exploit` (addendum 6:
+  an exploit field up, night not down); `--aim strong` is addendum 8 (elite, elite_night or mirror up, night not down).
 - timing: tools/latency.py p99 for both specs (20,000 calls).
 - window: night alone, the check a window needs (prompt 06): the candidate not beyond noise down. With --rules (the
   night's rules JSON: payouts, blinds, antes ...) and --variant (a catalog entry's hooks) it plays tonight's game;
@@ -71,7 +74,7 @@ GUARDS = [("night_hard", "lin", None), ("realistic", "lin", None), ("top", "lin"
           ("night", "th", None), ("night", "lin", "double")]
 JUDGES = [("judge", "lin", None), ("judge2", "lin", None), ("judge2_night", "lin", None), ("judge_top", "lin", None),
           ("outside", "lin", None), ("outside_strong", "lin", None), ("elite_judge", "lin", None)]
-ELITE = [("elite", "lin", None), ("elite_night", "lin", None)]
+ELITE = [("elite", "lin", None), ("elite_night", "lin", None), ("mirror", "lin", None)]
 EXPLOIT = [("exploit", "brief", None), ("exploit_hu", "lin", "hu"), ("exploit_3", "lin", "three"),
            ("exploit2", "brief", None), ("exploit2_hu", "lin", "hu"), ("exploit2_3", "lin", "three")]
 EXPLOIT_BOTS = ("exploiter1", "exploiter2")  # the one seated in a cell's field is printed beside us
@@ -304,13 +307,18 @@ def main(argv=None) -> int:
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--out", default=os.path.join(ROOT, "scratch", "climb"))
     p.add_argument("--json", default=None, help="also write the verdict as JSON here")
-    p.add_argument("--aware", default=None, help="the aware stage's fields (default: all three)")
+    p.add_argument("--aware", default=None, help="the aware stage's fields (default: every aware field), each FIELD "
+                                                 "or FIELD:VARIANT")
     p.add_argument("--variants", default=None, help="the variants stage's entries (default: the whole catalog)")
     p.add_argument("--variant-seeds", type=int, default=VARIANT_SEEDS,
                    help="seeds per variant cell, from the set's first (addendum 7's replication: 400)")
     p.add_argument("--rules", default=None, help="a Rules JSON (the night's rules_tonight.json) for the window, "
                                                  "confirm, guards and elite cells")
     p.add_argument("--variant", default=None, help="a catalog variant's hooks for the same cells")
+    p.add_argument("--aim", choices=("night", "exploit", "strong"), default="night",
+                   help="what the change is for: night (confirm beyond noise up), exploit (addendum 6: an exploit "
+                        "field up, night not down) or strong (addendum 8: elite, elite_night or mirror up, night "
+                        "not down)")
     a = p.parse_args(argv)
     version = code_version()
     base_raw, cand_raw = load_spec(a.base), load_spec(a.cand)
@@ -347,7 +355,10 @@ def main(argv=None) -> int:
         from hyperion.sim import aware as AW
 
         names = a.aware.split(",") if a.aware else list(AW.AWARE_FIELDS)
-        plan.append(("aware", [(f, "lin", None, AW.AWARE_VARIANT[f]) for f in names], lo, hi))
+        # FIELD (an aware field, under its variant) or FIELD:VARIANT (any field under any catalog entry, e.g.
+        # realistic_keep2:deal5_keep2)
+        pairs = [n.split(":", 1) if ":" in n else (n, AW.AWARE_VARIANT[n]) for n in names]
+        plan.append(("aware", [(f, "lin", None, v) for f, v in pairs], lo, hi))
     if "exploit" in stages:
         plan.append(("exploit", EXPLOIT, lo, hi))
     if "variants" in stages:
@@ -376,7 +387,20 @@ def main(argv=None) -> int:
         checks.append(("window: night not beyond noise down (a recipe answers the standings; it need not gain)",
                        all(r["flag"] != "DOWN" for r in st["window"])))
     if "confirm" in st:
-        checks.append(("confirm: night beyond noise up", all(r["flag"] == "UP" for r in st["confirm"])))
+        if a.aim == "night":
+            checks.append(("confirm: night beyond noise up", all(r["flag"] == "UP" for r in st["confirm"])))
+        else:
+            checks.append(("confirm: night not beyond noise down", all(r["flag"] != "DOWN" for r in st["confirm"])))
+    if a.aim == "exploit":  # addendum 6
+        ups = [r["cell"] for r in st.get("exploit", []) if r["flag"] == "UP"]
+        checks.append((f"exploit (addendum 6): an exploit field beyond noise up ({', '.join(ups) or 'none'})",
+                       bool(ups)))
+        downs = [r["cell"] for r in st.get("exploit", []) if r["flag"] == "DOWN"]
+        checks.append((f"exploit: none beyond noise down" + (f" (down: {', '.join(downs)})" if downs else ""),
+                       not downs))
+    if a.aim == "strong":  # addendum 8
+        ups = [r["cell"] for r in st.get("elite", []) if r["flag"] == "UP"]
+        checks.append((f"elite (addendum 8): a strong field beyond noise up ({', '.join(ups) or 'none'})", bool(ups)))
     for s in ("guards", "elite", "variants", "judges", "aware"):
         if s in st:
             downs = [r["cell"] for r in st[s] if r["flag"] == "DOWN"]
@@ -394,7 +418,7 @@ def main(argv=None) -> int:
     verdict["replicate"] = vdowns[0] if len(vdowns) == 1 and others_ok and not a.variants else None
     verdict["secs"] = time.time() - t0
     # print
-    print(f"# climb_accept: set {a.set} ({lo}-{hi - 1}), code {version}, {verdict['secs'] / 60:.1f} min")
+    print(f"# climb_accept: set {a.set} ({lo}-{hi - 1}), code {version}, aim {a.aim}, {verdict['secs'] / 60:.1f} min")
     print(f"base {json.dumps(base_raw, sort_keys=True)} -> {json.dumps(base, sort_keys=True)}")
     print(f"cand {json.dumps(cand_raw, sort_keys=True)} -> {json.dumps(cand, sort_keys=True)}")
     if "exploit" in st:

@@ -214,8 +214,67 @@ def cards_str(cs: Sequence[int]) -> str:
     return " ".join(card_str(c) for c in cs)
 
 
-def parse_card(s: str) -> int:
-    return RANKS.index(s[0].upper()) * 4 + SUITS.index(s[1].lower())
+def parse_card(s) -> int:
+    """'Th' -> 34. Rank then suit, either case; anything else a kit might send goes to `parse_card_any`."""
+    try:
+        return RANKS.index(s[0].upper()) * 4 + SUITS.index(s[1].lower())
+    except (ValueError, IndexError, KeyError, TypeError, AttributeError):
+        return parse_card_any(s)
+
+
+_RANK_WORDS = {"a": 12, "ace": 12, "1": 12, "14": 12, "k": 11, "king": 11, "13": 11, "q": 10, "queen": 10, "12": 10,
+               "j": 9, "jack": 9, "11": 9, "t": 8, "ten": 8, "10": 8, "nine": 7, "eight": 6, "seven": 5, "six": 4,
+               "five": 3, "four": 2, "three": 1, "two": 0, "deuce": 0, **{str(r): r - 2 for r in range(2, 10)}}
+_SUIT_WORDS = {"c": 0, "club": 0, "clubs": 0, "\u2663": 0, "\u2667": 0, "d": 1, "diamond": 1, "diamonds": 1,
+               "\u2666": 1, "\u2662": 1, "h": 2, "heart": 2, "hearts": 2, "\u2665": 2, "\u2661": 2, "s": 3,
+               "spade": 3, "spades": 3, "\u2660": 3, "\u2664": 3}
+
+
+def _rank(x) -> int:
+    if isinstance(x, bool):
+        raise ValueError(f"card rank {x!r}")
+    if isinstance(x, int):
+        x = str(x)
+    r = _RANK_WORDS.get(str(x).strip().lower())
+    if r is None:
+        raise ValueError(f"card rank {x!r}")
+    return r
+
+
+def _suit(x) -> int:
+    t = str(x).strip().lower()
+    u = _SUIT_WORDS.get(t)
+    if u is None:
+        u = _SUIT_WORDS.get(t.replace("\ufe0f", "").replace("\ufe0e", ""))  # emoji presentation selectors
+    if u is None:
+        raise ValueError(f"card suit {x!r}")
+    return u
+
+
+def parse_card_any(c) -> int:
+    """One card in any of the shapes kits use -> rank * 4 + suit: "Th", "th", "TH", "10h", "T\u2665", "\u2665T", "hT",
+    "10 of hearts", "Ah", "1h" (ace), a (rank, suit) pair or a {"rank": .., "suit": ..} dict, rank 2..14 or 1 for the
+    ace. A bare int is NOT accepted: its order is the kit's (TODO 1). Raises ValueError on anything else."""
+    if isinstance(c, dict):
+        r = next((c[k] for k in ("rank", "r", "value", "v") if k in c), None)
+        u = next((c[k] for k in ("suit", "s") if k in c), None)
+        if r is None or u is None:
+            raise ValueError(f"card {c!r}: no rank or suit key")
+        return _rank(r) * 4 + _suit(u)
+    if isinstance(c, (tuple, list)) and len(c) == 2:
+        return _rank(c[0]) * 4 + _suit(c[1])
+    if not isinstance(c, str):
+        raise ValueError(f"card {c!r}: give a string, a (rank, suit) pair or a dict (an int's order is the kit's)")
+    t = c.strip().lower().replace(" of ", " ")
+    for sep in (" ", "-", "_", "/", ":"):
+        t = t.replace(sep, "")
+    for cut in range(1, len(t)):  # rank then suit ("10h", "t\u2665", "tenhearts"), else suit then rank ("ht", "\u266510")
+        a, b = t[:cut], t[cut:]
+        if a in _RANK_WORDS and (b in _SUIT_WORDS or b.replace("\ufe0f", "") in _SUIT_WORDS):
+            return _rank(a) * 4 + _suit(b)
+        if a in _SUIT_WORDS and b in _RANK_WORDS:
+            return _rank(b) * 4 + _suit(a)
+    raise ValueError(f"card {c!r}")
 
 
 def parse_cards(s: str) -> tuple[int, ...]:

@@ -286,3 +286,147 @@ and (in judges) `elite_judge`.
   key reaches a part that decides.
 - Accepted as an hour-track change (play by default identical; the rehearsal is better, not worse). Full suite 1018
   passed. Open: hybrid3_x's `dead_seats` has the same unreachable key (fallback bot, not measured).
+
+## 05:49: exploiter 2 done (docs/drills/exploiter2/); S11 and R2-R4 started
+- A fresh agent, black box, about 2 hours, against F with FIN (arena2). Its bot against F, payouts 10..0:
+  heads-up 9.52 ± 0.06 vs 7.48 (600 tables, it wins 81-83% of matches), three-handed 8.61 ± 0.13 vs 7.21,
+  8-max 5.15-5.44 vs 5.65-5.76 (F still ahead). Short-handed play decides 1st place, so this is the S10 question too.
+- Leaks by points (ablations of its bot, heads-up / three-handed / 8-max):
+  1. Blind vs blind: F's SB opens 85-90% and folds 88% to the first 3-bets (a 3x 3-bet needs 64%); later it
+     over-adjusts, 4-betting light and calling off jams 97-100% at 50bb or less: +0.68 / +0.78 / +0.36.
+  2. Bet size names the hand (0.30/0.35 fold ~90% to a raise; the new half-pot dry c-bet folds 78%; 0.70 never
+     folds; 0.80 re-raises): +0.44 / +0.55 / +0.48. The known 0.8-pot tell, now the whole size ladder.
+  3. No check-raise; folds 68-77% to a 0.6-pot stab after checking: +0.21 / +0.32 / +0.30.
+  4. FIN's 3-bet tracking punishes a loose 3-bettor (-0.49 heads-up for 3-betting 60%), so that part holds.
+  5. Heads-up BB folds 47% to a min-raise: +0.15.
+- S11 (goal/wt_s11, climb/s11-exploiter2-fixes): freeze exploiter2 as a test opponent (fields exploit2,
+  exploit2_hu, exploit2_3 in climb_accept's exploit stage) and fix leaks 1, 2, 3, 5 behind dials, on top of FIN;
+  acceptance under addendum 6. S9 told to leave those sections to S11.
+- R2-R4 (goal/wt_r2, climb/r2-lifetime-kits): one object for 10,000 tables, kit shapes through the adapter,
+  memory, import time, sizes; addendum 2.
+
+## 06:04: batch 3 combined on H2 (3rd use): one variant cell down; judges level; bonus_card replicating on H3
+- FIN + V-b against F on H2: exploit +0.657 ± 0.093 / +1.050 ± 0.120 / +1.242 ± 0.136; night +0.022 ± 0.031
+  level; guards level, doubling blinds up (+0.039 ± 0.032); elite and elite_night level; aware all up (toss
+  +0.146, bounty +0.305, short deck +0.185); variants seven up, bonus_card down (-0.049 ± 0.040; alone it was
+  V-b H1 -0.013 ± 0.020, FIN H1 -0.014 ± 0.034, V-b H2 +0.002 ± 0.023).
+- Judges once on the judge set (30000-30399) against the batch-2 ship: judge +0.021, judge2 +0.014, judge2_night
+  +0.014, judge_top +0.008, outside +0.019, outside_strong +0.009, elite_judge +0.008; all level, none down.
+- Under addenda 6 and 7 (night need not rise; a lone variant down replicates): bonus_card for the combination on
+  H3 (22000-22399) at 400 seeds decides; screen runs of FIN alone, V-b alone and both on bonus_card say which part
+  moves it. H2 retired.
+- climb_accept learns the addenda (f2a31a8): `--aim exploit` (6) and `--aim strong` (8) replace "night up" with
+  "an aimed field up, night not down", so the verdict and REPLICATE come out right for those changes.
+
+## 06:20: batch 3 accepted and frozen: V-b ships (9e620c8); FIN fails addendum 7 on bonus_card
+- bonus_card for FIN + V-b on H3 (22000-22399, 400 seeds): -0.020 ± 0.032 level, but H2 and H3 pooled -0.030 ± 0.025
+  are beyond noise down, so under addendum 7 the pair fails. Screen splits: FIN alone -0.026 ± 0.039, V-b alone
+  +0.006 ± 0.019; on 400 extra screen seeds (10200-10599) the 3-bet defence alone plays bonus_card identically and the
+  dry c-bet alone is -0.025 ± 0.027. The c-bet is also exploiter 2's 78%-fold-to-check-raise leak.
+- Batch 3 = V-b alone (accepted on H2; plain hold'em identical by construction, so night, guards and judges stand;
+  judges measured for the pair were all level). Timing by latency.py's per-call minimum over 3 replays (load 9-13):
+  p99 plain 87 vs F 84 us, bounty 89 vs 66, toss 66 vs 66, short deck 65 vs 62, wild deuces 108 vs 109; none over 1 ms.
+- SHIP_DIALS += V-b (9e620c8). Frozen: frozen/B3-9e620c8, kit B zip sha256 774f0636...89bcf6f20 (1.2 MB); gate pass
+  (40 tables strict, 0 exceptions, 0 illegal, import 0.28 s). Full suite: 1017 passed, 2 wall-clock tests failed at
+  load 13 (cheap bot kit D round trip, hybrid3_x cold setup), neither touched by V-b.
+- The slim pack still ships the test opponents and judges (elite*, outside*, exploiter1, rivals 1, 2, 4, 5: about
+  0.9 MB): handed to the R2-R4 worker to prune, with a test that elite3 and the judges are never in a submission.
+- Decisions entry, leaderboard and HANDOFF updated. Next on H3 (2nd and 3rd uses): the 3-bet defence alone
+  (`--aim exploit`) and V-c's candidate (aware + variants), on top of the new ship.
+
+## 06:21: V-c merged (8a4ac80); H3 confirmations queued for the defence alone and V-c
+- V-c: river_of_blood joins the catalog (26 entries; aware field river_of_blood_aware); `hero.long_board` reads any
+  board length (a correctness fix, about 1% of decisions; level); `hero.keep_call_shift` 2 on deal5_keep2 (screen
+  +0.356 ± 0.062; 2nd places 31% -> 50%); `hero.toss_call_shift` 1 (toss aware +0.230 ± 0.078). No short-deck dial
+  helped (the calls it cut were break-even). All off by default; plain hold'em identical.
+- H3 (22000-22399), from goal/wt_measure at 8a4ac80 (base = batch 3's ship): 2nd use, `{"r3.v3_defend": true}` with
+  `--aim exploit` (confirm, guards, elite, exploit, aware, variants); 3rd use, V-c's candidate
+  `{"hero.long_board": true, "hero.keep_call_shift": 2, "hero.toss_call_shift": 1}` on aware (all four +
+  realistic_keep2 under deal5_keep2) and variants. H3 retires after.
+
+## 06:34: owner question: are we reading opponents as hard as 100-300 hands allow? S12 started
+- The owner pointed out that 100-300 hands is a lot of evidence, and bots are more consistent than people. We do not
+  know how close F's reads come to that. S12 (goal/wt_s12, climb/s12-reads) measures the ceiling first: F with warm
+  reads (each seat's profile pre-loaded from a long run against that bot; a measuring device, never shipped) against
+  F as it ships, on night, realistic, night_hard, top and elite, under 8..1 and top-heavy. Then it ranks the reads
+  F lacks by oracle gain (bet size vs strength from showdowns, position frequencies, fold to c-bet by texture, never
+  check-raises, ...) and builds the best ones behind dials, with priors so they do not act too soon (dead_seats and
+  S2's first defence both lost by acting on thin reads at strong tables). Offence; S11 is defence.
+
+## 06:38: owner direction: strength against strong bots first
+- The owner noted that ten hours in, F's plain hold'em has not gained, and that slow-machine insurance is not points
+  (the sandbox's speed is unknown, not known to be slower). Agreed. From here the climb is judged by F's margin at
+  strong tables and short-handed (the elite and mirror fields, both exploiters, heads-up and three-handed, 1st-place
+  share under top-heavy payouts), not by robustness or variant numbers.
+- Priority: S11 (exploiter 2's leaks: win heads-up against it), S9 (strong tables; adopt rival 2's or elite2's
+  sections where they beat F), S12 (reads), then the 3-bet defence on H3. R2-R4 finishes its kit-shape checks (a crash
+  costs whole points) and robustness then drops to the bottom of the queue. The structural round will be strength
+  ideas (a stronger postflop, an adopted section) rather than tooling.
+
+## 07:45: S9 merged (da4bd64): the mirror field; F last of six there; strong_route candidate queued on H4
+- `mirror` = hero, three copies of F (`f_copy`, follows SHIP_DIALS), rival2, elite1, elite2, hybrid3_x; in
+  climb_accept's elite stage. F is last of six there (4.43; rival2 4.79, hybrid3_x 4.55) and takes 1st 8.1% (elite1
+  23.4%); on elite F is 2nd (4.71 vs rival2 4.91).
+- Diagnosis (chips per decision, every strong field, both payout tables): F's opens at 10-20 bb with 4+ players lose
+  (-0.10 to -0.13 bb vs +0.09 to +0.28 for the strong bots): rival 3's core min-raises 45-54% there and folds a third
+  of those to a re-raise (-2.2 to -2.5 bb each); strong tables re-raise first-in raises 24-26% of the time (night 14%).
+  Three-handed and heads-up preflop also trail (+0.02 / +0.07 vs +0.20 to +0.36): S11's sections, recorded, not fixed.
+- Adopting the better bot's section (owner's rule): routing three sections to elite1, elite2 or rival2 gains
+  +0.18 to +0.26 on elite and mirror but loses on night (-0.05 to -0.12). Narrowed and gated: G2 =
+  `{"strong_route": "pre_open_10=elite1x", "strong_rr": 0.2}` (elite1 plays unopened 10-20 bb spots while the table
+  re-raises our first-in raises at least 20%, smoothed toward 15% over 10 raises; threshold set before any gated run).
+  Screen: night -0.017 ± 0.030, guards all level, elite +0.040, elite_night +0.048 ± 0.037 UP, mirror +0.098 ± 0.062
+  UP; under top-heavy payouts elite +0.56 ± 0.50 and mirror +0.98 ± 0.56 of 100; exploit level; variants level (off
+  on pot and fixed limit). Light shadow +8 us a decision.
+- Merge check: F's night samples identical before and after (40 screen seeds). G2 queued on H4 (23000-23399) with
+  `--aim strong`, all stages, from goal/wt_measure2 at da4bd64, after H3's two runs.
+- Backlog from S9: a per-seat gate; rival2 for the section (needs a light shadow: its Monte Carlo costs ~260 us as a
+  shadow); a mirror whose copies follow the candidate.
+
+## 08:09: owner question: sim opponents must adapt to the twist too; V-d started
+- The owner pointed out that on the night every team's bot knows the twist, so our sim's opponents must too. Today
+  only four twists (toss, bounty, short deck, river of blood) plus auction and keep2 have aware opponents, each
+  hand-built; 20 catalog entries and any unseen twist have only twist-blind opponents, which flatter F.
+- V-d (goal/wt_vd, climb/vd-generic-aware): generic aware archetypes that take their play from the Rules and the
+  variant's own hooks (gen_mc: Monte Carlo through the engine's own deal and showdown code; gen_tag, gen_pushfold:
+  ranges re-cut from the variant's own equity table), one command to field them under any variant (target under 2
+  minutes, usable in the hour), validated against the hand-built aware bots, then F's margin against them on every
+  catalog entry: the new honest variant board and the variants track's targets.
+
+## 08:17: R2-R4 merged (9304576); the 3-bet defence and V-c accepted on H3; batch 4 judges running
+- R2-R4 found four failures that would have cost whole points, all fixed with F's play identical (1,400 per-seed
+  samples on the branch; 280 again after the merge on 7 plain hold'em cells):
+  1. 7 of 20 kit shapes broke the adapter; 5 of them sent every decision to check/fold (no raise bounds, "T♥",
+     "hT", legal actions as dicts or one string), "10h" and "bet"/"all-in" words fell back on 13-21% of decisions,
+     swapped min/max made every raise an all-in, blinds logged as bets read every pot as re-raised. The adapter now
+     reads all 20 (new fake kit S); the clean-kit path is unchanged.
+  2. A fresh bot per table leaked 71 KB a table (Hero's gc.freeze kept old bots) -> 0.
+  3. A fresh package import per table leaked 28 MB a table (kit E's 256 MB cap by table 8) -> flat 64 MB.
+  4. One object with no table-start hook carried panic, reads and seat across tables -> the adapter restarts the
+     bot when the hand number goes back; a seat numbered from 1 is corrected.
+  Also: one object over 10,000 tables grows 18 bytes a table, no time creep; peak RSS 65 MB with every variant
+  table; cold import 0.02-0.05 s; stdlib-only on python3.10 -I passes, but 3.10 costs 40-50% more per decision.
+  `--slim` now keeps only what the ship bots import (rival 3 and sim.rivals): zip 1.16 MB -> 807 KB, with a test
+  that elite3 and the judges are never in a submission.
+- H3 (22000-22399), base batch 3's ship:
+  - `{"r3.v3_defend": true}`, `--aim exploit`: exploit +0.629 ± 0.077 / +1.087 ± 0.120 / +1.402 ± 0.136 (F beats
+    exploiter1 in every format: 5.62 vs 4.65, 9.08 vs 7.92, 8.41 vs 7.03); night +0.000 ± 0.007; guards, elite,
+    aware, all 26 variants level (most identical). ACCEPT (addendum 6).
+  - V-c `{"hero.long_board": true, "hero.keep_call_shift": 2, "hero.toss_call_shift": 1}`: deal5_keep2 +0.286 ±
+    0.045 (realistic) and +0.307 ± 0.039 (realistic_keep2), toss aware +0.095 ± 0.044; nothing down. ACCEPT.
+  H3 retired (bonus_card replication, defence, V-c).
+- Batch 4 = the defence + V-c + R2-R4's fixes. Judges once on the judge set against batch 3's ship and timing by
+  per-call minimum, from goal/wt_measure at 9304576. strong_route (S9's G2) is on H4 now, for batch 5.
+
+## 09:00: batch 4 accepted and frozen (e3cec13)
+- Judges on the judge set against batch 3's ship: all seven level (five identical). Timing by per-call minimum: p99
+  plain 87 vs 88 us, deal5_keep2 68 vs 70, toss 65 vs 64, river_of_blood 83 vs 87.
+- SHIP_DIALS += r3.v3_defend, hero.long_board, hero.keep_call_shift 2, hero.toss_call_shift 1. Two tests encoded the
+  old defaults (the S2 dial test compares against the dial off now; test_ship expects v3_defend on). Full suite at
+  load 17: 1115 passed, 4 wall-clock tests failed (kit B/C and D round trips, exploiter1 budget, sim CLI), all pass
+  alone or are the known load group.
+- Frozen: frozen/B4-e3cec13, sha256 bb5820cc...6197fe, 813 KB slim (no judge or test-opponent files); gate pass
+  (0 exceptions, 0 illegal; timeouts 0.79% under the load clause).
+- S11 told: its base is now F with the defence; the dry c-bet stays out.
+- Round 3 so far: accepted V-b (V), F1 (H), the defence (S), V-c (V), R2-R4 (R); rejected FIN's c-bet (S). The stop
+  counter stays at zero.

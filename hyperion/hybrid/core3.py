@@ -135,6 +135,35 @@ def v3_scan(hist, me: int, others_w: float, chances: list, threes: list, faced4:
             return
 
 
+def o3_scan(hist, opened: list, folded: list) -> None:
+    """Add one hand's fold-to-3-bet read (kit shape (seat, (kind, amount)), preflop first): the hand's first raise is
+    the open; the first raise after it by another seat is a 3-bet; the opener's next action is its reply to it."""
+    opener = -1
+    i0 = -1
+    for i, (s, a) in enumerate(hist):
+        k = a[0]
+        if k == 'check':
+            return
+        if k == 'raise':
+            opener, i0 = s, i
+            break
+    if opener < 0 or not 0 <= opener < len(opened):
+        return
+    three = False
+    for i in range(i0 + 1, len(hist)):
+        s, a = hist[i]
+        if not three:
+            if s == opener:
+                return  # the opener acted again before any re-raise: the flop came
+            if a[0] == 'raise':
+                three = True
+        elif s == opener:
+            opened[opener] += 1.0
+            if a[0] == 'fold':
+                folded[opener] += 1.0
+            return
+
+
 class Rival3Core(R3.Bot):
     """Rival 3's `Bot` with payouts, hand_end history and a soft deadline set from outside (module doc). `decide` returns
     its raw ('kind', amount) answer, or None where it declines (as built it would then fold; the caller asks Hero)."""
@@ -171,6 +200,11 @@ class Rival3Core(R3.Bot):
         self.v3n = [0.0] * 12
         self.v4o = [0.0] * 12
         self.v4f = [0.0] * 12
+        # the light 3-bet's reads (r3.l3_on, o3_scan): per seat, 3-bets faced after opening and folds to them; o3_oracle
+        # (measurement only): per seat a fold-to-3-bet rate that replaces the read, or None
+        self.o3n = [0.0] * 12
+        self.o3f = [0.0] * 12
+        self.o3_oracle = None
 
     def start_hand(self, kit_hand_no: int, totals) -> None:
         """Nothing to precompute: rival 3 prices each all-in from the stacks it sees."""
@@ -201,6 +235,11 @@ class Rival3Core(R3.Bot):
         self.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas, "history": hist})
         if self.k.v3_defend:
             self._v3_end(result.hand_no + 1, hist)
+        if self.k.l3_on:
+            try:
+                o3_scan(hist, self.o3n, self.o3f)
+            except Exception:  # noqa: BLE001 - a malformed history leaves the reads as they were
+                pass
 
     def _v3_end(self, hand: int, hist) -> None:
         try:
@@ -369,6 +408,11 @@ class Rival3Core(R3.Bot):
                 size = bets[agg] * 3 + bb
                 if size > 0.4 * mytot: size = o.max_raise
                 return self._raise(legal, o, size)
+            if kn.l3_on and k == 1 and not agg_allin and 'raise' in legal and eff_bb >= kn.l3_min_bb \
+                    and p <= kn.l3_max_pct:
+                a = self._light3(o, legal, bets, seat, agg, bb, pot_tot, mytot, behind)
+                if a is not None:
+                    return a
             implied = 0.06 if eff_bb > 40 and callamt < 0.1 * stacks[seat] else 0.0
             if ci is not None and CLASSES[ci][0] == CLASSES[ci][1] and callamt <= 0.07 * stacks[seat]:
                 return ('call', 0) if 'call' in legal else self._call_or_check(legal)
@@ -539,6 +583,43 @@ class Rival3Core(R3.Bot):
         cont = min(w3, cont)
         fo4 = (self.v4f[agg] + kn.v3_f4_n * min(f4_cap, 1.0 - cont / w3)) / (self.v4o[agg] + kn.v3_f4_n)
         return w3, fo4
+
+    # ------------------------------------------------------------------ S12: a light 3-bet against a folding opener
+    def _light3(self, o, legal, bets, seat, agg, bb, pot_tot, mytot, behind):
+        """3-bet to 3x the open + 1 bb when the opener's read fold-to-3-bet f3 (o3 reads with the prior l3_prior worth
+        l3_prior_n; or o3_oracle) is at least l3_min_fold and f3 x the folds of the seats behind pays: f * (the pot I
+        win) > (1 - f) * the raise * l3_lose. None: rival 3 as built."""
+        kn = self.k
+        opener = -1
+        for s, a in (o.history or ()):
+            kd = a[0]
+            if kd == 'check':
+                return None
+            if kd == 'raise' and (a[1] or 0) > bb:
+                opener = s
+                break
+        if opener != agg or not 0 <= agg < len(self.o3n):
+            return None
+        orc = self.o3_oracle
+        if orc is not None and orc[agg] is not None:
+            f3 = orc[agg]
+        else:
+            if self.o3n[agg] < kn.l3_min_n:
+                return None
+            f3 = (self.o3f[agg] + kn.l3_prior * kn.l3_prior_n) / (self.o3n[agg] + kn.l3_prior_n)
+        if f3 < kn.l3_min_fold:
+            return None
+        f = f3
+        for s in behind:
+            if s != agg:
+                f *= self._fold_prob(s, False)
+        size = bets[agg] * 3 + bb
+        if size > 0.4 * mytot or size >= o.max_raise:
+            return None
+        risk = size - bets[seat]
+        if f * (pot_tot - bets[seat]) - (1.0 - f) * risk * kn.l3_lose <= 0.0:
+            return None
+        return self._raise(legal, o, size)
 
     def _replay(self, hist, o, final=False):
         try:

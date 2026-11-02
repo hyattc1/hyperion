@@ -67,8 +67,10 @@ def test_ship_names_one_bot_and_make_bot_builds_it():
     bot = ship.make_bot()  # the composite as measured (decisions entry "Composite bot")
     assert isinstance(bot, Composite) and ship.SHIP == "composite"
     assert bot.core.names == ["base", "hero"]
-    cfg = bot.core.members[0].cfg  # its base: rival 3's core at its defaults, the layer in front of the composite
-    assert cfg.core == "rival3" and cfg.exploit is None and cfg.r3 == Rival3Knobs() and bot.core.ex is not None
+    cfg = bot.core.members[0].cfg  # its base: rival 3's core at its defaults (plus the 3-bet defence SHIP_DIALS turn
+    # on since the climb's batch 4), the layer in front of the composite
+    assert cfg.core == "rival3" and cfg.exploit is None and cfg.r3 == Rival3Knobs(v3_defend=True)
+    assert bot.core.ex is not None
     bot = ship.make_bot("hybrid3_x")
     assert isinstance(bot, Hybrid)
     cfg = bot.core.cfg

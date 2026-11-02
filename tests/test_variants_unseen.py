@@ -63,7 +63,7 @@ def rules_n(n, **kw):
 
 def test_held_out_entries_are_reachable_by_name_but_never_in_the_catalog():
     held = set(U.names())
-    assert held == {"river_of_blood", "showtime", "high_chicago", "bomb_pot", "unfold"}
+    assert held == {"showtime", "high_chicago", "bomb_pot", "unfold"}  # river_of_blood: promoted (test_river_of_blood.py)
     assert not held & set(V.CATALOG) and not held & set(V.PRESETS) and not held & set(V.catalog_names())
     assert not held & {v.name for v in V.catalog()}
     for name in held:
@@ -187,139 +187,6 @@ def test_default_hand_results_carry_empty_extras():
     bots = [Bot() for _ in range(3)]
     play_table(bots, rules_n(3, max_hands=3), seed=1)
     assert bots[0].results and all(r.extras == {} for r in bots[0].results)
-
-
-# ----- river_of_blood ---------------------------------------------------------------------------
-
-
-def test_evaluate_many_matches_brute_force_on_any_number_of_cards():
-    rng = random.Random(11)
-    for n in list(range(5, 9)) * 50 + list(range(9, 15)) * 150:
-        cards = rng.sample(range(52), n)
-        assert U.evaluate_many(cards) == evaluate_slow(cards), cards
-    # every category is reached past 8 cards, straight flushes and wheels included
-    assert U.evaluate_many(P("Ah 2h 3h 4h 5h Kc Kd Ks 9c")) == evaluate_slow(P("Ah 2h 3h 4h 5h Kc Kd Ks 9c"))
-    assert U.evaluate_many(P("As 2d 3c 4h 5s 9c 9d Jh Qc")) == evaluate_slow(P("As 2d 3c 4h 5s 9c 9d Jh Qc"))
-    assert U.evaluate_many(P("7c 7d 7h 7s 2c 2d 2h 3c 3d 4c")) == evaluate_slow(P("7c 7d 7h 7s 2c 2d 2h 3c 3d 4c"))
-
-
-def test_eval_guard_makes_the_bots_nine_card_evaluation_fail_and_comes_off():
-    cards = P("Ah Kd 7c 7d 2s 3h 9c Jd Qs")
-    U.RiverOfBloodHooks()
-    assert U.eval_guard_on()
-    assert evaluate(cards[:8]) == evaluate_slow(cards[:8])
-    with pytest.raises(U.EvaluatorLimit):
-        evaluate(cards)
-    U.remove_eval_guard()
-    assert not U.eval_guard_on()
-    U.RiverOfBloodHooks(guard_bot_eval=False)
-    assert not U.eval_guard_on()
-
-
-class RobRig(U.RiverOfBloodHooks):
-    """Fixed holes, a fixed five-card board and a fixed run (dealt in order while the last card is red)."""
-
-    def __init__(self, holes, board, run):
-        super().__init__(guard_bot_eval=False)
-        self.holes, self.board, self.run = [P(h) for h in holes], list(P(board)), list(P(run))
-
-    def on_deal(self, holes, deck, rng):
-        deck[:] = self.run[::-1]
-        return [self.holes[s] if holes[s] else () for s in range(len(holes))]
-
-    def on_street(self, street, board, holes, deck, rng, ask=None):
-        return tuple(self.board[: len(board)]), holes
-
-
-def test_a_red_river_deals_run_streets_each_with_a_betting_round_and_the_whole_board_plays():
-    # seat 0's flush needs the run's Qh; without it seat 1's trip kings win
-    rig = RobRig(["Ah Jh", "Kd Ks"], "Kc 7d 3s 9h 4h", "Qh 8c 2c")
-    bots = [Bot(), Bot()]
-    t = Table(bots, rules_n(2, max_hands=1), seed=0, variant=rig)
-    hs = t.play_hand()
-    assert hs.board == P("Kc 7d 3s 9h 4h Qh 8c")  # stops at the black 8c; 2c is never dealt
-    assert rig.run_cards == 2
-    streets = sorted({o.street for o in bots[1].obs})
-    assert streets == [0, 1, 2, 3, 4, 5]
-    run_obs = [o for o in bots[1].obs if o.street >= 4]
-    assert all(len(o.board) == o.street + 2 and o.bets == [0, 0] and o.min_raise == 20 for o in run_obs)
-    assert all(o.seat == 1 for o in run_obs)  # first to act on a run street: the first live seat left of the button
-    assert hs.deltas == [20, -20]  # the flush made on street 4 wins
-
-
-def test_a_black_river_ends_the_board_and_a_fold_stops_the_run():
-    rig = RobRig(["Ah Jh", "Kd Ks"], "Kc 7d 3s 9h 4c", "Qh 8c")
-    t = Table([Bot(), Bot()], rules_n(2, max_hands=1), seed=0, variant=rig)
-    assert len(t.play_hand().board) == 5 and rig.run_cards == 0
-    rig = RobRig(["Ah Jh", "Kd Ks"], "Kc 7d 3s 9h 4h", "Qh 8c")
-    bots = [Bot([Action.call(), Action.check(), Action.check(), Action.fold()]),
-            Bot([Action.check(), Action.check(), Action.check(), Action.raise_to(40)])]
-    hs = Table(bots, rules_n(2, max_hands=1), seed=0, variant=rig).play_hand()
-    assert len(hs.board) == 5 and rig.run_cards == 0 and hs.deltas == [-20, 20]
-
-
-def test_all_in_deals_the_whole_run_without_betting():
-    rig = RobRig(["Ah Jh", "Kd Ks"], "Kc 7d 3s 9h 4h", "Qd 2h 8s")  # the run's 2h makes seat 0's flush
-    bots = [Bot([Action.raise_to(2000)]), Bot([Action.call()])]
-    hs = Table(bots, rules_n(2, max_hands=1), seed=0, variant=rig).play_hand()
-    assert hs.board == P("Kc 7d 3s 9h 4h Qd 2h 8s") and len(bots[0].obs) == 1 and len(bots[1].obs) == 1
-    assert hs.deltas == [2000, -2000]
-
-
-def test_extra_street_rate_and_board_length_match_the_spec():
-    """Spec: P(extra) ~ 0.48-0.52, E[board] ~ 5.9-6.0, a run adds ~1.9 cards. Every hand here reaches the river."""
-    lengths = []
-    for seed in range(12):
-        bots = [Bot() for _ in range(8)]
-        t = Table(bots, U.river_of_blood().rules, seed=seed, variant=U.RiverOfBloodHooks(guard_bot_eval=False),
-                  stacks=[10 ** 9] * 8)
-        while not t.done:
-            lengths.append(len(t.play_hand().board))
-    n = len(lengths)
-    assert n == 12 * 200
-    p_extra = sum(1 for x in lengths if x > 5) / n
-    mean_len = sum(lengths) / n
-    run = [x - 5 for x in lengths if x > 5]
-    assert 0.45 < p_extra < 0.55, p_extra
-    assert 5.8 < mean_len < 6.1, mean_len
-    assert 1.75 < sum(run) / len(run) < 2.1, sum(run) / len(run)
-
-
-def _completion(hero, suit, trials=8000, seed=5):
-    """Spec setup: hero's two suited cards against 7 opponents, a board with exactly two of hero's suit and a red
-    river, then the run as the hook deals it. P(five of the suit by the end of the run)."""
-    rng = random.Random(seed)
-    hook = U.RiverOfBloodHooks(guard_bot_eval=False)
-    rest = [c for c in range(52) if c not in hero]
-    hits = tot = 0
-    while tot < trials:
-        d = rest[:]
-        rng.shuffle(d)
-        board = d[14:19]
-        if board[4] & 3 not in U.RED_SUITS or sum(1 for c in board if c & 3 == suit) != 2:
-            continue
-        tot += 1
-        spare = d[19:]
-        hook.on_deal([], spare, rng)
-        b = tuple(board)
-        while (c := hook.next_card(4, b, spare, rng)) is not None:
-            b += (c,)
-        hits += sum(1 for c in tuple(hero) + b if c & 3 == suit) >= 5
-    return hits / tot
-
-
-def test_flush_draws_on_a_red_river_complete_at_the_spec_rates():
-    assert abs(_completion(P("As Ks"), 3) - 0.42) < 0.025  # spade draw: the final run card is black
-    assert abs(_completion(P("Ah Kh"), 2) - 0.27) < 0.025  # heart draw
-
-
-def test_duplicate_rotations_see_the_same_run():
-    boards = []
-    for rot in (0, 3):
-        t = Table([Bot() for _ in range(8)], U.river_of_blood().rules, seed=4, rotation=rot,
-                  variant=U.RiverOfBloodHooks(guard_bot_eval=False), stacks=[10 ** 9] * 8)
-        boards.append([t.play_hand().board for _ in range(40)])
-    assert boards[0] == boards[1] and any(len(b) > 6 for b in boards[0])
 
 
 # ----- showtime ---------------------------------------------------------------------------------

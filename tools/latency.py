@@ -14,7 +14,8 @@ adds only the timer read, which is printed as the floor. `--native` is what turn
 into the kit's state: the four fake kits are built in (`kit_d_native` is the template for a kit with
 namedtuple states); for the real kit write a 10-line `build(obs) -> native` and pass `module:build`.
 The cards follow the rules (--rules, else --variant's): the hole-card count (the kept count after a discard
-street), the board sizes and the deck (removed ranks left out), so a three-card game is timed on three-card
+street), the board sizes (river_of_blood's run: a river decision may sit anywhere along the red run) and the deck
+(removed ranks left out), so a three-card game is timed on three-card
 decisions and its variant tables, not on hold'em hands its tables do not hold (drill 6: 468 SafeBot errors).
 Stdlib only, plus tests/strategy_helpers.py's generator for the betting state.
 
@@ -92,6 +93,12 @@ def deal_for(rules: Rules, street: int, rng: random.Random) -> tuple[tuple[int, 
     if "discard_street" in ex and street >= int(ex["discard_street"]):
         holes = int(ex.get("keep", holes - 1))
     board = rules.board_sizes[min(street, len(rules.board_sizes) - 1)]
+    if ex.get("run_until_black") and street >= len(rules.board_sizes) - 1:
+        # river_of_blood: the board runs on while its last card is red; time a street somewhere along the run
+        top = holes + board
+        while top < len(deck) and deck[top - 1] & 3 in (1, 2):
+            top += 1
+        return tuple(deck[:holes]), tuple(deck[holes:rng.randint(holes + board, top)])
     return tuple(deck[:holes]), tuple(deck[holes:holes + board])
 
 
@@ -112,7 +119,7 @@ def observations(n: int, seed: int, n_players: int, seat: int, rules: Rules | No
         if redeal:
             street = min(o.street, len(rules.board_sizes) - 1)
             o.hole, o.board = deal_for(rules, street, rng)
-            o.street = street
+            o.street = street + max(0, len(o.board) - rules.board_sizes[street]) if street else street  # run streets
         out.append(o)
     return out
 
@@ -121,7 +128,7 @@ def _holdem_cards(rules: Rules) -> bool:
     """True when the card rules are hold'em's (another payout or schedule does not change the deal)."""
     ex = rules.extras or {}
     return (rules.hole_cards == 2 and tuple(rules.board_sizes) == (0, 3, 4, 5) and not ex.get("removed_ranks")
-            and "discard_street" not in ex)
+            and "discard_street" not in ex and not ex.get("run_until_black"))
 
 
 def obs_to_state(obs: Observation) -> dict:

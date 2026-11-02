@@ -26,6 +26,15 @@ that read the rule would add. They sit in the `<variant>_aware` fields (bestiary
                    equity, opens a fifth wider), hands read with short-deck rankings
     short_pushfold PushFoldBot's ranges re-cut the same way, short-deck rankings postflop
     short_mc       Monte Carlo equity from the 36-card deck with short-deck rankings
+  river_of_blood   MIT 2023: a red river deals another card and betting round, until a black card (boards of 6 to 30)
+    rob_tag        ChartTAG preflop and through the turn; from the river on a read that takes any board length
+                   (core.eval.evaluate_many) relative to the board's own best five: continue with two pair or better
+                   that beats the board's category (top pair too on a five-card board), trips or better past six
+                   cards, raise with a straight or better that beats it; while another card can come (a red last
+                   card) call half a pot or less with a flush draw or an open-ender
+    rob_pushfold   PushFoldBot preflop, the same long-board read after the flop
+    rob_mc         Monte Carlo equity that deals the run (to five, then on while the last card is red), scored with
+                   evaluate_many
 
 The Monte Carlo bots sample 48 runouts against at most three opponents (rng.sample), so they decide in time; they have
 no cost model and are never folded for time in model mode. All of them are deterministic for a seed.
@@ -37,7 +46,7 @@ import os
 from typing import Optional
 
 from ..core.cards import hole_class
-from ..core.eval import category, evaluate
+from ..core.eval import category, evaluate, evaluate_many
 from ..core.types import Action, Observation, Rules
 from . import bestiary as _B
 from .bestiary import (
@@ -634,6 +643,135 @@ class ShortMC(AwareMC):
         return sd if sd is not None else chen_score(obs.hole)
 
 
+# ----- river_of_blood ------------------------------------------------------------------------------------------------
+
+_RED = (1, 2)  # diamonds and hearts
+
+
+def run_more(board: tuple[int, ...]) -> bool:
+    """river_of_blood: another board card comes after this street (a board of five or more whose last card is red)."""
+    return len(board) >= 5 and (board[-1] & 3) in _RED
+
+
+def rob_read(hole: tuple[int, ...], board: tuple[int, ...]) -> tuple[bool, bool, bool]:
+    """(strong, big, draw) on a board of any length, relative to the board's own best five. strong: two pair or better
+    that uses a hole card and beats the board's category (on a five-card board, top pair with a hole card too; past
+    six board cards, trips or better); big: a straight or better that beats the board's category, not a straight on a
+    four-flush board; draw: four to a flush with a hole card, or an open-ender, while another card can come."""
+    cards = hole + board
+    mine = evaluate_many(cards)
+    cat = category(mine)
+    bcat = -1
+    if len(board) >= 5:
+        bd = evaluate_many(board)
+        if bd >= mine:
+            return False, False, _rob_draw(hole, board)
+        bcat = category(bd)
+    suits = [0, 0, 0, 0]
+    for c in board:
+        suits[c & 3] += 1
+    four_flush = max(suits) >= 4
+    need = 3 if len(board) > 6 else 2
+    strong = cat >= need and cat > bcat
+    if not strong and len(board) == 5 and cat == 1 and bcat == 0:
+        top = max(c >> 2 for c in board)
+        strong = any(c >> 2 == top for c in hole) or (hole[0] >> 2 == hole[1] >> 2 and hole[0] >> 2 > top)
+    big = cat >= 4 and cat > bcat and not (cat == 4 and four_flush)
+    return strong, big, (not strong and _rob_draw(hole, board))
+
+
+def _rob_draw(hole: tuple[int, ...], board: tuple[int, ...]) -> bool:
+    if len(board) >= 5 and not run_more(board):
+        return False
+    cards = hole + board
+    for suit in range(4):
+        if sum(1 for c in cards if c & 3 == suit) == 4 and any(c & 3 == suit for c in hole):
+            return True
+    ranks = {c >> 2 for c in cards}
+    hr = {c >> 2 for c in hole}
+    for lo in range(0, 9):
+        w = set(range(lo, lo + 5))
+        if len(w & ranks) == 4 and hr & w:
+            missing = (w - ranks).pop()
+            if missing in (lo, lo + 4):  # open-ended: the missing card is at either end
+                return True
+    return False
+
+
+def _rob_continue(bot, obs: Observation, draw: bool) -> Action | None:
+    """A draw facing a bet of half the pot or less, while a card can come: call."""
+    if draw and obs.to_call > 0 and obs.to_call * 2 <= obs.total_pot:
+        return Action.call()
+    return None
+
+
+class RobTAG(ChartTAG):
+    """river_of_blood's aware TAG (module doc): ChartTAG preflop and through the turn, the long-board read after."""
+
+    def act(self, obs: Observation) -> Action:
+        if obs.street == 0 or len(obs.board) < 5:
+            return super().act(obs)
+        strong, big, draw = rob_read(obs.hole, obs.board)
+        if not strong:
+            a = _rob_continue(self, obs, draw)
+            if a is not None:
+                return a
+        return tag_postflop(self, obs, strong, big, cbet=False)
+
+
+class RobPushFold(PushFoldBot):
+    """river_of_blood's aware push/fold bot: PushFoldBot preflop, the long-board read after the flop."""
+
+    def act(self, obs: Observation) -> Action:
+        if obs.street == 0 or len(obs.board) < 5:
+            return super().act(obs)
+        strong, big, draw = rob_read(obs.hole, obs.board)
+        if not strong and obs.stack_bb > self.pushfold_bb:
+            a = _rob_continue(self, obs, draw)
+            if a is not None:
+                return a
+        return pushfold_postflop(self, obs, strong, big)
+
+
+class RobMC(AwareMC):
+    """river_of_blood's aware Monte Carlo bot: each sample deals the board to five, then on while the last card is red
+    (at most RUN_MAX more), every hand scored with evaluate_many."""
+
+    RUN_MAX = 8
+
+    def score(self, cards) -> int:
+        return evaluate_many(cards)
+
+    def equity(self, hole, board, dead, n_opp: int) -> float:
+        gone = set(hole) | set(board) | set(dead)
+        stub = [c for c in self.deck if c not in gone]
+        n_opp = max(1, min(self.MAX_OPP, n_opp))
+        need = max(0, 5 - len(board))
+        take = min(len(stub), 2 * n_opp + need + self.RUN_MAX)
+        if 2 * n_opp + need > take:
+            return 0.5
+        sample, score = self.rng.sample, self.score
+        acc = 0.0
+        k0 = 2 * n_opp
+        for _ in range(self.SAMPLES):
+            pick = sample(stub, take)
+            full = board + tuple(pick[k0:k0 + need])
+            k = k0 + need
+            while k < take and (full[-1] & 3) in _RED:
+                full += (pick[k],)
+                k += 1
+            mine = score(hole + full)
+            best, ties = 0, 1
+            for i in range(n_opp):
+                s = score((pick[2 * i], pick[2 * i + 1]) + full)
+                if s > best:
+                    best, ties = s, 1
+                elif s == best:
+                    ties += 1
+            acc += 1.0 if mine > best else (1.0 / ties if mine == best else 0.0)
+        return acc / self.SAMPLES
+
+
 _SD_TWIN: dict = {}
 
 
@@ -670,6 +808,7 @@ AWARE = {
     "toss_tag": TossTAG, "toss_pushfold": TossPushFold, "toss_mc": TossMC, "toss_rival1": TossRival1,
     "bounty_tag": BountyTAG, "bounty_pushfold": BountyPushFold, "bounty_mc": BountyMC,
     "short_tag": ShortTAG, "short_pushfold": ShortPushFold, "short_mc": ShortMC,
+    "rob_tag": RobTAG, "rob_pushfold": RobPushFold, "rob_mc": RobMC,
 }
 # the `<variant>_aware` fields: Hero's seat, the entry's three aware bots in the seats of the honest Monte Carlo bot,
 # the push/fold bot and the TAG, and the rest of `realistic` (montecarlo30, loose_aggro, rival1, timeout_then_recover);
@@ -681,9 +820,13 @@ AWARE_FIELDS = {
                      "timeout_then_recover"),
     "short_deck_aware": ("hero", "montecarlo30", "short_mc", "short_pushfold", "loose_aggro", "rival1", "short_tag",
                          "timeout_then_recover"),
+    # montecarlo30 and rival 1 stay blind: core.eval past 8 cards is played as a timeout for them (the guard)
+    "river_of_blood_aware": ("hero", "montecarlo30", "rob_mc", "rob_pushfold", "loose_aggro", "rival1", "rob_tag",
+                             "timeout_then_recover"),
 }
 # the variant each aware field is for (tools/climb_accept.py's `aware` stage, tools/variant_matrix.py --aware)
-AWARE_VARIANT = {"toss_or_holdem_aware": "toss_or_holdem", "bounty_aware": "bounty", "short_deck_aware": "short_deck"}
+AWARE_VARIANT = {"toss_or_holdem_aware": "toss_or_holdem", "bounty_aware": "bounty", "short_deck_aware": "short_deck",
+                 "river_of_blood_aware": "river_of_blood"}
 
 _B.REGISTRY.update(AWARE)
 _B._BY_CLASS.update({cls.__name__.lower(): cls for cls in AWARE.values()})

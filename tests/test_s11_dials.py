@@ -75,3 +75,14 @@ def test_three_handed_with_every_s11_dial_replays_exactly():
          "hero.postflop.raiser_from": 0.3, "hero.postflop.balance_sizes": True, "exploit.raise_guard": 0.3,
          "r3.v3_bvb_cont": 0.08}
     assert _digest(d, 1, THREE, R3)[0] == _digest(d, 1, THREE, R3)[0]
+
+
+def test_s11_and_s12_size_read_compose_and_replay_at_eight_max():
+    """Both blocks of the facing-a-bet rule on together (S12's C7 plays only with four or more alive): every decision
+    legal, and the table replays exactly."""
+    d = {**FIN, "r3.v3_bvb_prior": 0.15, "hero.postflop.probe_from": 0.75, "hero.postflop.probe_n": 2,
+         "hero.postflop.probe_margin": 0.03, "hero.postflop.probe_raise_tier": 5, "hero.postflop.probe_bluff": 0.4,
+         "hero.postflop.balance_sizes": True, "hero.postflop.size_read": 1.0, "hero.postflop.size_read_rank": 5.0,
+         "hero.postflop.size_read_min_alive": 4, "hero.postflop.size_read_holdem_only": True}
+    a = [_digest(d, t)[0] for t in range(2)]
+    assert a == [_digest(d, t)[0] for t in range(2)]

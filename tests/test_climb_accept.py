@@ -52,3 +52,42 @@ def test_the_switchs_record_lines_do_not_change_the_code_version():
     assert CA._record_line(b"+DIALS: dict = {'r3.call_margin': 0.03}")
     assert CA._record_line(b"-SHIP = 'composite'")
     assert not CA._record_line(b"+SHIP_DIALS: dict = {}") and not CA._record_line(b"+    deadline_ms: float = 0.5")
+
+
+def _fake_run(monkeypatch, effects):
+    """climb_accept's verdict on made-up samples: `effects` maps a cell label's start to the candidate's shift."""
+    monkeypatch.setattr(CA, "run_cells", lambda *a, **k: None)
+    monkeypatch.setattr(CA, "code_version", lambda: "test")
+    base_key = CA.spec_key(CA.resolve({"dials": {}}), "test")
+
+    def gather(out, key, c, lo, hi):
+        n = hi - lo
+        shift = 0.0 if key == base_key else next((v for k, v in effects.items() if CA.label(c).startswith(k)), 0.0)
+        xs = [5.0 + shift + (0.01 if i % 2 else -0.01) * (1 + i % 3) for i in range(n)]
+        return {"samples": xs, "mean": sum(xs) / n, "tmo": 0, "exc": 0, "ill": 0, "safe_err": 0, "p99": 100.0,
+                "opp_mean": None}
+
+    monkeypatch.setattr(CA, "gather", gather)
+
+
+def test_aim_exploit_needs_an_exploit_field_up_not_night_up_and_a_lone_variant_down_replicates(monkeypatch, tmp_path):
+    _fake_run(monkeypatch, {"exploit": 0.5, "bonus_card": -0.2})
+    out = tmp_path / "v.json"
+    CA.main(["--cand", '{"dials": {"x": 1}}', "--set", "screen", "--stages", "confirm,exploit,variants",
+             "--aim", "exploit", "--json", str(out), "--out", str(tmp_path)])
+    v = json.loads(out.read_text())
+    assert v["accept"] is False and v["replicate"] == "bonus_card (realistic)"
+    assert ["confirm: night not beyond noise down", True] in v["checks"]
+    CA.main(["--cand", '{"dials": {"x": 1}}', "--set", "screen", "--stages", "confirm,exploit,variants",
+             "--json", str(out), "--out", str(tmp_path)])  # aim night: night level is a reject, nothing to replicate
+    v = json.loads(out.read_text())
+    assert v["accept"] is False and v["replicate"] is None
+
+
+def test_aim_exploit_without_an_exploit_gain_rejects(monkeypatch, tmp_path):
+    _fake_run(monkeypatch, {})
+    out = tmp_path / "v.json"
+    CA.main(["--cand", '{"dials": {"x": 1}}', "--set", "screen", "--stages", "confirm,exploit",
+             "--aim", "exploit", "--json", str(out), "--out", str(tmp_path)])
+    v = json.loads(out.read_text())
+    assert v["accept"] is False and v["replicate"] is None

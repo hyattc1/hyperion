@@ -32,7 +32,7 @@ import random
 from dataclasses import dataclass
 from itertools import combinations
 
-from ..core.eval import category, evaluate, warm
+from ..core.eval import category, evaluate, evaluate_many, warm
 from ..core.types import Action, ActionKind
 from .profiler import Profiler
 from .spot import Spot
@@ -89,6 +89,45 @@ TIER_EQUITY = (0.10, 0.20, 0.32, 0.42, 0.58, 0.72, 0.84, 0.92, 0.98)
 # every chance), heads-up, by the cards to come
 WIDE_EQUITY_FLOP = (0.33, 0.45, 0.58, 0.66, 0.75, 0.84, 0.91, 0.95, 0.99)
 WIDE_EQUITY_TURN = (0.25, 0.36, 0.55, 0.64, 0.76, 0.86, 0.93, 0.96, 0.99)
+# size_read (S12): a tier race, a higher tier wins this often on the flop / turn / river (an equal tier splits)
+SIZE_WIN = (0.78, 0.86, 0.97)
+# size_read_rank: the population's betting range per street (tier shares of every bet, sizes pooled) and its share of
+# bets by size bucket (the same survey)
+POP_BET = (
+    (0.144, 0.166, 0.166, 0.141, 0.265, 0.061, 0.045, 0.011, 0.001),
+    (0.033, 0.082, 0.173, 0.136, 0.351, 0.105, 0.068, 0.051, 0.001),
+    (0.047, 0.085, 0.222, 0.078, 0.270, 0.079, 0.088, 0.126, 0.005),
+)
+POP_BKT = ((0.033, 0.629, 0.320, 0.012, 0.006), (0.037, 0.499, 0.398, 0.026, 0.040), (0.083, 0.410, 0.413, 0.029, 0.065))
+# size_read's prior: the bettor's tier histogram for a bet of each size bucket (Profiler.SZ_EDGES; 5 = a raise) on
+# each street, the tuning fields' opponents pooled (S12 survey: seeds 8000-8024, night, realistic, night_hard, top,
+# elite, every seat but ours, from the simulator's cards). [street][bucket] -> 9 tier shares
+SIZE_PRIOR = (
+    (  # flop
+        (0.240, 0.228, 0.203, 0.115, 0.196, 0.008, 0.007, 0.002, 0.001),
+        (0.204, 0.228, 0.217, 0.123, 0.183, 0.025, 0.015, 0.005, 0.000),
+        (0.017, 0.045, 0.068, 0.183, 0.428, 0.133, 0.101, 0.024, 0.000),
+        (0.084, 0.039, 0.053, 0.062, 0.368, 0.202, 0.154, 0.034, 0.003),
+        (0.141, 0.082, 0.135, 0.100, 0.306, 0.100, 0.129, 0.006, 0.000),
+        (0.009, 0.026, 0.155, 0.064, 0.264, 0.229, 0.187, 0.065, 0.000),
+    ),
+    (  # turn
+        (0.053, 0.074, 0.303, 0.106, 0.350, 0.046, 0.037, 0.030, 0.000),
+        (0.057, 0.138, 0.229, 0.166, 0.305, 0.047, 0.031, 0.026, 0.001),
+        (0.005, 0.026, 0.114, 0.114, 0.402, 0.162, 0.100, 0.075, 0.002),
+        (0.013, 0.010, 0.026, 0.023, 0.261, 0.248, 0.257, 0.160, 0.003),
+        (0.011, 0.013, 0.046, 0.073, 0.471, 0.209, 0.106, 0.068, 0.002),
+        (0.003, 0.046, 0.142, 0.067, 0.250, 0.206, 0.146, 0.132, 0.008),
+    ),
+    (  # river
+        (0.028, 0.070, 0.288, 0.137, 0.293, 0.054, 0.049, 0.072, 0.009),
+        (0.069, 0.113, 0.298, 0.083, 0.259, 0.052, 0.046, 0.080, 0.001),
+        (0.038, 0.077, 0.167, 0.069, 0.269, 0.095, 0.125, 0.155, 0.005),
+        (0.010, 0.005, 0.054, 0.034, 0.192, 0.138, 0.251, 0.310, 0.005),
+        (0.009, 0.018, 0.083, 0.056, 0.357, 0.148, 0.101, 0.224, 0.004),
+        (0.003, 0.091, 0.173, 0.048, 0.268, 0.072, 0.095, 0.250, 0.001),
+    ),
+)
 _LOW_TIER = {0: 8, 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 7, 7: 6, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1}  # pairless low by its top card
 
 
@@ -191,6 +230,40 @@ class PostflopParams:
     # ... only heads-up against a seat that raises my heads-up flop and turn bets at a smoothed rate (prior 0.12 worth
     # 5) above balance_from: the reader of sizes shows itself by raising the small ones. 1.0 = off
     balance_from: float = 1.0
+    # S12 reads (docs/drills/climb/s12-log.md); every one off by default.
+    # size_read: facing a single bet heads-up (or a raise of my bet), the bettor's range for a bet of that size (bucket
+    # of the pot before the bet, Profiler.SZ_EDGES; a raise is its own bucket) is a tier histogram: the population's
+    # (SIZE_PRIOR) worth size_read_n0 bets, plus the bettor's own bets of that size whose cards were shown. My equity
+    # against it is a tier race (SIZE_WIN: a higher tier wins this often by street). The call decision blends the
+    # usual one (equity proxy - margin) with this one (read equity - size_read_margin) at weight size_read
+    # (size_read_evid: times n / (n + size_read_n0), so the read only counts with the seat's own evidence).
+    size_read: float = 0.0
+    size_read_n0: float = 8.0
+    size_read_margin: float = 0.03
+    size_read_evid: bool = False
+    size_read_raise: float = 2.0  # raise for value when the read equity is at least this (2 = never)
+    size_read_pool: bool = False  # the seat's shown bets of this size on every street count (not only this street's)
+    # size_read_rank > 0: the prior for a seat's bet of size bucket b is the slice of the population's betting range
+    # (POP_BET, weakest first) that its bets of smaller sizes leave below, as wide as its share of bets of size b:
+    # bigger bets are stronger, so a seat with two sizes bets its weaker hands small. Its size shares are its bets seen
+    # (every street) shrunk toward the population's shares (POP_BKT) with this many bets; a seat with one size reads
+    # as the population's whole betting range. 0 = the population's histogram per size (SIZE_PRIOR)
+    size_read_rank: float = 0.0
+    size_read_rank_streets: int = 7  # bit mask of the streets the rank prior is used on (1 flop, 2 turn, 4 river)
+    size_read_rank_by_street: bool = False  # the seat's size shares on this street only (not pooled over streets)
+    size_read_rank_mix: float = 1.0  # the prior is this share of the rank slice plus the rest of SIZE_PRIOR's map
+    size_read_call_tier: int = 0  # the read turns a fold into a call only from this tier (2: a pair; not with air)
+    size_read_min_alive: int = 0  # the read plays only with at least this many players alive (short-handed ranges
+    #                               widen, and a bot built against us sizes its bets its own way: S12, exploiter 1)
+    size_read_holdem_only: bool = False  # ... and only on hold'em tables (hero.holdem_table: a twist turns it off)
+    # xr_shift: heads-up, nothing to call, the opponent checked to me on this street and its check-raise rate (prior
+    # xr_prior worth xr_n0 chances) is at most xr_max: value-bet this many tiers thinner (a checked range with no
+    # check-raises holds few strong hands)
+    xr_shift: int = 0
+    xr_max: float = 0.04
+    xr_prior: float = 0.02
+    xr_n0: float = 10.0
+    xr_streets: int = 7  # bit mask of the streets it applies on: 1 flop, 2 turn, 4 river
     # strength-axis knobs (prompt 05's short-deck patch): a made flush / straight lands this many tiers away from
     # its hold'em tier, and draw outs are scaled (short deck: an open-ender is worth about 1.2x its hold'em outs)
     flush_tier_shift: int = 0
@@ -229,6 +302,7 @@ class Postflop:
         self.rng = random.Random(seed)
         self.curve = _Linear()  # Hero installs its ICM curve; chip EV otherwise
         self.low = False
+        self.holdem = True  # a hold'em table (Hero sets it per table: hero.holdem_table)
         self.wild_rank = -1  # canonical rank index of the wild card, -1 = none
         self.flush_over_full = False
         self.short = False  # short deck: A-6-7-8-9 a straight, its straights' outs, five flush outs, outs x SD_OUT_SCALE
@@ -259,12 +333,15 @@ class Postflop:
     # ------------------------------------------------------------------ hand reading
     @staticmethod
     def read(hole, board, dead=(), flush_shift: int = 0, straight_shift: int = 0, flush_over_full: bool = False,
-             short: bool = False) -> tuple[int, int, bool]:
+             short: bool = False, long: bool = False, more: bool = False) -> tuple[int, int, bool]:
         """(tier, outs, wet_board) for two hole cards. Pure arithmetic over ranks and suits plus one evaluate().
         `dead` cards (exposed elsewhere) come off the draw outs; the shifts move a made flush / straight. `short`: the
-        36-card deck's straights (A-6-7-8-9 made and drawn to, no wheel) and flush draws (five outs, not nine)."""
+        36-card deck's straights (A-6-7-8-9 made and drawn to, no wheel) and flush draws (five outs, not nine).
+        `long`: the board may be longer than five (any count, core.eval.evaluate_many past 8 cards; playing the board
+        is read against the board's own best five at any length). `more`: another board card may still come on a board
+        of five or more (river_of_blood's red last card), so draws and their outs count there too."""
         cards = tuple(hole) + tuple(board)
-        strength = evaluate(cards)
+        strength = evaluate(cards) if len(cards) <= 8 else evaluate_many(cards)
         cat = category(strength)
         comp = COMPLETERS
         if short:
@@ -315,9 +392,10 @@ class Postflop:
                 my_flush_cards = a
             else:
                 my_flush_cards, fsuit = b, s2
-        flush_draw = my_flush_cards == 4 and n_board < 5
+        drawing = n_board < 5 or more
+        flush_draw = my_flush_cards == 4 and drawing
         # straight draw: completing ranks beyond what the board alone offers
-        mine = comp[full_mask] & ~comp[board_mask] if n_board < 5 else 0
+        mine = comp[full_mask] & ~comp[board_mask] if drawing else 0
         n_str_outs = mine.bit_count()
         oesd = n_str_outs >= 2
         gutshot = n_str_outs == 1
@@ -335,8 +413,8 @@ class Postflop:
                 tier = 6 if (flush_over_full and flush_possible) else 7
             else:
                 tier = 8
-            if n_board == 5:
-                bstr = evaluate(board)
+            if n_board == 5 or (long and n_board > 5):
+                bstr = evaluate(board) if n_board <= 8 else evaluate_many(board)
                 if bstr == strength:
                     tier = 1  # playing the board
             # a flush we do not hold on a 4-flush board, or a straight on a one-liner board
@@ -601,13 +679,16 @@ class Postflop:
             tier = max(0, tier - self.p.wild_board_penalty)
         return tier, outs, wet
 
-    def _read(self, hole, board, must_use: int, dead) -> tuple[int, int, bool]:
+    def _read(self, hole, board, must_use: int, dead, long: bool = False, more: bool = False) -> tuple[int, int, bool]:
         if self.low:
             return self.read_low(hole, board)
         if self.wild_rank >= 0:
             return self.read_wild(hole, board, must_use, dead)
         if len(hole) == 2 and not must_use:
             p = self.p
+            if long:
+                return self.read(hole, board, dead, p.flush_tier_shift, p.straight_tier_shift, self.flush_over_full,
+                                 self.short, True, more)
             return self.read(hole, board, dead, p.flush_tier_shift, p.straight_tier_shift, self.flush_over_full,
                              self.short)
         return self.read_multi(hole, board, must_use, dead)
@@ -654,25 +735,34 @@ class Postflop:
 
     # ------------------------------------------------------------------ decision
     def act(self, spot: Spot, hole, prof: Profiler | None, i_was_aggressor: bool, cheap: bool = False,
-            board=None, board2=None, must_use: int = 0, dead=(), value_shift: int = 0) -> Action:
+            board=None, board2=None, must_use: int = 0, dead=(), value_shift: int = 0, call_shift: int = 0,
+            street: int | None = None, to_come: int | None = None, long: bool = False, more: bool = False) -> Action:
         """`hole` and `board` are canonical cards (Hero remaps under a permuted rank order); the
         displayed obs.board is only the fallback when no board is passed. `board2` is the second board of
         a two-board game, `must_use` the Omaha rule, `dead` the exposed cards, `value_shift` raises the
-        value thresholds (streets before a swap)."""
+        value thresholds (streets before a swap), `call_shift` reads a made hand this many tiers lower when
+        facing a bet. `street` / `to_come` replace the observation's street and the cards still to come (a long
+        board: Hero plays a street that may not be the last as a turn); `long` / `more`: see `read`."""
         p = self.p
         obs = spot.obs
         if board is None:
             board = obs.board
-        tier, outs, wet = self._read(hole, board, must_use, dead)
-        street = obs.street
-        cards_to_come = 2 if street == 1 else 1 if street == 2 else 0
+        tier, outs, wet = self._read(hole, board, must_use, dead, long, more)
+        if street is None:
+            street = obs.street
+        if to_come is None:
+            cards_to_come = 2 if street == 1 else 1 if street == 2 else 0
+        else:
+            cards_to_come = to_come
         n_opp = spot.n_opps
         ip = spot.behind == 0
         self._mult = 1.0
-        eq = self._equity(tier, outs, cards_to_come, n_opp)
+        t_eq = tier - call_shift if call_shift and spot.to_call > 0 else tier
+        eq = self._equity(t_eq if t_eq > 0 else 0, outs, cards_to_come, n_opp)
         if board2 is not None:
             t2, o2, w2 = self._read(hole, board2, must_use, dead)
-            eq = 0.5 * (eq + self._equity(t2, o2, cards_to_come, n_opp))
+            t2e = t2 - call_shift if call_shift and spot.to_call > 0 else t2
+            eq = 0.5 * (eq + self._equity(t2e if t2e > 0 else 0, o2, cards_to_come, n_opp))
             if t2 < tier:
                 tier, outs = t2, o2
             wet = wet or w2
@@ -706,6 +796,11 @@ class Postflop:
             all_dead = False
         value_tier = p.value_tier + int(shift) + value_shift
         big_value_tier = p.big_value_tier + value_shift
+        if p.xr_shift and spot.to_call == 0 and n_opp == 1 and prof is not None and not cheap \
+                and 1 <= street <= 3 and p.xr_streets >> (street - 1) & 1:
+            o = spot.opps[0]
+            if prof.chk_mask >> o & 1 and prof.xr_rate(o, p.xr_prior, p.xr_n0) <= p.xr_max:
+                value_tier -= p.xr_shift
         self.last = ""
         if cheap:
             self.last = "cheap"
@@ -838,12 +933,110 @@ class Postflop:
                 and self.rng.random() < p.probe_bluff * wide_w * (bluff_mult if bluff_mult < 1.0 else 1.0):
             self.last = "probe_bluff"
             return self._bet(spot, p.raise_size, bluff=True)
+        if p.size_read > 0.0 and n_opp == 1 and bettor >= 0 and prof is not None and not cheap and 1 <= street <= 3 \
+                and board2 is None and not must_use and self.wild_rank < 0 and not self.low \
+                and (p.size_read_min_alive <= 2 or obs.players_left >= p.size_read_min_alive) \
+                and (self.holdem or not p.size_read_holdem_only):
+            sr = self._size_eq(spot, prof, bettor, street, t_eq if t_eq > 0 else 0)  # call_shift as F's own rule
+            if sr is not None:
+                eq_r, w = sr
+                if eq_r >= p.size_read_raise and tier >= 2:
+                    self.last = "size_raise"
+                    return self._bet(spot, p.raise_size, eq=eq_r)
+                gap = (1.0 - w) * (pot_odds + margin - eq) + w * (pot_odds + p.size_read_margin - eq_r)
+                if gap <= 0.0 and tier < p.size_read_call_tier and eq < pot_odds + margin:
+                    gap = 1.0  # too weak for the read to call where F's own rule folds
+                if gap <= 0.0:
+                    eq_g = (1.0 - w) * eq + w * eq_r
+                    self.last = "size_call"
+                    if spot.to_call >= p.icm_gate_frac * obs.stacks[spot.me] and \
+                            not self._commit_ok(spot, eq_g, spot.to_call):
+                        return _FOLD
+                    return _CALL
+                return _FOLD
         if eq >= pot_odds + margin:
             self.last = "call"
             if spot.to_call >= p.icm_gate_frac * obs.stacks[spot.me] and not self._commit_ok(spot, eq, spot.to_call):
                 return _FOLD
             return _CALL
         return _FOLD
+
+    @staticmethod
+    def _rank_prior(prof: Profiler, s: int, st: int, b: int, k: float, by_street: bool = False):
+        """Seat s's bet of size b as a slice of the population's betting range (size_read_rank), or None."""
+        if by_street:
+            c = prof.szc[s][st]
+            n = sum(c)
+        else:
+            c, n = prof.size_shares(s)
+        pb = POP_BKT[st]
+        lo = 0.0
+        for j in range(b):
+            lo += (c[j] + k * pb[j]) / (n + k)
+        hi = lo + (c[b] + k * pb[b]) / (n + k)
+        if hi - lo < 1e-6:
+            return None
+        out = [0.0] * 9
+        c0 = 0.0
+        for t, q in enumerate(POP_BET[st]):
+            c1 = c0 + q
+            ov = (c1 if c1 < hi else hi) - (c0 if c0 > lo else lo)
+            if ov > 0.0:
+                out[t] = ov / (hi - lo)
+            c0 = c1
+        return out
+
+    def _size_eq(self, spot: Spot, prof: Profiler, bettor: int, street: int, tier: int):
+        """(equity against the bettor's read range for a bet of this size, weight) or None (size_read, S12)."""
+        p = self.p
+        obs = spot.obs
+        mine = obs.bets[spot.me]
+        bet = obs.bets[bettor]
+        if mine > 0:
+            b = 5  # a raise of my bet
+        else:
+            before = spot.pot_total - bet
+            b = prof.size_bucket(bet / before if before > 0 else 9.0)
+        st = street - 1
+        h, n = prof.size_hist(bettor, st, b)
+        if p.size_read_pool and n is not None:
+            h = [0] * 9
+            n = 0
+            for st2 in range(3):
+                h2, n2 = prof.size_hist(bettor, st2, b)
+                if n2:
+                    n += n2
+                    for t in range(9):
+                        h[t] += h2[t]
+        prior = SIZE_PRIOR[st][b]
+        if p.size_read_rank > 0.0 and b < 5 and n is not None and p.size_read_rank_streets >> st & 1:
+            rk = self._rank_prior(prof, bettor, st, b, p.size_read_rank, p.size_read_rank_by_street)
+            if rk is not None:
+                m = p.size_read_rank_mix
+                prior = rk if m >= 1.0 else [m * x + (1.0 - m) * y for x, y in zip(rk, prior)]
+        win = SIZE_WIN[st]
+        lose = 1.0 - win
+        if n is None:  # an oracle's weights
+            tot = 0.0
+            acc = 0.0
+            for t in range(9):
+                q = h[t]
+                tot += q
+                acc += q * (0.5 if t == tier else win if tier > t else lose)
+            if tot <= 0.0:
+                return None
+            return acc / tot, p.size_read
+        n0 = p.size_read_n0
+        acc = 0.0
+        for t in range(9):
+            q = h[t] + n0 * prior[t]
+            acc += q * (0.5 if t == tier else win if tier > t else lose)
+        w = p.size_read
+        if p.size_read_evid:
+            w *= n / (n + n0)
+            if w <= 0.0:
+                return None
+        return acc / (n + n0), w
 
     def _cheap(self, spot: Spot, tier: int, eq: float, wet: bool) -> Action:
         p = self.p

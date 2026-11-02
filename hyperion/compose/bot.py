@@ -12,6 +12,8 @@ decisions there. Members are built once per bot and play every table:
   r2       rival 2's core behind the same shell (core "rival2"). Donor `r2x` is hybrid_x; `r2` is hybrid.
   rival1   red-team rival 1 as built, through the kit adapter the bestiary uses. Donor `rival1`; `rival1x` with the layer.
   rival3   red-team rival 3 as built (brief's payouts in its ICM, no shell). Donor `rival3`; `rival3x` with the layer.
+  elite1, elite2   the climb's elite builds as built (PersonaMember: payouts and history as the bestiary passes them,
+           the generator seeded per table). Donors `elite1`, `elite2`; `elite1x`, `elite2x` with the layer (S9).
 More can be registered at run time (`register_member`); scratch runners use that for black-box opponents.
 
 **Every member sees everything.** Each member in the route acts on every observation and gets every hand_end, so its
@@ -48,6 +50,13 @@ Counted `level:<n>` once per decision played at level n > 0.
 
 Routes: a dict or "section=donor,..." (sections.parse_route: section names, "pre", "post", "*"). Unrouted sections go
 to the base's donor (`base`).
+
+**The strong-table route** (backlog S9, `strong_route`, off by default): sections played by other donors only while the
+table reads strong. The read is the share of our first-in, not all-in preflop raises this table that faced a re-raise
+before the flop, smoothed toward `strong_prior` with the weight of `strong_prior_n` raises; the table reads strong
+while it is at least `strong_rr` (0: always). At night's tables about 14% of F's opens are re-raised, at tables of
+strong general bots and copies of F 24-26% (docs/drills/climb/s9-log.md). Never in a blind-vs-blind unopened pot unless
+`strong_bvb`. Its donors' members run (and shadow) on every decision, like any routed member's.
 """
 from __future__ import annotations
 
@@ -218,6 +227,62 @@ def _rival_member(module: str, history_at_end: bool):
     return build
 
 
+class PersonaMember(KitMember):
+    """An elite build from hyperion.sim.field (elite1, elite2: our own agents' prepared top-team bots) as a member,
+    through the adapter the bestiary's PersonaBot plays it with: the payouts in the rules dict, the hand's history at
+    hand_end, and its generator (each was written with an unseeded random.Random()) reseeded from the member's seed at
+    every table start, as the bestiary's _EliteBot does, so a table replays exactly. Plain hold'em only, like every raw
+    rival. Backlog S9: a section of F can be routed to one of them (donors `elite1`, `elite2`; `...x` with the layer)."""
+
+    nolimit_only = True  # built for no-limit: on a pot- or fixed-limit table the composite plays the base instead
+
+    def __init__(self, impl, seed):
+        super().__init__(impl, history_at_end=True)
+        self._seed = 0 if seed is None else int(seed)
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        self.kit.reset()
+        self.impl.new_table({"starting_stack": rules.starting_stack, "hand_cap": rules.max_hands,
+                             "n_players": n_players, "blinds": rules.blind_levels, "payouts": list(rules.payouts)},
+                            seat, n_players)
+
+    def act(self, obs: Observation) -> Action:
+        # the generator is seeded per decision (from the hand, the street and the history's length), so a decision's
+        # draws never depend on which earlier decisions it made in full: a light shadow (below) plays the same
+        rng = getattr(self.impl, "rng", None)
+        if rng is not None:
+            rng.seed(((self._seed * 1_000_003 + obs.hand_no) * 4 + obs.street) * 1024 + len(obs.history))
+        return super().act(obs)
+
+
+def _persona_member(module: str):
+    def build(cfg, seed):
+        from ..sim.field import load
+
+        return PersonaMember(load(module).Bot(), seed)
+    return build
+
+
+# elite1 keeps its reads from the history it scans at each decision (`_scan`) and one fact from its own last answer:
+# `pend`, the seats that still owe a response to its raise (settled from the stacks at its next hand). Its light shadow
+# scans without deciding; its record follows the action taken (a raise taken sets `pend`, anything else clears it), as
+# its own act would have set it, so a light shadow and a full one play the same.
+def _elite1_light(m, obs: Observation) -> None:
+    m.impl._scan(m.kit(obs, obs.hole, obs.board))
+
+
+def _elite1_resync(m, before, obs: Observation, taken: Action) -> None:
+    b = m.impl
+    if taken.kind is _RAISE:
+        me = obs.seat
+        b.pend = {i: obs.stacks[i] for i in range(len(obs.stacks)) if i != me and obs.in_hand[i] and obs.stacks[i] > 0}
+        b.pend_jam = taken.amount >= obs.max_raise
+        b.pend_hand = obs.hand_no + 1  # the kit's 1-based hand number, as elite1 reads it
+        b.pend_st = obs.street
+    else:
+        b.pend = None
+
+
 # name -> factory(cfg, seed) -> member (new_table / act / hand_end, optional set_panic and variant_decide; plain_only)
 MEMBERS: dict[str, Callable] = {
     "base": lambda cfg, seed: _hybrid_member("rival3", cfg, seed),
@@ -225,17 +290,21 @@ MEMBERS: dict[str, Callable] = {
     "r2": lambda cfg, seed: _hybrid_member("rival2", cfg, seed),
     "rival1": _rival_member("rival1", False),
     "rival3": _rival_member("rival3", True),
+    "elite1": _persona_member("elite1"),
+    "elite2": _persona_member("elite2"),
 }
 # member name -> (state(member) captured before act, resync(member, state, obs, taken) when its answer was not taken)
 RESYNC: dict[str, tuple] = {
     "base": (lambda m: _r3_state(m.core), lambda m, st, obs, a: _resync_r3(m.core, st, obs, a)),
     "rival3": (lambda m: _r3_state(m.impl), lambda m, st, obs, a: _resync_r3(m.impl, st, obs, a)),
     "hero": (_hero_state, _resync_hero),
+    "elite1": (lambda m: True, _elite1_resync),
 }
 # member name -> (can a light shadow stand in for its decision on this observation, the light shadow)
 LIGHT: dict[str, tuple] = {
     "hero": (_hero_light_ok, _hero_light),
     "base": (_base_light_ok, _base_light),
+    "elite1": (lambda m, obs: True, _elite1_light),
 }
 # donor name -> (member, the exploit layer acts on its decisions)
 DONORS: dict[str, tuple[str, bool]] = {
@@ -244,6 +313,8 @@ DONORS: dict[str, tuple[str, bool]] = {
     "r2x": ("r2", True), "r2": ("r2", False),
     "rival1": ("rival1", False), "rival1x": ("rival1", True),
     "rival3": ("rival3", False), "rival3x": ("rival3", True),
+    "elite1": ("elite1", False), "elite1x": ("elite1", True),
+    "elite2": ("elite2", False), "elite2x": ("elite2", True),
 }
 
 
@@ -283,17 +354,29 @@ class ComposeConfig:
     panic_backoff: float = 2.0
     degrade: str = ""  # "noshadow,base": the intermediate levels, in order (module doc)
     start_level: int = 0  # measurement: play every table at this level from its first decision (a level's strength)
+    # the strong-table route (backlog S9, module doc): these sections go to these donors while the table reads strong,
+    # i.e. while the share of our first-in preflop raises that were re-raised, smoothed toward `strong_prior` with the
+    # weight of `strong_prior_n` raises, is at least `strong_rr`. Empty (the default): every section as `route` says
+    strong_route: dict = field(default_factory=dict)
+    strong_rr: float = 0.0  # 0 = always strong (the strong route always on, when it is set)
+    strong_prior: float = 0.15
+    strong_prior_n: float = 10.0
+    # ... and in an unopened pot with one opponent left in the hand (the small blind against the big, or folded round to
+    # the button with the small blind out): off = never there (blind-vs-blind play is S11's, climb/s11-exploiter2-fixes)
+    strong_bvb: bool = False
     seed: int | None = None
 
 
 def compose_config(route=None, seed=None, **kw) -> ComposeConfig:
     cfg = ComposeConfig(seed=seed, **kw)
     cfg.route = parse_route(route)
-    for sec, d in cfg.route.items():
-        if sec not in SECTIONS:
-            raise KeyError(f"unknown section {sec!r}")
-        if d not in DONORS:
-            raise KeyError(f"unknown donor {d!r} for {sec}; known: {', '.join(DONORS)}")
+    cfg.strong_route = parse_route(cfg.strong_route)
+    for r in (cfg.route, cfg.strong_route):
+        for sec, d in r.items():
+            if sec not in SECTIONS:
+                raise KeyError(f"unknown section {sec!r}")
+            if d not in DONORS:
+                raise KeyError(f"unknown donor {d!r} for {sec}; known: {', '.join(DONORS)}")
     if cfg.base_donor not in DONORS or DONORS[cfg.base_donor][0] != "base":
         raise KeyError(f"base_donor must be a donor of the base member, got {cfg.base_donor!r}")
     for lv in degrade_levels(cfg.degrade):
@@ -313,6 +396,17 @@ def degrade_levels(spec) -> list:
     return [x.strip() for x in str(spec).split(",") if x.strip()]
 
 
+def _bvb(obs: Observation) -> bool:
+    """Preflop, unopened, and one opponent left in the hand (blind against blind)."""
+    if max(obs.bets) > obs.blinds[1]:
+        return False
+    n = 0
+    for j, x in enumerate(obs.in_hand):
+        if x and j != obs.seat:
+            n += 1
+    return n == 1
+
+
 # ---------------------------------------------------------------------------------------------- the core
 class CompositeCore:
     """Routes each decision to its section's member (module doc). Not guarded: Composite wraps it in SafeBot."""
@@ -321,7 +415,7 @@ class CompositeCore:
         self.cfg = cfg = config or ComposeConfig()
         donors = [cfg.route.get(s, cfg.base_donor) for s in SECTIONS]
         names = ["base"]  # index 0 is always the base
-        for d in donors:
+        for d in donors + [cfg.strong_route[s] for s in SECTIONS if s in cfg.strong_route]:
             m = DONORS[d][0]
             if m not in names:
                 names.append(m)
@@ -332,8 +426,14 @@ class CompositeCore:
         self.base = self.members[0]
         idx = {n: i for i, n in enumerate(names)}
         self.route = [(idx[DONORS[d][0]], DONORS[d][1]) for d in donors]  # per section: (member index, layer on)
+        sr = cfg.strong_route
+        self.strong = [(idx[DONORS[sr[s]][0]], DONORS[sr[s]][1]) if s in sr else None for s in SECTIONS] if sr else None
+        self._rr_reset()
         self.donors = donors
         self.plain_only = [bool(getattr(m, "plain_only", False)) for m in self.members]
+        # members built for no-limit only (the elite builds: their jams would be clamped to a pot-limit raise)
+        self._nl_only = [bool(getattr(m, "nolimit_only", False)) for m in self.members]
+        self._no_nl = [False] * len(self.members)  # per member: plays the base here (this table is not no-limit)
         self.resync = [RESYNC.get(n) for n in names]
         self._rs_idx = [j for j, r in enumerate(self.resync) if r is not None]
         self.light = [LIGHT.get(n) if cfg.light else None for n in names]
@@ -366,8 +466,22 @@ class CompositeCore:
         self._hero_idx = names.index("hero") if "hero" in names else -1
 
     # ------------------------------------------------------------------ Bot protocol
+    def _rr_reset(self) -> None:
+        self._rr_n = 0  # our first-in preflop raises (not all-in) this table
+        self._rr_k = 0  # ... that faced a re-raise before the flop
+        self._rr_hand = -1
+        self._rr_open = False  # our first-in raise this hand, not yet re-raised
+
+    def strong_table(self) -> bool:
+        """The strong-table read: the share of our first-in raises re-raised (smoothed) is at least strong_rr."""
+        c = self.cfg
+        if c.strong_rr <= 0.0:
+            return True
+        return (self._rr_k + c.strong_prior * c.strong_prior_n) / (self._rr_n + c.strong_prior_n) >= c.strong_rr
+
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
         self.panic = False
+        self._rr_reset()
         for m in self.members:
             m.new_table(rules, seat, n_players)
         if self.cfg.start_level or self.level:
@@ -375,6 +489,8 @@ class CompositeCore:
         b = self.base
         self.plain = getattr(b, "_table_why", None) is None and not getattr(b, "_straddle", False) \
             and is_identity_order(rules)
+        nl = getattr(rules, "betting", "nolimit") == "nolimit"
+        self._no_nl = [x and not nl for x in self._nl_only]
         if self.ex is not None:
             self.ex.new_table(n_players, seat)
 
@@ -416,13 +532,25 @@ class CompositeCore:
         self.last_section = sec
         mi, layer = self.route[sec]
         counts = self.counts
+        strong = self.strong
+        if strong is not None:
+            if obs.hand_no != self._rr_hand:
+                self._rr_hand, self._rr_open = obs.hand_no, False
+            elif self._rr_open and (obs.street or obs.to_call > 0):
+                if not obs.street:
+                    self._rr_k += 1  # we act again before the flop, facing a bet: our raise was re-raised
+                self._rr_open = False
+            sr = strong[sec]
+            if sr is not None and self.strong_table() and (self.cfg.strong_bvb or obs.street or not _bvb(obs)):
+                mi, layer = sr
+                counts["strong"] += 1
         if self.level:
             counts["level:%d" % self.level] += 1
             if self._force is not None and not self.panic:
                 mi, layer = self._force
         if self.panic:  # SafeBot saw repeated overruns: the base alone (Hero's cheap path) for the rest of the table
             mi, layer = 0, True
-        elif mi and self.plain_only[mi] and not self.plain:
+        elif mi and self.plain_only[mi] and (not self.plain or self._no_nl[mi]):
             counts["fallback:plain"] += 1
             mi = 0
         members, resync = self.members, self.resync
@@ -505,6 +633,10 @@ class CompositeCore:
                 tap(self, obs, sec, mi, own, a, props, ex)
         for j in range(nm):
             props[j] = None
+        if strong is not None and not obs.street and a.kind is _RAISE and max(obs.bets) <= obs.blinds[1] \
+                and a.amount < obs.max_raise:
+            self._rr_n += 1  # a first-in raise that is not all-in: will it be re-raised?
+            self._rr_open = True
         key = SECTIONS[sec] + ":" + self.names[mi]
         counts[key] += 1
         COUNTS[key] += 1
@@ -603,7 +735,13 @@ SHIP_ROUTE = "post=hero,pre_raised_short=hero"  # the route the composite ships 
 # and +0.14 (8..1) on a 3x slower box, held-out seeds 20000-20199 (docs/drills/goal-log.md; decisions "The climb").
 SHIP_DIALS: dict = {"route": SHIP_ROUTE, "exploit.bet_min_fold": 0.4, "hero.postflop.call_margin": 0.2,
                     "deadline_ms": 0.8, "panic_window": 60, "panic_ladder": True, "panic_recover": 40,
-                    "degrade": "noshadow,lean,hero"}
+                    "degrade": "noshadow,lean,hero",
+                    # batch 3 (V-b): twist tables only, plain hold'em identical (docs/decisions.md)
+                    "hero.variant_preflop": {"call_raise_frac": 0.15, "three_bet_frac": 0.05},
+                    "hero.toss_value_shift": 2, "hero.toss_dead": True, "base.hero_on_bounty": False,
+                    # batch 4: the 3-bet defence (exploit resistance, addendum 6) and V-c's variant dials
+                    "r3.v3_defend": True,
+                    "hero.long_board": True, "hero.keep_call_shift": 2, "hero.toss_call_shift": 1}
 
 
 def parse_dials(dials: dict | None) -> tuple:
@@ -698,6 +836,24 @@ def variant_member(parent: str, base_overrides: dict | None = None, hero_member:
 
 
 # ---------------------------------------------------------------------------------------------- the simulator
+def sim_kwargs(kw: dict) -> dict:
+    """make_bot keywords for a composite seated in the simulator: `kw` with the bestiary's HYBRID_CONFIG (panic_after,
+    soft_us, ...) and HERO_CONFIG (Hero's dotted overrides) under them, as `hero` and the hybrids read them when built,
+    so a model-mode run's settings reach it (register's seats and the bestiary's `f_copy`)."""
+    from ..sim import bestiary as B
+
+    kw2 = dict(kw)
+    hyb = dict(B.HYBRID_CONFIG or {})
+    panic = hyb.pop("panic_after", None)
+    if panic is not None:
+        kw2.setdefault("panic_after", panic)
+    if hyb.get("soft_us", 0) >= 1e5:
+        kw2.setdefault("late_us", 1e9)  # deterministic runs: nothing reads the wall clock
+    kw2["hybrid_overrides"] = {**hyb, **kw2.get("hybrid_overrides", {})}
+    kw2["hero_overrides"] = {**(B.HERO_CONFIG or {}), **kw2.get("hero_overrides", {})}
+    return kw2
+
+
 def register(name: str, route=None, dials: dict | None = None, **kw) -> type:
     """Seat a composite in the simulator under `name` (this process only): `<field>@<name>` puts it in Hero's seat.
     Give a route and make_bot keywords, or one flat `dials` dict (parse_dials). It reads the bestiary's HERO_CONFIG
@@ -716,16 +872,7 @@ def register(name: str, route=None, dials: dict | None = None, **kw) -> type:
 
         def __init__(self, seed=None):
             super().__init__(seed)
-            kw2 = dict(self.KW)
-            hyb = dict(B.HYBRID_CONFIG or {})
-            panic = hyb.pop("panic_after", None)
-            if panic is not None:
-                kw2.setdefault("panic_after", panic)
-            if hyb.get("soft_us", 0) >= 1e5:
-                kw2.setdefault("late_us", 1e9)  # deterministic runs: nothing reads the wall clock
-            kw2["hybrid_overrides"] = {**hyb, **kw2.get("hybrid_overrides", {})}
-            kw2["hero_overrides"] = {**(B.HERO_CONFIG or {}), **kw2.get("hero_overrides", {})}
-            self.impl = make_bot(self.ROUTE, seed=seed, **kw2)
+            self.impl = make_bot(self.ROUTE, seed=seed, **sim_kwargs(self.KW))
 
         def new_table(self, rules, seat, n_players):
             self.impl.new_table(rules, seat, n_players)
@@ -746,4 +893,5 @@ def register(name: str, route=None, dials: dict | None = None, **kw) -> type:
 
 
 __all__ = ["COUNTS", "Composite", "CompositeCore", "ComposeConfig", "DONORS", "KitMember", "MEMBERS", "SHIP_DIALS", "SHIP_ROUTE",
-           "compose_config", "make_bot", "parse_dials", "register", "register_member", "ship", "variant_member"]
+           "compose_config", "make_bot", "parse_dials", "register", "register_member", "ship", "sim_kwargs",
+           "variant_member"]

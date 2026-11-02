@@ -85,6 +85,10 @@ class HybridConfig:
     # three hole cards: Hero plays the table from its 3-card variant tables. False = the core plays preflop from its
     # best two (and postflop once a discard leaves two): measured 0.35-0.63 worse than Hero on the three 3-card games
     hero_on_three_cards: bool = True
+    # a board past five cards (river_of_blood's run streets): Hero decides, with its own long-board read (Config
+    # `long_board`). False = the core, as before: rival 3's core reads it as a river (its evaluator takes any count);
+    # rival 2's core evaluates with core.eval past 8 cards, which the sim's guard plays as an error (Hero answers)
+    hero_on_long_board: bool = False
     # the exploit layer for dead and timing-out seats (hyperion/strategy/exploit.py) in front of every decision, core or
     # Hero: None = off; an ExploitParams; or "hero" = the params Hero's Config ships by default at this commit. When it
     # is on, the fallback Hero's own copy is switched off, so one layer sees every decision and none is counted twice.
@@ -321,6 +325,8 @@ class HybridCore:
         street = obs.street
         if street == 0 and self._straddle:
             return self._hero(obs, "hero:straddle")
+        if street > 3 and self.cfg.hero_on_long_board and len(obs.board) > 5:
+            return self._hero(obs, "hero:long_board")
         hole, board = obs.hole, obs.board
         rm = self._remap
         if rm is not None:

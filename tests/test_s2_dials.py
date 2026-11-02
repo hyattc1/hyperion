@@ -45,7 +45,9 @@ def _digest(dials, table, names=ROOM, rules=None):
 @pytest.mark.parametrize("dials", [{"r3.v3_defend": True}, {"r3.bb_defend": True}, {"r3.open_vs3b_scale": 1.0},
                                    {"hero.postflop.wide_bettor_from": 0.5}])
 def test_each_s2_dial_reaches_the_decisions(dials):
-    assert any(_digest(dials, t)[0] != _digest({}, t)[0] for t in range(5)), dials
+    # against the dial switched off (r3.v3_defend ships on since the climb's batch 4, so {} is not "off" for it)
+    off = {"r3.v3_defend": False} if "r3.v3_defend" in dials else {}
+    assert any(_digest(dials, t)[0] != _digest(off, t)[0] for t in range(5)), dials
 
 
 def test_the_3bet_defence_reads_the_exploiter_and_its_folds_to_our_4bets():

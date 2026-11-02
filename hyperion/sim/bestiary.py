@@ -1656,6 +1656,39 @@ class Hybrid3XBot(Hybrid3Bot):
     EXPLOIT = "hero"
 
 
+# ----- copies of the ship bot: the mirror tables (backlog S9) ---------------------------------------------------
+
+
+class ShipCopy(_Base):
+    """`f_copy`: a copy of F, the composite as it ships (hyperion.compose.bot.ship(): SHIP_DIALS, light shadows), as an
+    opponent. At the night's top tables the empty seats are filled with copies of submitted bots, and the strong teams
+    build general bots like ours, so F meets near-equals and itself: the `mirror` fields seat several copies. Each seat
+    is its own instance with its own seat seed (the runner's), so the copies share nothing but the deal; the
+    bestiary's model-mode settings (HYBRID_CONFIG, HERO_CONFIG) reach it as they reach a seat tools/swap.py registers
+    (compose.bot.sim_kwargs), so a model-mode run replays exactly. It follows SHIP_DIALS: when the ship changes, so do
+    the copies. Duplicated names merge in the runner's report (the mean over the copies' seats)."""
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        from ..compose import bot as _CB
+
+        route, kw = _CB.parse_dials({**_CB.SHIP_DIALS, "light": True})
+        self.impl = _CB.make_bot(route, seed=seed, **_CB.sim_kwargs(kw))
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self.impl.new_table(rules, seat, n_players)
+
+    def act(self, obs: Observation) -> Action:
+        return self.impl.act(obs)
+
+    def hand_end(self, result: HandResult) -> None:
+        self.impl.hand_end(result)
+
+    def variant_decide(self, prompt: dict):
+        return self.impl.variant_decide(prompt)
+
+
 REGISTRY: dict[str, type] = {
     "crasher": Crasher,
     "timeout": TimeoutBot,
@@ -1699,6 +1732,7 @@ REGISTRY: dict[str, type] = {
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
     "hybrid3_x": Hybrid3XBot,  # `hybrid3` with the exploit layer as Hero ships it
+    "f_copy": ShipCopy,  # a copy of F (the composite at SHIP_DIALS) as an opponent: the mirror fields
     "auction_tag": AuctionTAG,  # the auction entry's variant-aware opponent (bids by hand, reads others' cards)
     "keep2_tag": Keep2TAG,  # deal5_keep2's variant-aware opponent (five-card preflop, keeps by made hand and live draws)
 }
@@ -1808,6 +1842,13 @@ FIELDS["outside_strong"] = ("hero",) + OUTSIDE + ("rival4", "rival5", "agent_pus
 FIELDS["elite"] = ("hero", "elite1", "elite2", "rival1", "rival2", "rival3", "agent_pushfold", "agent_default")
 FIELDS["elite_night"] = ("hero", "elite1", "elite2") + _night.seat_names("elite_rest")
 FIELDS["elite_judge"] = ("hero", "elite3", "elite1", "elite2", "rival4", "rival5", "out_veterans", "out_quants")
+# the mirror fields (backlog S9): F at a table of near-equals, itself included. The top tables at the night hold strong
+# general bots, and empty seats are filled with copies of submitted bots, so copies of bots like ours. `mirror`: three
+# copies of F (`f_copy`, the ship as it stands) with the strongest general bots we may tune on: rival 2, elite1,
+# elite2 and hybrid3_x (F's own base). `mirror_night`: two copies of F with elite_night's seats (elite1, elite2 and the
+# first three of its five drawn night seats). Tuning fields: climb_accept's elite stage measures `mirror`.
+FIELDS["mirror"] = ("hero", "f_copy", "f_copy", "f_copy", "rival2", "elite1", "elite2", "hybrid3_x")
+FIELDS["mirror_night"] = ("hero", "f_copy", "f_copy", "elite1", "elite2") + _night.seat_names("elite_rest")[:3]
 # the exploiter's fields (S2, docs/drills/exploiter/): as its arena seated it, the hero seat and exploiter1 with six
 # night-pool seats at 8-max, alone heads-up, and with the first night-pool seat three-handed (play them with Rules of
 # n_players 2 / 3: docs/drills/climb/rules/hu.json, three.json). A test opponent, never in a night pool.
