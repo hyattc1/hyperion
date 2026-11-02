@@ -209,6 +209,7 @@ class PostflopParams:
     size_read_rank: float = 0.0
     size_read_rank_streets: int = 7  # bit mask of the streets the rank prior is used on (1 flop, 2 turn, 4 river)
     size_read_rank_by_street: bool = False  # the seat's size shares on this street only (not pooled over streets)
+    size_read_rank_mix: float = 1.0  # the prior is this share of the rank slice plus the rest of SIZE_PRIOR's map
     # xr_shift: heads-up, nothing to call, the opponent checked to me on this street and its check-raise rate (prior
     # xr_prior worth xr_n0 chances) is at most xr_max: value-bet this many tiers thinner (a checked range with no
     # check-raises holds few strong hands)
@@ -907,7 +908,10 @@ class Postflop:
                         h[t] += h2[t]
         prior = SIZE_PRIOR[st][b]
         if p.size_read_rank > 0.0 and b < 5 and n is not None and p.size_read_rank_streets >> st & 1:
-            prior = self._rank_prior(prof, bettor, st, b, p.size_read_rank, p.size_read_rank_by_street) or prior
+            rk = self._rank_prior(prof, bettor, st, b, p.size_read_rank, p.size_read_rank_by_street)
+            if rk is not None:
+                m = p.size_read_rank_mix
+                prior = rk if m >= 1.0 else [m * x + (1.0 - m) * y for x, y in zip(rk, prior)]
         win = SIZE_WIN[st]
         lose = 1.0 - win
         if n is None:  # an oracle's weights
