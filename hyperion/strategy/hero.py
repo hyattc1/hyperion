@@ -406,6 +406,9 @@ class Config:
     # mu_call_shift for must-use-k. 0 = off
     multi_call_shift: int = 0
     mu_call_shift: int = 0
+    # ... and the bet / raise side there: value, big-value and raise thresholds this many tiers up. 0 = off
+    multi_value_shift: int = 0
+    mu_value_shift: int = 0
     # ... and by the table's rule (variant_preflop_ex's gates: "must_use", "fixedlimit", "lowball", "deck", "boards",
     # "wild"), added to the above, e.g. {"deck": 1}. {} = off
     call_shift_ex: dict = field(default_factory=dict)
@@ -1002,6 +1005,7 @@ class HeroCore:
             call_shift += cfg.toss_call_shift
         elif nh >= 3:
             call_shift += cfg.mu_call_shift if mu else cfg.multi_call_shift
+            value_shift += cfg.mu_value_shift if mu else cfg.multi_value_shift
         if cfg.call_shift_ex and self._gate:
             call_shift += int(cfg.call_shift_ex.get(self._gate, 0) or 0)
         self.last_path = "postflop"

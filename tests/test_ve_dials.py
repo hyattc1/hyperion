@@ -20,8 +20,8 @@ PRE = [(7, R(50)), (1, C)]
 def test_every_new_dial_is_off_by_default():
     c = Config()
     assert (c.twin_preflop, c.twin_force, c.twin_multi, c.variant_preflop_ex, c.call_shift_ex, c.multi_call_shift,
-            c.mu_call_shift, c.postflop.split_call_margin, c.postflop.split_tier_eq) == (0.0, False, 0.0, {}, {}, 0, 0,
-                                                                                         -1.0, False)
+            c.mu_call_shift, c.multi_value_shift, c.mu_value_shift, c.postflop.split_call_margin,
+            c.postflop.split_tier_eq) == (0.0, False, 0.0, {}, {}, 0, 0, 0, 0, -1.0, False)
 
 
 def test_twins_come_from_the_variants_own_table():
@@ -125,6 +125,27 @@ def _captured_shift(dials, name, hole, board):
     obs = street_obs(hole, board, seat=1, button=7, pot=100, in_hand=HU, history=PRE)
     h.act(obs)
     return got.get("call_shift")
+
+
+def test_multi_and_mu_value_shifts_reach_their_tables_only():
+    def vs(dials, name, hole, board):
+        h = HeroCore(config_from_dict(dials))
+        h.new_table(V.get(name).rules, 0, 8)
+        got = {}
+        real = h.postflop.act
+
+        def spy(*a, **kw):
+            got.update(kw)
+            return real(*a, **kw)
+
+        h.postflop.act = spy
+        h.act(street_obs(hole, board, seat=1, button=7, pot=100, in_hand=HU, history=PRE))
+        return got.get("value_shift")
+    d = {"multi_value_shift": 1, "mu_value_shift": 2}
+    assert vs({}, "omaha_four", "Ah Kd 7c 7s", "As 9d 2h") == 0
+    assert vs(d, "three_card_keep", "Ah Kd 7c", "As 9d 2h") == 1
+    assert vs(d, "omaha_four", "Ah Kd 7c 7s", "As 9d 2h") == 2
+    assert vs(d, "short_deck", "Ah Kd", "As 9d 7h") == 0
 
 
 def test_multi_and_mu_call_shifts_reach_their_tables_only():
