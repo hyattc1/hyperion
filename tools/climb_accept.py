@@ -27,8 +27,10 @@ Stages (comma-separated; default confirm,guards,variants):
 - aware: the three likeliest twists against variant-aware opponents, each field under its variant
   (toss_or_holdem_aware, bounty_aware, short_deck_aware; hyperion/sim/aware.py); `--aware NAME,...` for some.
 - exploit: the S2 exploiter (`exploiter1`, docs/drills/exploiter/) at 8-max (`exploit`, payouts 10/7/5/4/3/2/1/0),
-  heads-up (`exploit_hu`, rules hu.json: 10/7) and three-handed (`exploit_3`, three.json: 10/7/5); its own points are
-  printed too. Diagnostic: not part of the acceptance rule (it is one opponent we know).
+  heads-up (`exploit_hu`, rules hu.json: 10/7) and three-handed (`exploit_3`, three.json: 10/7/5), and the second
+  exploiter (`exploiter2`, docs/drills/exploiter2/) in the same three formats (`exploit2`, `exploit2_hu`,
+  `exploit2_3`); the exploiter's own points are printed too. Diagnostic: not part of the acceptance rule (they are
+  opponents we know).
 - timing: tools/latency.py p99 for both specs (20,000 calls).
 - window: night alone, the check a window needs (prompt 06): the candidate not beyond noise down. With --rules (the
   night's rules JSON: payouts, blinds, antes ...) and --variant (a catalog entry's hooks) it plays tonight's game;
@@ -70,8 +72,9 @@ GUARDS = [("night_hard", "lin", None), ("realistic", "lin", None), ("top", "lin"
 JUDGES = [("judge", "lin", None), ("judge2", "lin", None), ("judge2_night", "lin", None), ("judge_top", "lin", None),
           ("outside", "lin", None), ("outside_strong", "lin", None), ("elite_judge", "lin", None)]
 ELITE = [("elite", "lin", None), ("elite_night", "lin", None)]
-EXPLOIT = [("exploit", "brief", None), ("exploit_hu", "lin", "hu"), ("exploit_3", "lin", "three")]
-EXPLOIT_BOT = "exploiter1"
+EXPLOIT = [("exploit", "brief", None), ("exploit_hu", "lin", "hu"), ("exploit_3", "lin", "three"),
+           ("exploit2", "brief", None), ("exploit2_hu", "lin", "hu"), ("exploit2_3", "lin", "three")]
+EXPLOIT_BOTS = ("exploiter1", "exploiter2")  # the one seated in a cell's field is printed beside us
 VARIANT_FIELD = "realistic"
 VARIANT_SEEDS = 200
 CHUNK = 25
@@ -193,7 +196,7 @@ def _job(args):
                          hero_config=B.HERO_CONFIG, table_offset=off, variant=v)
     b = rep.bots[nm]
     st = b.stats
-    ex = rep.bots.get(EXPLOIT_BOT)
+    ex = next((rep.bots[x] for x in EXPLOIT_BOTS if x in rep.bots), None)
     return key, (field, pay, rules_name, variant, off), {
         "samples": b.samples, "opp_samples": ex.samples if ex is not None else None, "tmo": st.over_budget,
         "exc": st.exceptions, "ill": st.illegal,
@@ -395,7 +398,7 @@ def main(argv=None) -> int:
     print(f"base {json.dumps(base_raw, sort_keys=True)} -> {json.dumps(base, sort_keys=True)}")
     print(f"cand {json.dumps(cand_raw, sort_keys=True)} -> {json.dumps(cand, sort_keys=True)}")
     if "exploit" in st:
-        print(f"\n## exploit (diagnostic)\n\n| cell | base | cand | cand - base | | n | {EXPLOIT_BOT} b/c | p99 b/c |")
+        print("\n## exploit (diagnostic)\n\n| cell | base | cand | cand - base | | n | exploiter b/c | p99 b/c |")
         print("|---|---|---|---|---|---|---|---|")
         for r in st["exploit"]:
             ob, oc = r["opp"]

@@ -1573,6 +1573,33 @@ class Exploiter1Bot(_FixedSpeedInModel, PersonaBot):
         return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
 
 
+class Exploiter2Bot(PersonaBot):
+    """Test opponent `exploiter2`: the climb's second red-team exploiter (docs/drills/exploiter2/FINDINGS.md), built in
+    ~2 hours by a fresh agent that played F with FIN (r3.v3_defend, half-pot dry c-bet) only as a black box. Against
+    F's blind opens it 3-bets the top 18% to 3x and flat-calls to 80%; it raises F's small postflop bets and folds to
+    its big ones (F's bet size names its hand), stabs 0.6 pot when checked to and leads 0.4 pot into the preflop
+    raiser; heads-up its small blind min-raises every hand. Per-seat fold counts gate its bluffs. Against the rest it is
+    a percentile-range and push/fold bot with rule-based postflop. Frozen at md5 d77551bc (exploit_bot.py; five modules
+    beside it in hyperion/sim/field/exploiter2/, loaded by field.load_flat). No clock. Its one RNG (base.py) seeds
+    itself from the seat number at new_table; here it is reseeded from the seat seed at every table, so each table
+    draws its own stream and runs replay exactly. Never in a night pool (fields `exploit2`, `exploit2_hu`,
+    `exploit2_3`)."""
+
+    PARTS = ("ev", "pre_table", "mat_table", "base", "trk")
+
+    def __init__(self, seed: Optional[int] = None):
+        _Base.__init__(self, seed)
+        from .field import load_flat
+
+        self.impl = load_flat("exploiter2", self.PARTS, "exploit_bot", scrub_env=("EXPP",)).Bot()
+        self._seed = seed or 0
+        self._hist, self._hist_n, self._hist_hand = [], 0, -1
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self.impl.rng = random.Random(self._seed * 1_000_003 + 0xE2)
+
+
 # ----- the hybrid candidate: rival 2's decision core behind Hero's shell ---------------------------------------
 
 
@@ -1667,6 +1694,7 @@ REGISTRY: dict[str, type] = {
     "elite2": Elite2Bot,  # elite field: tuning fields elite, elite_night
     "elite3": Elite3Bot,  # elite field: the held-out elite judge (elite_judge), never tuned on
     "exploiter1": Exploiter1Bot,  # the S2 exploiter of F (black-box attacker): a test opponent, never in a night pool
+    "exploiter2": Exploiter2Bot,  # the second exploiter (S11), of F with FIN: a test opponent, never in a night pool
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
@@ -1783,12 +1811,17 @@ FIELDS["elite_judge"] = ("hero", "elite3", "elite1", "elite2", "rival4", "rival5
 # the exploiter's fields (S2, docs/drills/exploiter/): as its arena seated it, the hero seat and exploiter1 with six
 # night-pool seats at 8-max, alone heads-up, and with the first night-pool seat three-handed (play them with Rules of
 # n_players 2 / 3: docs/drills/climb/rules/hu.json, three.json). A test opponent, never in a night pool.
-EXPLOITERS = ("exploiter1",)
+EXPLOITERS = ("exploiter1", "exploiter2")
 FIELDS["exploit"] = ("hero", "exploiter1") + _night.seat_names("night")[:6]
 FIELDS["exploit_hu"] = ("hero", "exploiter1")
 FIELDS["exploit_3"] = ("hero", "exploiter1") + _night.seat_names("night")[:1]
+# the second exploiter's (S11, docs/drills/exploiter2/), seated the same way: its arena put F, itself and the first six
+# night-pool seats at 8-max (payouts 10/7/5/4/3/2/1/0), and played heads-up and three-handed with the same seating
+FIELDS["exploit2"] = ("hero", "exploiter2") + _night.seat_names("night")[:6]
+FIELDS["exploit2_hu"] = ("hero", "exploiter2")
+FIELDS["exploit2_3"] = ("hero", "exploiter2") + _night.seat_names("night")[:1]
 # fields of fewer than eight seats, with the player count their Rules must carry (every other field seats eight)
-FIELD_PLAYERS: dict[str, int] = {"exploit_hu": 2, "exploit_3": 3}
+FIELD_PLAYERS: dict[str, int] = {"exploit_hu": 2, "exploit_3": 3, "exploit2_hu": 2, "exploit2_3": 3}
 
 # fields that seat an optional bot: present in FIELDS only when every bot in them is registered
 OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {
