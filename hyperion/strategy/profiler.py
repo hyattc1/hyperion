@@ -120,6 +120,7 @@ class Profiler:
         self.sz_hist = [[[[0] * 9 for _ in range(6)] for _ in range(3)] for _ in range(n)]  # seat, street, bucket, tier
         self.sz_n = [[[0] * 6 for _ in range(3)] for _ in range(n)]
         self.sz_oracle = None  # measurement only: per seat {(street 0..2, bucket): 9 tier weights} or None
+        self.szc = [[[0] * 5 for _ in range(3)] for _ in range(n)]  # every bet seen (not raises): seat, street, bucket
         self.xr_opp = z()
         self.xr = z()
         self._dials = [dict(NEUTRAL_DIALS) for _ in range(n)]
@@ -441,8 +442,11 @@ class Profiler:
                 pot = self.pot_prev + sum(self.committed)
                 b = self.size_bucket((amt - self.committed[seat]) / pot if pot > 0 else 9.0)
             st = self.tstreet - 1
-            if 0 <= st <= 2 and len(self.sz_pend) < 32:
-                self.sz_pend.append((seat, st, b))
+            if 0 <= st <= 2:
+                if b < 5:
+                    self.szc[seat][st][b] += 1
+                if len(self.sz_pend) < 32:
+                    self.sz_pend.append((seat, st, b))
 
     def size_bucket(self, frac: float) -> int:
         e = self.SZ_EDGES
@@ -491,6 +495,14 @@ class Profiler:
                 if h is not None:
                     return h, None
         return self.sz_hist[s][st][b], self.sz_n[s][st][b]
+
+    def size_shares(self, s: int) -> tuple[list, int]:
+        """(bets seen of each size bucket 0..4 on every street, their total) for seat s."""
+        c = [0] * 5
+        for row in self.szc[s]:
+            for b in range(5):
+                c[b] += row[b]
+        return c, sum(c)
 
     def xr_rate(self, s: int, prior: float, n0: float) -> float:
         """How often seat s raises when it faces a bet after checking on the same street, smoothed toward `prior`."""

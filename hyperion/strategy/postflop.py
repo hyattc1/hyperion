@@ -87,6 +87,14 @@ warm(7)  # hold'em's 6/7-card lookups (about 25 ms): pay at import, never in act
 TIER_EQUITY = (0.10, 0.20, 0.32, 0.42, 0.58, 0.72, 0.84, 0.92, 0.98)
 # size_read (S12): a tier race, a higher tier wins this often on the flop / turn / river (an equal tier splits)
 SIZE_WIN = (0.78, 0.86, 0.97)
+# size_read_rank: the population's betting range per street (tier shares of every bet, sizes pooled) and its share of
+# bets by size bucket (the same survey)
+POP_BET = (
+    (0.144, 0.166, 0.166, 0.141, 0.265, 0.061, 0.045, 0.011, 0.001),
+    (0.033, 0.082, 0.173, 0.136, 0.351, 0.105, 0.068, 0.051, 0.001),
+    (0.047, 0.085, 0.222, 0.078, 0.270, 0.079, 0.088, 0.126, 0.005),
+)
+POP_BKT = ((0.033, 0.629, 0.320, 0.012, 0.006), (0.037, 0.499, 0.398, 0.026, 0.040), (0.083, 0.410, 0.413, 0.029, 0.065))
 # size_read's prior: the bettor's tier histogram for a bet of each size bucket (Profiler.SZ_EDGES; 5 = a raise) on
 # each street, the tuning fields' opponents pooled (S12 survey: seeds 8000-8024, night, realistic, night_hard, top,
 # elite, every seat but ours, from the simulator's cards). [street][bucket] -> 9 tier shares
@@ -192,6 +200,13 @@ class PostflopParams:
     size_read_margin: float = 0.03
     size_read_evid: bool = False
     size_read_raise: float = 2.0  # raise for value when the read equity is at least this (2 = never)
+    size_read_pool: bool = False  # the seat's shown bets of this size on every street count (not only this street's)
+    # size_read_rank > 0: the prior for a seat's bet of size bucket b is the slice of the population's betting range
+    # (POP_BET, weakest first) that its bets of smaller sizes leave below, as wide as its share of bets of size b:
+    # bigger bets are stronger, so a seat with two sizes bets its weaker hands small. Its size shares are its bets seen
+    # (every street) shrunk toward the population's shares (POP_BKT) with this many bets; a seat with one size reads
+    # as the population's whole betting range. 0 = the population's histogram per size (SIZE_PRIOR)
+    size_read_rank: float = 0.0
     # xr_shift: heads-up, nothing to call, the opponent checked to me on this street and its check-raise rate (prior
     # xr_prior worth xr_n0 chances) is at most xr_max: value-bet this many tiers thinner (a checked range with no
     # check-raises holds few strong hands)
@@ -841,6 +856,27 @@ class Postflop:
             return _CALL
         return _FOLD
 
+    @staticmethod
+    def _rank_prior(prof: Profiler, s: int, st: int, b: int, k: float):
+        """Seat s's bet of size b as a slice of the population's betting range (size_read_rank), or None."""
+        c, n = prof.size_shares(s)
+        pb = POP_BKT[st]
+        lo = 0.0
+        for j in range(b):
+            lo += (c[j] + k * pb[j]) / (n + k)
+        hi = lo + (c[b] + k * pb[b]) / (n + k)
+        if hi - lo < 1e-6:
+            return None
+        out = [0.0] * 9
+        c0 = 0.0
+        for t, q in enumerate(POP_BET[st]):
+            c1 = c0 + q
+            ov = (c1 if c1 < hi else hi) - (c0 if c0 > lo else lo)
+            if ov > 0.0:
+                out[t] = ov / (hi - lo)
+            c0 = c1
+        return out
+
     def _size_eq(self, spot: Spot, prof: Profiler, bettor: int, street: int, tier: int):
         """(equity against the bettor's read range for a bet of this size, weight) or None (size_read, S12)."""
         p = self.p
@@ -854,7 +890,18 @@ class Postflop:
             b = prof.size_bucket(bet / before if before > 0 else 9.0)
         st = street - 1
         h, n = prof.size_hist(bettor, st, b)
+        if p.size_read_pool and n is not None:
+            h = [0] * 9
+            n = 0
+            for st2 in range(3):
+                h2, n2 = prof.size_hist(bettor, st2, b)
+                if n2:
+                    n += n2
+                    for t in range(9):
+                        h[t] += h2[t]
         prior = SIZE_PRIOR[st][b]
+        if p.size_read_rank > 0.0 and b < 5 and n is not None:
+            prior = self._rank_prior(prof, bettor, st, b, p.size_read_rank) or prior
         win = SIZE_WIN[st]
         lose = 1.0 - win
         if n is None:  # an oracle's weights
