@@ -465,3 +465,18 @@ and (in judges) `elite_judge`.
 - V-e (goal/wt_ve, climb/ve-variant-strength): profile F under short_deck, omaha_four, two_boards, wild_deuces, lowball
   against the generic aware field, fix the weakest sections behind variant gates (general fixes from the Rules and
   hooks preferred, so they carry to an unseen twist), acceptance on held-out generic aware cells.
+
+## 11:31: S12's bet-size read (C7) on H5: large strong-table gains replicate, but rejected (realistic and three variants down)
+- H5 (24000-24399), base batch 4, --aim strong: elite +0.154 ± 0.071, elite_night +0.092 ± 0.065, mirror
+  +0.415 ± 0.079, top +0.183 ± 0.068 (all UP: the largest held-out gain at strong tables so far). Night -0.039 ±
+  0.063, night_hard +0.066, payout tables, doubling blinds, exploit, aware level. Down: realistic -0.096 ± 0.064 (a
+  guard) and antes_from_level_3 -0.103, fast_schedule -0.100, straddle -0.128 (the structural entries where the read
+  stays on, played on the realistic field). REJECT. H5 used once.
+- Reading: the read misreads realistic's one-size and broken bettors (Monte Carlo bots that time out, a breaking bot,
+  a loose student). The same pattern as dead_seats and the warm reads: tuned for strong bots, it costs against odd
+  ones. Back to S12: read only seats that show two or more size buckets and are not flagged weak, and/or only at
+  tables that look strong (a shared strong-table signal with S9's strong_rr), thresholds set before screening.
+- S11 interim: candidate Z (blind-vs-blind 3-bet prior 0.15, a probe read, one bet size) on screen: exploit2_hu
+  +0.307 ± 0.149 and exploit2_3 +0.237 ± 0.143 UP, nothing down; with C7 the two compose (mirror +0.431 UP). Not yet
+  heads-up winning (7.85 vs 9.15). bonus_card risk from the one size (0.5 pot includes the dry c-bet). Awaiting its
+  final commit before merging.
