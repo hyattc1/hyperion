@@ -119,7 +119,14 @@ def code_version() -> str:
                       if ln[:1] in (b"+", b"-") and not ln.startswith((b"+++", b"---")) and not _record_line(ln))
     untracked = subprocess.run(["git", "-C", ROOT, "ls-files", "--others", "--exclude-standard", "hyperion"],
                                capture_output=True, text=True).stdout
-    h = hashlib.md5(diff + untracked.encode()).hexdigest()[:8]
+    blobs = hashlib.md5()  # an untracked module's content, not just its name (an edit to it must miss the cache)
+    for name in untracked.split():
+        try:
+            with open(os.path.join(ROOT, name), "rb") as fh:
+                blobs.update(name.encode() + b"\0" + fh.read())
+        except OSError:
+            pass
+    h = hashlib.md5(diff + untracked.encode() + blobs.digest()).hexdigest()[:8]
     return f"{head[:10]}-{h}" if diff or untracked else head[:10]
 
 

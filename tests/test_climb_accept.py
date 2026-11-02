@@ -91,3 +91,17 @@ def test_aim_exploit_without_an_exploit_gain_rejects(monkeypatch, tmp_path):
              "--aim", "exploit", "--json", str(out), "--out", str(tmp_path)])
     v = json.loads(out.read_text())
     assert v["accept"] is False and v["replicate"] is None
+
+
+def test_an_edit_to_an_untracked_module_changes_the_code_version(tmp_path):
+    p = os.path.join(ROOT, "hyperion", "_cv_probe_untracked.py")
+    try:
+        with open(p, "w") as fh:
+            fh.write("A = 1\n")
+        v1 = CA.code_version()
+        with open(p, "w") as fh:
+            fh.write("A = 2\n")
+        v2 = CA.code_version()
+        assert v1 != v2
+    finally:
+        os.remove(p)
