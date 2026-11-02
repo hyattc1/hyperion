@@ -394,6 +394,13 @@ class Config:
     # deal5_keep2: facing a bet, the made hand's equity read this many tiers lower (everyone kept their best two of
     # five on this flop: keep_value_shift's reason, applied to calls; keep_value_shift moves only bets and raises). 0 = off
     keep_call_shift: int = 0
+    # two-card twists with no variant table set (lowball, wild cards, hi-lo, any new showdown): read each hand as its
+    # hold'em twin from the variant's own preflop table (tables/generic/, hyperion/sim/generic.py's prepare: the value
+    # share of every class dealt and scored through the variant's hooks), the hold'em class at the same combo
+    # percentile, in place of the hand-written lowball mirror and wild map; used when the twins move hands by at least
+    # this mean percentile (tables.twin_shift: a prepared table of a twist with hold'em's showdown moves them 0.015-0.03
+    # by sampling noise alone). 0 = off
+    twin_preflop: float = 0.0
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5
@@ -691,6 +698,10 @@ class HeroCore:
         self.postflop.holdem = holdem_table(rules)
         self._cls_map = mirror_map(self.tables.rank) if low else wild_map(wild_c) if wild_c >= 0 else None
         t = tables_for(rules, self.tables, name=cfg.variant_tables or None)
+        if cfg.twin_preflop > 0.0 and t is self.tables and rules.hole_cards == 2 and self._remap is None:
+            tm = self._twins(rules)
+            if tm is not None:
+                self._cls_map = tm
         if t is self.tables:
             pre, pf = self._base
             self._label = False
@@ -740,6 +751,21 @@ class HeroCore:
         pre.pf = pf
         if cfg.use_icm:
             pre.curve = pf.curve = self.curve
+
+    def _twins(self, rules: Rules) -> dict | None:
+        """The variant's twin map (Config.twin_preflop), read once per variant and rules; None when the variant has
+        no prepared table or its twins stay within the threshold."""
+        import json as _json
+
+        from .tables import generic_doc, twin_classes, twin_shift
+
+        key = (str((rules.extras or {}).get("variant")), _json.dumps(rules.extras or {}, sort_keys=True, default=str),
+               rules.hole_cards, self.cfg.twin_preflop)
+        cache = self._modules.setdefault("twins", {})
+        if key not in cache:
+            tm = twin_classes(generic_doc(rules), self.tables)
+            cache[key] = tm if tm is not None and twin_shift(tm, self.tables) >= self.cfg.twin_preflop else None
+        return cache[key]
 
     def set_panic(self, on: bool) -> None:
         self.panic = on
