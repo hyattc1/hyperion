@@ -620,3 +620,9 @@ and (in judges) `elite_judge`.
   twist tables (bounty and others where the core plays). New dial r3.v3_bvb_holdem_only (ffb1e62); with both gates the
   candidate plays bounty, swap_holdem and auction tables exactly as F (test), and F is identical by default (14
   cells). Z3 on H12 (32000-32399), --aim exploit, all stages. V-f told about the second gate.
+
+## 17:54: D3 (S12c's bet-size read) accepted on H11
+- H11 (31000-31399), base batch 4, --aim strong, 127 min: night +0.032 ± 0.024 UP; elite +0.048 ± 0.042, elite_night
+  +0.038 ± 0.029, mirror +0.158 ± 0.056 UP; guards, exploit (6 cells), variants (26, all bit-identical but the
+  structural four, level) and aware level. ACCEPT (addendum 8). H11 used once.
+- Batch 5 so far: strong_route (H6), V-e (H10), D3 (H11). Pending: Z3 (H12).
