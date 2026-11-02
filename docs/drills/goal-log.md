@@ -392,3 +392,28 @@ and (in judges) `elite_judge`.
   ranges re-cut from the variant's own equity table), one command to field them under any variant (target under 2
   minutes, usable in the hour), validated against the hand-built aware bots, then F's margin against them on every
   catalog entry: the new honest variant board and the variants track's targets.
+
+## 08:17: R2-R4 merged (9304576); the 3-bet defence and V-c accepted on H3; batch 4 judges running
+- R2-R4 found four failures that would have cost whole points, all fixed with F's play identical (1,400 per-seed
+  samples on the branch; 280 again after the merge on 7 plain hold'em cells):
+  1. 7 of 20 kit shapes broke the adapter; 5 of them sent every decision to check/fold (no raise bounds, "T♥",
+     "hT", legal actions as dicts or one string), "10h" and "bet"/"all-in" words fell back on 13-21% of decisions,
+     swapped min/max made every raise an all-in, blinds logged as bets read every pot as re-raised. The adapter now
+     reads all 20 (new fake kit S); the clean-kit path is unchanged.
+  2. A fresh bot per table leaked 71 KB a table (Hero's gc.freeze kept old bots) -> 0.
+  3. A fresh package import per table leaked 28 MB a table (kit E's 256 MB cap by table 8) -> flat 64 MB.
+  4. One object with no table-start hook carried panic, reads and seat across tables -> the adapter restarts the
+     bot when the hand number goes back; a seat numbered from 1 is corrected.
+  Also: one object over 10,000 tables grows 18 bytes a table, no time creep; peak RSS 65 MB with every variant
+  table; cold import 0.02-0.05 s; stdlib-only on python3.10 -I passes, but 3.10 costs 40-50% more per decision.
+  `--slim` now keeps only what the ship bots import (rival 3 and sim.rivals): zip 1.16 MB -> 807 KB, with a test
+  that elite3 and the judges are never in a submission.
+- H3 (22000-22399), base batch 3's ship:
+  - `{"r3.v3_defend": true}`, `--aim exploit`: exploit +0.629 ± 0.077 / +1.087 ± 0.120 / +1.402 ± 0.136 (F beats
+    exploiter1 in every format: 5.62 vs 4.65, 9.08 vs 7.92, 8.41 vs 7.03); night +0.000 ± 0.007; guards, elite,
+    aware, all 26 variants level (most identical). ACCEPT (addendum 6).
+  - V-c `{"hero.long_board": true, "hero.keep_call_shift": 2, "hero.toss_call_shift": 1}`: deal5_keep2 +0.286 ±
+    0.045 (realistic) and +0.307 ± 0.039 (realistic_keep2), toss aware +0.095 ± 0.044; nothing down. ACCEPT.
+  H3 retired (bonus_card replication, defence, V-c).
+- Batch 4 = the defence + V-c + R2-R4's fixes. Judges once on the judge set against batch 3's ship and timing by
+  per-call minimum, from goal/wt_measure at 9304576. strong_route (S9's G2) is on H4 now, for batch 5.
