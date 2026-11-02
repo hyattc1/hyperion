@@ -3,6 +3,16 @@
 Branch `climb/s12-reads` from main 5c6af66. The owner's question: an 8-max sit-and-go gives 100-300 hands with each
 opponent; bots are consistent; are we getting everything we can out of reading and punishing them within 1 ms?
 
+**Summary.** (1) The ceiling: F's existing reads, known perfectly from hand 0 (warm, from 400-table recordings),
+are worth little: night +0.04 ± 0.14, realistic +0.18 ± 0.15 (up), night_hard and top level, and elite -0.24 ± 0.16
+(down) at 8..1; the same pattern at 50/25/12/6/3/2/1/1. Preflop reads settle in 60-100 hands; postflop reads never
+settle inside a table. Reading faster is not the lever. (2) What F does not read: bet size against strength is worth
+the most (oracle: night +0.10, top +0.23 up, elite +0.28 up); light 3-bets against folding openers +0.02 to +0.08;
+thin value against non-check-raisers nothing. (3) Built: a size read learned from each seat's bet-size shares, off
+heads-up / three-handed and on twist tables (C7). Screen: elite +0.256 ± 0.105, elite_night +0.227 ± 0.096 (both up),
+top +0.103, night -0.031, every guard level, exploit resistance unchanged, latency +2 µs a decision. Recommended for
+held-out confirmation under addendum 8.
+
 Rules kept: no judge, outside, elite3 / elite_judge or held-out variant was run, read or profiled. Screen seeds
 10000-10199 only for decisions; recording and survey seeds 8000-8049 (fresh, under 10000, not listed as used in
 goal-plan). Model mode, eight rotations per seed, F as hyperion.ship builds it (`{"dials": {}}` on top of SHIP_DIALS).
@@ -187,7 +197,7 @@ ships. cand - F, paired:
 | bet size against strength, **oracle** | size_read 1.0 | +0.102 ± 0.132 | **+0.228 ± 0.153** | **+0.280 ± 0.168** |
 | bet size, learned (population prior per size + showdowns) | size_read 1.0 | -0.027 ± 0.116 | -0.113 ± 0.206 (50 seeds) | (stopped) |
 | fold to a 3-bet, **oracle** (light 3-bets) | l3_on | +0.058 ± 0.093 | +0.084 ± 0.141 | +0.023 ± 0.121 |
-| check-raise rate, learned (no oracle needed: 0-1% for nearly every seat) | xr_shift 1 | +0.016 ± 0.061 | (running) | |
+| check-raise rate, learned (no oracle needed: 0-1% for nearly every seat) | xr_shift 1 | +0.016 ± 0.061 | -0.020 ± 0.047 | -0.030 ± 0.057 |
 
 Read: **the bet-size read is the one worth points**: with the true size-to-strength map per bot it gains beyond noise
 at both strong tables, where the rivals and the elite builds bet two sizes that name their hand. A population map
@@ -237,7 +247,7 @@ decent archetypes) population map 0.076, A pooled (C1) **0.100**, A by street on
 and half the population map 0.074; strong bots (rivals, elite builds, hero_tight) 0.074 / 0.064 / 0.056 / **0.052**.
 C1's rank slice is worse than the population map against the agent and Track B builds (their small bets are not
 their weak bets), which is where night's level result comes from. `size_read_rank_mix` 0.5 (4260f66) blends the two
-priors; C2 = C1 + mix 0.5 is measured on night, top and elite after C1's screens.
+priors. C2 = C1 + mix 0.5 was not measured alone: after C1's exploit screen it became C3 (the blend and a call floor).
 
 **Overlap with S11** (climb/s11-exploiter2-fixes, read only): S11's wide-bettor read (probe / c-bet / free-bet rates)
 edits the same facing-a-bet block of `Postflop.act` (eq, margin, a lower raise tier, a probe bluff-raise) and
@@ -315,3 +325,99 @@ Full test suite (wt_s12 at 4260f66, load 13-18): 24 failed, 1,021 passed, 7 skip
 the same replay tests and `test_random_pick_is_seeded` fail on the base commit 5c6af66 under the same load (plain
 Hero's SafeBot reads the wall clock in those tests), so they are the host, not S12. `test_contracts_md_is_current`
 was real: the API card is regenerated with the new dials (e34942b).
+
+## 09:20-09:30: C7 = C6 + the read off on twist tables (de6875e)
+
+C6's variant subset (realistic under each entry, 10000-10099 x 8): bounty -0.100 ± 0.131, toss_or_holdem -0.067 ±
+0.078, short_deck +0.041 ± 0.078, top_heavy +1.100 ± 1.450 (of 100); C1's: auction -0.106 ± 0.128, river_of_blood
+-0.054 ± 0.131. None beyond noise, but the read's prior and tier race were fitted on hold'em hands and sizes, and on
+a twist table neither holds (three hole cards, a bounty, a short deck). `size_read_holdem_only` keeps the read on a
+hold'em table only (`hero.holdem_table`: two hole cards, the standard board, deck and rank order, no-limit, and no
+Rules.extras key but `variant` / `ante_rule` with a structural entry: top_heavy, antes_from_level_3, fast_schedule,
+straddle). An unseen twist with any new key turns it off. Also: the read now takes F's own `call_shift` (toss / keep /
+long-board dials), as F's call rule does; zero on hold'em.
+
+By construction C7 plays every twist table exactly as F (tested: bounty, three tables) and every hold'em table exactly
+as C6 (tested; and on screen night 10000-10024 x 8 C7's samples equal C6's sample for sample). So C7's screens are
+C6's on hold'em cells and top_heavy, and identical to F on the other 22 catalogued variants.
+
+## 09:05-09:40: the candidate's screens (C6 at e34942b = C7 on hold'em; screen seeds 10000-10199 x 8)
+
+`climb_accept --set screen --stages confirm,guards,elite --aim strong` (addendum 8) and `--stages exploit`; the
+variants at 100 seeds (realistic). cand - F, paired; 0 errors and 0 timeouts in every cell for both specs.
+
+| cell | F | C6 / C7 | C6 / C7 - F | |
+|---|---|---|---|---|
+| night | 5.973 | 5.942 | -0.031 ± 0.087 | level |
+| night_hard | 5.485 | 5.555 | +0.070 ± 0.104 | level |
+| realistic | 6.346 | 6.345 | -0.001 ± 0.088 | level |
+| top | 5.035 | 5.138 | +0.103 ± 0.108 | level (lower bound -0.005) |
+| night @10/7/5/4/3/2/1/0 | 6.159 | 6.213 | +0.055 ± 0.149 | level |
+| night @50/25/12/6/3/2/1/1 | 24.443 | 24.391 | -0.052 ± 0.937 | level |
+| night, doubling blinds | 5.828 | 5.782 | -0.046 ± 0.085 | level |
+| **elite** | 4.681 | 4.937 | **+0.256 ± 0.105** | UP |
+| **elite_night** | 5.329 | 5.555 | **+0.227 ± 0.096** | UP |
+| exploit (8-max, exploiter 1) | 4.999 | 4.943 | -0.056 ± 0.144 | level |
+| exploit_hu | 8.005 | 8.005 | +0.000 ± 0.000 | identical (the read is off) |
+| exploit_3 | 7.027 | 7.027 | +0.000 ± 0.000 | identical |
+| top_heavy (variant, 100 seeds) | 27.175 | 28.275 | +1.100 ± 1.450 | level |
+| the 22 twist variants (C7) | | | identical to F by construction | |
+| antes_from_level_3, fast_schedule, straddle | | | the read plays as on hold'em; not measured | |
+
+Verdict (`--aim strong`): ACCEPT on the screen (an elite field beyond noise up, night not down, no guard or elite cell
+down). C6's own twist cells, before the hold'em gate: bounty -0.100 ± 0.131, toss_or_holdem -0.067 ± 0.078,
+short_deck +0.041 ± 0.078.
+
+**Latency** (`tools/latency.py`, code de6875e, C7 against F, host at load 13-18, two simulator processes running):
+
+| | F | C7 |
+|---|---|---|
+| decisions, 20,000 random observations, p50 (two runs) | 51.9 / 52.4 µs | 52.6 / 53.3 µs |
+| same, p99 / max (the host: wall 3.3-4.3 s against CPU 1.4 s) | 4,585 / 4,100 µs; max 33.8 ms | 6,582 / 8,095 µs; max 30.5 ms |
+| decisions on 20 recorded night tables, per-call minimum of 3: mean / p99 / max | 47.7 / 100.4 / 278 µs | 49.8 / 104.0 / 208 µs |
+| hand end, per-call minimum of 3: mean / p99 / max | 54.1 / 99.1 / 174 µs | 58.2 / 137.6 / 175 µs |
+| each table's first decision, minimum: mean / max | 106 / 122 µs | 110 / 138 µs |
+
+The read costs about 2 µs a decision on average (a 9-tier sum and a slice of 9 shares, only facing a heads-up bet)
+and about 4 µs a hand end on average, 38 µs at the hand end's p99: `Profiler._size_end` reads each shown bettor's tier
+at each of its bets (one evaluator call each). Far inside 1 ms; if a kit times the hand end tightly, that pass can move
+to `idle()` with Hero's deferred work (not done).
+
+## What I kept, and why
+
+- **Kept (recommended): C7** = `{"hero.postflop.size_read": 1.0, "hero.postflop.size_read_rank": 5.0,
+  "hero.postflop.size_read_min_alive": 4, "hero.postflop.size_read_holdem_only": true}`, aim **strong** (addendum 8):
+  bet size against strength, learned from each seat's own size shares (no showdowns needed), off heads-up and
+  three-handed, off on twist tables. Gains at every strong table (elite +0.26, elite_night +0.23, top +0.10), level on
+  night and every guard; against exploiter 1 heads-up and three-handed it is F, at 8-max level.
+- **Built, not recommended:** C1 (the same read everywhere: exploit_hu -0.285 and exploit_3 -0.283 beyond noise);
+  C3 (blend 0.5 + floor: halves both the leak and the gain); C4 (floor only: nothing fixed); the population map per
+  size (no gain online); `xr_shift` (thin value when a non-check-raiser checks: +0.016 / -0.020 / -0.030 on night /
+  top / elite); `r3.l3_on` (light 3-bets: oracle +0.058 / +0.084 / +0.023, never beyond noise; the learned version was
+  not measured). All stay as dials, off.
+- **Ceiling device and oracles:** scratch only (`goal/s12/`), never in hyperion/.
+
+## Open (for the coordinator and the next worker)
+
+1. Held-out confirmation of C7 with `--aim strong` (elite, elite_night, top on H-next; night, guards, exploit,
+   aware, variants; the judges at batch end, elite_judge first).
+2. The size read with S11's wide-bettor read on: both edit Postflop's facing-a-bet block; at weight 1 the size read
+   overrides S11's margin there. Measure together before both ship.
+3. The flop-only hybrid (`size_read_rank_streets` 1 + `size_read_rank_by_street`) or the blend fit the truth better
+   offline (strong bots 0.052-0.056 against C1's 0.064); with the short-handed gate they might keep the strong-table
+   gain and add some on night. Not measured.
+4. Preflop reads at strong tables: warm rival 3 core reads cost at elite (-0.11) and the layer's (-0.05); F's
+   preflop exploitation of fold and 3-bet reads looks too strong against prepared bots. A dampening by opponent
+   strength (or a slower prior at strong tables) is the next read-side idea; S9's territory overlaps.
+5. `Profiler._size_end` could move to `idle()` for kits that time the hand end.
+
+## 09:43-09:50: the full suite at the final code (de6875e, load 13-15)
+
+1,040 passed, 11 failed, 4 skipped (6 min). The failures are the host's: per-bot budget checks in a mixed field
+(five bots, none of them ours), the gate's history-dropping package and the kit-D cheap-bot round trip (wall-clock
+latency; the climb log already lists the round trip as failing at load 13 on main), and the `replay exactly in model
+mode` tests (they fail the same way on base 5c6af66 under this load: plain Hero's SafeBot reads the wall clock
+there). `test_aware_bots_are_deterministic_for_a_seed` passed alone. tests/test_s12_reads.py: 12 passed; the
+targeted suites (ship, compose, strategy, hybrid3, S2 / V-b / V-c dials, variants, API card, climb_accept): 207 passed.
+F's default play is unchanged on the branch: checked chunk for chunk (night 10000-10024 x 8) against 5c6af66 at
+0db5695, 36818ca, c56d1e2 and e34942b; at de6875e by the tests (every new dial is off by default and inert off).
