@@ -25,7 +25,7 @@ Protocol: `docs/drills/goal-plan.md` section 2. Live held-out set: **H1 (20000-2
   in one table. The `timeouts` recipe (cheap path everywhere) is about two points a table, so panic on a slow or busy
   sandbox is the largest risk found so far. R1 goes to a dedicated worker (branch climb/r1-timing).
 
-## 20:55: unseen variants written; kit E and the held-out catalog started
+## 20:42: unseen variants written; kit E and the held-out catalog started
 - The fresh writer's five (order of its plausibility score): river_of_blood 8/10 (MIT 2023: red rivers deal extra
   streets until a black card), showtime 6/10 (folded hands shown face up), high_chicago 5/10 (half the pot to the
   highest spade in the hole), bomb_pot 5/10 (every fifth hand: no blinds, everyone antes, first decision on the flop),
