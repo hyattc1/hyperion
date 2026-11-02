@@ -20,7 +20,7 @@ def _facing_bet(hole, board, to_call=60, pot=120, extras=None):
 def test_every_new_dial_is_off_by_default():
     c = Config()
     assert (c.long_board, c.long_to_come, c.long_value_per_card, c.long_call_per_card, c.keep_call_shift,
-            c.variant_pushfold) == (False, 1, 0, 0, 0, {})
+            c.variant_pushfold, c.toss_call_shift) == (False, 1, 0, 0, 0, {}, 0)
 
 
 def _spy_calls(cfg, rules, obs):
@@ -69,3 +69,13 @@ def test_variant_pushfold_reaches_catalogued_twists_only_and_shares_the_solution
     base = HeroCore(Config())
     base.new_table(V.short_deck().rules, 0, 8)
     assert h.pushfold.p_call == base.pushfold.p_call and h.pushfold.push_set == base.pushfold.push_set
+
+
+def test_toss_call_shift_reads_calls_lower_on_toss_tables_only():
+    o = _facing_bet("Ah Kd", "Ks 8c 3d", extras={"discards": {}})
+    cfg = config_from_dict({"use_profiler": False, "toss_call_shift": 2}, seed=1)
+    _, kw = _spy_calls(cfg, V.toss_or_holdem().rules, o)
+    assert kw["call_shift"] == 2
+    for rules in (Rules(), V.deal5_keep2().rules):
+        _, kw = _spy_calls(cfg, rules, _facing_bet("Ah Kd", "Ks 8c 3d"))
+        assert kw["call_shift"] == 0

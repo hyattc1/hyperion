@@ -399,6 +399,7 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `keep_value_shift` | 1 |
 | `toss_dead` | False |
 | `toss_value_shift` | 0 |
+| `toss_call_shift` | 0 |
 | `bounty_exact` | False |
 | `bounty_call_scale` | 1.0 |
 | `bounty_bet_frac` | 0.0 |

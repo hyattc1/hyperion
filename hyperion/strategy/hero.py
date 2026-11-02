@@ -322,6 +322,9 @@ class Config:
     # thresholds this many tiers up (keep_value_shift's reason, a third as strong). Both off: the play before 2026-11-01
     toss_dead: bool = False
     toss_value_shift: int = 0
+    # ... and toss_call_shift: facing a bet on those tables, the made hand's equity read this many tiers lower (the
+    # call side of toss_value_shift, as keep_call_shift is of keep_value_shift on deal5_keep2). 0 = off
+    toss_call_shift: int = 0
     # bounty (MIT 2025: win a pot holding the bounty rank, in hand or on the board, and the house pays (ratio - 1) x the
     # net win + constant more). bounty_exact: the net win is the others' chips in the pot (not ours from earlier
     # streets), and every all-in EV also prices the bounty on the chips a caller adds (Spot.bounty_k).
@@ -861,6 +864,7 @@ class HeroCore:
             call_shift += cfg.keep_call_shift
         elif self._toss:
             value_shift += cfg.toss_value_shift
+            call_shift += cfg.toss_call_shift
         self.last_path = "postflop"
         nb = len(board)
         if cfg.long_board and (nb > 5 or (self._run and nb >= 5)) and nh == 2 and not mu:
