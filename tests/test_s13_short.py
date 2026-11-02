@@ -129,3 +129,52 @@ def test_the_solver_matches_push_fold_on_the_cut_tree(capsys):
     ours = float(out.split("push freq ours ")[1].split()[0])
     ref = float(out.split("push freq ours ")[1].split()[2])
     assert abs(ours - ref) < 0.02
+
+
+class _Prof:
+    """A stand-in for F's profiler: every seat opens `rate` of its small blinds."""
+
+    def __init__(self, rate):
+        self.rate = rate
+
+    def archetype(self, s):
+        return "unknown"
+
+    def open_rate(self, s, late, prior, n0):
+        return self.rate
+
+
+def _sb_vs_3bet(m, member, hole, hand_no):
+    """We are the button (seat 0) at 50 bb, opened to 2.25 bb (45 chips); the big blind 3-bets to m times that."""
+    to = int(45 * m)
+    member.light_observe(_obs([], bets=(10, 20), stacks=(990, 980), to_call=10, seat=0, hand_no=hand_no))
+    o = _obs([(0, Action.raise_to(45)), (1, Action.raise_to(to))], bets=(45, to), stacks=(955, 1000 - to),
+             to_call=to - 45, seat=0, hole=hole, hand_no=hand_no)
+    assert member.wants(o, None)
+    return member.act(o)
+
+
+@pytest.mark.skipif(not os.path.exists(os.path.join(TABLES_DIR, "short_hu_t3.json")), reason="no 3-bet size table")
+def test_a_small_3bet_is_answered_from_its_own_table():
+    m = SH.ShortMember()
+    m.new_table(R2, 0, 2)
+    folds = {2.2: 0, 3.5: 0}
+    hands = [(r * 4, ((r + 5) % 13) * 4 + 1) for r in range(13)]  # assorted offsuit hands
+    for mult in folds:
+        for i, h in enumerate(hands):
+            if _sb_vs_3bet(mult, m, h, 100 + i).kind is ActionKind.FOLD:
+                folds[mult] += 1
+    assert m.counts.get("t3:2.2", 0) > 0
+    assert folds[2.2] < folds[3.5]
+
+
+@pytest.mark.skipif(not os.path.exists(os.path.join(TABLES_DIR, "short_hu_lock.json")), reason="no lock table")
+def test_a_wide_opener_meets_the_locked_counter():
+    m = SH.ShortMember(SH.ShortParams(wide_open=0.72))
+    m.new_table(R2, 1, 2)
+    m.light_observe(_obs([], bets=(10, 20), stacks=(990, 980), to_call=10, hand_no=7))
+    o = _obs([(0, Action.raise_to(45))], bets=(45, 20), stacks=(955, 980), to_call=25, hand_no=7, hole=(0, 21))
+    assert m.wants(o, _Prof(0.97))
+    m.act(o)
+    assert m.counts.get("wide", 0) == 1
+    assert m.wants(o, _Prof(0.5)) and not m._wide  # a normal opener: the equilibrium tables

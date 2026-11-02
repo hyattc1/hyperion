@@ -77,6 +77,13 @@ def _load(kind: str):
             solve = {k: {"meta": v["meta"], "nodes": v["nodes"]} for k, v in raw["solve"].items()}
         if kind == "3":
             t = {"q": raw["q"], "grid": raw["grid"], "rho": raw.get("rho", [0.4]), "solve": solve}
+        elif kind in ("hu_lock", "hu_t3"):  # keys "depth@w": per locked width (or 3-bet size), a depth table
+            t = {"q": raw["q"], "w": sorted(float(x) for x in raw.get("w") or raw.get("mult")), "by_w": {}}
+            for k, v in solve.items():
+                d, w = (float(x) for x in k.split("@"))
+                t["by_w"].setdefault(w, {})[d] = v
+            for w, sv in t["by_w"].items():
+                t["by_w"][w] = {"keys": sorted(sv), "solve": sv}
         else:
             t = {"q": raw["q"], "keys": sorted(float(k) for k in solve),
                  "solve": {float(k): v for k, v in solve.items()}}
@@ -110,6 +117,15 @@ class ShortParams:
         # least this often (F's profiler, fold_to_bet_pre, with at least steal_n raises faced); 0 = off
         self.steal_ftb = 0.0
         self.steal_n = 10
+        # a deviation on a clear read: as the big blind facing an open from a seat that opens at least this share of
+        # its small blinds (F's profiler, open_rate late, smoothed toward 0.5 with 6), the nodes after the open come
+        # from the counter solved against a small blind locked to open the top w of hands (tables/short_hu_lock.json,
+        # the nearest w of 0.75 / 0.9 / 1.0); 1.0 = off
+        self.wide_open = 1.0
+        # the small blind facing a 3-bet of m times its open: the nodes after it come from the tree re-solved with that
+        # 3-bet size (2.2x, 2.75x: tables/short_hu_t3.json, the open and the big blind's answer locked to equilibrium)
+        # or the 3.5x table, split on a log scale by m; off = every 3-bet maps onto the 3.5x node
+        self.t3_sizes = True
         self.flop_size = 0.5
         self.turn_size = 0.66
         self.river_size = 0.75
@@ -139,7 +155,10 @@ class ShortMember:
         self.defer = frozenset(x.strip() for x in str(self.p.defer).split(",") if x.strip())
         self._roles = frozenset(x.strip() for x in str(self.p.pre_roles).split(",") if x.strip())
         self._prof = None
+        self._wide, self._t3 = False, 0.0
         self.hu = _load("hu")
+        self.hul = _load("hu_lock") if self.p.wide_open < 1.0 else None
+        self.hut3 = _load("hu_t3") if self.p.t3_sizes else None
         self.t3 = _load("3") if self.p.three else None
         self.payouts = (1.0, 0.0)
         self.rho = 0.4
@@ -249,6 +268,7 @@ class ShortMember:
     def _hu_node(self, obs: Observation):
         """(depth solve, node key, node, my role, eff chips) for a heads-up preflop decision, or None."""
         t = self.hu
+        self._wide, self._t3 = False, 0.0
         if t is None or not self._start:
             return None
         n = len(obs.stacks)
@@ -266,6 +286,24 @@ class ShortMember:
         sol = t["solve"][d]
         nodes = sol["nodes"]
         role = {sb: 0, bbs: 1}
+        if self.hul is not None and obs.seat == bbs and obs.history and obs.history[0][0] == sb \
+                and obs.history[0][1].kind is _RAISE and self._prof is not None:
+            try:
+                r = self._prof.open_rate(sb, True, 0.5, 6.0)
+            except Exception:  # noqa: BLE001
+                r = 0.0
+            if r >= self.p.wide_open:
+                w = 0.75 if r < 0.825 else 0.9 if r < 0.95 else 1.0
+                lt = self.hul["by_w"].get(w)
+                if lt is not None:
+                    ld = self._depth(lt, S, obs.hand_no, "d2l")
+                    lsol = lt["solve"][ld]
+                    if "r" in lsol["nodes"]:
+                        root = nodes[""]
+                        sol = lsol
+                        nodes = dict(lsol["nodes"])
+                        nodes[""] = root  # the locked root is not stored: its line is the same
+                        self._wide = True
         key = ""
         cur = float(obs.blinds[1])  # the bet to match
         k = 0
@@ -285,6 +323,21 @@ class ShortMember:
                 cur = float(a.amount)
             if not ch or ch not in acts:
                 return None
+            if key == "r" and ch == "r" and self.hut3 is not None and seat == bbs:
+                # the big blind's 3-bet: its size picks the table for the rest of the line
+                opened = max(float(obs.blinds[1]), self._open_amount(obs.history))
+                m = float(a.amount) / opened if opened > 0 else 3.5
+                sz = self._t3_size(m, obs.hand_no)
+                if sz < 3.5:
+                    lt = self.hut3["by_w"].get(sz)
+                    alt = lt["solve"].get(d) if lt is not None else None
+                    if alt is not None and "rr" in alt["nodes"]:
+                        keep = nodes
+                        nodes = dict(alt["nodes"])
+                        for kk in ("", "r"):
+                            nodes.setdefault(kk, keep.get(kk))
+                        sol = {"meta": alt["meta"], "nodes": nodes}
+                        self._t3 = sz
             k += 1
             nxt = "l" if (key == "" and ch == "c") else key + ch
             if ch == "c" and key != "":
@@ -294,6 +347,26 @@ class ShortMember:
         if node is None or role.get(obs.seat) != node["p"]:
             return None
         return sol, key, node, role[obs.seat], eff
+
+    @staticmethod
+    def _open_amount(history) -> float:
+        for _, a in history:
+            if a.kind is _RAISE:
+                return float(a.amount)
+        return 0.0
+
+    def _t3_size(self, m: float, hand_no: int) -> float:
+        sizes = (2.2, 2.75, 3.5)
+        if m <= sizes[0]:
+            return sizes[0]
+        if m >= sizes[-1]:
+            return sizes[-1]
+        for i in range(1, len(sizes)):
+            if sizes[i] >= m:
+                lo, hi = sizes[i - 1], sizes[i]
+                w = (math.log(m) - math.log(lo)) / (math.log(hi) - math.log(lo))
+                return hi if _u(self.seed, hand_no, "t3") < w else lo
+        return sizes[-1]
 
     @staticmethod
     def _raise_to(key: str, meta: dict, cur: float, bb: float) -> float:
@@ -359,6 +432,10 @@ class ShortMember:
                 except Exception:  # noqa: BLE001
                     pass
             self.counts["hu:" + key + ch] = self.counts.get("hu:" + key + ch, 0) + 1
+            if self._wide:
+                self.counts["wide"] = self.counts.get("wide", 0) + 1
+            if self._t3:
+                self.counts["t3:%g" % self._t3] = self.counts.get("t3:%g" % self._t3, 0) + 1
             return self._to_action(ch, key, sol["meta"], obs, eff)
         if alive == 3 and self.t3 is not None:
             got = self._three_node(obs)

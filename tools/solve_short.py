@@ -136,7 +136,7 @@ def matvec(M, v):
 
 # ------------------------------------------------------------------------------------------------ tree
 class Node:
-    __slots__ = ("player", "acts", "kids", "key", "term", "reg", "avg", "n")
+    __slots__ = ("player", "acts", "kids", "key", "term", "reg", "avg", "n", "lock")
 
     def __init__(self, player=-1, key=""):
         self.player = player
@@ -146,6 +146,7 @@ class Node:
         self.term = None
         self.reg = None
         self.avg = None
+        self.lock = None  # a fixed strategy (per action, per class): a node-locked opponent (cmd_lock)
 
 
 def dec(player, key, children):
@@ -171,7 +172,7 @@ def term(spec):
 #   ("sd3", order_u)                 three players all in: order_u[(x, y, z)][p] (x best, then y over z)
 
 
-def hu_tree(S: float, util_of=None):
+def hu_tree(S: float, util_of=None, t3_mult: float = 3.5):
     """The heads-up tree at effective stack S (bb). util_of(commit_sb, commit_bb, winner or None) -> (u_sb, u_bb):
     default chip EV. Players: 0 = SB (button), 1 = BB."""
     if util_of is None:
@@ -222,7 +223,7 @@ def hu_tree(S: float, util_of=None):
     if raise_ok(r1, S):
         c_o = [r1, 1.0]
         bb_vs_open = [("f", term(("fold", util_of(c_o, 0)))), ("c", flop([r1, r1]))]
-        t3 = round(3.5 * r1 * 2) / 2
+        t3 = round(t3_mult * r1 * 4) / 4 if t3_mult != 3.5 else round(3.5 * r1 * 2) / 2
         if raise_ok(t3, S):
             c_3 = [r1, t3]
             sb_vs_3 = [("f", term(("fold", util_of(c_3, 1)))), ("c", flop([t3, t3]))]
@@ -238,7 +239,7 @@ def hu_tree(S: float, util_of=None):
         root_kids.append(("r", dec(1, "r", bb_vs_open)))
     root_kids.append(("j", jam_vs(1, [S, 1.0], "j")))
     root = dec(0, "", root_kids)
-    meta = {"S": S, "r1": r1, "iso": iso}
+    meta = {"S": S, "r1": r1, "iso": iso, "t3_mult": t3_mult}
     return root, meta
 
 
@@ -332,7 +333,7 @@ def walk(node, reach, p, nplayers, t):
     if node.term is not None:
         return _term_value(node.term, reach, p, nplayers)
     q = node.player
-    sigma = _strategy(node)
+    sigma = node.lock or _strategy(node)
     na = len(node.acts)
     if q == p:
         vals = []
@@ -347,6 +348,8 @@ def walk(node, reach, p, nplayers, t):
             sa, va = sigma[a], vals[a]
             for i in range(N):
                 nv[i] += sa[i] * va[i]
+        if node.lock is not None:
+            return nv
         for a in range(na):
             ra, va = node.reg[a], vals[a]
             av, sa = node.avg[a], sigma[a]
@@ -375,7 +378,7 @@ def br_walk(node, reach, p, nplayers):
         v = _term_value(node.term, reach, p, nplayers)
         return v, v
     q = node.player
-    sigma = _avg_strategy(node)
+    sigma = node.lock or _avg_strategy(node)
     na = len(node.acts)
     if q == p:
         brs, avs = [], []
@@ -383,6 +386,10 @@ def br_walk(node, reach, p, nplayers):
             br, av = br_walk(node.kids[a], reach, p, nplayers)
             brs.append(br)
             avs.append(av)
+        if node.lock is not None:  # a locked player cannot deviate here
+            cur = [sum(sigma[a][i] * avs[a][i] for a in range(na)) for i in range(N)]
+            curb = [sum(sigma[a][i] * brs[a][i] for a in range(na)) for i in range(N)]
+            return curb, cur
         best = [max(brs[a][i] for a in range(na)) for i in range(N)]
         cur = [sum(sigma[a][i] * avs[a][i] for a in range(na)) for i in range(N)]
         return best, cur
@@ -437,6 +444,8 @@ def nodes_of(root):
 def encode(root):
     out = {}
     for n in nodes_of(root):
+        if n.lock is not None:
+            continue
         s = _avg_strategy(n)
         na = len(n.acts)
         chars = []
@@ -957,6 +966,123 @@ def cmd_hu(a):
     print("wrote", path, os.path.getsize(path), "bytes")
 
 
+LOCK_W = (0.7, 0.85, 1.0)
+
+
+def top_classes(w):
+    """The top share w of hands (combos) by heads-up equity percentile (tables/preflop_rank.json): per class, the
+    probability it is in (the boundary class mixed)."""
+    rank = read_json(os.path.join(TABLES_DIR, "preflop_rank.json"))
+    order = sorted(range(N), key=lambda i: -rank[CLASSES[i]])
+    out = [0.0] * N
+    left = w * sum(COMBO_COUNT)
+    for i in order:
+        c = COMBO_COUNT[i]
+        if left <= 0:
+            break
+        out[i] = min(1.0, left / c)
+        left -= c
+    return out
+
+
+def solve_lock_depth(args):
+    """The heads-up tree with the small blind's first action locked: open the top w of hands, fold the rest (no limps,
+    no jams), as both exploiters play it; the rest solved (the big blind's counter to a wide opener)."""
+    S, w, iters, every = args
+    t0 = time.time()
+    root, meta = hu_tree(S)
+    top = top_classes(w)
+    lock = []
+    for a in root.acts:
+        if a == "r":
+            lock.append(list(top))
+        elif a == "f":
+            lock.append([1.0 - x for x in top])
+        else:
+            lock.append([0.0] * N)
+    if "r" not in root.acts:  # too short for an open: the lock jams the same hands
+        lock = [[1.0 - x for x in top] if a == "f" else (list(top) if a == "j" else [0.0] * N) for a in root.acts]
+    root.lock = lock
+    hist = solve(root, 2, iters, _norm2(), check_every=every)
+    expl = hist[-1][1] if hist else None
+    return S, w, {"meta": meta, "nodes": encode(root), "iters": iters, "expl_bb": expl,
+                  "expl_mbb": round(1000 * sum(expl), 2) if expl else None, "history": hist,
+                  "secs": round(time.time() - t0, 1)}
+
+
+def cmd_lock(a):
+    depths = [float(x) for x in a.depths.split(",")] if a.depths else HU_DEPTHS
+    ws = [float(x) for x in a.w.split(",")] if a.w else LOCK_W
+    jobs = [(S, w, a.iters, a.every) for w in ws for S in depths]
+    out = {"version": 1, "kind": "hu_lock", "q": Q, "classes": list(CLASSES), "depths": list(depths), "w": ws,
+           "lock": "small blind opens the top w (preflop_rank), folds the rest", "solve": {}}
+    t0 = time.time()
+    with Pool(a.workers) as p:
+        for S, w, res in p.imap_unordered(solve_lock_depth, jobs):
+            key = "%g@%g" % (S, w)
+            out["solve"][key] = res
+            print(f"S={key:>9} iters {res['iters']} expl {res['expl_mbb']} mbb/hand ({res['secs']} s)", flush=True)
+    out["secs"] = round(time.time() - t0, 1)
+    path = a.out or os.path.join(TABLES_DIR, "short_hu_lock.json")
+    with open(path, "w") as fh:
+        json.dump(out, fh, separators=(",", ":"))
+    print("wrote", path, os.path.getsize(path), "bytes")
+
+
+T3_SIZES = (2.2, 2.75)
+
+
+def _decode(node_rec):
+    na = len(node_rec["a"])
+    st = node_rec["s"]
+    return [[(ord(st[i * na + x]) - 48) / Q for i in range(N)] for x in range(na)]
+
+
+def solve_size_depth(args):
+    """The small blind's answer to a 3-bet of t3_mult times its open (an off-tree size): the tree rebuilt with that
+    3-bet, the small blind's first action and the big blind's answer to the open locked to the equilibrium of
+    tables/short_hu.json (the 3-bet's mass moved to the new size), the rest solved."""
+    S, mult, iters, every, eq = args
+    t0 = time.time()
+    root, meta = hu_tree(S, t3_mult=mult)
+    if "".join(root.acts) != eq[""]["a"] or "r" not in root.acts:
+        return S, mult, None
+    root.lock = _decode(eq[""])
+    bbn = root.kids[root.acts.index("r")]
+    if "r" not in bbn.acts or "r" not in eq or eq["r"]["a"] != "".join(bbn.acts):
+        return S, mult, None
+    bbn.lock = _decode(eq["r"])
+    hist = solve(root, 2, iters, _norm2(), check_every=every)
+    expl = hist[-1][1] if hist else None
+    return S, mult, {"meta": meta, "nodes": encode(root), "iters": iters, "expl_bb": expl,
+                     "expl_mbb": round(1000 * sum(expl), 2) if expl else None, "history": hist,
+                     "secs": round(time.time() - t0, 1)}
+
+
+def cmd_sizes(a):
+    with open(os.path.join(TABLES_DIR, "short_hu.json")) as fh:
+        base = json.load(fh)
+    depths = [float(x) for x in a.depths.split(",")] if a.depths else [float(x) for x in base["depths"]]
+    mults = [float(x) for x in a.mult.split(",")] if a.mult else T3_SIZES
+    jobs = [(S, m, a.iters, a.every, base["solve"]["%g" % S]["nodes"]) for m in mults for S in depths]
+    out = {"version": 1, "kind": "hu_t3", "q": Q, "classes": list(CLASSES), "depths": depths, "mult": mults,
+           "lock": "root and the big blind's answer to the open locked to short_hu.json; 3-bet = mult x open",
+           "solve": {}}
+    t0 = time.time()
+    with Pool(a.workers) as p:
+        for S, m, res in p.imap_unordered(solve_size_depth, jobs):
+            if res is None:
+                continue
+            key = "%g@%g" % (S, m)
+            out["solve"][key] = res
+            print(f"S={key:>9} iters {res['iters']} expl {res['expl_mbb']} mbb/hand ({res['secs']} s)", flush=True)
+    out["secs"] = round(time.time() - t0, 1)
+    path = a.out or os.path.join(TABLES_DIR, "short_hu_t3.json")
+    with open(path, "w") as fh:
+        json.dump(out, fh, separators=(",", ":"))
+    print("wrote", path, os.path.getsize(path), "bytes")
+
+
 def cmd_check(a):
     """The heads-up tree cut to push / fold, against the repo's push/fold solution (tables/pushfold_hu.json)."""
     S = float(a.depth)
@@ -1001,6 +1127,20 @@ def main(argv=None):
     t.add_argument("--rho", default="0.4")
     t.add_argument("--only", default=None)
     t.add_argument("--out", default=None)
+    lk = sub.add_parser("lock")
+    lk.add_argument("--iters", type=int, default=400)
+    lk.add_argument("--every", type=int, default=100)
+    lk.add_argument("--workers", type=int, default=2)
+    lk.add_argument("--depths", default=None)
+    lk.add_argument("--w", default=None)
+    lk.add_argument("--out", default=None)
+    sz = sub.add_parser("sizes")
+    sz.add_argument("--iters", type=int, default=400)
+    sz.add_argument("--every", type=int, default=100)
+    sz.add_argument("--workers", type=int, default=1)
+    sz.add_argument("--depths", default=None)
+    sz.add_argument("--mult", default=None)
+    sz.add_argument("--out", default=None)
     k = sub.add_parser("compact")
     k.add_argument("src")
     k.add_argument("dst")
@@ -1008,7 +1148,8 @@ def main(argv=None):
     c.add_argument("--depth", default="10")
     c.add_argument("--iters", type=int, default=300)
     a = p.parse_args(argv)
-    {"hu": cmd_hu, "three": cmd_three, "check": cmd_check, "compact": cmd_compact}[a.cmd](a)
+    {"hu": cmd_hu, "three": cmd_three, "check": cmd_check, "compact": cmd_compact, "lock": cmd_lock,
+     "sizes": cmd_sizes}[a.cmd](a)
 
 
 if __name__ == "__main__":
