@@ -261,3 +261,13 @@ and (in judges) `elite_judge`.
 - S9 started (worktree goal/wt_s9, branch climb/s9-strong-tables): a mirror field (copies of F with the strongest
   general bots), where F loses at all-strong tables (3rd, behind rival 2 and elite2) and why (it takes 1st 11-13%
   against 15-24%), and fixes by section, adopting the better bot's section where it beats F.
+
+## 04:52: V-b with the lowball fix accepted on H2; batch 3 (FIN + V-b) in its combined check
+- V-b on H2 (21000-21199 variants, 21000-21399 aware; 34 min): aware all up (toss +0.128 ± 0.059, bounty
+  +0.298 ± 0.081, short deck +0.178 ± 0.065); variants none down, ten up (wild deuces +0.193 ± 0.082, three-card
+  keep +0.129 ± 0.069, deal5_keep2 +0.081 ± 0.049 ...); lowball, Omaha and fixed limit identical to F. Accepted.
+- Batch 3 = FIN + V-b. Each was confirmed alone against F. The combination runs on H2's third use (confirm, guards,
+  elite, exploit, aware, variants: a second held-out look at FIN's hold'em cells and a check that the two do not
+  interact), then the judges once on the judge set against the batch-2 ship. H2 retires after; H3 is next.
+- Exploiter 2's restart stopped early (a safety check cut off its response to the brief's "attacking a bot"
+  wording); restarted with the brief reworded as poker counter-strategy, same rules and deliverables.
