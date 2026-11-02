@@ -119,3 +119,17 @@ Odd: under load F's slowest decisions reached 12-56 ms and its slowest first cal
 not folded; strict would fold them). Sent to R1/R6.
 These go to a strength worker (S2), fixes behind dials, measured against the exploiter as a frozen bot and guarded on
 the standard fields; the outside field (with its loose-aggressive 3-bettor) judges the batch.
+
+## 22:52: batch 1 (infrastructure; hold'em play unchanged) merged and frozen
+- climb/v-catalog (23da153): hooks draw from the shuffled undealt cards (the ace-of-spades bias is gone; chi-square
+  61.7 on 51 df); pot award fix and a dead-money charge option; bonus_card's price is dead money; new entries auction
+  (MIT 2024, sealed bid, 8-way second price) and deal5_keep2 (CMU 2026, 52-card) with F's bid and keep decisions and
+  a variant-aware opponent each. F 25/25 READY, first on 24.
+- climb/h3-kit-fixes (b48c272): setup 0.95 -> 0.14 s cold; hand end p99 132 -> 89 us (8..1), 509 -> 293 us (kit E's
+  payouts; 63 us deferred); interrupt-safe; event-kit entry and gate-seat templates; prompt 01 rule-sheet lines.
+- Play check: F's per-seed night samples on 10000-10049 identical before and after both merges (6.045); full suite
+  925 passed. The hold'em judges therefore stand as measured at the start (leaderboard).
+- Frozen: frozen/B1-b48c272, kit B zip sha256 8eeb870a...61987c3428d.
+- Found for later: Hero ignores toss_or_holdem's face-up discards as dead cards (toss is the likeliest variant, 11%);
+  F busts 76% of tables on deal5_keep2; boards past 8 cards still build an evaluator table inside the call (V3);
+  gen_catalog.py crashes on five hole cards; two wall-clock tests flake at load 7-8.
