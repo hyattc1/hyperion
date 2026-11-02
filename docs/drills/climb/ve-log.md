@@ -141,6 +141,8 @@ the earlier version's cells are copied over (scratch `copybase.py`) and the firs
 | two_boards | `postflop.split_call_margin` 0.30 | 6.092 | 5.932 | -0.160 ± 0.078 | DOWN |
 | two_boards | `variant_preflop_ex` boards {shove_eq_margin 0.08} | 6.092 | 6.089 | -0.003 ± 0.031 | level |
 | short_deck | `variant_preflop_ex` deck {three_bet_frac 0.03} | 5.810 | 5.773 | -0.037 ± 0.053 | level |
+| two_boards | `variant_preflop_ex` boards {shove_eq_margin -0.03} | 6.092 | 6.040 | -0.052 ± 0.037 | DOWN |
+| wild_deuces | `twin_preflop` + `call_shift_ex` {wild 2} | 6.056 | 7.001 | +0.944 ± 0.132 | UP |
 | lowball | `twin_preflop` + lowball flats {call_raise_frac 0.15, three_bet_frac 0.05} | 6.883 | 7.281 | +0.398 ± 0.103 | UP |
 | lowball (realistic, twist-blind) | the same | 7.785 | 7.712 | -0.073 ± 0.058 | DOWN |
 
