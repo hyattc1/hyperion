@@ -16,7 +16,8 @@ Stages (comma-separated; default confirm,guards,variants):
 - guards: night_hard, realistic, top, night under payouts 10/7/5/4/3/2/1/0 and 50/25/12/6/3/2/1/1, night under a
   doubling blind schedule;
 - variants: the 23 catalogued entries on realistic, the set's first 200 seeds;
-- judges: judge, judge2, judge2_night, judge_top, outside, outside_strong (run these on `--set judge`).
+- elite: the tuning fields elite (elite1, elite2 and the strong tunable bots) and elite_night (the two in a night room);
+- judges: judge, judge2, judge2_night, judge_top, outside, outside_strong, elite_judge (run these on `--set judge`).
 - timing: tools/latency.py p99 for both specs (20,000 calls).
 
 Every run is model mode at fixed speed, eight rotations per seed, the same deals for both specs, with panic, soft
@@ -53,7 +54,8 @@ CONFIRM = [("night", "lin", None)]
 GUARDS = [("night_hard", "lin", None), ("realistic", "lin", None), ("top", "lin", None), ("night", "brief", None),
           ("night", "th", None), ("night", "lin", "double")]
 JUDGES = [("judge", "lin", None), ("judge2", "lin", None), ("judge2_night", "lin", None), ("judge_top", "lin", None),
-          ("outside", "lin", None), ("outside_strong", "lin", None)]
+          ("outside", "lin", None), ("outside_strong", "lin", None), ("elite_judge", "lin", None)]
+ELITE = [("elite", "lin", None), ("elite_night", "lin", None)]
 VARIANT_FIELD = "realistic"
 VARIANT_SEEDS = 200
 CHUNK = 25
@@ -260,6 +262,8 @@ def main(argv=None) -> int:
         plan.append(("confirm", CONFIRM, lo, hi))
     if "guards" in stages:
         plan.append(("guards", GUARDS, lo, hi))
+    if "elite" in stages:
+        plan.append(("elite", ELITE, lo, hi))
     if "judges" in stages:
         plan.append(("judges", JUDGES, lo, hi))
     if "variants" in stages:
@@ -285,7 +289,7 @@ def main(argv=None) -> int:
     checks = []
     if "confirm" in st:
         checks.append(("confirm: night beyond noise up", all(r["flag"] == "UP" for r in st["confirm"])))
-    for s in ("guards", "variants", "judges"):
+    for s in ("guards", "elite", "variants", "judges"):
         if s in st:
             downs = [r["cell"] for r in st[s] if r["flag"] == "DOWN"]
             checks.append((f"{s}: none beyond noise down" + (f" (down: {', '.join(downs)})" if downs else ""),
@@ -300,7 +304,7 @@ def main(argv=None) -> int:
     print(f"# climb_accept: set {a.set} ({lo}-{hi - 1}), code {version}, {verdict['secs'] / 60:.1f} min")
     print(f"base {json.dumps(base_raw, sort_keys=True)} -> {json.dumps(base, sort_keys=True)}")
     print(f"cand {json.dumps(cand_raw, sort_keys=True)} -> {json.dumps(cand, sort_keys=True)}")
-    for s in ("confirm", "guards", "judges", "variants"):
+    for s in ("confirm", "guards", "elite", "judges", "variants"):
         if s not in st:
             continue
         print(f"\n## {s}\n\n| cell | base | cand | cand - base | | n | tmo b/c | err b/c | p99 b/c |")

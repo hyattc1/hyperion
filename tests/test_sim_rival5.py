@@ -121,7 +121,7 @@ def test_judge2_fields_have_the_agreed_seats_and_swaps():
             assert B.field_names(f"{field}@{cand}") == [cand] + B.field_names(field)[1:]
             assert f"{field}@{cand}" in B.FIELDS
     for name, members in B.FIELDS.items():
-        if not name.startswith(("judge2", "outside_strong")):  # outside_strong: the climb's strong judge-like room
+        if not name.startswith(("judge2", "outside_strong", "elite_judge")):  # the climb's strong judge-like rooms
             assert "rival5" not in members, name  # no other field seats the judge
     for pool in N.POOLS.values():
         assert "rival5" not in {b for _, _, ms in pool.groups for b, _ in ms}

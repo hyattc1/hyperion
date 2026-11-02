@@ -1477,6 +1477,68 @@ class OutsideQuantsBot(_FixedSpeedInModel, PersonaBot):
         return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
 
 
+# ----- the elite field: prepared top-team builds for the climb (owner's direction, 2026-11-01) --------------------
+
+
+class _EliteBot(PersonaBot):
+    """An elite build, behind the red-team adapter. Each was written with an unseeded `random.Random()` (elite 2 also
+    reseeds from the time of day at every table start), so here the bot's generator is reseeded from the seat seed after
+    every table start: every rotation and every swap replays exactly, as for the other field bots."""
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self._seed = 0 if seed is None else int(seed)
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self.impl.rng.seed(self._seed * 1_000_003 + 0xE11)
+
+
+class Elite1Bot(_EliteBot):
+    """Elite `elite1`: decisions in points (ICM) for every all-in-sized spot, short-stack shove/fold by expected points
+    with per-seat call rates, ranges from measured frequencies with depth and position priors, settles unseen folds
+    from the next stacks, a 5 us postflop classifier against continuing/betting ranges, heads-up opens 85%. No clock.
+    Frozen at about minute 107 (md5 9bf36037). In the tuning fields `elite` and `elite_night`."""
+
+    MODULE = "elite1"
+
+
+class Elite2Bot(_EliteBot):
+    """Elite `elite2`: exact fast ICM for 10/7/5/4/3/2/1/0 (hard-coded), push/fold at 14 bb or less with blended call
+    rates, equity-against-range preflop from 169x169 tables, postflop exact enumeration over a range narrowed by the
+    bettor's aggression and size, EV-sized bets (0.4-1.1 pot). Reads the clock only into an unused field. Frozen at
+    minute 104 (md5 70c29e17). In the tuning fields `elite` and `elite_night`."""
+
+    MODULE = "elite2"
+
+
+class Elite3Bot(_FixedSpeedInModel, _EliteBot):
+    """Elite `elite3`: every big decision in tournament points (exact ICM with dead money), push/fold at about 13 bb
+    with per-seat call rates, a postflop Monte Carlo capped at 85 us of wall time (module-level `_pc`, read every
+    iteration multiway and every fourth heads-up) over ranges narrowed by bet size and barrels, adaptive opens. Frozen at
+    minute 104 (md5 c5e956bd). The held-out elite judge (`elite_judge`): never tuned on. In mode "model" it plays at a
+    fixed speed: its clock advances STEP_NS per read (measured wall time per read here, less the load)."""
+
+    MODULE = "elite3"
+    STEP_NS = 8000  # 9.9 us wall per read measured at load 5-13 (2026-11-02), less the load
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self.mod = sys.modules[type(self.impl).__module__]
+        self._ns = 0
+
+    def _clock(self) -> int:
+        self._ns += self.STEP_NS
+        return self._ns
+
+    def _set_speed(self, fixed: bool) -> None:
+        pass  # read at every act()
+
+    def act(self, obs: Observation) -> Action:
+        self.mod._pc = self._clock if self.fixed_speed else time.perf_counter_ns
+        return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
+
+
 # ----- the hybrid candidate: rival 2's decision core behind Hero's shell ---------------------------------------
 
 
@@ -1567,6 +1629,9 @@ REGISTRY: dict[str, type] = {
     "out_selfplay": OutsideSelfPlayBot,  # outside field: an agent self-play-tuned for the hour, never tuned on
     "out_lag": OutsideLagBot,  # outside field: loose-aggressive grinders, never tuned on
     "out_quants": OutsideQuantsBot,  # outside field: import-time equilibria and exact ICM, never tuned on
+    "elite1": Elite1Bot,  # elite field (prepared top-team build): tuning fields elite, elite_night
+    "elite2": Elite2Bot,  # elite field: tuning fields elite, elite_night
+    "elite3": Elite3Bot,  # elite field: the held-out elite judge (elite_judge), never tuned on
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
@@ -1673,6 +1738,12 @@ FIELDS["judge2_night"] = ("hero", "rival5") + _night.seat_names("judge2_night")
 OUTSIDE = ("out_veterans", "out_selfplay", "out_lag", "out_quants")
 FIELDS["outside"] = ("hero",) + OUTSIDE + _night.seat_names("outside_rest")
 FIELDS["outside_strong"] = ("hero",) + OUTSIDE + ("rival4", "rival5", "agent_pushfold")
+# the elite field (owner's direction): three prepared top-team builds. elite1 and elite2 are a tuning field, alone with
+# the strong tunable bots (`elite`, a top table) or in a night room (`elite_night`); elite3 is held out with both judges
+# and two outside builds (`elite_judge`, the strongest room we have): measured once per batch, never tuned on.
+FIELDS["elite"] = ("hero", "elite1", "elite2", "rival1", "rival2", "rival3", "agent_pushfold", "agent_default")
+FIELDS["elite_night"] = ("hero", "elite1", "elite2") + _night.seat_names("elite_rest")
+FIELDS["elite_judge"] = ("hero", "elite3", "elite1", "elite2", "rival4", "rival5", "out_veterans", "out_quants")
 
 # fields that seat an optional bot: present in FIELDS only when every bot in them is registered
 OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {

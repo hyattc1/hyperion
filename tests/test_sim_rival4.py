@@ -232,7 +232,7 @@ def test_judge_fields_have_the_agreed_seats():
     assert B.field_names("judge_top") == ["hero", "rival1", "rival2", "rival3", "rival4", "pushfold", "tag",
                                           "loose_aggro"]
     for name, members in B.FIELDS.items():
-        if not name.startswith(("judge", "outside")):  # outside*: the climb's judge-like fields
+        if not name.startswith(("judge", "outside", "elite_judge")):  # outside*, elite_judge: the climb's judge-like fields
             assert "rival4" not in members, name  # every earlier field is unchanged
 
 

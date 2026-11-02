@@ -19,7 +19,11 @@ FROZEN = {  # registry name -> (archived original, copy in the package, header l
                 "7f2cf88729b2db29a6d7d4c425843cce"),
     "out_quants": ("docs/drills/field/outside_quants_bot.py", "hyperion/sim/field/outside_quants.py", 6,
                    "27d9b2cb8a03c9e2ae65260b2a9c0b7b"),
+    "elite1": ("docs/drills/field/elite1_bot.py", "hyperion/sim/field/elite1.py", 6, "9bf36037f33d9e836a33b9d29641488b"),
+    "elite2": ("docs/drills/field/elite2_bot.py", "hyperion/sim/field/elite2.py", 6, "70c29e1754bbe6a555cea331468756f3"),
+    "elite3": ("docs/drills/field/elite3_bot.py", "hyperion/sim/field/elite3.py", 6, "c5e956bd211896e22bafe0f2acfeeed4"),
 }
+ELITE = {"elite1", "elite2", "elite3"}
 
 
 @pytest.mark.parametrize("name", sorted(FROZEN))
@@ -34,7 +38,7 @@ def test_frozen_source_matches_its_archive_and_md5(name):
 
 
 def test_outside_bots_are_registered_and_in_no_pool():
-    assert set(FROZEN) <= set(B.REGISTRY) and set(B.OUTSIDE) == set(FROZEN)
+    assert set(FROZEN) <= set(B.REGISTRY) and set(B.OUTSIDE) == set(FROZEN) - ELITE
     for name, pool in N.POOLS.items():
         drawn = {b for _, _, ms in pool.groups for b, _ in ms}
         assert not drawn & set(FROZEN), name
@@ -42,7 +46,13 @@ def test_outside_bots_are_registered_and_in_no_pool():
     assert B.field_names("outside_strong@hybrid3_x")[0] == "hybrid3_x"
 
 
-@pytest.mark.parametrize("field", ["outside", "outside_strong"])
+def test_elite3_is_held_out_of_every_tuning_field():
+    for name, members in B.FIELDS.items():
+        if "elite3" in members:
+            assert name.startswith("elite_judge"), name
+
+
+@pytest.mark.parametrize("field", ["outside", "outside_strong", "elite", "elite_night", "elite_judge"])
 def test_outside_fields_play_legally_and_replay_exactly_in_model_mode(field):
     a = run_tournament(B.field_names(field), 2, seed=1, rotate=True, mode="model", table_offset=30000)
     b = run_tournament(B.field_names(field), 2, seed=1, rotate=True, mode="model", table_offset=30000)
