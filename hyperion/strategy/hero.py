@@ -561,6 +561,8 @@ class HeroCore:
         self.exploit = Exploit(cfg.exploit) if cfg.exploit.active and not cfg.cheap else None  # cheap: no reads
         if self.prof is not None and self.pushfold.mw is not None:
             self.prof.call_prior = self.pushfold.call_prior  # shove calls are read against a solved caller's
+        if self.prof is not None and (cfg.postflop.size_read > 0.0 or cfg.postflop.xr_shift):
+            self.prof.track_s12 = True  # S12 reads: count bet sizes, shown tiers and check-raises (off: no cost)
         self._base = (self.preflop, self.pushfold)
         self._modules: dict = {}  # (tables dir, scheme) -> (Preflop, PushFold) built for a variant set
         self.curve = IcmCurve()

@@ -85,6 +85,37 @@ SD_COMPLETERS = _build_sd_completers()
 SD_OUT_SCALE = 1.45  # an out is worth this much more than hold'em's rule of 4 and 2: 31 unseen cards, not 47
 warm(7)  # hold'em's 6/7-card lookups (about 25 ms): pay at import, never in act()
 TIER_EQUITY = (0.10, 0.20, 0.32, 0.42, 0.58, 0.72, 0.84, 0.92, 0.98)
+# size_read (S12): a tier race, a higher tier wins this often on the flop / turn / river (an equal tier splits)
+SIZE_WIN = (0.78, 0.86, 0.97)
+# size_read's prior: the bettor's tier histogram for a bet of each size bucket (Profiler.SZ_EDGES; 5 = a raise) on
+# each street, the tuning fields' opponents pooled (S12 survey: seeds 8000-8024, night, realistic, night_hard, top,
+# elite, every seat but ours, from the simulator's cards). [street][bucket] -> 9 tier shares
+SIZE_PRIOR = (
+    (  # flop
+        (0.240, 0.228, 0.203, 0.115, 0.196, 0.008, 0.007, 0.002, 0.001),
+        (0.204, 0.228, 0.217, 0.123, 0.183, 0.025, 0.015, 0.005, 0.000),
+        (0.017, 0.045, 0.068, 0.183, 0.428, 0.133, 0.101, 0.024, 0.000),
+        (0.084, 0.039, 0.053, 0.062, 0.368, 0.202, 0.154, 0.034, 0.003),
+        (0.141, 0.082, 0.135, 0.100, 0.306, 0.100, 0.129, 0.006, 0.000),
+        (0.009, 0.026, 0.155, 0.064, 0.264, 0.229, 0.187, 0.065, 0.000),
+    ),
+    (  # turn
+        (0.053, 0.074, 0.303, 0.106, 0.350, 0.046, 0.037, 0.030, 0.000),
+        (0.057, 0.138, 0.229, 0.166, 0.305, 0.047, 0.031, 0.026, 0.001),
+        (0.005, 0.026, 0.114, 0.114, 0.402, 0.162, 0.100, 0.075, 0.002),
+        (0.013, 0.010, 0.026, 0.023, 0.261, 0.248, 0.257, 0.160, 0.003),
+        (0.011, 0.013, 0.046, 0.073, 0.471, 0.209, 0.106, 0.068, 0.002),
+        (0.003, 0.046, 0.142, 0.067, 0.250, 0.206, 0.146, 0.132, 0.008),
+    ),
+    (  # river
+        (0.028, 0.070, 0.288, 0.137, 0.293, 0.054, 0.049, 0.072, 0.009),
+        (0.069, 0.113, 0.298, 0.083, 0.259, 0.052, 0.046, 0.080, 0.001),
+        (0.038, 0.077, 0.167, 0.069, 0.269, 0.095, 0.125, 0.155, 0.005),
+        (0.010, 0.005, 0.054, 0.034, 0.192, 0.138, 0.251, 0.310, 0.005),
+        (0.009, 0.018, 0.083, 0.056, 0.357, 0.148, 0.101, 0.224, 0.004),
+        (0.003, 0.091, 0.173, 0.048, 0.268, 0.072, 0.095, 0.250, 0.001),
+    ),
+)
 _LOW_TIER = {0: 8, 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 7, 7: 6, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1}  # pairless low by its top card
 
 
@@ -149,6 +180,26 @@ class PostflopParams:
     wide_bettor_slope: float = 1.5
     wide_bettor_prior: float = 0.4
     wide_bettor_n: float = 4.0
+    # S12 reads (docs/drills/climb/s12-log.md); every one off by default.
+    # size_read: facing a single bet heads-up (or a raise of my bet), the bettor's range for a bet of that size (bucket
+    # of the pot before the bet, Profiler.SZ_EDGES; a raise is its own bucket) is a tier histogram: the population's
+    # (SIZE_PRIOR) worth size_read_n0 bets, plus the bettor's own bets of that size whose cards were shown. My equity
+    # against it is a tier race (SIZE_WIN: a higher tier wins this often by street). The call decision blends the
+    # usual one (equity proxy - margin) with this one (read equity - size_read_margin) at weight size_read
+    # (size_read_evid: times n / (n + size_read_n0), so the read only counts with the seat's own evidence).
+    size_read: float = 0.0
+    size_read_n0: float = 8.0
+    size_read_margin: float = 0.03
+    size_read_evid: bool = False
+    size_read_raise: float = 2.0  # raise for value when the read equity is at least this (2 = never)
+    # xr_shift: heads-up, nothing to call, the opponent checked to me on this street and its check-raise rate (prior
+    # xr_prior worth xr_n0 chances) is at most xr_max: value-bet this many tiers thinner (a checked range with no
+    # check-raises holds few strong hands)
+    xr_shift: int = 0
+    xr_max: float = 0.04
+    xr_prior: float = 0.02
+    xr_n0: float = 10.0
+    xr_streets: int = 7  # bit mask of the streets it applies on: 1 flop, 2 turn, 4 river
     # strength-axis knobs (prompt 05's short-deck patch): a made flush / straight lands this many tiers away from
     # its hold'em tier, and draw outs are scaled (short deck: an open-ender is worth about 1.2x its hold'em outs)
     flush_tier_shift: int = 0
@@ -680,6 +731,11 @@ class Postflop:
             all_dead = False
         value_tier = p.value_tier + int(shift) + value_shift
         big_value_tier = p.big_value_tier + value_shift
+        if p.xr_shift and spot.to_call == 0 and n_opp == 1 and prof is not None and not cheap \
+                and 1 <= street <= 3 and p.xr_streets >> (street - 1) & 1:
+            o = spot.opps[0]
+            if prof.chk_mask >> o & 1 and prof.xr_rate(o, p.xr_prior, p.xr_n0) <= p.xr_max:
+                value_tier -= p.xr_shift
         self.last = ""
         if cheap:
             self.last = "cheap"
@@ -761,12 +817,67 @@ class Postflop:
         if tier >= p.raise_tier + value_shift:
             self.last = "raise"
             return self._bet(spot, p.raise_size, eq=eq)
+        if p.size_read > 0.0 and n_opp == 1 and bettor >= 0 and prof is not None and not cheap and 1 <= street <= 3 \
+                and board2 is None and not must_use and self.wild_rank < 0 and not self.low:
+            sr = self._size_eq(spot, prof, bettor, street, tier)
+            if sr is not None:
+                eq_r, w = sr
+                if eq_r >= p.size_read_raise and tier >= 2:
+                    self.last = "size_raise"
+                    return self._bet(spot, p.raise_size, eq=eq_r)
+                gap = (1.0 - w) * (pot_odds + margin - eq) + w * (pot_odds + p.size_read_margin - eq_r)
+                if gap <= 0.0:
+                    eq_g = (1.0 - w) * eq + w * eq_r
+                    self.last = "size_call"
+                    if spot.to_call >= p.icm_gate_frac * obs.stacks[spot.me] and \
+                            not self._commit_ok(spot, eq_g, spot.to_call):
+                        return _FOLD
+                    return _CALL
+                return _FOLD
         if eq >= pot_odds + margin:
             self.last = "call"
             if spot.to_call >= p.icm_gate_frac * obs.stacks[spot.me] and not self._commit_ok(spot, eq, spot.to_call):
                 return _FOLD
             return _CALL
         return _FOLD
+
+    def _size_eq(self, spot: Spot, prof: Profiler, bettor: int, street: int, tier: int):
+        """(equity against the bettor's read range for a bet of this size, weight) or None (size_read, S12)."""
+        p = self.p
+        obs = spot.obs
+        mine = obs.bets[spot.me]
+        bet = obs.bets[bettor]
+        if mine > 0:
+            b = 5  # a raise of my bet
+        else:
+            before = spot.pot_total - bet
+            b = prof.size_bucket(bet / before if before > 0 else 9.0)
+        st = street - 1
+        h, n = prof.size_hist(bettor, st, b)
+        prior = SIZE_PRIOR[st][b]
+        win = SIZE_WIN[st]
+        lose = 1.0 - win
+        if n is None:  # an oracle's weights
+            tot = 0.0
+            acc = 0.0
+            for t in range(9):
+                q = h[t]
+                tot += q
+                acc += q * (0.5 if t == tier else win if tier > t else lose)
+            if tot <= 0.0:
+                return None
+            return acc / tot, p.size_read
+        n0 = p.size_read_n0
+        acc = 0.0
+        for t in range(9):
+            q = h[t] + n0 * prior[t]
+            acc += q * (0.5 if t == tier else win if tier > t else lose)
+        w = p.size_read
+        if p.size_read_evid:
+            w *= n / (n + n0)
+            if w <= 0.0:
+                return None
+        return acc / (n + n0), w
 
     def _cheap(self, spot: Spot, tier: int, eq: float, wet: bool) -> Action:
         p = self.p
