@@ -12,9 +12,9 @@ that file, so the zip records what it plays and tools/gate.py pairs it against t
 Stage 2's Hero.cheap(); `--bot hero` restores Hero. The entry builds it with `hyperion.ship.make_bot()`.
 
 Builds <out>/submission/: hyperion/ (never tests, docs or caches; with --slim also without
-drills/fakekits and the sim bestiary), tables/ (the default tables, plus tables/variants/<name>/ when the
-rules name a variant; --tables-dir DIR packages all of DIR instead), the entry file and any --extra files
-or directories beside it. The rules are --rules, else the first --extra JSON with Rules keys, else
+drills/fakekits, the sim bestiary and the simulator's opponents: sim/field, sim/aware.py and every rival but
+rival 3), tables/ (the default tables, plus tables/variants/<name>/ when the rules name a variant; --tables-dir DIR
+packages all of DIR instead), the entry file and any --extra files or directories beside it. The rules are --rules, else the first --extra JSON with Rules keys, else
 rules_tonight.json beside the entry; their extras["variant"] is the active variant (drill 6 shipped
 without its variant set because --tables-dir was not passed). Then, from a fresh Python started in another
 directory with PYTHONPATH cleared, imports the entry module with <out>/submission first on sys.path,
@@ -43,7 +43,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SKIP_NAMES = {"__pycache__", "tests", "docs", ".benchmarks", ".pytest_cache", ".git"}
-SLIM_SKIPS = {ROOT / "hyperion" / "drills": {"fakekits"}, ROOT / "hyperion" / "sim": {"bestiary.py"}}
+SLIM_SKIPS = {ROOT / "hyperion" / "drills": {"fakekits"}, ROOT / "hyperion" / "sim": {"bestiary.py", "aware.py", "field"}}
+# --slim leaves the simulator's opponents out: every field bot, judge and test opponent (hyperion/sim/field), the
+# variant-aware opponents (sim/aware.py) and every rival but rival 3, whose core hybrid3_x and the composite's base
+# run on. Measured by playing each ship bot (the composite with every recipe, hybrid3_x, hero, cheap) under the default
+# rules and every catalog variant: hyperion.sim.rivals and its rival3 are the only simulator modules any imports
+# (docs/drills/climb/r2-log.md, R4). A recorded route that names another rival's donor brings that rival back.
+SLIM_RIVALS = ROOT / "hyperion" / "sim" / "rivals"
+SLIM_RIVALS_KEEP = {"__init__.py", "rival3.py"}
+DONOR_RIVALS = {"rival1": "rival1.py", "rival1x": "rival1.py", "r2": "rival2.py", "r2x": "rival2.py",
+                "rival3": "rival3.py", "rival3x": "rival3.py"}  # hyperion/compose/bot.py DONORS that load a rival
 
 _IMPORT_PROBE = """
 import importlib, os, sys, time
@@ -93,9 +102,30 @@ def _ignore(slim: bool):
     def ignore(d: str, names: list[str]) -> set[str]:
         skip = {n for n in names if n in SKIP_NAMES or n.endswith(".pyc")}
         if slim:
-            skip |= SLIM_SKIPS.get(Path(d).resolve(), set()) & set(names)
+            here = Path(d).resolve()
+            skip |= SLIM_SKIPS.get(here, set()) & set(names)
+            if here == SLIM_RIVALS.resolve():
+                skip |= {n for n in names if n.endswith(".py") and n not in SLIM_RIVALS_KEEP}
         return skip
     return ignore
+
+
+def route_rivals(dest: Path, dials: dict) -> list[str]:
+    """A slim package whose recorded route names a rival's donor (rival1, r2, ...): copy that rival back in. Returns
+    the files copied."""
+    import re
+
+    rivals = dest / "hyperion" / "sim" / "rivals"
+    if not rivals.is_dir():
+        return []
+    route = str((dials or {}).get("route", ""))
+    want = {DONOR_RIVALS[d] for d in re.findall(r"=\s*(\w+)", route) if d in DONOR_RIVALS}
+    out = []
+    for f in sorted(want):
+        if not (rivals / f).exists():
+            shutil.copy2(SLIM_RIVALS / f, rivals / f)
+            out.append(f)
+    return out
 
 
 RULES_KEYS = {"hole_cards", "board_sizes", "rank_order", "payouts", "blind_levels", "extras", "n_players"}
@@ -264,7 +294,8 @@ def main(argv=None) -> int:
                                  "hero, cheap (Stage 2's Hero.cheap()) or any BUILDERS name")
     p.add_argument("--dials", help="dials to record: a JSON object (inline or a file) or recipe names such as "
                                    "survival (default hyperion/ship.py's DIALS)")
-    p.add_argument("--slim", action="store_true", help="drop drills/fakekits and the sim bestiary")
+    p.add_argument("--slim", action="store_true", help="drop drills/fakekits, the sim bestiary and the simulator's "
+                                                        "opponents (sim/field, sim/aware.py, every rival but rival 3)")
     p.add_argument("--rules", help="the rules JSON whose extras.variant picks tables/variants/<name>/ (default: "
                                    "the first --extra JSON with Rules keys, else rules_tonight.json beside the entry)")
     p.add_argument("--tables-dir", help="override: package this whole directory as tables/ (default: tables/*.json "
@@ -293,6 +324,10 @@ def main(argv=None) -> int:
     variant, needs = active_variant(rules_path)
     tables = build(dest, entry, extras, a.slim, tables_dir, variant, needs_variant=needs)
     bot, dials = record_bot(dest, a.bot, a.dials)
+    if a.slim:
+        back = route_rivals(dest, dials)
+        if back:
+            print(f"slim     the route names {', '.join(back)}: kept")
 
     ok, detail, secs = verify_import(dest, entry.stem, a.import_budget)
     size, count = tree_size(dest)

@@ -150,3 +150,56 @@ def test_the_active_variant_tables_are_vendored_without_a_flag(tmp_path):
     assert what == "default"  # no set needed, none shipped, no warning
     what = pack.build(tmp_path / "c", entry, [], False, None, "made_up_three_card", needs_variant=True)
     assert "WARN" in what and "label tables" in what
+
+
+SHIP_ENTRY = ('"""Any kit: the ship bot."""\nfrom hyperion import ship\n\nBOT = ship.make_bot()\n')
+PLAY_EVERY_SHIP_BOT = r'''
+import sys
+sys.path.insert(0, sys.argv[1])
+from hyperion import ship
+from hyperion.core.types import Rules
+from hyperion.drills.cheapbot import CheapBot
+from hyperion.drills import variants as V
+from hyperion.sim.engine import BotStats, play_table
+for name in ("composite", "hybrid3_x", "hybrid3", "hero", "cheap"):
+    for rules, hooks in [(Rules(max_hands=30), None)] + [(V.get(v).rules, V.get(v).new_hooks()) for v in
+                                                        ("short_deck", "omaha_four", "toss_or_holdem", "bounty")]:
+        st = [BotStats(str(i)) for i in range(rules.n_players)]
+        play_table([ship.make_bot(name, {}, seed=1)] + [CheapBot() for _ in range(rules.n_players - 1)],
+                   rules, seed=3, mode="model", stats=st, variant=hooks)
+        assert st[0].exceptions == 0 and st[0].safe_err == 0, (name, st[0].last_error)
+mods = sorted(m for m in sys.modules if m.startswith("hyperion.sim.") and m not in ("hyperion.sim.engine",))
+assert all(m.startswith(sys.argv[1]) for m in [getattr(sys.modules[m], "__file__", "") or sys.argv[1] for m in mods])
+print("ok", mods)
+'''
+
+
+def test_slim_drops_the_opponents_and_every_ship_bot_still_builds_and_plays(tmp_path):
+    """--slim leaves out the field bots, the judges (elite3 above all), the exploiter, the outside builds, the aware
+    opponents and every rival but rival 3 (rival 3's core is hybrid3_x's and the composite's base). Each ship bot is
+    then built and played from the package alone in a fresh `python -I` elsewhere, plain and under four variants."""
+    (tmp_path / "agent.py").write_text(SHIP_ENTRY)
+    r = run_pack(tmp_path, "--entry", "agent.py", "--out", "out", "--slim")
+    assert r.returncode == 0, r.stdout + r.stderr
+    hyp = tmp_path / "out" / "submission" / "hyperion"
+    assert not (hyp / "sim" / "field").exists() and not (hyp / "sim" / "aware.py").exists()
+    assert sorted(p.name for p in (hyp / "sim" / "rivals").glob("*.py")) == ["__init__.py", "rival3.py"]
+    names = zipfile.ZipFile(tmp_path / "out" / "submission.zip").namelist()
+    for bad in ("elite", "outside_", "exploiter", "judge", "rival1", "rival2", "rival4", "rival5", "agent_", "night.py",
+                "trackb", "aware.py", "bestiary.py"):
+        assert not [n for n in names if bad in n.rsplit("/", 1)[-1]], bad
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    out = subprocess.run([sys.executable, "-I", "-B", "-c", PLAY_EVERY_SHIP_BOT, str(hyp.parent)], cwd=elsewhere,
+                         capture_output=True, text=True, timeout=600)
+    assert out.returncode == 0 and out.stdout.startswith("ok"), out.stdout + out.stderr[-3000:]
+    assert "hyperion.sim.rivals.rival3" in out.stdout
+
+
+def test_slim_keeps_a_rival_the_recorded_route_names(tmp_path):
+    (tmp_path / "agent.py").write_text(SHIP_ENTRY)
+    r = run_pack(tmp_path, "--entry", "agent.py", "--out", "out", "--slim", "--dials", '{"route": "post=hero,pre_hu=r2x"}')
+    assert r.returncode == 0, r.stdout + r.stderr
+    rivals = tmp_path / "out" / "submission" / "hyperion" / "sim" / "rivals"
+    assert sorted(p.name for p in rivals.glob("*.py")) == ["__init__.py", "rival2.py", "rival3.py"]
+    assert "rival2.py: kept" in r.stdout and "import   ok" in r.stdout
