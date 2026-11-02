@@ -163,3 +163,19 @@ tables and evaluator caches), five of them across two workers' runs. Fix 5719074
 (`maxtasksperchild=2`). Both workers' runs were stopped (cached chunks kept) and asked to take the fix, use at most
 2 workers and run one climb_accept at a time. Memory after: 13.8 GB free. Timing numbers from the elite builders'
 last hour carry this load (their harness tails).
+
+## 01:39: elite field wired (11ecac6)
+Three fresh agents, one shared brief (a prepared top team: quants and a pokerbots finalist; two weeks of prep; may bring
+code and tables; "the strongest general bot: hard to exploit, takes everything weak bots give away"), about 105 minutes
+each, no repo access:
+- elite1 (md5 9bf36037): points-based all-in decisions, shove/fold by expected points with per-seat call rates, ranges
+  from measured frequencies, settles unseen folds from the next stacks, a 5 us postflop classifier, heads-up opens 85%.
+- elite2 (70c29e17): exact fast ICM (10/7/5/4/3/2/1/0 hard-coded), push/fold at 14 bb or less, range equity from
+  169x169 tables, postflop exact enumeration over aggression- and size-narrowed ranges, EV-sized bets.
+- elite3 (c5e956bd): points-based big decisions, push/fold about 13 bb, an 85 us postflop Monte Carlo over ranges
+  narrowed by size and barrels, adaptive opens. Held out.
+Fields: `elite` (elite1, elite2, rivals 1-3, agent_pushfold, agent_default: a top table) and `elite_night` (the two
+in a night room) are tuning fields; `elite_judge` (elite3, elite1, elite2, rivals 4 and 5, out_veterans, out_quants)
+is a judge. All three bots were reseeded per table from the seat seed (they used unseeded generators; elite2 seeded
+from the time of day); elite3 plays at a fixed speed in model mode (8 us per clock read). climb_accept stages `elite`
+and (in judges) `elite_judge`.
