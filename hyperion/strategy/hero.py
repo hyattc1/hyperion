@@ -56,6 +56,32 @@ ICM_BUCKETS = 100  # default Config.icm_buckets: opponents' stacks are rounded t
 ICM_ME_SUBDIV = 4  # default Config.icm_me_subdiv: my own units are chosen so my *share* of the chips is kept, to 1/4 of an opponent unit
 
 
+# The collector and the tables (backlog R2, docs/drills/climb/r2-log.md). gc.freeze() takes every object the collector
+# tracks out of its reach, so no full collection over the tables lands inside a timed act(). A frozen object is never
+# collected, though: one that dies later in a reference cycle stays in memory for good. One bot object for many tables,
+# a fresh one per table in one process (an earlier table's bot), or a sandbox that imports this package afresh per table
+# (the whole earlier copy, 31 MB a table) all leave such objects behind. So the freezes first unfreeze and collect: at
+# import always (setup time, ~10-20 ms), at a table start one time in REFREEZE_TABLES (a full collection is ~10-20 ms,
+# which a kit with no table-start hook pays inside the table's first decision); the other table starts only freeze.
+REFREEZE_TABLES = 32  # Hero table starts between full collections (16 tables of the composite, which holds two Heroes)
+_table_starts = 0
+
+
+def refreeze(collect: bool = True) -> None:
+    """gc.freeze(), after gc.unfreeze() and a full gc.collect() when `collect` (the block above)."""
+    if collect:
+        gc.unfreeze()
+        gc.collect()
+    gc.freeze()
+
+
+def table_freeze() -> None:
+    """HeroCore.new_table's freeze: a full collection first one time in REFREEZE_TABLES."""
+    global _table_starts
+    _table_starts += 1
+    refreeze(_table_starts % REFREEZE_TABLES == 0)
+
+
 def _linear_step(pays) -> float | None:
     """The constant drop per place when the payouts in play are linear (8, 7, ..., 1 is), else None."""
     if len(pays) < 2:
@@ -580,6 +606,7 @@ class HeroCore:
         self.hand_start = None
         self.last_stacks = [rules.starting_stack] * n_players
         self.panic = False
+        self._pre_aggr = False  # (the first act of the table resets it too: hand_no -1 above)
         self._cap_var = None
         if self.cfg.cap_vol_bb > 0.0 and rules.max_hands > 0:
             # suffix sums of big blind^2 over the hands still to play: var[h] = sum_{t >= h} bb_t^2
@@ -598,7 +625,7 @@ class HeroCore:
         self._curve_todo = None
         if self.cfg.use_icm:
             self._curve(self.last_stacks, 0)
-        gc.freeze()  # tables and evaluator dicts leave the collector's reach: no gen-2 pause mid-decision
+        table_freeze()  # tables and evaluator dicts leave the collector's reach: no gen-2 pause mid-decision
 
     def _configure(self, rules: Rules) -> None:
         """Per-table variant wiring from Rules: table set, class map, postflop mode, payoff terms."""
@@ -1245,7 +1272,7 @@ def make_bot(config: Config | None = None) -> Hero:
     return Hero(config)
 
 
-gc.freeze()  # whatever was built at import (evaluator tables, straight-draw table) is permanent
+refreeze()  # whatever was built at import (evaluator tables, straight-draw table) is permanent; an earlier copy is freed
 
 __all__ = ["Config", "Exploit", "ExploitParams", "Hero", "HeroCore", "IcmCurve", "config_from_dict", "icm_value", "make_bot", "mirror_map",
            "replace", "wild_map"]

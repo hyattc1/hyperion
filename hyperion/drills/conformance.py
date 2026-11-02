@@ -64,10 +64,11 @@ def _check(obs: Observation, rules: Rules) -> list[str]:
     if len(set(cards)) != len(cards):
         v.append(f"card_dup: duplicate card in hole+board {cards} (displayed and canonical mixed?)")
     # seats
+    one = " (seats numbered from 1? subtract 1: TODO 6)"
     if not 0 <= seat < n:
-        v.append(f"seat_range: seat {seat} outside 0..{n - 1}")
+        v.append(f"seat_range: seat {seat} outside 0..{n - 1}{one if seat == n else ''}")
     if not 0 <= button < n:
-        v.append(f"button_range: button {button} outside 0..{n - 1}")
+        v.append(f"button_range: button {button} outside 0..{n - 1}{one if button == n else ''}")
     if len(obs.bets) != n or len(obs.in_hand) != n:
         v.append(f"lengths: stacks {n}, bets {len(obs.bets)}, in_hand {len(obs.in_hand)} differ")
         return v  # per-seat checks below would index out of range
@@ -128,11 +129,16 @@ def _check(obs: Observation, rules: Rules) -> list[str]:
     for item in obs.history:
         s, a = item
         if not 0 <= s < n:
-            v.append(f"history_seat: seat {s} in history outside 0..{n - 1}")
+            v.append(f"history_seat: seat {s} in history outside 0..{n - 1}{one if s == n else ''}")
             return v
         if not isinstance(a, Action):
             v.append(f"history_action: {a!r} in history is not an Action")
             return v
+    if obs.history:
+        a0 = obs.history[0][1]
+        if a0.kind is RAISE and bb > 0 and (a0.amount < bb or (a0.amount == bb and obs.street == 0)):
+            v.append(f"history_blind: the history starts with a RAISE to {a0.amount}, the big blind or less: the forced "
+                     f"bets logged as raises? Skip blind posts and antes (TODO 7b; make_observation drops them)")
     v += _check_raise_in_history(obs, rules)
     return v
 
@@ -167,6 +173,7 @@ class ConformanceReport:
     def __init__(self, examples: int = EXAMPLES_PER_RULE, history_source: str = "log"):
         self.observations = 0
         self.counts: Counter = Counter()
+        self.fixes: Counter = Counter()  # what make_observation put right (extras["kit_fixes"]): the kit's quirks, not bugs
         self.examples: dict[str, list[str]] = {}
         self.actions: Counter = Counter()
         self.keep = examples
@@ -195,6 +202,8 @@ class ConformanceReport:
 
     def check(self, obs: Observation, rules: Rules | None = None) -> list[str]:
         self.observations += 1
+        for f in (obs.extras or {}).get("kit_fixes", ()):
+            self.fixes[f] += 1
         v = check_observation(obs, rules)
         try:
             v += self._across_calls(obs)
@@ -269,6 +278,9 @@ class ConformanceReport:
         for rule, count in self.counts.most_common():
             lines.append(f"  {rule} x{count}")
             lines.extend(f"    {ex}" for ex in self.examples[rule])
+        if self.fixes:
+            lines.append("  kit quirks make_observation put right (not violations; check the rule sheet agrees): "
+                         + ", ".join(f"{k} x{c}" for k, c in self.fixes.most_common()))
         acts = " ".join(f"{k} {self.actions[k]}" for k in ("fold", "check", "call", "raise"))
         lines.append(f"conformance: {self.observations} observations checked, {self.total} violations"
                      f"{' in ' + str(len(self.counts)) + ' rules' if self.counts else ''}; actions {acts}")

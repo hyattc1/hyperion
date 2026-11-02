@@ -19,9 +19,10 @@ from hyperion.drills.adapter import Adapter, make_observation  # noqa: F401
 from hyperion.drills.conformance import maybe_checked
 
 # TODO 1  CARD ENCODING -> obs.hole, obs.board. Ours: int rank*4 + suit with 2=0 ... T=8 ... A=12 and
-#   c d h s = 0..3 (`parse_card("Th") == 34`). Theirs: strings ("Th", "10h", "hT"), dicts ({"rank": 10,
-#   "suit": "H"}, ace as 14 or 1), ints in SOME order (suit-major is common), or objects. Traps: "10" vs "T",
-#   suit case, their int order is not ours.
+#   c d h s = 0..3 (`parse_card("Th") == 34`). parse_card reads every string shape kits use ("Th", "th", "10h",
+#   "T\u2665", "hT", "10 of hearts", "1h" = ace), (rank, suit) pairs and {"rank": 10, "suit": "H"} dicts (ace as 14
+#   or 1), so "10" vs "T" and suit case are no longer traps. NOT ints: their order is the kit's (suit-major is
+#   common), so map those yourself; objects: pass their rank and suit.
 #   Test: python -c "from submission.adapter import card; assert card(<their Th>) == 34 and card(<their 2c>) == 0"
 
 
@@ -44,20 +45,29 @@ STREET_BY_BOARD = {0: 0, 3: 1, 4: 2, 5: 3}
 #   them. If their pot already includes this street's bets, subtract sum(bets).
 #   Test: preflop, blinds posted, no action -> obs.pot == 0 and obs.total_pot == sb + bb (rule chips).
 
-# TODO 4  RAISE -> obs.min_raise, obs.max_raise are raise-TO totals (what my bet becomes); in from_action
-#   an Action.raise_to(total) goes back as the kit's total OR increment (`total - max(obs.bets)`). to_call
-#   is min(max(bets) - my bet, my stack); compute it if the kit does not give it.
+# TODO 4  RAISE -> obs.min_raise, obs.max_raise are raise-TO totals (what my bet becomes). Kits use three
+#   conventions, both ways: the total (raise to 120), the increment over the top bet ("by": total - max(bets)), or
+#   the chips this action puts in (total - my bet). Convert the kit's min/max to totals, and in from_action the
+#   Action.raise_to(total) back to the kit's. A bound the kit does not give: pass None (make_observation derives
+#   it); swapped bounds and a min raise above my all-in are put right there, and the conformance report lists them
+#   as kit quirks. to_call None = min(max(bets) - my bet, my stack).
 #   Test: unopened preflop, bb 20 -> obs.min_raise == 40 and obs.max_raise == my stack + my bet
 #         (rule raise_total); kit sim 50 hands -> 0 illegal.
 
-# TODO 5  LEGAL ACTIONS -> obs.legal, through make_observation(legal=[...]) with our names fold / check /
-#   call / raise (it raises KeyError on an unknown name, which is what you want at minute 6). Find the
-#   kit's word for check ("check", "CHECK", "K", CheckAction, or "call 0") and whether fold is offered
-#   when checking is free.
+# TODO 5  LEGAL ACTIONS -> obs.legal, through make_observation(legal=...): our names in any case, or the kit's
+#   own: "bet", F/K/X/C/R/B, "check/call", "all-in" (a call when the call takes every chip, else a raise), one
+#   string "fold,call,raise", dicts {"type": "raise", ...}, objects (CheckAction). A word it does not know raises
+#   KeyError (what you want at minute 6). from_action must answer in the kit's word: if the kit offers "bet" or
+#   "all-in" instead of "raise", reply with that word. Find the kit's word for check ("check", "K", CheckAction,
+#   or "call 0") and whether fold is offered when checking is free.
 #   Test: big blind, unopened -> CHECK in obs.legal and CALL not in obs.legal (rule check_vs_call).
 
 # TODO 6  SEATS -> obs.seat, obs.button, and stacks / bets / in_hand indexed by the kit's seat NUMBER,
 #   not by list position (sort by their seat field). Button = dealer; obs.position() is n-1 on the button.
+#   Numbered from 1: subtract 1 everywhere (seat, button, history; conformance says "numbered from 1?"). Numbered
+#   from us (we are 0): fine as it is. Ids, names, or numbers that move every hand (relative to the button): map
+#   them to fixed 0..n-1 seats once at table start, or every read of a seat is mixed with others'. A table-start
+#   hook that names our seat differently from the states is put right at the first decision (Adapter.seat_fixes).
 #   Test: obs.in_hand[obs.seat] is True and obs.position() == n - 1 when the kit says we are the dealer
 #         (rules in_hand_self, seat_changed).
 
@@ -70,7 +80,10 @@ STREET_BY_BOARD = {0: 0, 3: 1, 4: 2, 5: 3}
 #   uploaded bot lost 2.5 points a table; a kit with no log cost 0.6-0.9 more until the inference. Which kit is it?
 #   - A full log (every action this hand): map each entry to (their seat as our seat, Action(kind, raise-TO total)),
 #     pass history=history(native) to make_observation, skip entries that are not bets (blind posts, discards,
-#     card swaps). history_source = "log".
+#     card swaps). history_source = "log". Blind posts and antes logged as bets (a raise to the big blind or less at
+#     the start) are dropped by make_observation; posts logged as calls are not: skip them here.
+#   - Only OUR actions, or the last few: history_source = "partial" (never "log": the bot would read a hand where
+#     nobody else raised).
 #   - Some actions (this street only, the last few, a per-player last action turned into entries): pass them the
 #     same way and set history_source = "partial": Adapter.decide merges them into the log it rebuilds.
 #   - No log (kits B, C, D): leave history out and set history_source = "bets". Adapter.decide rebuilds the hand's
@@ -83,7 +96,9 @@ STREET_BY_BOARD = {0: 0, 3: 1, 4: 2, 5: 3}
 
 # TODO 8  PER-TABLE INIT -> Adapter.start(seat, n_players, rules) -> bot.new_table. Call it from the kit's
 #   table-start hook if one exists (outside the 1 ms budget); otherwise Adapter.decide calls it lazily on
-#   the first decision, so everything heavy (tables, evaluator warm-up) must happen at import instead.
+#   the first decision, so everything heavy (tables, evaluator warm-up) must happen at import instead. One object
+#   for many tables (per tournament, or for the night) with no table-start hook: decide() restarts the bot when the
+#   hand number goes back (Adapter.tables_seen), so pass the kit's hand number as it is, never a constant.
 #   Test: python tools/pack.py ... prints the import time (budget 5 s); kit sim first decision under 1 ms.
 #   HAND END -> Adapter.hand_end(hand_no, my_delta, n_players, history=..., deltas=..., showdown=..., board=...):
 #   pass what the kit's hand-end signal carries: the hand's actions (history() above), every seat's chip change
