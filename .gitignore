@@ -9,3 +9,4 @@ tables/*.bin
 drills/log/
 drills/scratch/
 scratch/
+frozen/
