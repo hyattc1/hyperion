@@ -173,3 +173,91 @@ change hold on night: it is kept.
 
 Adding the push-or-fold section buys nothing (elite_night loses its gain, night's point estimate drops): not kept.
 **G2 is the candidate.**
+
+## 7. G2's full screen (screen seeds 10000-10199, 200 x 8, code 372fddc)
+
+Spec: `{"dials": {"strong_route": "pre_open_10=elite1x", "strong_rr": 0.2}}` (on top of SHIP_DIALS).
+
+| stage | cell | F | G2 | G2 - F |
+|---|---|---|---|---|
+| confirm | night | 5.973 | 5.956 | -0.017 ± 0.030 level |
+| guards | night_hard | 5.485 | 5.494 | +0.009 ± 0.039 level |
+| | realistic | 6.346 | 6.337 | -0.010 ± 0.018 level |
+| | top | 5.035 | 5.075 | +0.040 ± 0.045 level |
+| | night @10/7/5/4/3/2/1/0 | 6.159 | 6.132 | -0.026 ± 0.055 level |
+| | night @50/25/12/6/3/2/1/1 | 24.443 | 24.465 | +0.023 ± 0.299 level |
+| | night, doubling blinds | 5.828 | 5.826 | -0.003 ± 0.032 level |
+| elite | elite | 4.681 | 4.722 | +0.040 ± 0.047 level |
+| | elite_night | 5.329 | 5.376 | **+0.048 ± 0.037 UP** |
+| | mirror | 4.416 | 4.514 | **+0.098 ± 0.062 UP** |
+| exploit | exploit (8-max, 10/7/5/...) | 4.999 | 5.027 | +0.028 ± 0.099 level (exploiter1 5.37 -> 5.33) |
+| | exploit_hu, exploit_3 | | | identical (pre_open_10 needs 4+ alive) |
+| variants | swap_holdem / swap_one_turn / bonus_card / auction | | | +0.008 / -0.008 / -0.003 / -0.008, all level |
+| | top_heavy | 28.416 | 28.261 | -0.155 ± 0.236 level |
+| | **pot_limit** | 6.377 | 6.355 | **-0.022 ± 0.021 DOWN** |
+| | antes_from_level_3 / fast_schedule | | | +0.008 / -0.009, level |
+| | the other 17 entries | | | identical to F (elite1 never plays there; checked on 2 tables each) |
+
+pot_limit: elite1 was built for no-limit, and its jams are clamped to a pot-sized raise there. Fixed in 4704d4c (the
+elite members play no-limit tables only; the composite plays the base on pot- and fixed-limit tables), so the
+candidate now plays pot_limit exactly as F (checked on 2 tables; re-screened below).
+
+Timing (latency.py, 20,000 calls, light shadows as shipped, load 10-12, two passes each): F mean 64.7 / 55.9 us, p50
+49.3 / 47.7; G2 mean 71.2 / 68.1, p50 56.7 / 56.0; p99s 148-276 for both (load noise). elite1's light scan costs
+about 8 us a decision.
+
+### S10: the strong fields under the top-heavy table (50/25/12/6/3/2/1/1, points of 100; screen seeds, 200 x 8)
+
+| field | F | G2 | G2 - F |
+|---|---|---|---|
+| elite | 13.290 | 13.849 | **+0.559 ± 0.498 UP** |
+| mirror | 11.924 | 12.909 | **+0.984 ± 0.560 UP** |
+
+Relative to a seat's average (12.5 of 100 here, 4.5 under 8..1) the gain is four times larger under the top-heavy
+table (elite +4.5% vs +0.9%; mirror +7.9% vs +2.2%): the change converts strong tables into first places, which is
+what S10 asked. (Diagnostic: climb_accept's elite stage measures 8..1 only; run with the scratch wrapper's
+S9_ELITE_PAY=th.)
+
+### Re-screen after the pot-limit fix (code 4704d4c)
+
+night -0.017 ± 0.030 (the same samples as at 372fddc: no-limit play is unchanged); pot_limit +0.000 ± 0.000 (identical
+to F). The other cells of section 7 stand: the fix changes play only on pot- and fixed-limit tables.
+
+### Finish positions with G2 (diagnostic seeds 8000-8099, 100 x 8, every seat traced; F's own run on the same seeds)
+
+| field | F pts | G2 pts | F 1st % | G2 1st % | reach 3-handed | chips at 3-handed |
+|---|---|---|---|---|---|---|
+| elite | 4.644 | 4.732 | 11.8 | 12.4 | 36.9% -> 39.9% | 31.2% -> 32.4% |
+| mirror | 4.485 | 4.532 | 7.9 | 8.4 | 35.2% -> 37.1% | 29.3% -> 30.4% |
+
+On these seeds G2 ranks 2nd of six names on the mirror (rival 2 4.897, G2 4.532, hybrid3_x 4.473, elite2 4.451,
+f_copy 4.418, elite1 4.393) where F ranked last on the 200 diagnostic seeds. The gain is chips kept before the
+endgame: F reaches three-handed more often and with more chips. Converting those chips into first places is the
+three-handed and heads-up play that S11 now owns (section 5).
+
+## 8. Recommendation
+
+Candidate spec (on top of SHIP_DIALS; code 4704d4c or later):
+
+    {"dials": {"strong_route": "pre_open_10=elite1x", "strong_rr": 0.2}}
+
+Unopened pots at 10-20 bb with four or more players alive (not blind against blind) are played by the elite1 build,
+with the exploit layer on, while this table re-raises our first-in raises at least 20% of the time (smoothed from a
+15% prior worth 10 raises); everything else is F. At night's tables the read mostly stays shut and F keeps its steals.
+
+Screen evidence (10000-10199): night -0.017 ± 0.030; every guard level; elite +0.040 ± 0.047, elite_night +0.048 ±
+0.037 UP, mirror +0.098 ± 0.062 UP; under 50/25/12/6/3/2/1/1 elite +0.56 ± 0.50 UP, mirror +0.98 ± 0.56 UP; exploit
+level (8-max +0.028 ± 0.099; heads-up and 3-handed identical); variants: the eight entries where elite1 can play all
+level after the pot-limit fix, the other 17 identical to F. Timing: about +8 us a decision (elite1's light scan).
+
+For the coordinator's held-out confirmation (addendum 8): stages confirm, guards, elite (incl. mirror), variants.
+Notes:
+- Compatible with FIN (batch 3): FIN's 3-bet defence acts after our open is 3-bet, in sections this route does not
+  touch; the route only replaces the open decision at 10-20 bb.
+- The mirror's copies are F as it ships; once G2 ships, the copies play G2 (f_copy follows SHIP_DIALS).
+- Not tried for lack of time: a per-seat version of the gate (route only when the seats behind have re-raised us); a
+  mirror whose copies follow the candidate; elite2's or rival 2's code for pre_open_10 (rival 2 needs a light shadow
+  first: its postflop Monte Carlo as a shadow would cost about 260 us a decision).
+
+Full suite at 4704d4c (load 15-18): 993 passed, 8 skipped, 21 failed, all wall-clock or timing tests; re-run alone,
+20 pass and one skips on its own oversubscribed-host guard.
