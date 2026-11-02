@@ -698,6 +698,24 @@ def variant_member(parent: str, base_overrides: dict | None = None, hero_member:
 
 
 # ---------------------------------------------------------------------------------------------- the simulator
+def sim_kwargs(kw: dict) -> dict:
+    """make_bot keywords for a composite seated in the simulator: `kw` with the bestiary's HYBRID_CONFIG (panic_after,
+    soft_us, ...) and HERO_CONFIG (Hero's dotted overrides) under them, as `hero` and the hybrids read them when built,
+    so a model-mode run's settings reach it (register's seats and the bestiary's `f_copy`)."""
+    from ..sim import bestiary as B
+
+    kw2 = dict(kw)
+    hyb = dict(B.HYBRID_CONFIG or {})
+    panic = hyb.pop("panic_after", None)
+    if panic is not None:
+        kw2.setdefault("panic_after", panic)
+    if hyb.get("soft_us", 0) >= 1e5:
+        kw2.setdefault("late_us", 1e9)  # deterministic runs: nothing reads the wall clock
+    kw2["hybrid_overrides"] = {**hyb, **kw2.get("hybrid_overrides", {})}
+    kw2["hero_overrides"] = {**(B.HERO_CONFIG or {}), **kw2.get("hero_overrides", {})}
+    return kw2
+
+
 def register(name: str, route=None, dials: dict | None = None, **kw) -> type:
     """Seat a composite in the simulator under `name` (this process only): `<field>@<name>` puts it in Hero's seat.
     Give a route and make_bot keywords, or one flat `dials` dict (parse_dials). It reads the bestiary's HERO_CONFIG
@@ -716,16 +734,7 @@ def register(name: str, route=None, dials: dict | None = None, **kw) -> type:
 
         def __init__(self, seed=None):
             super().__init__(seed)
-            kw2 = dict(self.KW)
-            hyb = dict(B.HYBRID_CONFIG or {})
-            panic = hyb.pop("panic_after", None)
-            if panic is not None:
-                kw2.setdefault("panic_after", panic)
-            if hyb.get("soft_us", 0) >= 1e5:
-                kw2.setdefault("late_us", 1e9)  # deterministic runs: nothing reads the wall clock
-            kw2["hybrid_overrides"] = {**hyb, **kw2.get("hybrid_overrides", {})}
-            kw2["hero_overrides"] = {**(B.HERO_CONFIG or {}), **kw2.get("hero_overrides", {})}
-            self.impl = make_bot(self.ROUTE, seed=seed, **kw2)
+            self.impl = make_bot(self.ROUTE, seed=seed, **sim_kwargs(self.KW))
 
         def new_table(self, rules, seat, n_players):
             self.impl.new_table(rules, seat, n_players)
@@ -746,4 +755,5 @@ def register(name: str, route=None, dials: dict | None = None, **kw) -> type:
 
 
 __all__ = ["COUNTS", "Composite", "CompositeCore", "ComposeConfig", "DONORS", "KitMember", "MEMBERS", "SHIP_DIALS", "SHIP_ROUTE",
-           "compose_config", "make_bot", "parse_dials", "register", "register_member", "ship", "variant_member"]
+           "compose_config", "make_bot", "parse_dials", "register", "register_member", "ship", "sim_kwargs",
+           "variant_member"]

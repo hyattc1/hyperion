@@ -17,7 +17,8 @@ Stages (comma-separated; default confirm,guards,variants):
   doubling blind schedule;
 - variants: the catalogued entries on realistic, the set's first 200 seeds (`--variants NAME,...` and
   `--variant-seeds N` for some; a lone variant cell down prints REPLICATE: addendum 7 re-runs it on the next set);
-- elite: the tuning fields elite (elite1, elite2 and the strong tunable bots) and elite_night (the two in a night room);
+- elite: the tuning fields elite (elite1, elite2 and the strong tunable bots), elite_night (the two in a night room) and
+  mirror (three copies of F, `f_copy`, with rival 2, elite1, elite2 and hybrid3_x: a table of near-equals, backlog S9);
 - judges: judge, judge2, judge2_night, judge_top, outside, outside_strong, elite_judge (run these on `--set judge`).
 - aware: the three likeliest twists against variant-aware opponents, each field under its variant
   (toss_or_holdem_aware, bounty_aware, short_deck_aware; hyperion/sim/aware.py); `--aware NAME,...` for some.
@@ -61,7 +62,7 @@ GUARDS = [("night_hard", "lin", None), ("realistic", "lin", None), ("top", "lin"
           ("night", "th", None), ("night", "lin", "double")]
 JUDGES = [("judge", "lin", None), ("judge2", "lin", None), ("judge2_night", "lin", None), ("judge_top", "lin", None),
           ("outside", "lin", None), ("outside_strong", "lin", None), ("elite_judge", "lin", None)]
-ELITE = [("elite", "lin", None), ("elite_night", "lin", None)]
+ELITE = [("elite", "lin", None), ("elite_night", "lin", None), ("mirror", "lin", None)]
 EXPLOIT = [("exploit", "brief", None), ("exploit_hu", "lin", "hu"), ("exploit_3", "lin", "three")]
 EXPLOIT_BOT = "exploiter1"
 VARIANT_FIELD = "realistic"
