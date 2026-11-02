@@ -210,3 +210,92 @@ def test_duplicate_rotations_see_the_same_run():
         boards.append([t.play_hand().board for _ in range(40)])
     assert boards[0] == boards[1] and any(len(b) > 6 for b in boards[0])
 
+
+# ----- Hero's long-board read (Config long_board) ------------------------------------------------------------------
+
+
+def _obs(hole, board, to_call=0):
+    from hyperion.core.types import Observation
+
+    b = P(board)
+    bets = [0] * 8
+    if to_call:
+        bets[1] = to_call
+    legal = {ActionKind.FOLD, ActionKind.CALL, RAISE} if to_call else {ActionKind.CHECK, RAISE, ActionKind.FOLD}
+    return Observation(hole=P(hole), board=b, street=len(b) - 2, seat=0, button=1,
+                       stacks=[1500, 1500 - to_call] + [1500] * 6, bets=bets, in_hand=[True, True] + [False] * 6,
+                       pot=200, to_call=to_call, min_raise=max(20, 2 * to_call), max_raise=1500, legal=frozenset(legal),
+                       hand_no=3, blinds=(10, 20), history=[(1, Action.raise_to(to_call))] if to_call else [],
+                       extras={})
+
+
+def _hero(**dials):
+    from hyperion.strategy.hero import HeroCore, config_from_dict
+
+    h = HeroCore(config_from_dict({"use_profiler": False, **dials}, seed=1))
+    h.new_table(V.river_of_blood().rules, 0, 8)
+    return h
+
+
+def test_hero_folds_a_flush_past_eight_cards_without_the_dial_and_raises_it_with():
+    from hyperion.core import eval as E
+
+    # the unseen log's probe: Ah Jh on Kc 7d 3s 9h 4h Qh 8c facing a bet
+    o = _obs("Ah Jh", "Kc 7d 3s 9h 4h Qh 8c", to_call=100)
+    off = _hero()
+    assert off.act(o).kind is ActionKind.FOLD and off.last_path == "safe"
+    on = _hero(long_board=True)
+    assert on.act(o).kind is RAISE and on.last_path == "postflop.long"
+    # twelve board cards: still read, and no evaluator table past 8 cards is built inside the decision
+    assert on.act(_obs("Ah Jh", "Kc 7d 3s 9h 4h Qh 8c 2d 5c Td 6s", to_call=100)).kind is RAISE
+    assert max(E._UNSUITED_N) <= 8
+
+
+def test_long_read_plays_the_board_and_counts_draws_while_a_card_can_come():
+    from hyperion.strategy.postflop import Postflop
+
+    # the board's own straight on seven cards: playing the board
+    tier, _, _ = Postflop.read(P("2c 2d"), P("5h 6s 7c 8d 9s Kh Kc"), long=True)
+    assert tier <= 2
+    # a heart draw on a red river: outs count only when another card can come
+    _, outs_last, _ = Postflop.read(P("Ah Jh"), P("Kc 7h 3s 9h 4d"), long=True, more=False)
+    _, outs_more, _ = Postflop.read(P("Ah Jh"), P("Kc 7h 3s 9h 4d"), long=True, more=True)
+    assert outs_last == 0 and outs_more >= 9
+
+
+def test_a_red_last_card_plays_as_a_turn_and_a_black_one_as_the_river():
+    h = _hero(long_board=True, long_to_come=1)
+    seen = []
+    orig = h.postflop.act
+
+    def spy(*a, **kw):
+        seen.append((kw.get("street"), kw.get("to_come"), kw.get("more")))
+        return orig(*a, **kw)
+
+    h.postflop.act = spy
+    h.act(_obs("Ah Jh", "Kc 7h 3s 9h 4d"))  # a red river: another card comes
+    h.act(_obs("Ah Jh", "Kc 7h 3s 9h 4d 8c"))  # black: the last street
+    assert seen == [(2, 1, True), (3, 0, False)]
+
+
+def test_long_board_dials_change_nothing_on_plain_holdem_boards():
+    from hyperion.core.types import Rules
+    from hyperion.strategy.hero import HeroCore, config_from_dict
+
+    for hole, board, to_call in (("Ah Jh", "Kc 7h 3s 9h 4d", 100), ("Qs Qd", "Kc 7h 3s", 0), ("9c 8c", "Tc 7h 2s 3c", 60)):
+        acts = []
+        for dials in ({}, {"long_board": True, "long_value_per_card": 2, "long_call_per_card": 2}):
+            h = HeroCore(config_from_dict({"use_profiler": False, **dials}, seed=1))
+            h.new_table(Rules(), 0, 8)
+            acts.append(h.act(_obs(hole, board, to_call)))
+        assert acts[0] == acts[1]
+
+
+def test_hybrid_routes_long_boards_to_hero_only_with_its_dial():
+    from hyperion.hybrid import HybridCore, hybrid_config
+
+    for on in (False, True):
+        hc = HybridCore(hybrid_config({"core": "rival3", "hero_on_long_board": on, "hero.long_board": True}))
+        hc.new_table(V.river_of_blood().rules, 0, 8)
+        hc.act(_obs("Ah Jh", "Kc 7d 3s 9h 4h Qh 8c", to_call=100))
+        assert (hc.counts.get("hero:long_board", 0) == 1) == on

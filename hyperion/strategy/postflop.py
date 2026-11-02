@@ -32,7 +32,7 @@ import random
 from dataclasses import dataclass
 from itertools import combinations
 
-from ..core.eval import category, evaluate, warm
+from ..core.eval import category, evaluate, evaluate_many, warm
 from ..core.types import Action, ActionKind
 from .profiler import Profiler
 from .spot import Spot
@@ -217,12 +217,15 @@ class Postflop:
     # ------------------------------------------------------------------ hand reading
     @staticmethod
     def read(hole, board, dead=(), flush_shift: int = 0, straight_shift: int = 0, flush_over_full: bool = False,
-             short: bool = False) -> tuple[int, int, bool]:
+             short: bool = False, long: bool = False, more: bool = False) -> tuple[int, int, bool]:
         """(tier, outs, wet_board) for two hole cards. Pure arithmetic over ranks and suits plus one evaluate().
         `dead` cards (exposed elsewhere) come off the draw outs; the shifts move a made flush / straight. `short`: the
-        36-card deck's straights (A-6-7-8-9 made and drawn to, no wheel) and flush draws (five outs, not nine)."""
+        36-card deck's straights (A-6-7-8-9 made and drawn to, no wheel) and flush draws (five outs, not nine).
+        `long`: the board may be longer than five (any count, core.eval.evaluate_many past 8 cards; playing the board
+        is read against the board's own best five at any length). `more`: another board card may still come on a board
+        of five or more (river_of_blood's red last card), so draws and their outs count there too."""
         cards = tuple(hole) + tuple(board)
-        strength = evaluate(cards)
+        strength = evaluate(cards) if len(cards) <= 8 else evaluate_many(cards)
         cat = category(strength)
         comp = COMPLETERS
         if short:
@@ -273,9 +276,10 @@ class Postflop:
                 my_flush_cards = a
             else:
                 my_flush_cards, fsuit = b, s2
-        flush_draw = my_flush_cards == 4 and n_board < 5
+        drawing = n_board < 5 or more
+        flush_draw = my_flush_cards == 4 and drawing
         # straight draw: completing ranks beyond what the board alone offers
-        mine = comp[full_mask] & ~comp[board_mask] if n_board < 5 else 0
+        mine = comp[full_mask] & ~comp[board_mask] if drawing else 0
         n_str_outs = mine.bit_count()
         oesd = n_str_outs >= 2
         gutshot = n_str_outs == 1
@@ -293,8 +297,8 @@ class Postflop:
                 tier = 6 if (flush_over_full and flush_possible) else 7
             else:
                 tier = 8
-            if n_board == 5:
-                bstr = evaluate(board)
+            if n_board == 5 or (long and n_board > 5):
+                bstr = evaluate(board) if n_board <= 8 else evaluate_many(board)
                 if bstr == strength:
                     tier = 1  # playing the board
             # a flush we do not hold on a 4-flush board, or a straight on a one-liner board
@@ -559,13 +563,16 @@ class Postflop:
             tier = max(0, tier - self.p.wild_board_penalty)
         return tier, outs, wet
 
-    def _read(self, hole, board, must_use: int, dead) -> tuple[int, int, bool]:
+    def _read(self, hole, board, must_use: int, dead, long: bool = False, more: bool = False) -> tuple[int, int, bool]:
         if self.low:
             return self.read_low(hole, board)
         if self.wild_rank >= 0:
             return self.read_wild(hole, board, must_use, dead)
         if len(hole) == 2 and not must_use:
             p = self.p
+            if long:
+                return self.read(hole, board, dead, p.flush_tier_shift, p.straight_tier_shift, self.flush_over_full,
+                                 self.short, True, more)
             return self.read(hole, board, dead, p.flush_tier_shift, p.straight_tier_shift, self.flush_over_full,
                              self.short)
         return self.read_multi(hole, board, must_use, dead)
@@ -612,25 +619,34 @@ class Postflop:
 
     # ------------------------------------------------------------------ decision
     def act(self, spot: Spot, hole, prof: Profiler | None, i_was_aggressor: bool, cheap: bool = False,
-            board=None, board2=None, must_use: int = 0, dead=(), value_shift: int = 0) -> Action:
+            board=None, board2=None, must_use: int = 0, dead=(), value_shift: int = 0, call_shift: int = 0,
+            street: int | None = None, to_come: int | None = None, long: bool = False, more: bool = False) -> Action:
         """`hole` and `board` are canonical cards (Hero remaps under a permuted rank order); the
         displayed obs.board is only the fallback when no board is passed. `board2` is the second board of
         a two-board game, `must_use` the Omaha rule, `dead` the exposed cards, `value_shift` raises the
-        value thresholds (streets before a swap)."""
+        value thresholds (streets before a swap), `call_shift` reads a made hand this many tiers lower when
+        facing a bet. `street` / `to_come` replace the observation's street and the cards still to come (a long
+        board: Hero plays a street that may not be the last as a turn); `long` / `more`: see `read`."""
         p = self.p
         obs = spot.obs
         if board is None:
             board = obs.board
-        tier, outs, wet = self._read(hole, board, must_use, dead)
-        street = obs.street
-        cards_to_come = 2 if street == 1 else 1 if street == 2 else 0
+        tier, outs, wet = self._read(hole, board, must_use, dead, long, more)
+        if street is None:
+            street = obs.street
+        if to_come is None:
+            cards_to_come = 2 if street == 1 else 1 if street == 2 else 0
+        else:
+            cards_to_come = to_come
         n_opp = spot.n_opps
         ip = spot.behind == 0
         self._mult = 1.0
-        eq = self._equity(tier, outs, cards_to_come, n_opp)
+        t_eq = tier - call_shift if call_shift and spot.to_call > 0 else tier
+        eq = self._equity(t_eq if t_eq > 0 else 0, outs, cards_to_come, n_opp)
         if board2 is not None:
             t2, o2, w2 = self._read(hole, board2, must_use, dead)
-            eq = 0.5 * (eq + self._equity(t2, o2, cards_to_come, n_opp))
+            t2e = t2 - call_shift if call_shift and spot.to_call > 0 else t2
+            eq = 0.5 * (eq + self._equity(t2e if t2e > 0 else 0, o2, cards_to_come, n_opp))
             if t2 < tier:
                 tier, outs = t2, o2
             wet = wet or w2
