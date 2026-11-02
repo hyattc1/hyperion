@@ -305,6 +305,11 @@ def legal_kinds(legal, to_call: int, my_stack: int) -> frozenset:
     one-letter F/K/X/C/R/B, check/call, all-in), a comma or space separated string, dicts ({"type": "raise", ...}),
     ActionKinds and objects (CheckAction). An "all in" is a call when the call already takes every chip, else a raise
     (the raise bounds then end at the all-in). Raises KeyError on a word it does not know: say what the kit means."""
+    try:  # the usual case, our names in any case: as fast as before
+        if not isinstance(legal, str):
+            return frozenset(KIND_BY_NAME[k.lower()] for k in legal)
+    except (KeyError, AttributeError, TypeError):
+        pass
     if isinstance(legal, str):
         t = legal.strip()
         if t.lower() in CHECK_OR_CALL_WORDS:
@@ -335,12 +340,15 @@ def raise_bounds(min_raise, max_raise, stacks, bets, seat: int, big_blind: int, 
     from this street's bets: a little high when a short all-in raised, never low). Swapped bounds are put in order; an
     all-in below a full raise (the kit's min above everything I have) leaves one raise, the all-in."""
     fixed = []
+    if not raise_legal:
+        return int(min_raise or 0), int(max_raise or 0), fixed
     n = len(bets)
     me_ok = 0 <= seat < n and len(stacks) == n
     cap = (stacks[seat] + bets[seat]) if me_ok else None
     cur = max(bets) if n else 0
-    if not raise_legal:
-        return int(min_raise or 0), int(max_raise or 0), fixed
+    if min_raise is not None and max_raise is not None and cur < min_raise <= max_raise and (cap is None or
+                                                                                            max_raise <= cap):
+        return int(min_raise), int(max_raise), fixed  # a clean kit
     lo = None if min_raise is None else int(min_raise)
     hi = None if max_raise is None else int(max_raise)
     if hi is None or (hi <= 0 and cap is not None):
@@ -394,7 +402,7 @@ def make_observation(*, hole, board, street, seat, button, stacks, bets, in_hand
     `extras["history_from_bets"]` says so (the shipped bot's core then reads no history: a replay of raises alone
     would book every raiser as a seat that raises every hand). What was put right is listed in
     `extras["kit_fixes"]` (conformance counts it), absent when nothing was."""
-    stacks, bets, seat = [int(x) for x in stacks], [int(x) for x in bets], int(seat)
+    stacks, bets, seat = list(stacks), list(bets), int(seat)
     me_ok = 0 <= seat < len(stacks) and len(bets) == len(stacks)
     my_stack = stacks[seat] if me_ok else 0
     if to_call is None:

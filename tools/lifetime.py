@@ -311,6 +311,13 @@ def main(argv=None) -> int:
                 out.write(json.dumps(row) + "\n")
                 out.flush()
             block_ns, block_cpu = [], []
+    caches = []
+    for modname, fn in (("hyperion.core.icm", "_cached"), ("hyperion.strategy.hero", "_icm_bucketed")):
+        f = getattr(sys.modules.get(modname), fn, None)
+        if f is not None and hasattr(f, "cache_info"):
+            ci = f.cache_info()
+            caches.append(f"{modname}.{fn} {ci.currsize}/{ci.maxsize}")
+    print("memo caches (bounded; they fill over the first tables):", ", ".join(caches) or "-")
     if tm0 is not None:
         import tracemalloc
 
