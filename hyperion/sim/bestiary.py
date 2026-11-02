@@ -1906,3 +1906,6 @@ def make_bot(name: str, seed: Optional[int] = None):
 # toss_or_holdem --field toss_or_holdem_aware`, tools/climb_accept.py's `aware` stage). Never in a night pool. The module
 # registers them here when it finishes loading (whichever of the two is imported first).
 from . import aware as _aware  # noqa: E402,F401
+# the generic variant-aware opponents (gen_mc, gen_tag, gen_pushfold; field `generic_aware`, any variant): no per-twist
+# code, they read the variant's own hooks (hyperion/sim/generic.py). Never in a night pool.
+from . import generic as _generic  # noqa: E402,F401

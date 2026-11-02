@@ -444,6 +444,12 @@ class TwoBoardsHooks(VariantHooks):
     def extras(self, hand) -> dict:
         return {"boards": self.boards(hand.board)}
 
+    def restore(self, extras: dict, board) -> None:
+        """The inverse of extras() for bots that simulate the hand (hyperion/sim/generic.py; the engine never calls
+        it): board 2 as published."""
+        boards = (extras or {}).get("boards") or ()
+        self.board2 = tuple(boards[1]) if len(boards) > 1 else ()
+
 
 class HiLoHooks(VariantHooks):
     """Half the pot to the best high hand, half to the best qualifying low (8-or-better, A-5, ace low,
@@ -1528,6 +1534,44 @@ CATALOG: dict[str, Callable[..., Variant]] = {
 }
 
 
+# Variants registered at run time (`get("path/to/file.py:factory")`): tonight's twist written as a Variant in a file of
+# its own, reachable afterwards by its name (and by its Rules.extras["variant"]) in this process, so the sim, the
+# climb's tools and the generic aware opponents (hyperion/sim/generic.py) all find its hooks. Never in CATALOG.
+REGISTERED: dict[str, Callable[..., Variant]] = {}
+
+
+def register(factory: Callable[..., Variant]) -> Variant:
+    """Register a Variant factory under its name and its Rules.extras["variant"]; returns one Variant from it."""
+    v = factory()
+    REGISTERED[v.name] = factory
+    tag = (v.rules.extras or {}).get("variant")
+    if tag:
+        REGISTERED[str(tag)] = factory
+    return v
+
+
+def _from_file(spec: str) -> Variant:
+    """`path/to/file.py:factory` -> the Variant the factory returns (registered by name)."""
+    import importlib.util
+    import os
+
+    path, _, func = spec.rpartition(":")
+    path = os.path.abspath(path)
+    mod_name = "hyperion_variant_" + "".join(ch if ch.isalnum() else "_" for ch in path)
+    mod = sys.modules.get(mod_name)
+    if mod is None:
+        sp = importlib.util.spec_from_file_location(mod_name, path)
+        if sp is None or sp.loader is None:
+            raise KeyError(f"cannot load a variant from {path!r}")
+        mod = importlib.util.module_from_spec(sp)
+        sys.modules[mod_name] = mod
+        sp.loader.exec_module(mod)
+    factory = getattr(mod, func or "variant", None)
+    if not callable(factory):
+        raise KeyError(f"{path!r} has no variant factory {func or 'variant'!r}")
+    return register(factory)
+
+
 def get(name: str, seed: int = 0) -> Variant:
     if name == "permuted_ranks":
         return permuted_ranks(seed)
@@ -1535,6 +1579,10 @@ def get(name: str, seed: int = 0) -> Variant:
         return PRESETS[name]()
     if name in CATALOG:
         return CATALOG[name]()
+    if name in REGISTERED:
+        return REGISTERED[name]()
+    if ".py:" in name or name.endswith(".py"):
+        return _from_file(name)
     from . import variants_unseen  # held out: reachable by name, never in CATALOG / PRESETS (see its docstring)
 
     if name in variants_unseen.HELD_OUT:
