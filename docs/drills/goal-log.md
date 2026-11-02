@@ -362,3 +362,23 @@ and (in judges) `elite_judge`.
   sections where they beat F), S12 (reads), then the 3-bet defence on H3. R2-R4 finishes its kit-shape checks (a crash
   costs whole points) and robustness then drops to the bottom of the queue. The structural round will be strength
   ideas (a stronger postflop, an adopted section) rather than tooling.
+
+## 07:45: S9 merged (da4bd64): the mirror field; F last of six there; strong_route candidate queued on H4
+- `mirror` = hero, three copies of F (`f_copy`, follows SHIP_DIALS), rival2, elite1, elite2, hybrid3_x; in
+  climb_accept's elite stage. F is last of six there (4.43; rival2 4.79, hybrid3_x 4.55) and takes 1st 8.1% (elite1
+  23.4%); on elite F is 2nd (4.71 vs rival2 4.91).
+- Diagnosis (chips per decision, every strong field, both payout tables): F's opens at 10-20 bb with 4+ players lose
+  (-0.10 to -0.13 bb vs +0.09 to +0.28 for the strong bots): rival 3's core min-raises 45-54% there and folds a third
+  of those to a re-raise (-2.2 to -2.5 bb each); strong tables re-raise first-in raises 24-26% of the time (night 14%).
+  Three-handed and heads-up preflop also trail (+0.02 / +0.07 vs +0.20 to +0.36): S11's sections, recorded, not fixed.
+- Adopting the better bot's section (owner's rule): routing three sections to elite1, elite2 or rival2 gains
+  +0.18 to +0.26 on elite and mirror but loses on night (-0.05 to -0.12). Narrowed and gated: G2 =
+  `{"strong_route": "pre_open_10=elite1x", "strong_rr": 0.2}` (elite1 plays unopened 10-20 bb spots while the table
+  re-raises our first-in raises at least 20%, smoothed toward 15% over 10 raises; threshold set before any gated run).
+  Screen: night -0.017 ± 0.030, guards all level, elite +0.040, elite_night +0.048 ± 0.037 UP, mirror +0.098 ± 0.062
+  UP; under top-heavy payouts elite +0.56 ± 0.50 and mirror +0.98 ± 0.56 of 100; exploit level; variants level (off
+  on pot and fixed limit). Light shadow +8 us a decision.
+- Merge check: F's night samples identical before and after (40 screen seeds). G2 queued on H4 (23000-23399) with
+  `--aim strong`, all stages, from goal/wt_measure2 at da4bd64, after H3's two runs.
+- Backlog from S9: a per-seat gate; rival2 for the section (needs a light shadow: its Monte Carlo costs ~260 us as a
+  shadow); a mirror whose copies follow the candidate.
