@@ -285,6 +285,12 @@ def _elite1_resync(m, before, obs: Observation, taken: Action) -> None:
         b.pend = None
 
 
+def _short_member(cfg, seed):
+    from ..strategy.short import short_member
+
+    return short_member(cfg, seed)
+
+
 # name -> factory(cfg, seed) -> member (new_table / act / hand_end, optional set_panic and variant_decide; plain_only)
 MEMBERS: dict[str, Callable] = {
     "base": lambda cfg, seed: _hybrid_member("rival3", cfg, seed),
@@ -294,6 +300,7 @@ MEMBERS: dict[str, Callable] = {
     "rival3": _rival_member("rival3", True),
     "elite1": _persona_member("elite1"),
     "elite2": _persona_member("elite2"),
+    "short": _short_member,
 }
 # member name -> (state(member) captured before act, resync(member, state, obs, taken) when its answer was not taken)
 RESYNC: dict[str, tuple] = {
@@ -307,12 +314,13 @@ LIGHT: dict[str, tuple] = {
     "hero": (_hero_light_ok, _hero_light),
     "base": (_base_light_ok, _base_light),
     "elite1": (lambda m, obs: True, _elite1_light),
+    "short": (lambda m, obs: True, lambda m, obs: m.light_observe(obs)),  # S13: it keeps only the hand's start chips
 }
 # members whose light shadow is used even without `light` (the deterministic runs, tools/climb_accept.py's seats): it
 # plays exactly as the full one (tests/test_sim_mirror.py), so a full shadow only adds cost, and the simulator's timing
 # columns should show what the shipped bot pays. elite1's full shadow decided on every one of our decisions (about 30 us,
 # a tail past 1 ms on a loaded host); its light one scans the history (about 6 us)
-ALWAYS_LIGHT: set = {"elite1"}
+ALWAYS_LIGHT: set = {"elite1", "short"}
 # donor name -> (member, the exploit layer acts on its decisions)
 DONORS: dict[str, tuple[str, bool]] = {
     "base": ("base", True), "hybrid3": ("base", False),
@@ -322,6 +330,7 @@ DONORS: dict[str, tuple[str, bool]] = {
     "rival3": ("rival3", False), "rival3x": ("rival3", True),
     "elite1": ("elite1", False), "elite1x": ("elite1", True),
     "elite2": ("elite2", False), "elite2x": ("elite2", True),
+    "short": ("short", False), "shortx": ("short", True),
 }
 
 
@@ -371,6 +380,12 @@ class ComposeConfig:
     # ... and in an unopened pot with one opponent left in the hand (the small blind against the big, or folded round to
     # the button with the small blind out): off = never there (blind-vs-blind play is S11's, climb/s11-exploiter2-fixes)
     strong_bvb: bool = False
+    # the short-handed route (S13, module doc of hyperion/strategy/short.py): these sections go to these donors while at
+    # most `short_alive` players have chips and the donor's member wants the decision (the hand maps onto its tables,
+    # no opponent alive reads as a clear leak). Empty (the default): every section as `route` / `strong_route` say
+    short_route: dict = field(default_factory=dict)
+    short_alive: int = 3
+    short_params: dict = field(default_factory=dict)  # the specialist's dials (strategy.short.ShortParams)
     seed: int | None = None
 
 
@@ -378,7 +393,8 @@ def compose_config(route=None, seed=None, **kw) -> ComposeConfig:
     cfg = ComposeConfig(seed=seed, **kw)
     cfg.route = parse_route(route)
     cfg.strong_route = parse_route(cfg.strong_route)
-    for r in (cfg.route, cfg.strong_route):
+    cfg.short_route = parse_route(cfg.short_route)
+    for r in (cfg.route, cfg.strong_route, cfg.short_route):
         for sec, d in r.items():
             if sec not in SECTIONS:
                 raise KeyError(f"unknown section {sec!r}")
@@ -422,7 +438,8 @@ class CompositeCore:
         self.cfg = cfg = config or ComposeConfig()
         donors = [cfg.route.get(s, cfg.base_donor) for s in SECTIONS]
         names = ["base"]  # index 0 is always the base
-        for d in donors + [cfg.strong_route[s] for s in SECTIONS if s in cfg.strong_route]:
+        for d in donors + [cfg.strong_route[s] for s in SECTIONS if s in cfg.strong_route] \
+                + [cfg.short_route[s] for s in SECTIONS if s in cfg.short_route]:
             m = DONORS[d][0]
             if m not in names:
                 names.append(m)
@@ -435,6 +452,8 @@ class CompositeCore:
         self.route = [(idx[DONORS[d][0]], DONORS[d][1]) for d in donors]  # per section: (member index, layer on)
         sr = cfg.strong_route
         self.strong = [(idx[DONORS[sr[s]][0]], DONORS[sr[s]][1]) if s in sr else None for s in SECTIONS] if sr else None
+        hr = cfg.short_route
+        self.short = [(idx[DONORS[hr[s]][0]], DONORS[hr[s]][1]) if s in hr else None for s in SECTIONS] if hr else None
         self._rr_reset()
         self.donors = donors
         self.plain_only = [bool(getattr(m, "plain_only", False)) for m in self.members]
@@ -555,6 +574,25 @@ class CompositeCore:
             if sr is not None and self.strong_table() and (self.cfg.strong_bvb or obs.street or not _bvb(obs)):
                 mi, layer = sr
                 counts["strong"] += 1
+        short = self.short
+        if short is not None and short[sec] is not None and not self.panic and self.plain:
+            si, sl = short[sec]
+            if not self._no_h[si]:
+                alive = 0
+                for s_, b_, h_ in zip(obs.stacks, obs.bets, obs.in_hand):
+                    if s_ + b_ > 0 or h_:
+                        alive += 1
+                if alive <= self.cfg.short_alive:
+                    hi = self._hero_idx
+                    prof = getattr(self.members[hi], "prof", None) if hi >= 0 else None
+                    try:
+                        ok = self.members[si].wants(obs, prof)
+                    except Exception:  # noqa: BLE001 - a slip in the read keeps F's route
+                        ok = False
+                        counts["short:error"] += 1
+                    if ok:
+                        mi, layer = si, sl
+                        counts["short"] += 1
         if self.level:
             counts["level:%d" % self.level] += 1
             if self._force is not None and not self.panic:
@@ -772,7 +810,7 @@ def parse_dials(dials: dict | None) -> tuple:
     d = dict(dials or {})
     route = d.pop("route", SHIP_ROUTE)
     exploit = d.pop("exploit", "hero")
-    layer, base, hero = {}, {}, {}
+    layer, base, hero, short = {}, {}, {}, {}
     for k in list(d):
         head, dot, rest = k.partition(".")
         if not dot:
@@ -787,6 +825,8 @@ def parse_dials(dials: dict | None) -> tuple:
             base[k] = v
         elif head == "base":
             base[rest] = v
+        elif head == "short":  # the short-handed specialist's dials (S13)
+            short[rest] = v
         else:
             raise KeyError(f"unknown composite dial {k!r}")
     if d.pop("cheap", False):  # as on hybrid3_x: every decision Hero's cheap path, no reads, no layer
@@ -804,13 +844,17 @@ def parse_dials(dials: dict | None) -> tuple:
     hyb = {}
     for k in list(d):
         if k in ComposeConfig.__dataclass_fields__ and k not in ("route", "exploit", "base_overrides", "hero_member",
-                                                                 "hybrid_overrides", "hero_overrides"):
+                                                                 "hybrid_overrides", "hero_overrides",
+                                                                 "short_params"):
             continue
         if k in HybridConfig.__dataclass_fields__ and k not in ("hero", "r3", "exploit", "core", "seed"):
             hyb[k] = d.pop(k)  # a flat hybrid field (soft_us, mc_max ...): every hybrid member, as on hybrid3_x
             continue
         raise KeyError(f"unknown composite dial {k!r}")
-    return route, {"exploit": exploit, "base_overrides": base, "hero_member": hero, "hybrid_overrides": hyb, **d}
+    out = {"exploit": exploit, "base_overrides": base, "hero_member": hero, "hybrid_overrides": hyb, **d}
+    if short:
+        out["short_params"] = short
+    return route, out
 
 
 def ship(dials: dict, seed: int | None = None) -> Composite:
