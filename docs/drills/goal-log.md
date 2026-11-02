@@ -508,3 +508,15 @@ and (in judges) `elite_judge`.
   blind-vs-blind 4-bet that folds to its jam (about 14.5 bb, 1.4 times a heads-up table; `r3.v3_bvb_cont` unmeasured).
 - F identical after the merge (14 cells). Z on H7 (26000-26399), --aim exploit, all stages; bonus_card at 200 seeds
   decides the one-size risk (0.5 pot includes the dry c-bet that lost there).
+
+## 12:57: S12b merged (9c52de0): the size read gated per seat; D1 queued on H8
+- Gate (thresholds fixed from which seats pass, before any points screen): read a bettor only once it has shown two
+  or more size buckets with at least 2 bets and 15% of its bets in each; never seats flagged dead, station, maniac or
+  random. One-size and broken bettors pass 0-2% of their spots, two-size bettors 16-68%. The shared strong-table
+  signal (S9's re-raise rate) now lives in the profiler; not used by D1.
+- D1 screen (200 x 8, batch 4 base, --aim strong ACCEPT): realistic +0.047 ± 0.028 UP (C7 was -0.096 on H5),
+  antes +0.038 UP, fast_schedule and straddle level; elite +0.084 ± 0.063, elite_night +0.066 ± 0.058, mirror
+  +0.128 ± 0.081, top +0.068 ± 0.056, night_hard +0.088 ± 0.055 UP; night +0.030 level; exploit level; top_heavy
+  variant +0.60 ± 0.40 UP; the other 22 variants identical. It keeps a third to a half of C7's strong-table gain.
+  Latency p99 102 -> 101 us (decisions), hand end 100 -> 134 us.
+- F identical after the merge (14 cells). D1 on H8 (27000-27399) after H6 finishes.
