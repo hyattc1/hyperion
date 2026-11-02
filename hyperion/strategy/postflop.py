@@ -207,6 +207,8 @@ class PostflopParams:
     # (every street) shrunk toward the population's shares (POP_BKT) with this many bets; a seat with one size reads
     # as the population's whole betting range. 0 = the population's histogram per size (SIZE_PRIOR)
     size_read_rank: float = 0.0
+    size_read_rank_streets: int = 7  # bit mask of the streets the rank prior is used on (1 flop, 2 turn, 4 river)
+    size_read_rank_by_street: bool = False  # the seat's size shares on this street only (not pooled over streets)
     # xr_shift: heads-up, nothing to call, the opponent checked to me on this street and its check-raise rate (prior
     # xr_prior worth xr_n0 chances) is at most xr_max: value-bet this many tiers thinner (a checked range with no
     # check-raises holds few strong hands)
@@ -857,9 +859,13 @@ class Postflop:
         return _FOLD
 
     @staticmethod
-    def _rank_prior(prof: Profiler, s: int, st: int, b: int, k: float):
+    def _rank_prior(prof: Profiler, s: int, st: int, b: int, k: float, by_street: bool = False):
         """Seat s's bet of size b as a slice of the population's betting range (size_read_rank), or None."""
-        c, n = prof.size_shares(s)
+        if by_street:
+            c = prof.szc[s][st]
+            n = sum(c)
+        else:
+            c, n = prof.size_shares(s)
         pb = POP_BKT[st]
         lo = 0.0
         for j in range(b):
@@ -900,8 +906,8 @@ class Postflop:
                     for t in range(9):
                         h[t] += h2[t]
         prior = SIZE_PRIOR[st][b]
-        if p.size_read_rank > 0.0 and b < 5 and n is not None:
-            prior = self._rank_prior(prof, bettor, st, b, p.size_read_rank) or prior
+        if p.size_read_rank > 0.0 and b < 5 and n is not None and p.size_read_rank_streets >> st & 1:
+            prior = self._rank_prior(prof, bettor, st, b, p.size_read_rank, p.size_read_rank_by_street) or prior
         win = SIZE_WIN[st]
         lose = 1.0 - win
         if n is None:  # an oracle's weights
