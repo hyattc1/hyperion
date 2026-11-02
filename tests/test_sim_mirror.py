@@ -125,6 +125,7 @@ def test_elite1_light_shadow_plays_as_the_full_one(monkeypatch):
     _model(monkeypatch)
     out = []
     for light in (False, True):
+        monkeypatch.setattr(CB, "ALWAYS_LIGHT", {"elite1"} if light else set())
         nm = f"s9_light{int(light)}"
         CB.register(nm, dials={**CB.SHIP_DIALS, "route": ROUTE_E1, "light": light})
         rep = R.run_tournament(B.field_names(f"mirror@{nm}"), 1, seed=1, rotate=True, mode="model",

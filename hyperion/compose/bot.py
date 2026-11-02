@@ -308,6 +308,11 @@ LIGHT: dict[str, tuple] = {
     "base": (_base_light_ok, _base_light),
     "elite1": (lambda m, obs: True, _elite1_light),
 }
+# members whose light shadow is used even without `light` (the deterministic runs, tools/climb_accept.py's seats): it
+# plays exactly as the full one (tests/test_sim_mirror.py), so a full shadow only adds cost, and the simulator's timing
+# columns should show what the shipped bot pays. elite1's full shadow decided on every one of our decisions (about 30 us,
+# a tail past 1 ms on a loaded host); its light one scans the history (about 6 us)
+ALWAYS_LIGHT: set = {"elite1"}
 # donor name -> (member, the exploit layer acts on its decisions)
 DONORS: dict[str, tuple[str, bool]] = {
     "base": ("base", True), "hybrid3": ("base", False),
@@ -439,7 +444,7 @@ class CompositeCore:
         self._no_h = [False] * len(self.members)  # per member: plays the base here (this table is not hold'em)
         self.resync = [RESYNC.get(n) for n in names]
         self._rs_idx = [j for j, r in enumerate(self.resync) if r is not None]
-        self.light = [LIGHT.get(n) if cfg.light else None for n in names]
+        self.light = [LIGHT.get(n) if cfg.light or n in ALWAYS_LIGHT else None for n in names]
         self._lit = [False] * len(names)
         self._states: list = [None] * len(names)
         self._props: list = [None] * len(names)
