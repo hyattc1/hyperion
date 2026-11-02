@@ -527,3 +527,14 @@ and (in judges) `elite_judge`.
   aware and all 26 variants level (twists identical by the holdem_table gate). ACCEPT (addendum 8). H6 used once.
 - Batch 5 candidates: strong_route (accepted), Z on H7 (running), D1 on H8 (starting). Then the three together,
   the judges once, timing, freeze.
+
+## 14:43: Z on H7: big short-handed gains, rejected on one aware cell; gated to hold'em and re-run on H9
+- H7 (26000-26399), base batch 4, --aim exploit: exploit2_hu +0.416 ± 0.106 (F 7.91 vs exploiter2 9.09, was 7.50 vs
+  9.51), exploit2_3 +0.262 ± 0.108, exploit_hu +0.146 ± 0.103 UP; exploit 8-max and exploit2 8-max level;
+  elite_night +0.048 ± 0.048 UP; night, guards, elite, mirror level; all 26 variants level (bonus_card +0.002 ±
+  0.054: the one-size risk did not show); aware short_deck down (-0.042 ± 0.039). REJECT: addendum 7 covers the
+  variants stage only and is not stretched to aware after the fact. H7 used once.
+- Cause: Z's probe read and one bet size reached twist tables, where they were never built or measured. New dial
+  `hero.postflop.s11_holdem_only` (811c216): on a table that fails hero.holdem_table, Postflop plays with those two
+  off. Tests: on short deck ungated Z differs from F on 4 of 4 tables, gated it is identical; F identical by default
+  (14 cells). Z2 = Z + the gate on H9 (28000-28399), --aim exploit, all stages.
