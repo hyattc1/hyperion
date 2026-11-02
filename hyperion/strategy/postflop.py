@@ -234,6 +234,10 @@ class PostflopParams:
     # The equity proxy there is the mean of two boards' proxies, a steadier number than one board's, and a hand that
     # holds one board wins half the pot nearly for sure. -1 = off (call_margin as everywhere)
     split_call_margin: float = -1.0
+    # ... and the tier the bet / raise thresholds read there: True = the tier whose equity proxy is the highest at or
+    # below the mean of the two boards' made-hand proxies (one board locked and air on the other reads as a half-pot
+    # hand: tier 3), False = the weaker board's tier (value needs both boards)
+    split_tier_eq: bool = False
     wild_board_penalty: int = 1  # a wild on the shared board helps everyone: one tier off my read
     low_draw_outs_cap: int = 12  # lowball: at most this many outs to a better low are counted
 
@@ -725,8 +729,12 @@ class Postflop:
             t2, o2, w2 = self._read(hole, board2, must_use, dead)
             t2e = t2 - call_shift if call_shift and spot.to_call > 0 else t2
             eq = 0.5 * (eq + self._equity(t2e if t2e > 0 else 0, o2, cards_to_come, n_opp))
+            t1 = tier
             if t2 < tier:
                 tier, outs = t2, o2
+            if p.split_tier_eq:
+                m = 0.5 * (TIER_EQUITY[t1] + TIER_EQUITY[t2]) + 1e-9
+                tier = max(i for i, e in enumerate(TIER_EQUITY) if e <= m)
             wet = wet or w2
             self._mult = p.two_boards_size_mult
         # opponent dials: the most cautious of the live opponents, call-down from the bettor

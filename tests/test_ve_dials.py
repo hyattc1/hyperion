@@ -92,3 +92,14 @@ def test_variant_preflop_ex_reaches_the_tables_variant_preflop_leaves_out():
     h = HeroCore(config_from_dict({"variant_preflop_ex": ex}))
     h.new_table(Rules(), 0, 8)
     assert h.preflop.p.call_raise_frac == Config().preflop.call_raise_frac  # plain hold'em untouched
+
+
+def test_split_tier_eq_bets_a_locked_board_with_a_pair_on_the_other():
+    def act(flag):
+        pf = Postflop(PostflopParams(split_tier_eq=flag, cbet_freq_ip_dry=0.0, semibluff_freq=0.0), seed=1)
+        obs = street_obs("Kh Qh", "Ah 7h 2h", seat=1, button=7, pot=100, in_hand=HU, history=PRE)
+        spot = Spot(obs, P("Kh Qh"), None)
+        # a king-high flush on board 1, middle pair on board 2
+        return pf.act(spot, P("Kh Qh"), None, False, board=P("Ah 7h 2h"), board2=P("Ac Qd 4s")).kind
+    assert act(False) is ActionKind.CHECK
+    assert act(True) is ActionKind.RAISE
