@@ -102,3 +102,20 @@ base runs once. Dials specs are resolved on top of `SHIP_DIALS`, so `{"dials": {
   callbacks and the zip cap.
 - river_of_blood is now promoted out of the held-out set (into the main catalog with V3); the held-out set keeps
   showtime, high_chicago, bomb_pot, unfold.
+
+## 21:56: the exploiter (S2) done: docs/drills/exploiter/FINDINGS.md
+A fresh agent with only the black-box arena (the packed F of d3a7ca5) built `exploit_bot.py` (md5 183c150c) in ~80
+minutes. It beats F in every format (payouts 10/7/5/4/3/2/1/0): 8-max 5.255 vs 5.065 (500 tables), heads-up 8.929 vs
+8.071 (wins 64%), three-handed 8.378 vs 7.013 (300 tables). With its exploits off it scores 4.335 vs F's 6.129, so
+the exploits are worth about +0.92 / -1.06 at 8-max and ±1.05 heads-up. Findings, largest first:
+1. F opens very wide (SB 95%, BTN 79%, CO 58%) and folds 88-93% to a 3-bet of any size: a 1.16-point swing at 8-max.
+   Heads-up it adapts after ~110 hands.
+2. Bet size tells strength: 0.8 pot and river bets of half pot or more are nearly always strong; 0.33 pot is weak
+   (folds 78% to a check-raise of it).
+3. Heads-up: opens and shoves any two (100% at 10 bb or less); big-blind defence ignores the raise size.
+4. Over-folds to postflop bets (76-80% heads-up) before adapting; reads need 20-40 observations of a spot.
+5. Solid: all-in calls, river bets and calls, its own 3-bets and 4-bets.
+Odd: under load F's slowest decisions reached 12-56 ms and its slowest first call of a table 48 ms (model mode, so
+not folded; strict would fold them). Sent to R1/R6.
+These go to a strength worker (S2), fixes behind dials, measured against the exploiter as a frozen bot and guarded on
+the standard fields; the outside field (with its loose-aggressive 3-bettor) judges the batch.
