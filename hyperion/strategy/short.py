@@ -133,6 +133,11 @@ class ShortParams:
         # least this often (F's profiler, fold_to_bet_pre, with at least steal_n raises faced); 0 = off
         self.steal_ftb = 0.0
         self.steal_n = 10
+        # the button's preflop goes back to F while the big blind folds to our heads-up opens more often than this
+        # (the member's own read from heads-up hands: its folds over our opens, smoothed toward 0.25 with 6): F's
+        # exploitative opens take what an over-folder gives; the equilibrium button plays big blinds that defend.
+        # 1.0 = off
+        self.sb_ftb_max = 1.0
         # a deviation on a clear read: as the big blind facing an open from a seat that opens at least this share of
         # its small blinds (F's profiler, open_rate late, smoothed toward 0.5 with 6), the nodes after the open come
         # from the counter solved against a small blind locked to open the top w of hands (tables/short_hu_lock.json,
@@ -170,6 +175,8 @@ class ShortMember:
         self.seed = 0 if seed is None else int(seed)
         self.defer = frozenset(x.strip() for x in str(self.p.defer).split(",") if x.strip())
         self._roles = frozenset(x.strip() for x in str(self.p.pre_roles).split(",") if x.strip())
+        self._fo = [0] * 12  # our heads-up opens per big blind seat ...
+        self._ff = [0] * 12  # ... and its folds to them
         self._prof = None
         self._wide, self._t3 = False, 0.0
         self.hu = _load("hu")
@@ -188,13 +195,28 @@ class ShortMember:
     def new_table(self, rules, seat: int, n_players: int) -> None:
         self.n = n_players
         self.seat = seat
+        self._fo = [0] * max(12, n_players)
+        self._ff = [0] * max(12, n_players)
         pay = tuple(rules.payouts) if rules.payouts else ()
         if len(pay) >= 3 and pay[0] > pay[2]:
             self.rho = (pay[1] - pay[2]) / (pay[0] - pay[2])
         self._hand = -1
 
     def hand_end(self, result) -> None:
-        pass
+        """The heads-up read of `sb_ftb_max`: in a hand two started, the button's first action an open (a raise), the
+        big blind's answer a fold or not, counted per big blind seat when we were the button."""
+        if result.hand_no != self._hand or len(self._start) < 2:
+            return
+        alive = [j for j in range(len(self._start)) if self._start[j] > 0]
+        h = result.history
+        if len(alive) != 2 or len(h) < 2 or h[0][0] != self.seat or h[0][1].kind is not _RAISE:
+            return
+        bb = h[1][0]
+        if bb == self.seat or bb >= len(self._fo):
+            return
+        self._fo[bb] += 1
+        if h[1][1].kind is _FOLDK:
+            self._ff[bb] += 1
 
     def light_observe(self, obs: Observation) -> None:
         if obs.hand_no != self._hand:
@@ -243,7 +265,13 @@ class ShortMember:
         if obs.street == 0:
             if len(alive) == 2:
                 got = self._hu_node(obs)
-                return got is not None and ("sb" if got[3] == 0 else "bb") in self._roles
+                if got is None or ("sb" if got[3] == 0 else "bb") not in self._roles:
+                    return False
+                if got[3] == 0 and self.p.sb_ftb_max < 1.0:
+                    opp = next((j for j in alive if j != obs.seat), -1)
+                    if 0 <= opp < len(self._fo) and (self._ff[opp] + 1.5) / (self._fo[opp] + 6.0) > self.p.sb_ftb_max:
+                        return False
+                return True
             if len(alive) == 3 and self.t3 is not None:
                 got = self._three_node(obs)
                 return got is not None and got[4] <= self.p.three_max * (obs.blinds[1] or 1)
