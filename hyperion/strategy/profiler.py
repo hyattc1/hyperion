@@ -78,6 +78,8 @@ class Profiler:
         self.calls = z()
         self.folds = z()
         self.checks_free = z()  # checked when nothing to call
+        self.post_free = z()  # postflop actions with nothing to call (a chance to bet)
+        self.post_free_bets = z()  # ... that were bets
         self.shoves = z()
         self.shove_opps = z()  # actions where a shove was possible (any action counts)
         self.faced_shove = z()
@@ -315,6 +317,10 @@ class Profiler:
                 self._cbet_obs(seat, kind)
             if not pre:
                 self.post_actions[seat] += 1
+                if not facing:
+                    self.post_free[seat] += 1
+                    if kind is _RAISE:
+                        self.post_free_bets[seat] += 1
             elif not (self.pre_acted_mask & bit):
                 self.pre_acted_mask |= bit
                 b = self._bucket(self.chips[seat])
@@ -421,6 +427,10 @@ class Profiler:
     # ------------------------------------------------------------------ rates
     def cbet_rate(self, s: int, prior: float = 0.65, n0: float = 4.0) -> float:
         return (self.cbets[s] + prior * n0) / (self.cb_opp[s] + n0)
+
+    def free_bet_rate(self, s: int, prior: float = 0.4, n0: float = 4.0) -> float:
+        """How often seat s bets postflop when nothing is to call, smoothed toward `prior` with n0 chances."""
+        return (self.post_free_bets[s] + prior * n0) / (self.post_free[s] + n0)
 
     def open_fold_to_reraise(self, s: int, prior: float = 0.75, n0: float = 5.0) -> float:
         """How often seat s folds its open to a re-raise, smoothed toward `prior` with n0 answers."""

@@ -79,6 +79,36 @@ def icm_points(st, i: int, payouts) -> float:
     return out
 
 
+def v3_scan(hist, me: int, others_w: float, chances: list, threes: list) -> None:
+    """Add one hand's 3-bet chances and 3-bets per seat (kit shape (seat, (kind, amount)), preflop first). The open
+    is the hand's first raise; a check before it means a limped preflop (only the big blind checks preflop), so no
+    open. After the open every other seat still in the hand acts once before anyone acts twice, so each seat's first
+    action after it, until the first re-raise, is a reply to the open: a chance, and a 3-bet if it raised. A chance
+    against our own open counts 1, one against another seat's `others_w`. Raises to at most the big blind are posts."""
+    opener = -1
+    i0 = -1
+    for i, (s, a) in enumerate(hist):
+        k = a[0]
+        if k == 'check':
+            return
+        if k == 'raise':
+            opener, i0 = s, i
+            break
+    if opener < 0:
+        return
+    w = 1.0 if opener == me else others_w
+    seen = {opener}
+    for i in range(i0 + 1, len(hist)):
+        s, a = hist[i]
+        if s in seen or not (0 <= s < len(chances)):
+            return
+        seen.add(s)
+        chances[s] += w
+        if a[0] == 'raise':
+            threes[s] += w
+            return
+
+
 class Rival3Core(R3.Bot):
     """Rival 3's `Bot` with payouts, hand_end history and a soft deadline set from outside (module doc). `decide` returns
     its raw ('kind', amount) answer, or None where it declines (as built it would then fold; the caller asks Hero)."""
@@ -89,6 +119,7 @@ class Rival3Core(R3.Bot):
     exact_icm = False  # this table's payouts have no closed form from the third place down: icm_points is exact
     _t0 = 0.0
     replay_errors = 0
+    seat = 0
     k = Rival3Knobs()  # the dials (hyperion/hybrid/dials.py); setup() takes HybridConfig.r3
 
     # ------------------------------------------------------------------ the adapter HybridCore drives
@@ -101,6 +132,17 @@ class Rival3Core(R3.Bot):
         self.soft_us = float(cfg.soft_us)
         self.k = getattr(cfg, "r3", None) or Rival3Knobs()
         self.replay_errors = 0
+        self.seat = seat
+        self._v3_reset()
+
+    def _v3_reset(self) -> None:
+        """The 3-bet reads (r3.v3_defend): per seat, chances to 3-bet an open and 3-bets (weighted, v3_scan), and our
+        4-bets it faced after 3-betting us and its folds to them; `_v4` is our last 4-bet (kit hand, seat, index)."""
+        self.v3o = [0.0] * 12
+        self.v3n = [0.0] * 12
+        self.v4o = [0.0] * 12
+        self.v4f = [0.0] * 12
+        self._v4 = None
 
     def start_hand(self, kit_hand_no: int, totals) -> None:
         """Nothing to precompute: rival 3 prices each all-in from the stacks it sees."""
@@ -127,8 +169,26 @@ class Rival3Core(R3.Bot):
         return best
 
     def end(self, result: HandResult) -> None:
-        self.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas,
-                       "history": [(s, (a.kind.value, a.amount)) for s, a in result.history]})
+        hist = [(s, (a.kind.value, a.amount)) for s, a in result.history]
+        self.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas, "history": hist})
+        if self.k.v3_defend:
+            self._v3_end(result.hand_no + 1, hist)
+
+    def _v3_end(self, hand: int, hist) -> None:
+        v4, self._v4 = self._v4, None
+        try:
+            v3_scan(hist, self.seat, self.k.v3_others_w, self.v3o, self.v3n)
+            if v4 is not None and v4[0] == hand and v4[2] < len(hist):
+                t, i = v4[1], v4[2]
+                if hist[i][0] == self.seat and hist[i][1][0] == 'raise':  # the 4-bet was the action taken
+                    for s, a in hist[i + 1:]:
+                        if s == t:  # its reply to our 4-bet (it must reply before the flop)
+                            self.v4o[t] += 1.0
+                            if a[0] == 'fold':
+                                self.v4f[t] += 1.0
+                            break
+        except Exception:  # noqa: BLE001 - a malformed history leaves the reads as they were
+            pass
 
     # ------------------------------------------------------------------ overrides
     def _soft(self) -> None:
@@ -225,7 +285,7 @@ class Rival3Core(R3.Bot):
             if n_alive <= 4: base *= 1.2
             # re-shovers / 3bettors behind tighten
             r3max = max([self._rates(s)[3] for s in behind] or [0])
-            if r3max > 0.2: base *= 0.75
+            if r3max > 0.2: base *= kn.open_vs3b_scale
             base *= kn.open_scale
             if len(behind) in (2, 3): base *= kn.open_late_scale  # the cutoff and the button
             size = bb * (2.5 if len(behind) > 1 else 2.2) + bb * len(limpers)
@@ -261,6 +321,11 @@ class Rival3Core(R3.Bot):
         req = callamt / float(pot_tot + callamt) if pot_tot + callamt > 0 else 1.0
         commit = callamt >= 0.4 * stacks[seat] or eff_bb <= kn.commit_bb or agg_allin or n_raises >= 2
         # (rival 3 computes self._icm_margin(...) here and never reads it: dropped)
+        if kn.v3_defend and n_raises == 2 and k == 1 and not agg_allin and eff_bb >= kn.v3_min_bb \
+                and callamt < 0.4 * stacks[seat]:
+            a = self._vs3bet(o, legal, ci, stacks, bets, inh, n, seat, bb, pot, agg, n_alive, mytot, button, callamt)
+            if a is not None:
+                return a
         if commit:
             evf, evs, evw, evl = self._allin(stacks, bets, inh, seat, agg, pot, n_alive)
             ev_call = eq * evw + (1 - eq) * evl
@@ -292,6 +357,8 @@ class Rival3Core(R3.Bot):
             if eq + implied >= req + 0.08 and p <= max(0.22, w * 0.7):
                 return ('call', 0) if 'call' in legal else self._call_or_check(legal)
             if seat == bbs and callamt <= 2 * bb and eq >= req and p <= 0.5:
+                return ('call', 0) if 'call' in legal else self._call_or_check(legal)
+            if kn.bb_defend and seat == bbs and k == 1 and eq * kn.bb_real >= req + kn.bb_margin:
                 return ('call', 0) if 'call' in legal else self._call_or_check(legal)
             return self._fold(legal)
         # 3bet+ deep
@@ -367,6 +434,73 @@ class Rival3Core(R3.Bot):
         if e2 + implied >= req + kn.call_edge:
             return ('call', 0) if 'call' in legal else self._call_or_check(legal)
         return self._fold(legal)
+
+    # ------------------------------------------------------------------ S2: facing a 3-bet of our open
+    def _vs3bet(self, o, legal, ci, stacks, bets, inh, n, seat, bb, pot, agg, n_alive, mytot, button, callamt):
+        """Fold, call, 4-bet or jam against one 3-bet of our open (r3.v3_defend), or None for rival 3 as built.
+
+        The 3-bettor's range is the top t3 of hands, t3 its 3-bet rate: the prior (v3_prior, weight v3_prior_n chances)
+        plus its 3-bets per chance in the hands so far and this one. Under v3_min_rate it is a seat that rarely
+        3-bets, and rival 3's tight all-in pricing stays. Otherwise each line is valued in points (ICM on the table's
+        payouts) against the 3-bettor:
+          call   a flip for the pot as it stands, won with our equity against its range times the share we realise
+                 (v3_real_ip / v3_real_oop): q * win + (1 - q) * (lose the call);
+          4-bet  it folds with fo4 (the model 1 - v3_cont / t3, its observed folds to our 4-bets weighed in), else it
+                 goes all-in with the top t3 * (1 - fo4) of hands and we call or fold, whichever is worth more;
+          jam    as the 4-bet, all in now.
+        The best line plays if it beats folding by v3_margin."""
+        kn = self.k
+        hist = o.history or ()
+        opener = -1
+        for s, a in hist:
+            kd = a[0]
+            if kd == 'check':
+                return None
+            if kd == 'raise' and (a[1] or 0) > bb:
+                opener = s
+                break
+        if opener != seat or not (0 <= agg < len(self.v3o)):
+            return None
+        t3 = (self.v3n[agg] + 1.0 + kn.v3_prior * kn.v3_prior_n) / (self.v3o[agg] + 1.0 + kn.v3_prior_n)
+        if t3 < kn.v3_min_rate:
+            return None
+        w3 = min(1.0, t3)
+        cont = min(w3, kn.v3_cont)
+        fo4 = (self.v4f[agg] + kn.v3_f4_n * (1.0 - cont / w3)) / (self.v4o[agg] + kn.v3_f4_n)
+        eq = _eqvs(ci, w3)
+        eqc = _eqvs(ci, max(0.015, w3 * (1.0 - fo4)))
+        pays = self.payouts
+        evf, evs, evw, evl = self._allin(stacks, bets, inh, seat, agg, pot, n_alive)
+        pot_all = pot + sum(bets)
+
+        def lose(x):  # we put x more in and give the pot up to the 3-bettor
+            st = list(stacks)
+            st[seat] -= x
+            st[agg] += pot_all + x
+            return icm_points(st, seat, pays)
+
+        ip = (seat - button - 1) % n > (agg - button - 1) % n  # we act after it postflop
+        q = eq * (kn.v3_real_ip if ip else kn.v3_real_oop)
+        best, line = q * evs + (1.0 - q) * lose(callamt), 'call'
+        ev_in = eqc * evw + (1.0 - eqc) * evl
+        if 'raise' in legal:
+            size = int(kn.v3_size * bets[agg])
+            if size < o.max_raise and size - bets[seat] < 0.4 * stacks[seat]:
+                ev4 = fo4 * evs + (1.0 - fo4) * max(lose(size - bets[seat]), ev_in)
+                if ev4 > best:
+                    best, line = ev4, size
+            evj = fo4 * evs + (1.0 - fo4) * ev_in
+            if evj > best:
+                best, line = evj, o.max_raise
+        if best <= evf + kn.v3_margin:
+            return self._fold(legal)
+        if line == 'call':
+            return ('call', 0) if 'call' in legal else self._call_or_check(legal)
+        r = self._raise(legal, o, line)
+        if r:
+            self._v4 = (self.hand, agg, len(hist))
+            return r
+        return ('call', 0) if 'call' in legal else self._call_or_check(legal)
 
     def _replay(self, hist, o, final=False):
         try:
