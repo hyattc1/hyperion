@@ -333,3 +333,13 @@ and (in judges) `elite_judge`.
   0.9 MB): handed to the R2-R4 worker to prune, with a test that elite3 and the judges are never in a submission.
 - Decisions entry, leaderboard and HANDOFF updated. Next on H3 (2nd and 3rd uses): the 3-bet defence alone
   (`--aim exploit`) and V-c's candidate (aware + variants), on top of the new ship.
+
+## 06:21: V-c merged (8a4ac80); H3 confirmations queued for the defence alone and V-c
+- V-c: river_of_blood joins the catalog (26 entries; aware field river_of_blood_aware); `hero.long_board` reads any
+  board length (a correctness fix, about 1% of decisions; level); `hero.keep_call_shift` 2 on deal5_keep2 (screen
+  +0.356 ± 0.062; 2nd places 31% -> 50%); `hero.toss_call_shift` 1 (toss aware +0.230 ± 0.078). No short-deck dial
+  helped (the calls it cut were break-even). All off by default; plain hold'em identical.
+- H3 (22000-22399), from goal/wt_measure at 8a4ac80 (base = batch 3's ship): 2nd use, `{"r3.v3_defend": true}` with
+  `--aim exploit` (confirm, guards, elite, exploit, aware, variants); 3rd use, V-c's candidate
+  `{"hero.long_board": true, "hero.keep_call_shift": 2, "hero.toss_call_shift": 1}` on aware (all four +
+  realistic_keep2 under deal5_keep2) and variants. H3 retires after.
