@@ -155,3 +155,11 @@ Pittsburgh's top tables will hold prepared quant teams who adapt and exploit. Ch
 - Accepted under addendum 2 (robustness rule, decisions entry). Frozen: frozen/B2-f7914c0, kit B zip sha256
   a59f45b9...7f4f134327. H1 confirmations used: 1 of 3 (robustness), so H1 stays live.
 - Wall-clock tests flake at load 9-10 (a different two to six each full run, all pass alone); none fails consistently.
+
+## 01:31: host incident: memory, not CPU
+At 01:30 memory was 14.9 of 15.5 GB with 2.9 GB of swap used, and the 5-minute load had reached 35 (the elite builders
+saw 43-53). Cause: tools/climb_accept.py pool workers that played many variants each held ~2.7 GB (every variant's
+tables and evaluator caches), five of them across two workers' runs. Fix 5719074: workers are replaced after two jobs
+(`maxtasksperchild=2`). Both workers' runs were stopped (cached chunks kept) and asked to take the fix, use at most
+2 workers and run one climb_accept at a time. Memory after: 13.8 GB free. Timing numbers from the elite builders'
+last hour carry this load (their harness tails).
