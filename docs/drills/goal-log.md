@@ -609,3 +609,14 @@ and (in judges) `elite_judge`.
   cards, the bounty payoff, the kept two cards respected), measured against V-d's generic aware opponents per
   variant; keep a family only where it is not down. Big unseen twists stay with the general path (V-e's twins,
   generic aware opponents in one command, drill 8).
+
+## 16:48: Z2 on H9: exploit gains replicate, rejected on six small variant cells; fully gated Z3 on H12
+- H9 (28000-28399), base batch 4, --aim exploit: exploit2_hu +0.330 ± 0.104, exploit2_3 +0.153 ± 0.107, exploit2
+  8-max +0.097 ± 0.086, exploit_hu +0.180 ± 0.094 UP (F 7.94 vs exploiter2 9.06 heads-up); night, guards, elite
+  level. Down: swap_holdem -0.024, bonus_card -0.014, auction -0.019, bounty -0.020, pot_limit -0.027,
+  river_of_blood -0.018 (realistic, each about ± 0.015) and bounty_aware -0.015, river_of_blood_aware -0.017. REJECT
+  (two or more variant cells). H9 used once.
+- Cause: the postflop part is gated (s11_holdem_only), but r3.v3_bvb_prior still reached rival 3's core preflop on
+  twist tables (bounty and others where the core plays). New dial r3.v3_bvb_holdem_only (ffb1e62); with both gates the
+  candidate plays bounty, swap_holdem and auction tables exactly as F (test), and F is identical by default (14
+  cells). Z3 on H12 (32000-32399), --aim exploit, all stages. V-f told about the second gate.
