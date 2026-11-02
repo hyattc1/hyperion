@@ -216,6 +216,18 @@ def main(argv=None) -> int:
     p.add_argument("--offset", type=int, default=0, help="first table index")
     p.add_argument("--out", help="JSON lines, one per block")
     a = p.parse_args(argv)
+    try:
+        return _run(a)
+    finally:  # leave the process as it was: tests run this in theirs (the runner lists every registered bot)
+        from hyperion.sim import bestiary as B
+
+        gc.callbacks[:] = [c for c in gc.callbacks if not isinstance(c, GcWatch)]
+        for k in ("lifetime_one", "lifetime_f"):
+            B.REGISTRY.pop(k, None)
+        B._BY_CLASS.pop("composite_lifetime_f", None)
+
+
+def _run(a) -> int:
 
     from hyperion.core.types import Rules
     from hyperion.sim import bestiary as B
@@ -253,7 +265,7 @@ def main(argv=None) -> int:
     gc.callbacks.append(gcw)
     seat = Timed(one, transplant, gcw)
     B.REGISTRY["lifetime_one"] = lambda seed=None: seat
-    out = open(a.out, "w") if a.out else None
+    out = open(a.out, "w") if a.out else None  # noqa: SIM115 - closed at the end
     gc.collect()
     rss0 = rss_mb()
     print(f"start  rss {rss0:.1f} MB  mode {a.mode}  field {a.field}  tables {a.tables}", flush=True)
@@ -336,6 +348,8 @@ def main(argv=None) -> int:
     print(f"done   rss {rss_mb():.1f} MB (start {rss0:.1f}), peak {peak_mb():.1f} MB, worst decision {worst_all:.0f} us wall, {worst_cpu:.0f} us CPU, "
           f"fresh checks {checked}, mismatches {len(mism)} {mism[:10]}"
           + (f", last table's SafeBot {last}" if last is not None else ""), flush=True)
+    if out:
+        out.close()
     return 1 if mism or diff else 0
 
 

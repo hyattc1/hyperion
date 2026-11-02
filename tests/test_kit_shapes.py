@@ -41,6 +41,8 @@ def model_f():
     CB.register("shapes_f", dials={})
     yield lambda seed: B.make_bot("shapes_f", seed=seed)
     B.HYBRID_CONFIG, B.HERO_CONFIG = saved
+    B.REGISTRY.pop("shapes_f", None)  # the runner's --list reads every registered class's docstring
+    B._BY_CLASS.pop("composite_shapes_f", None)
 
 
 class ShapeSeat:

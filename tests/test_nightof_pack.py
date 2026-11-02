@@ -198,7 +198,8 @@ def test_slim_drops_the_opponents_and_every_ship_bot_still_builds_and_plays(tmp_
 
 def test_slim_keeps_a_rival_the_recorded_route_names(tmp_path):
     (tmp_path / "agent.py").write_text(SHIP_ENTRY)
-    r = run_pack(tmp_path, "--entry", "agent.py", "--out", "out", "--slim", "--dials", '{"route": "post=hero,pre_hu=r2x"}')
+    r = run_pack(tmp_path, "--entry", "agent.py", "--out", "out", "--slim", "--dials", '{"route": "post=hero,pre_hu=r2x"}',
+                 "--import-budget", "60")  # rival 2 runs a Monte Carlo at import: 1.2 s quiet, over 5 s on a busy host
     assert r.returncode == 0, r.stdout + r.stderr
     rivals = tmp_path / "out" / "submission" / "hyperion" / "sim" / "rivals"
     assert sorted(p.name for p in rivals.glob("*.py")) == ["__init__.py", "rival2.py", "rival3.py"]
