@@ -89,6 +89,10 @@ def test_variant_preflop_ex_reaches_the_tables_variant_preflop_leaves_out():
         h.new_table(V.get(name).rules, 0, 8)
         got[name] = h.preflop.p.call_raise_frac
     assert got == {"omaha_four": 0.2, "lowball": 0.25, "fixed_raise": 0.3, "short_deck": 0.15, "hi_lo": 0.15}
+    for name, gate in (("short_deck", "deck"), ("two_boards", "boards"), ("wild_deuces", "wild")):
+        h = HeroCore(config_from_dict({"variant_preflop": vp, "variant_preflop_ex": {gate: {"open_frac_mult": 0.5}}}))
+        h.new_table(V.get(name).rules, 0, 8)
+        assert (h.preflop.p.open_frac_mult, h.preflop.p.call_raise_frac) == (0.5, 0.15), name  # on top of vp
     h = HeroCore(config_from_dict({"variant_preflop_ex": ex}))
     h.new_table(Rules(), 0, 8)
     assert h.preflop.p.call_raise_frac == Config().preflop.call_raise_frac  # plain hold'em untouched
