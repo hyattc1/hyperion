@@ -286,3 +286,21 @@ and (in judges) `elite_judge`.
   key reaches a part that decides.
 - Accepted as an hour-track change (play by default identical; the rehearsal is better, not worse). Full suite 1018
   passed. Open: hybrid3_x's `dead_seats` has the same unreachable key (fallback bot, not measured).
+
+## 05:49: exploiter 2 done (docs/drills/exploiter2/); S11 and R2-R4 started
+- A fresh agent, black box, about 2 hours, against F with FIN (arena2). Its bot against F, payouts 10..0:
+  heads-up 9.52 ± 0.06 vs 7.48 (600 tables, it wins 81-83% of matches), three-handed 8.61 ± 0.13 vs 7.21,
+  8-max 5.15-5.44 vs 5.65-5.76 (F still ahead). Short-handed play decides 1st place, so this is the S10 question too.
+- Leaks by points (ablations of its bot, heads-up / three-handed / 8-max):
+  1. Blind vs blind: F's SB opens 85-90% and folds 88% to the first 3-bets (a 3x 3-bet needs 64%); later it
+     over-adjusts, 4-betting light and calling off jams 97-100% at 50bb or less: +0.68 / +0.78 / +0.36.
+  2. Bet size names the hand (0.30/0.35 fold ~90% to a raise; the new half-pot dry c-bet folds 78%; 0.70 never
+     folds; 0.80 re-raises): +0.44 / +0.55 / +0.48. The known 0.8-pot tell, now the whole size ladder.
+  3. No check-raise; folds 68-77% to a 0.6-pot stab after checking: +0.21 / +0.32 / +0.30.
+  4. FIN's 3-bet tracking punishes a loose 3-bettor (-0.49 heads-up for 3-betting 60%), so that part holds.
+  5. Heads-up BB folds 47% to a min-raise: +0.15.
+- S11 (goal/wt_s11, climb/s11-exploiter2-fixes): freeze exploiter2 as a test opponent (fields exploit2,
+  exploit2_hu, exploit2_3 in climb_accept's exploit stage) and fix leaks 1, 2, 3, 5 behind dials, on top of FIN;
+  acceptance under addendum 6. S9 told to leave those sections to S11.
+- R2-R4 (goal/wt_r2, climb/r2-lifetime-kits): one object for 10,000 tables, kit shapes through the adapter,
+  memory, import time, sizes; addendum 2.
