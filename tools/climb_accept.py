@@ -20,12 +20,14 @@ Stages (comma-separated; default confirm,guards,variants):
 - confirm: night;
 - guards: night_hard, realistic, top, night under payouts 10/7/5/4/3/2/1/0 and 50/25/12/6/3/2/1/1, night under a
   doubling blind schedule;
-- variants: the catalogued entries on realistic, the set's first 200 seeds (`--variants NAME,...` and
-  `--variant-seeds N` for some; a lone variant cell down prints REPLICATE: addendum 7 re-runs it on the next set);
+- variants: the catalogued entries (26 since river_of_blood joined) on realistic, the set's first 200 seeds
+  (`--variants NAME,...` and `--variant-seeds N` for some; a lone variant cell down prints REPLICATE: addendum 7
+  re-runs it on the next set);
 - elite: the tuning fields elite (elite1, elite2 and the strong tunable bots) and elite_night (the two in a night room);
 - judges: judge, judge2, judge2_night, judge_top, outside, outside_strong, elite_judge (run these on `--set judge`).
-- aware: the three likeliest twists against variant-aware opponents, each field under its variant
-  (toss_or_holdem_aware, bounty_aware, short_deck_aware; hyperion/sim/aware.py); `--aware NAME,...` for some.
+- aware: the likeliest twists against variant-aware opponents, each field under its variant (toss_or_holdem_aware,
+  bounty_aware, short_deck_aware, river_of_blood_aware; hyperion/sim/aware.py); `--aware NAME,...` for some, and
+  `--aware FIELD:VARIANT` for any field under any entry (realistic_keep2:deal5_keep2).
 - exploit: the S2 exploiter (`exploiter1`, docs/drills/exploiter/) at 8-max (`exploit`, payouts 10/7/5/4/3/2/1/0),
   heads-up (`exploit_hu`, rules hu.json: 10/7) and three-handed (`exploit_3`, three.json: 10/7/5); its own points are
   printed too. Diagnostic: not part of the acceptance rule (it is one opponent we know).
@@ -301,7 +303,8 @@ def main(argv=None) -> int:
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--out", default=os.path.join(ROOT, "scratch", "climb"))
     p.add_argument("--json", default=None, help="also write the verdict as JSON here")
-    p.add_argument("--aware", default=None, help="the aware stage's fields (default: all three)")
+    p.add_argument("--aware", default=None, help="the aware stage's fields (default: every aware field), each FIELD "
+                                                 "or FIELD:VARIANT")
     p.add_argument("--variants", default=None, help="the variants stage's entries (default: the whole catalog)")
     p.add_argument("--variant-seeds", type=int, default=VARIANT_SEEDS,
                    help="seeds per variant cell, from the set's first (addendum 7's replication: 400)")
@@ -344,7 +347,10 @@ def main(argv=None) -> int:
         from hyperion.sim import aware as AW
 
         names = a.aware.split(",") if a.aware else list(AW.AWARE_FIELDS)
-        plan.append(("aware", [(f, "lin", None, AW.AWARE_VARIANT[f]) for f in names], lo, hi))
+        # FIELD (an aware field, under its variant) or FIELD:VARIANT (any field under any catalog entry, e.g.
+        # realistic_keep2:deal5_keep2)
+        pairs = [n.split(":", 1) if ":" in n else (n, AW.AWARE_VARIANT[n]) for n in names]
+        plan.append(("aware", [(f, "lin", None, v) for f, v in pairs], lo, hi))
     if "exploit" in stages:
         plan.append(("exploit", EXPLOIT, lo, hi))
     if "variants" in stages:
