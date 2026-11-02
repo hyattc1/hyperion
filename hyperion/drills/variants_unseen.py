@@ -11,8 +11,8 @@ table tuned on any of these stops measuring that, so:
   - no entry carries a Config patch, and nothing in hyperion/strategy, hybrid or compose may read their extras keys;
   - the climb's protocol (docs/drills/goal-plan.md) measures them only on the judge seeds 30000-30399, once per batch.
 
-The five were written by a fresh agent that knew only the names of our 23 entries (the spec, with handout text and
-exact engine rules, is copied into docs/drills/unseen-variants-log.md with what each entry implements):
+The five were written by a fresh agent that knew only the names of our 23 entries, as handout text plus exact engine
+rules; docs/drills/unseen-variants-log.md maps each engine rule to what the entry implements:
 
   river_of_blood  a red river deals another card and another betting round, until a black card (MIT 2023)
   showtime        a folded hand is turned face up for the rest of the hand (PokerStars 2018)
