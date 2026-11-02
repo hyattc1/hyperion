@@ -399,6 +399,12 @@ class Config:
     # deal5_keep2: facing a bet, the made hand's equity read this many tiers lower (everyone kept their best two of
     # five on this flop: keep_value_shift's reason, applied to calls; keep_value_shift moves only bets and raises). 0 = off
     keep_call_shift: int = 0
+    # three or more hole cards still held after the flop (three_card_keep: all kept; Omaha: must use two): facing a bet,
+    # the made hand's equity read this many tiers lower (every hand at the table is stronger; read_multi already takes
+    # multi_tier_penalty off pairs and two pairs for bets and calls alike). multi_call_shift for hands kept whole,
+    # mu_call_shift for must-use-k. 0 = off
+    multi_call_shift: int = 0
+    mu_call_shift: int = 0
     # two-card twists with no variant table set (lowball, wild cards, hi-lo, any new showdown): read each hand as its
     # hold'em twin from the variant's own preflop table (tables/generic/, hyperion/sim/generic.py's prepare: the value
     # share of every class dealt and scored through the variant's hooks), the hold'em class at the same combo
@@ -955,6 +961,8 @@ class HeroCore:
         elif self._toss:
             value_shift += cfg.toss_value_shift
             call_shift += cfg.toss_call_shift
+        elif nh >= 3:
+            call_shift += cfg.mu_call_shift if mu else cfg.multi_call_shift
         self.last_path = "postflop"
         nb = len(board)
         if cfg.long_board and (nb > 5 or (self._run and nb >= 5)) and nh == 2 and not mu:

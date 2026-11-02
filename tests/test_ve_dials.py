@@ -103,3 +103,30 @@ def test_split_tier_eq_bets_a_locked_board_with_a_pair_on_the_other():
         return pf.act(spot, P("Kh Qh"), None, False, board=P("Ah 7h 2h"), board2=P("Ac Qd 4s")).kind
     assert act(False) is ActionKind.CHECK
     assert act(True) is ActionKind.RAISE
+
+
+def _captured_shift(dials, name, hole, board):
+    h = HeroCore(config_from_dict(dials))
+    h.new_table(V.get(name).rules, 0, 8)
+    got = {}
+    real = h.postflop.act
+
+    def spy(*a, **kw):
+        got.update(kw)
+        return real(*a, **kw)
+
+    h.postflop.act = spy
+    obs = street_obs(hole, board, seat=1, button=7, pot=100, in_hand=HU, history=PRE)
+    h.act(obs)
+    return got.get("call_shift")
+
+
+def test_multi_and_mu_call_shifts_reach_their_tables_only():
+    d = {"multi_call_shift": 1, "mu_call_shift": 2}
+    assert _captured_shift({}, "three_card_keep", "Ah Kd 7c", "As 9d 2h") == 0
+    assert _captured_shift(d, "three_card_keep", "Ah Kd 7c", "As 9d 2h") == 1
+    assert _captured_shift(d, "omaha_four", "Ah Kd 7c 7s", "As 9d 2h") == 2
+    assert _captured_shift(d, "short_deck", "Ah Kd", "As 9d 7h") == 0
+    h = HeroCore(config_from_dict(d))
+    h.new_table(Rules(), 0, 8)
+    assert _captured_shift(d, "fixed_raise", "Ah Kd", "As 9d 2h") == 0
