@@ -1,6 +1,9 @@
 """Skill profile: what each bot is good at, section by section of the game, not just one score.
 
     python tools/skill_profile.py run --field night --bots hybrid3_x,hero,rival3 --seeds 0:200 --out DIR [--workers 3]
+    python tools/skill_profile.py run --field bounty_aware --bots ship,bounty_tag --seeds 10000:10200 --out DIR
+        (a `<variant>_aware` field plays its variant, or name one with --variant; `ship` is F, hyperion.ship's
+        composite with SHIP_DIALS and --dials on top)
     python tools/skill_profile.py report DIR [DIR ...] --out docs/drills/skill-profile.md [--fields night,realistic]
 
 `run` seats each bot in Hero's seat of the field (`<field>@<bot>`, so every bot plays the same deals against the same
@@ -218,10 +221,23 @@ def seat_name(field: str, bot: str) -> str:
     return bot
 
 
+def install_ship(dials: Optional[dict] = None) -> None:
+    """Register `ship` (F: the composite with SHIP_DIALS, light shadows, `dials` on top) for this process."""
+    from hyperion.compose import bot as CB
+
+    CB.register("ship", dials={**CB.SHIP_DIALS, "light": True, **(dials or {})})
+
+
 def run_job(args) -> dict:
     """Seeds lo..hi one at a time (each with its eight rotations), keeping each seed's section totals for the
     intervals."""
-    field, bot, lo, hi, mode, payouts, seed = args
+    field, bot, lo, hi, mode, payouts, seed = args[:7]
+    variant = args[7] if len(args) > 7 else None
+    v = None
+    if variant:
+        from hyperion.drills import variants as V
+
+        v = V.get(variant, seed=seed)
     name = seat_name(field, bot)
     names = B.field_names(f"{field}@{name}")
     counts = _new_counts()
@@ -247,7 +263,7 @@ def run_job(args) -> dict:
         for t in range(lo, hi):
             cur["c"] = one = _new_counts()
             rep = R.run_tournament(names, 1, seed=seed, rotate=True, mode=mode, rules=rules, hero_config=hero_config,
-                                   table_offset=t)
+                                   table_offset=t, variant=v)
             br = rep.bots[name]
             samples.extend(br.samples)
             places = br.places if places is None else [a + b for a, b in zip(places, br.places)]
@@ -261,7 +277,7 @@ def run_job(args) -> dict:
     finally:
         R.make_bot = orig
     return {
-        "field": field, "bot": bot, "seeds": [lo, hi], "mode": mode, "seed": seed, "payouts": payouts,
+        "field": field, "bot": bot, "seeds": [lo, hi], "mode": mode, "seed": seed, "payouts": payouts, "variant": variant,
         "samples": samples, "places": places, "seats": seats, "busts": busts, "per_seed_rows": per_seed_rows,
         "counts": counts, "hands": hands, "secs": time.time() - t0, "load": [load0, os.getloadavg()[0]],
         "engine": {"calls": st.calls + st.first_calls, "over_budget": st.over_budget, "exceptions": st.exceptions,
@@ -272,11 +288,12 @@ def run_job(args) -> dict:
 
 def _merge(old: Optional[dict], new: dict) -> dict:
     if old is None:
-        out = {k: new[k] for k in ("field", "bot", "mode", "seed", "payouts")}
+        out = {k: new.get(k) for k in ("field", "bot", "mode", "seed", "payouts", "variant")}
         out.update({"chunks": [], "per_seed": {}, "places": [0] * len(new["places"]), "seats": 0, "busts": 0,
                     "counts": _new_counts(), "hands": 0, "secs": 0.0, "engine": {}})
         old = out
-    assert (old["mode"], old["seed"], old["payouts"]) == (new["mode"], new["seed"], new["payouts"]), "mixed settings"
+    assert (old["mode"], old["seed"], old["payouts"], old.get("variant")) == \
+        (new["mode"], new["seed"], new["payouts"], new.get("variant")), "mixed settings"
     lo, hi = new["seeds"]
     if any(lo < h and l < hi for l, h in old["chunks"]):
         raise ValueError(f"{new['bot']} on {new['field']}: seeds {lo}:{hi} overlap {old['chunks']}")
@@ -318,14 +335,14 @@ def steady_rival2() -> None:
 
 
 def run(field: str, bots: list, lo: int, hi: int, out: Path, workers: int = 3, mode: str = "model",
-        chunk: int = 25, payouts=None, seed: int = 7) -> None:
+        chunk: int = 25, payouts=None, seed: int = 7, variant: Optional[str] = None) -> None:
     """Each bot in Hero's seat for seeds lo..hi, chunks of `chunk` seeds interleaved across bots so all bots of a run
     play at the same host load. Results merge into out/<field>/<bot>.json as chunks finish."""
     if mode == "model":
         steady_rival2()
     d = out / field
     d.mkdir(parents=True, exist_ok=True)
-    jobs = [(field, b, s, min(s + chunk, hi), mode, list(payouts) if payouts else None, seed)
+    jobs = [(field, b, s, min(s + chunk, hi), mode, list(payouts) if payouts else None, seed, variant)
             for s in range(lo, hi, chunk) for b in bots]
     with Pool(workers) as pool:
         for res in pool.imap_unordered(run_job, jobs):
@@ -518,6 +535,9 @@ def main(argv=None) -> int:
     r.add_argument("--chunk", type=int, default=25)
     r.add_argument("--seed", type=int, default=7)
     r.add_argument("--payouts", default=None, help="comma-separated payout table (default: Rules().payouts)")
+    r.add_argument("--variant", default=None, help="a catalog entry to play (default: the variant of a "
+                                                   "`<variant>_aware` field, else none)")
+    r.add_argument("--dials", default=None, help="JSON dials for `ship` on top of SHIP_DIALS")
     q = sub.add_parser("report", help="ranked leaderboards per section from saved runs")
     q.add_argument("dirs", nargs="+")
     q.add_argument("--fields", default=None)
@@ -526,10 +546,17 @@ def main(argv=None) -> int:
     if a.cmd == "run":
         lo, hi = (int(x) for x in a.seeds.split(":"))
         bots = [b.strip() for b in a.bots.split(",") if b.strip()]
+        if "ship" in bots:
+            install_ship(json.loads(a.dials) if a.dials else None)
+        variant = a.variant
+        if variant is None:
+            from hyperion.sim import aware as AW
+
+            variant = AW.AWARE_VARIANT.get(a.field)
         for b in bots:
             B.field_names(f"{a.field}@{seat_name(a.field, b)}")  # fail early on a typo
         pay = [float(x) for x in a.payouts.split(",")] if a.payouts else None
-        run(a.field, bots, lo, hi, Path(a.out), a.workers, a.mode, a.chunk, pay, a.seed)
+        run(a.field, bots, lo, hi, Path(a.out), a.workers, a.mode, a.chunk, pay, a.seed, variant)
         return 0
     text = report(a.dirs, a.fields.split(",") if a.fields else None)
     if a.out:

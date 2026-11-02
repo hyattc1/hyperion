@@ -5,6 +5,8 @@
     .venv/bin/python tools/variant_matrix.py --only toss_or_holdem,omaha_four --tables 100
     .venv/bin/python tools/variant_matrix.py --unseen --seed 30000 --tables 50     (the held-out five: measure, never tune)
     .venv/bin/python tools/variant_matrix.py --bot ship --mode model --only auction,deal5_keep2 --tables 200
+    .venv/bin/python tools/variant_matrix.py --bot ship --mode model --aware --tables 300   (each top-3 twist on its
+                                                                    variant-aware field; --dials JSON for a candidate)
 
 `--bot ship` seats the shipped bot (F: the composite with SHIP_DIALS, as hyperion.ship builds it) in Hero's seat of the
 same tables (`<field>@ship`), with the same VPIP count; `--mode model` is the climb's replayable setup (tools/swap.py's
@@ -60,13 +62,13 @@ def _counting(base):
     return Counting
 
 
-def _install_counting_ship() -> str:
-    """F in Hero's seat: the composite with the shipped dials (hyperion.compose.bot.ship's set, light shadows on),
-    registered through compose.register so a model-mode run's HYBRID_CONFIG / HERO_CONFIG reach it."""
+def _install_counting_ship(dials: dict | None = None) -> str:
+    """F in Hero's seat: the composite with the shipped dials (hyperion.compose.bot.ship's set, light shadows on) and
+    `dials` on top, registered through compose.register so a model-mode run's HYBRID_CONFIG / HERO_CONFIG reach it."""
     from hyperion.compose import bot as CB
     from hyperion.sim import bestiary as B
 
-    seat = CB.register("ship", dials={**CB.SHIP_DIALS, "light": True})
+    seat = CB.register("ship", dials={**CB.SHIP_DIALS, "light": True, **(dials or {})})
     B.REGISTRY["ship"] = _counting(seat)
     return "ship"
 
@@ -80,6 +82,7 @@ def _install_counting_hero():
 def _job(args):
     name, field, tables, seed = args[:4]
     bot, mode = (args[4], args[5]) if len(args) > 5 else ("hero", "strict")
+    dials = args[6] if len(args) > 6 else None
     from hyperion.drills import variants as V
     from hyperion.sim import bestiary as B
     from hyperion.sim.bestiary import field_names
@@ -97,7 +100,7 @@ def _job(args):
     _install_counting_hero()
     me = "hero"
     if bot == "ship":
-        me = _install_counting_ship()
+        me = _install_counting_ship(dials)
         field = f"{field}@{me}"
     elif bot != "hero":
         raise KeyError(f"--bot is hero or ship, got {bot!r}")
@@ -174,6 +177,9 @@ def main(argv=None) -> int:
                                                   "composite with its shipped dials, in Hero's seat)")
     p.add_argument("--mode", default="strict", choices=("strict", "model"),
                    help="strict (as before) | model (replayable: the climb's fixed-speed setup)")
+    p.add_argument("--dials", default=None, help="--bot ship: JSON dials on top of SHIP_DIALS (a candidate)")
+    p.add_argument("--aware", action="store_true", help="the three likeliest twists, each on its variant-aware field "
+                                                        "(<variant>_aware, hyperion/sim/aware.py) instead of --field")
     p.add_argument("--out", default=None, help="also write the markdown here")
     a = p.parse_args(argv)
     from hyperion.drills import variants as V
@@ -186,13 +192,22 @@ def main(argv=None) -> int:
         names = U.names()
     else:
         names = V.catalog_names()
-    jobs = [(n, a.field, a.tables, a.seed, a.bot, a.mode) for n in names]
+    import json as _json
+
+    dials = _json.loads(a.dials) if a.dials else None
+    fields = {n: a.field for n in names}
+    if a.aware:
+        from hyperion.sim import aware as AW
+
+        fields = {v: f for f, v in AW.AWARE_VARIANT.items()}
+        names = [n for n in (names if a.only else fields) if n in fields]
+    jobs = [(n, fields[n], a.tables, a.seed, a.bot, a.mode, dials) for n in names]
     t0 = time.perf_counter()
     with Pool(a.workers) as pool:
         rows = pool.map(_job, jobs, chunksize=1)
     by_name = {r["variant"]: r for r in rows}
     rows = [by_name[n] for n in names]
-    text = render(rows, a.field, a.tables, a.seed, a.bot, a.mode)
+    text = render(rows, "<variant>_aware" if a.aware else a.field, a.tables, a.seed, a.bot, a.mode)
     print(text)
     print(f"\n{len(rows)} entries in {time.perf_counter() - t0:.0f}s on {a.workers} workers")
     if a.out:

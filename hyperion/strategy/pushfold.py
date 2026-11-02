@@ -642,7 +642,7 @@ class PushFold:
             e -= margin
             tot = obs.stacks[s] + obs.bets[s]
             risk = behind if behind < tot else tot
-            v_win = v(behind + pot + risk) + (ko if tot <= my_total else 0.0)
+            v_win = v(behind + pot + risk + spot.bounty_k * risk) + (ko if tot <= my_total else 0.0)
             ev += reach * c * (e * v_win + (1.0 - e) * v(behind - risk))
             reach *= 1.0 - c
         ev += reach * v(behind + pot)
@@ -740,7 +740,7 @@ class PushFold:
         behind = obs.stacks[spot.me]
         pot = spot.pot_total + spot.bounty_bonus
         risk = min(behind, spot.max_opp_total)
-        v_win, v_lose = v(behind + pot + risk), v(behind - risk)
+        v_win, v_lose = v(behind + pot + risk + spot.bounty_k * risk), v(behind - risk)
         if spot.ko_points and self.curve.points:
             v_win += spot.ko_points * spot.cover_frac
         ev = none_behind * (F * v(behind + pot) + (1.0 - F) * (e_o * v_win + (1.0 - e_o) * v_lose)) \
@@ -758,7 +758,7 @@ class PushFold:
         risk = min(behind, spot.max_opp_total)
         v_fold = v(behind)
         v_steal = v(behind + pot)
-        v_win = v(behind + pot + risk)
+        v_win = v(behind + pot + risk + spot.bounty_k * risk)
         v_lose = v(behind - risk)
         if spot.ko_points and self.curve.points:
             v_win += spot.ko_points * cover

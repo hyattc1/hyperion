@@ -18,6 +18,8 @@ Stages (comma-separated; default confirm,guards,variants):
 - variants: the 23 catalogued entries on realistic, the set's first 200 seeds;
 - elite: the tuning fields elite (elite1, elite2 and the strong tunable bots) and elite_night (the two in a night room);
 - judges: judge, judge2, judge2_night, judge_top, outside, outside_strong, elite_judge (run these on `--set judge`).
+- aware: the three likeliest twists against variant-aware opponents, each field under its variant
+  (toss_or_holdem_aware, bounty_aware, short_deck_aware; hyperion/sim/aware.py); `--aware NAME,...` for some.
 - timing: tools/latency.py p99 for both specs (20,000 calls).
 
 Every run is model mode at fixed speed, eight rotations per seed, the same deals for both specs, with panic, soft
@@ -245,6 +247,7 @@ def main(argv=None) -> int:
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--out", default=os.path.join(ROOT, "scratch", "climb"))
     p.add_argument("--json", default=None, help="also write the verdict as JSON here")
+    p.add_argument("--aware", default=None, help="the aware stage's fields (default: all three)")
     a = p.parse_args(argv)
     version = code_version()
     base_raw, cand_raw = load_spec(a.base), load_spec(a.cand)
@@ -266,6 +269,11 @@ def main(argv=None) -> int:
         plan.append(("elite", ELITE, lo, hi))
     if "judges" in stages:
         plan.append(("judges", JUDGES, lo, hi))
+    if "aware" in stages:
+        from hyperion.sim import aware as AW
+
+        names = a.aware.split(",") if a.aware else list(AW.AWARE_FIELDS)
+        plan.append(("aware", [(f, "lin", None, AW.AWARE_VARIANT[f]) for f in names], lo, hi))
     if "variants" in stages:
         plan.append(("variants", [(VARIANT_FIELD, "lin", None, v) for v in V.catalog_names()], lo,
                      min(hi, lo + VARIANT_SEEDS)))
@@ -289,7 +297,7 @@ def main(argv=None) -> int:
     checks = []
     if "confirm" in st:
         checks.append(("confirm: night beyond noise up", all(r["flag"] == "UP" for r in st["confirm"])))
-    for s in ("guards", "elite", "variants", "judges"):
+    for s in ("guards", "elite", "variants", "judges", "aware"):
         if s in st:
             downs = [r["cell"] for r in st[s] if r["flag"] == "DOWN"]
             checks.append((f"{s}: none beyond noise down" + (f" (down: {', '.join(downs)})" if downs else ""),
@@ -304,7 +312,7 @@ def main(argv=None) -> int:
     print(f"# climb_accept: set {a.set} ({lo}-{hi - 1}), code {version}, {verdict['secs'] / 60:.1f} min")
     print(f"base {json.dumps(base_raw, sort_keys=True)} -> {json.dumps(base, sort_keys=True)}")
     print(f"cand {json.dumps(cand_raw, sort_keys=True)} -> {json.dumps(cand, sort_keys=True)}")
-    for s in ("confirm", "guards", "elite", "judges", "variants"):
+    for s in ("confirm", "guards", "elite", "judges", "variants", "aware"):
         if s not in st:
             continue
         print(f"\n## {s}\n\n| cell | base | cand | cand - base | | n | tmo b/c | err b/c | p99 b/c |")

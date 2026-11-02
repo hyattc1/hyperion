@@ -112,6 +112,7 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.commit_bb` | `18.0` | at or under this effective depth, a call or re-shove facing a raise is priced as all-in by ICM |
 | `r3.call_margin` | `0.002` | points a committing call must beat folding by: higher = fewer stack-off calls |
 | `r3.three_bet_scale` | `1.0` | multiplies the deep value 3-bet range: below 1 tighter |
+| `r3.bounty` | `0.0` | share of my bounty's expected chips (the house pays (ratio - 1) x the net win + constant when my bounty rank is in my hand or on the board) added to the winning branches of every all-in price: 1 = all of it, 0 = rival 3 as built |
 | `r3.bluff_scale` | `1.0` | multiplies the chance of every bluff and semi-bluff, the flop continuation bet included |
 | `r3.call_edge` | `0.12` | strength over the price a postflop call needs: higher folds more |
 | `r3.raise_shift` | `0.0` | added to the strength rival 3 raises a bet with (0.8; 0.7 when shallow): higher = fewer stack-offs |
@@ -373,6 +374,14 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `auction_stack_frac` | 0.33 |
 | `auction_pot_frac` | 0.75 |
 | `keep_value_shift` | 1 |
+| `toss_dead` | False |
+| `toss_value_shift` | 0 |
+| `bounty_exact` | False |
+| `bounty_call_scale` | 1.0 |
+| `bounty_bet_frac` | 0.0 |
+| `short_deck_read` | False |
+| `variant_tables` | '' |
+| `variant_preflop` | (factory) |
 | `cheap` | False |
 | `deadline_ms` | 0.5 |
 | `panic_after` | 5 |

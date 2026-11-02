@@ -61,6 +61,28 @@ def _build_completers() -> list[int]:
 
 
 COMPLETERS = _build_completers()
+# short deck (6 to ace, A-6-7-8-9 the lowest straight): the straights that exist, and their completers
+_SD_STRAIGHTS = tuple((0b11111 << i) for i in range(4, 9)) + ((1 << 12) | (0b1111 << 4),)
+_SD_LOW = (1 << 12) | (0b1111 << 4)
+
+
+def _build_sd_completers() -> list[int]:
+    table = [0] * 8192
+    for s in _SD_STRAIGHTS:
+        comp = [b for b in range(4, 13) if not (s >> b & 1)]
+        subsets = [0]
+        for b in comp:
+            subsets += [x | (1 << b) for x in subsets]
+        for r in range(13):
+            if s >> r & 1:
+                base = s ^ (1 << r)
+                for m in subsets:
+                    table[base | m] |= 1 << r
+    return table
+
+
+SD_COMPLETERS = _build_sd_completers()
+SD_OUT_SCALE = 1.45  # an out is worth this much more than hold'em's rule of 4 and 2: 31 unseen cards, not 47
 warm(7)  # hold'em's 6/7-card lookups (about 25 ms): pay at import, never in act()
 TIER_EQUITY = (0.10, 0.20, 0.32, 0.42, 0.58, 0.72, 0.84, 0.92, 0.98)
 _LOW_TIER = {0: 8, 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 7, 7: 6, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1}  # pairless low by its top card
@@ -159,14 +181,17 @@ class Postflop:
         self.low = False
         self.wild_rank = -1  # canonical rank index of the wild card, -1 = none
         self.flush_over_full = False
+        self.short = False  # short deck: A-6-7-8-9 a straight, its straights' outs, five flush outs, outs x SD_OUT_SCALE
         self._mult = 1.0  # bet-size multiplier for the current decision (two boards: 0.5)
         self.last = ""  # the sub-decision taken last (diagnostics: the runner's bust tracer reads it)
 
-    def set_mode(self, low: bool = False, wild_rank: int = -1, flush_over_full: bool = False) -> None:
-        """Ranking-axis switches Hero sets per table from Rules.extras."""
+    def set_mode(self, low: bool = False, wild_rank: int = -1, flush_over_full: bool = False,
+                 short: bool = False) -> None:
+        """Ranking-axis switches Hero sets per table from Rules.extras (`short`: the short-deck read, a dial)."""
         self.low = low
         self.wild_rank = wild_rank
         self.flush_over_full = flush_over_full
+        self.short = short
 
     def _commit_ok(self, spot: Spot, eq: float, risk: int) -> bool:
         """Risking `risk` chips with equity `eq` (opponent never folds) beats keeping them, in ICM points.
@@ -183,12 +208,27 @@ class Postflop:
 
     # ------------------------------------------------------------------ hand reading
     @staticmethod
-    def read(hole, board, dead=(), flush_shift: int = 0, straight_shift: int = 0, flush_over_full: bool = False) -> tuple[int, int, bool]:
+    def read(hole, board, dead=(), flush_shift: int = 0, straight_shift: int = 0, flush_over_full: bool = False,
+             short: bool = False) -> tuple[int, int, bool]:
         """(tier, outs, wet_board) for two hole cards. Pure arithmetic over ranks and suits plus one evaluate().
-        `dead` cards (exposed elsewhere) come off the draw outs; the shifts move a made flush / straight."""
+        `dead` cards (exposed elsewhere) come off the draw outs; the shifts move a made flush / straight. `short`: the
+        36-card deck's straights (A-6-7-8-9 made and drawn to, no wheel) and flush draws (five outs, not nine)."""
         cards = tuple(hole) + tuple(board)
         strength = evaluate(cards)
         cat = category(strength)
+        comp = COMPLETERS
+        if short:
+            comp = SD_COMPLETERS
+            if cat < 8:
+                m = 0
+                sm = [0, 0, 0, 0]
+                for c in cards:
+                    m |= 1 << (c >> 2)
+                    sm[c & 3] |= 1 << (c >> 2)
+                if any(x & _SD_LOW == _SD_LOW for x in sm):
+                    cat = 8
+                elif cat < 4 and m & _SD_LOW == _SD_LOW:
+                    cat = 4
         r1, r2 = hole[0] >> 2, hole[1] >> 2
         s1, s2 = hole[0] & 3, hole[1] & 3
         board_mask = 0
@@ -227,13 +267,13 @@ class Postflop:
                 my_flush_cards, fsuit = b, s2
         flush_draw = my_flush_cards == 4 and n_board < 5
         # straight draw: completing ranks beyond what the board alone offers
-        mine = COMPLETERS[full_mask] & ~COMPLETERS[board_mask] if n_board < 5 else 0
+        mine = comp[full_mask] & ~comp[board_mask] if n_board < 5 else 0
         n_str_outs = mine.bit_count()
         oesd = n_str_outs >= 2
         gutshot = n_str_outs == 1
         pocket = r1 == r2
         # connectedness of the board for texture: any straight possible with 1 or 2 cards
-        connected = COMPLETERS[board_mask] != 0 or board_mask.bit_count() >= 3 and _span3(board_mask) <= 4
+        connected = comp[board_mask] != 0 or board_mask.bit_count() >= 3 and _span3(board_mask) <= 4
         wet = flush_possible or connected
         # made-hand tier relative to the board
         if cat >= 4:
@@ -280,7 +320,7 @@ class Postflop:
         outs = 0
         if tier < 6:
             if flush_draw or oesd or gutshot:
-                outs = _draw_outs(flush_draw, fsuit, oesd, gutshot, mine, dead, cards)
+                outs = _draw_outs(flush_draw, fsuit, oesd, gutshot, mine, dead, cards, 5 if short else 9)
             if flush_draw or oesd:
                 if tier >= 2:
                     tier = 4 if tier < 4 else tier
@@ -518,12 +558,15 @@ class Postflop:
             return self.read_wild(hole, board, must_use, dead)
         if len(hole) == 2 and not must_use:
             p = self.p
-            return self.read(hole, board, dead, p.flush_tier_shift, p.straight_tier_shift, self.flush_over_full)
+            return self.read(hole, board, dead, p.flush_tier_shift, p.straight_tier_shift, self.flush_over_full,
+                             self.short)
         return self.read_multi(hole, board, must_use, dead)
 
     def _equity(self, tier: int, outs: int, cards_to_come: int, n_opp: int) -> float:
         p = self.p
         draw_eq = outs * p.draw_outs_mult * (4 if cards_to_come == 2 else 2) / 100.0 if cards_to_come else 0.0
+        if self.short:
+            draw_eq *= SD_OUT_SCALE
         eq = TIER_EQUITY[tier]
         if draw_eq > eq:
             eq = draw_eq
@@ -706,11 +749,13 @@ class Postflop:
         return _FOLD
 
 
-def _draw_outs(flush_draw: bool, fsuit: int, oesd: bool, gutshot: bool, completers: int, dead, visible) -> int:
-    """Rule-of-thumb outs (9 flush, 8 open-ender, 4 gutshot, overlaps removed) minus the dead cards among them."""
+def _draw_outs(flush_draw: bool, fsuit: int, oesd: bool, gutshot: bool, completers: int, dead, visible,
+               flush_outs: int = 9) -> int:
+    """Rule-of-thumb outs (9 flush, 8 open-ender, 4 gutshot, overlaps removed) minus the dead cards among them;
+    `flush_outs` 5 on a short deck."""
     outs = 0
     if flush_draw:
-        fd = 9
+        fd = flush_outs
         if dead:
             for c in dead:
                 if (c & 3) == fsuit and c not in visible:
