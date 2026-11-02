@@ -317,3 +317,19 @@ and (in judges) `elite_judge`.
   moves it. H2 retired.
 - climb_accept learns the addenda (f2a31a8): `--aim exploit` (6) and `--aim strong` (8) replace "night up" with
   "an aimed field up, night not down", so the verdict and REPLICATE come out right for those changes.
+
+## 06:20: batch 3 accepted and frozen: V-b ships (9e620c8); FIN fails addendum 7 on bonus_card
+- bonus_card for FIN + V-b on H3 (22000-22399, 400 seeds): -0.020 ± 0.032 level, but H2 and H3 pooled -0.030 ± 0.025
+  are beyond noise down, so under addendum 7 the pair fails. Screen splits: FIN alone -0.026 ± 0.039, V-b alone
+  +0.006 ± 0.019; on 400 extra screen seeds (10200-10599) the 3-bet defence alone plays bonus_card identically and the
+  dry c-bet alone is -0.025 ± 0.027. The c-bet is also exploiter 2's 78%-fold-to-check-raise leak.
+- Batch 3 = V-b alone (accepted on H2; plain hold'em identical by construction, so night, guards and judges stand;
+  judges measured for the pair were all level). Timing by latency.py's per-call minimum over 3 replays (load 9-13):
+  p99 plain 87 vs F 84 us, bounty 89 vs 66, toss 66 vs 66, short deck 65 vs 62, wild deuces 108 vs 109; none over 1 ms.
+- SHIP_DIALS += V-b (9e620c8). Frozen: frozen/B3-9e620c8, kit B zip sha256 774f0636...89bcf6f20 (1.2 MB); gate pass
+  (40 tables strict, 0 exceptions, 0 illegal, import 0.28 s). Full suite: 1017 passed, 2 wall-clock tests failed at
+  load 13 (cheap bot kit D round trip, hybrid3_x cold setup), neither touched by V-b.
+- The slim pack still ships the test opponents and judges (elite*, outside*, exploiter1, rivals 1, 2, 4, 5: about
+  0.9 MB): handed to the R2-R4 worker to prune, with a test that elite3 and the judges are never in a submission.
+- Decisions entry, leaderboard and HANDOFF updated. Next on H3 (2nd and 3rd uses): the 3-bet defence alone
+  (`--aim exploit`) and V-c's candidate (aware + variants), on top of the new ship.

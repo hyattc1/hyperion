@@ -8,14 +8,17 @@ is either committed or named as lost-if-killed.
 **The climb is running** (since 2026-11-01 20:20 ET; brief `docs/prompts/goal.md`, plan and frozen protocol
 `docs/drills/goal-plan.md`, running log `docs/drills/goal-log.md`, one-page leaderboard `docs/drills/goal-leaderboard.md`;
 our regional is Pittsburgh, Nov 12; it stops by Nov 11 18:00 ET). The ship bot is still the composite F
-(`hyperion/ship.py`: `SHIP = "composite"`, `DIALS = {}`), now with the SafeBot governor in its defaults (batch 2,
-f7914c0: a slow or noisy box no longer sends tables to the cheap path). F is first on every judge field, including the
-new `outside` and `outside_strong` fields (fresh one-hour builds). A black-box exploiter beats it (folds ~90% to
-3-bets after wide opens, size tells, heads-up any-two shoves): fixes are on branch climb/s2-exploit-fixes. Every
-measurement of F goes through `tools/climb_accept.py` (never `tools/swap.py paired` specs, which skip SHIP_DIALS).
+(`hyperion/ship.py`: `SHIP = "composite"`, `DIALS = {}`), with the SafeBot governor in its defaults (batch 2,
+f7914c0: a slow or noisy box no longer sends tables to the cheap path) and variant play (batch 3, 9e620c8: tighter
+preflop on twist tables, toss and bounty fixes; plain hold'em unchanged). F is first on every judge field, including
+`outside` and `outside_strong` (fresh one-hour builds) and `elite_judge`. Two black-box exploiters beat it
+short-handed: the first's fix (`r3.v3_defend`) is in held-out confirmation; the second (docs/drills/exploiter2/) beats F
+heads-up 9.5 to 7.5 by defending wide against its small-blind opens, reading its bet sizes and stabbing when it
+checks, and is being fixed on climb/s11-exploiter2-fixes. Every measurement of F goes through `tools/climb_accept.py`
+(never `tools/swap.py paired` specs, which skip SHIP_DIALS); `--aim exploit|strong` for the addenda 6 and 8 rules.
 Frozen fallback zips are in `frozen/` (git-ignored), listed with their sha256 in the leaderboard. Fallbacks are one word
-away: `python -m hyperion.ship --bot hybrid3_x` or `--bot hero`. Decisions entry: "The climb: protocol addenda and
-batches 1-2". Workers run on `climb/*` branches in worktrees under the session scratchpad; the coordinator merges.
+away: `python -m hyperion.ship --bot hybrid3_x` or `--bot hero`. Decisions entries: "The climb: protocol addenda and
+batches 1-2", "The climb: batch 3 (variant play) and addenda 7-8". Workers run on `climb/*` branches in worktrees under the session scratchpad; the coordinator merges.
 
 History: Hero was tuned to finish first against every field we wrote, then a red-team rival built blind beat it; the
 plan changed to choosing the best core behind Hero's shell (below), and then to combining the best sections.
