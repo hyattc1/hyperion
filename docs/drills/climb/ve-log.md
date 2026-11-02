@@ -224,23 +224,6 @@ identical per-seed samples are the proof, as V-d's 40-seed check): night_hard 5.
 at 10/7/5/4/3/2/1/0 6.219, at 50/25/12/6/3/2/1/1 25.365, night with doubling blinds 5.850: every cell +0.000 ± 0.000,
 identical per seed; 0 timeouts, 0 errors.
 
-## 6. Tests
-
-- tests/test_ve_dials.py (9 tests): every new key off by default; twins from the prepared tables (lowball, wild deuces,
-  hold'em cards give the classes themselves, plain hold'em names none); twin_preflop replaces the mirror and wild maps
-  only when on, never under the threshold, on a variant set, a rank remap or plain hold'em; twin_force; the Omaha
-  re-cut (shift, monotone equity columns, the threshold); split_call_margin and split_tier_eq on two boards only;
-  variant_preflop_ex and call_shift_ex by gate; multi/mu call and value shifts reach their tables only.
-  tests/test_nightof_pack.py: the package carries the variant's prepared table (expectation updated: a bounty package
-  now has tables/generic/bounty-*.json).
-- docs/packet/CONTRACTS.md regenerated (tools/apicard.py: the new Hero keys).
-- Full suite on the branch (9776488's code, the candidate's), host load 12-15 with my two measurement processes and other workers':
-  **1156 passed, 23 failed, 15 skipped** (20.7 min). Rerun alone: 14 pass. The 9 still failing (test_drills_run
-  toss_or_holdem-c, test_gate history-dropping package, test_hand_end_interrupt idle, test_nightof_latency kit D round
-  trip, the model-mode replay tests in test_sim_exploiter and test_sim_outside) **fail the same way at the base commit
-  8286990** run alone at the same load (9 failed): wall-clock budgets and replays that follow the wall clock, as V-d
-  found. None involves a V-e dial (all off in those tests).
-
 **variants** (`realistic`, twist-blind; the ten entries a dial reaches at 200 seeds):
 
 | entry | F | candidate | candidate - F | |
@@ -284,7 +267,7 @@ Every p99 near 0.1 ms, the candidate level with F within the host's noise: the d
 reads, not how many. The one new cost is at a table start, once per process: reading the prepared table, 1.5 ms for a
 two-card twist's twins, 5 ms for Omaha's re-cut (2 ms the file, 3 ms the re-cut), beside the variant set's own load.
 
-### 5b. Auction, and the two last changes
+### 5b. Auction, and the three last changes
 
 Auction (5%) against the generic field, the parts apart (9776488): the candidate -0.088 ± 0.099, `multi_call_shift` 2
 alone -0.073 ± 0.098, the twins alone +0.005 ± 0.034. A bought third card is not a dealt one (the hand was chosen as two
@@ -343,6 +326,27 @@ Omaha and three_card_keep at d761587 are identical per seed to section 5's candi
 (generic) identical per seed to 9776488's candidate with the wild shift at 2: the changes reach only the cells they
 should. Every other cell of section 5 holds for the final candidate unchanged (neither change reaches it).
 
+## 6. Tests
+
+- tests/test_ve_dials.py (9 tests): every new key off by default; twins from the prepared tables (lowball, wild deuces,
+  hold'em cards give the classes themselves, plain hold'em names none); twin_preflop replaces the mirror and wild maps
+  only when on, never under the threshold, on a variant set, a rank remap or plain hold'em; twin_force; the Omaha
+  re-cut (shift, monotone equity columns, the threshold); split_call_margin and split_tier_eq on two boards only;
+  variant_preflop_ex and call_shift_ex by gate; multi/mu call and value shifts reach their tables only.
+  tests/test_nightof_pack.py: the package carries the variant's prepared table (expectation updated: a bounty package
+  now has tables/generic/bounty-*.json).
+- docs/packet/CONTRACTS.md regenerated (tools/apicard.py: the new Hero keys).
+- Full suite on the branch (9776488's code, the candidate's), host load 12-15 with my two measurement processes and other workers':
+  **1156 passed, 23 failed, 15 skipped** (20.7 min). Rerun alone: 14 pass. The 9 still failing (test_drills_run
+  toss_or_holdem-c, test_gate history-dropping package, test_hand_end_interrupt idle, test_nightof_latency kit D round
+  trip, the model-mode replay tests in test_sim_exploiter and test_sim_outside) **fail the same way at the base commit
+  8286990** run alone at the same load (9 failed): wall-clock budgets and replays that follow the wall clock, as V-d
+  found. None involves a V-e dial (all off in those tests).
+- Full suite at d761587 (the candidate's final code), host load 8-10: **1189 passed, 4 failed, 1 skipped** (5 min).
+  Rerun alone: test_sim_bestiary's budget test for f_copy and test_slowbox's panic test pass; the two
+  test_nightof_latency kit round trips fail the same way at 8286990 (a gen-2 garbage collection inside one of 100
+  adapter calls, 4.5 ms, makes the p99).
+
 ## 7. Summary per target variant
 
 | variant (likelihood) | diagnosis | change | generic aware cell | margin over best opponent |
@@ -374,7 +378,3 @@ opponents (short deck 0.07 x 0.23, wild 0.025 x 0.94, Omaha 0.05 x 0.45, three_c
 - **On the night**: twin_preflop and twin_multi read tables/generic/<variant>-*.json; prepare the twist's table
   before packing (PLAYBOOK Stage 5's `--aware generic:<variant>` builds it; tools/pack.py now carries it). Without the
   file both dials do nothing.
-- Full suite at d761587 (the candidate's final code), host load 8-10: **1189 passed, 4 failed, 1 skipped** (5 min).
-  Rerun alone: test_sim_bestiary's budget test for f_copy and test_slowbox's panic test pass; the two
-  test_nightof_latency kit round trips fail the same way at 8286990 (a gen-2 garbage collection inside one of 100
-  adapter calls, 4.5 ms, makes the p99).
