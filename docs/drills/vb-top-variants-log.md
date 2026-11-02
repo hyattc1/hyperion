@@ -1,6 +1,6 @@
 # vb-top-variants: the three likeliest twists against opponents that play them (2026-11-01/02)
 
-Branch `climb/vb-top-variants` from main d1b6b59, rebased onto 6327dcd. Track V of the climb (docs/drills/goal-plan.md, backlog V1), for the
+Branch `climb/vb-top-variants` from main d1b6b59, rebased onto 2e66521 (F's code as of 6327dcd). Track V of the climb (docs/drills/goal-plan.md, backlog V1), for the
 three likeliest variants (docs/drills/climb/variants-ranked.md): toss_or_holdem 11%, bounty 8%, short_deck 7%. F was
 READY (first) on each against the `realistic` field, whose bots mostly ignore the twist; on the night every team's bot
 knows the variant. Every number is model mode, eight rotations per seed, screen seeds 10000-10199 only (200 x 8), F as
@@ -225,8 +225,9 @@ on 10000-10024 equal the stage's cached candidate). So: no entry beyond noise do
 
 ## 9. Checks
 
-- Full suite on the final tree (ee1d2e8, the fixed-limit / must-use gate in): **985 passed, 1 skipped** in 192 s (and
-  985 passed before the gate).
+- Full suite on the final tree (rebased onto main 2e66521, which added the elite field and touched no F code):
+  **998 passed, 1 skipped** in 198 s (985 passed before that rebase, with and without the fixed-limit gate;
+  the extra 13 are main's).
 - Default play: every new dial is off by default (tested); plain hold'em with the candidate's dials on is
   bit-identical (section 6); the toss hook's acting order and prompt key leave every non-reading bot's play
   identical (section 1). The bounty hook's timing fix is the one deliberate change of default play (bounty only).
