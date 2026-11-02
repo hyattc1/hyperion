@@ -378,6 +378,11 @@ class Config:
     # (variant_preflop's shove_eq_margin, shove_range_mult). Decision-time fields only: the solved tables and the
     # multiway switch are the table set's. {} = off
     variant_pushfold: dict = field(default_factory=dict)
+    # PreflopParams overrides for the twist tables variant_preflop leaves out, by the rule that leaves them out:
+    # "must_use" (Omaha-style must-use-k), "fixedlimit", "lowball", e.g. {"must_use": {"call_raise_frac": 0.15}}.
+    # Measured there against opponents that play the twist (the generic aware field), where variant_preflop was
+    # measured against twist-blind ones. {} = off
+    variant_preflop_ex: dict = field(default_factory=dict)
     # boards longer than five cards (river_of_blood's run streets, or any rule that deals past the river). long_board:
     # read them (core.eval.evaluate_many for any number of cards, never a table built in a decision; "playing the
     # board" against the board's own best five; draws and outs while another card may come), and play a street that
@@ -735,6 +740,17 @@ class HeroCore:
             if vpre is None:
                 vpre = self._modules[vkey] = Preflop(replace(pre.p, **vp), t)
             pre = vpre
+        vx = cfg.variant_preflop_ex
+        if vx and ex.get("variant") and str(ex.get("variant")).lower() not in PLAIN_NAMES:
+            gate = "must_use" if rules.must_use_hole else "fixedlimit" if rules.betting == "fixedlimit" else \
+                "lowball" if ex.get("lowball") else None
+            over = vx.get(gate) if gate else None
+            if over:
+                vkey = ("variant_preflop_ex", gate, id(pre))
+                vpre = self._modules.get(vkey)
+                if vpre is None:
+                    vpre = self._modules[vkey] = Preflop(replace(pre.p, **over), t)
+                pre = vpre
         if vpf and twist:
             vkey = ("variant_pushfold", id(pf))
             vpf_mod = self._modules.get(vkey)
