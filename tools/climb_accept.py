@@ -28,7 +28,8 @@ Stages (comma-separated; default confirm,guards,variants):
   (toss_or_holdem_aware, bounty_aware, short_deck_aware; hyperion/sim/aware.py); `--aware NAME,...` for some.
 - exploit: the S2 exploiter (`exploiter1`, docs/drills/exploiter/) at 8-max (`exploit`, payouts 10/7/5/4/3/2/1/0),
   heads-up (`exploit_hu`, rules hu.json: 10/7) and three-handed (`exploit_3`, three.json: 10/7/5); its own points are
-  printed too. Diagnostic: not part of the acceptance rule (it is one opponent we know).
+  printed too. Part of the rule only with `--aim exploit` (addendum 6: an exploit field up, night not down);
+  `--aim strong` is addendum 8 (elite, elite_night or mirror up, night not down).
 - timing: tools/latency.py p99 for both specs (20,000 calls).
 - window: night alone, the check a window needs (prompt 06): the candidate not beyond noise down. With --rules (the
   night's rules JSON: payouts, blinds, antes ...) and --variant (a catalog entry's hooks) it plays tonight's game;
@@ -308,6 +309,10 @@ def main(argv=None) -> int:
     p.add_argument("--rules", default=None, help="a Rules JSON (the night's rules_tonight.json) for the window, "
                                                  "confirm, guards and elite cells")
     p.add_argument("--variant", default=None, help="a catalog variant's hooks for the same cells")
+    p.add_argument("--aim", choices=("night", "exploit", "strong"), default="night",
+                   help="what the change is for: night (confirm beyond noise up), exploit (addendum 6: an exploit "
+                        "field up, night not down) or strong (addendum 8: elite, elite_night or mirror up, night "
+                        "not down)")
     a = p.parse_args(argv)
     version = code_version()
     base_raw, cand_raw = load_spec(a.base), load_spec(a.cand)
@@ -373,7 +378,20 @@ def main(argv=None) -> int:
         checks.append(("window: night not beyond noise down (a recipe answers the standings; it need not gain)",
                        all(r["flag"] != "DOWN" for r in st["window"])))
     if "confirm" in st:
-        checks.append(("confirm: night beyond noise up", all(r["flag"] == "UP" for r in st["confirm"])))
+        if a.aim == "night":
+            checks.append(("confirm: night beyond noise up", all(r["flag"] == "UP" for r in st["confirm"])))
+        else:
+            checks.append(("confirm: night not beyond noise down", all(r["flag"] != "DOWN" for r in st["confirm"])))
+    if a.aim == "exploit":  # addendum 6
+        ups = [r["cell"] for r in st.get("exploit", []) if r["flag"] == "UP"]
+        checks.append((f"exploit (addendum 6): an exploit field beyond noise up ({', '.join(ups) or 'none'})",
+                       bool(ups)))
+        downs = [r["cell"] for r in st.get("exploit", []) if r["flag"] == "DOWN"]
+        checks.append((f"exploit: none beyond noise down" + (f" (down: {', '.join(downs)})" if downs else ""),
+                       not downs))
+    if a.aim == "strong":  # addendum 8
+        ups = [r["cell"] for r in st.get("elite", []) if r["flag"] == "UP"]
+        checks.append((f"elite (addendum 8): a strong field beyond noise up ({', '.join(ups) or 'none'})", bool(ups)))
     for s in ("guards", "elite", "variants", "judges", "aware"):
         if s in st:
             downs = [r["cell"] for r in st[s] if r["flag"] == "DOWN"]
@@ -391,7 +409,7 @@ def main(argv=None) -> int:
     verdict["replicate"] = vdowns[0] if len(vdowns) == 1 and others_ok and not a.variants else None
     verdict["secs"] = time.time() - t0
     # print
-    print(f"# climb_accept: set {a.set} ({lo}-{hi - 1}), code {version}, {verdict['secs'] / 60:.1f} min")
+    print(f"# climb_accept: set {a.set} ({lo}-{hi - 1}), code {version}, aim {a.aim}, {verdict['secs'] / 60:.1f} min")
     print(f"base {json.dumps(base_raw, sort_keys=True)} -> {json.dumps(base, sort_keys=True)}")
     print(f"cand {json.dumps(cand_raw, sort_keys=True)} -> {json.dumps(cand, sort_keys=True)}")
     if "exploit" in st:
