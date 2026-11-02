@@ -1,4 +1,4 @@
-"""The fake kits are self-contained: each kit (a, b, c, d) imports and plays with `hyperion` absent, so a
+"""The fake kits are self-contained: each kit (a, b, c, d, e_style) imports and plays with `hyperion` absent, so a
 drill can copy one verbatim into a blank directory (drill 3, repo finding 1). The vendored evaluator orders
 hands exactly as hyperion.core.eval does, so the dealer's showdowns are unchanged."""
 import os
@@ -54,6 +54,11 @@ BOTS = {
         if __name__ == "__main__":
             run_bot(Player(), parse_args())
         """,
+    "e_style": """
+        class Agent:
+            def on_table(self, info): pass
+            def decide(self, req): return {"move": "check"} if "check" in req["moves"] else {"move": "fold"}
+        """,
 }
 
 # Runs inside `python -I -S` (no site-packages, no PYTHON* env, no cwd on sys.path): hyperion must be
@@ -81,6 +86,12 @@ RUN = {
     "b": "report = runner.run(runner.load_module({bot!r}), hands=5, seed=3)",
     "c": "report = runner.run([sys.executable, {bot!r}], hands=5, seed=3)",
     "d": "report = runner.run([sys.executable, {bot!r}], hands=5, seed=3)",
+    "e_style": ("rep = runner.run({bot!r}, tables=1, hands=5, seed=3, interrupt=False)\n"
+                "class _Summary:\n"
+                "    def summary(self):\n"
+                "        return f\"{{rep['hands']}} hands, {{sum(rep['errors'].values())}} exceptions, "
+                "{{rep['illegal']}} illegal\"\n"
+                "report = _Summary()"),
 }
 
 
@@ -93,7 +104,7 @@ def copy(tmp_path_factory) -> Path:
     return base
 
 
-@pytest.mark.parametrize("kit", ["a", "b", "c", "d"])
+@pytest.mark.parametrize("kit", ["a", "b", "c", "d", "e_style"])
 def test_kit_imports_and_plays_without_hyperion(copy: Path, kit: str):
     env = {k: v for k, v in os.environ.items() if not k.startswith("PYTHON")}
     env["PYTHONPATH"] = str(copy)  # ignored by the isolated runner (-I); lets the kit C/D bot subprocess find the kit
