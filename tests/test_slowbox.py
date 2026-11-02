@@ -169,3 +169,33 @@ def test_safebot_replay_rule():
     assert over == 6 and tmo == 0 and call == 15
     over, tmo, call = SB.safebot_replay(us, 4.0)
     assert over == 6 and tmo == 6
+
+
+class _SlowEnd(_Slow):
+    """Cheap decisions, a 400 us hand_end (1.2 ms on a 3x box)."""
+
+    def hand_end(self, result):
+        _spin(400)
+
+
+def test_defer_puts_hand_end_inside_the_next_timed_call():
+    from hyperion.core.types import Rules
+    from hyperion.sim.engine import BotStats, play_table
+    from hyperion.sim.bestiary import make_bot
+
+    def run(defer):
+        SB.install(3.0, "cpu")
+        SB.SlowSeat.defer = defer
+        try:
+            seat = SB.SlowSeat(_SlowEnd(5))
+            bots = [seat] + [make_bot("tag", seed=i) for i in range(1, 6)]
+            st = [BotStats(str(i)) for i in range(6)]
+            play_table(bots, Rules(n_players=6, max_hands=10), seed=5, mode="model", stats=st)
+        finally:
+            SB.SlowSeat.defer = False
+            SB.uninstall()
+        return st[0]
+
+    assert run(False).over_budget == 0
+    st = run(True)
+    assert st.over_budget >= 5  # the first decision of (nearly) every hand after the first

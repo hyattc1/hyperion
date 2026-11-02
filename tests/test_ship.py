@@ -227,3 +227,16 @@ def test_recipes_resolve_for_whichever_bot_ships(tmp_path, capsys):
     ship.main(["--set", ""], path=copy)
     assert ship.read_record(copy) == ("hero", {})
     assert "SHIP = 'hero'" in capsys.readouterr().out
+
+
+def test_slow_box_recipe_turns_the_governor_on_for_each_bot():
+    """R1: `slow_box` resolves per bot; the composite gets its ladder levels; nothing changes without it."""
+    comp = ship.make_bot("composite", ship.recipe("slow_box", "composite"))
+    assert comp.safe.gov is not None and comp.safe.gov.ladder and comp.core.levels == 3 and comp.safe.deadline == 0.0008
+    hyb = ship.make_bot("hybrid3_x", ship.recipe("slow_box", "hybrid3_x"))
+    assert hyb.safe.gov is not None and hyb.core.levels == 1
+    hero = ship.make_bot("hero", ship.recipe("slow_box", "hero"))
+    assert hero.safe.gov is not None and not hero.safe.gov.ladder
+    both = ship.recipe("slow_box+survival", "composite")
+    assert both["r3.call_margin"] == 0.03 and both["panic_window"] == 60
+    assert ship.make_bot("composite", {}).safe.gov is None

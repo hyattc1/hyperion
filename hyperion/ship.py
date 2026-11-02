@@ -128,14 +128,34 @@ CORE_RECIPES = {  # rival 3's core: hybrid3_x, hybrid3 and the composite's base
 }
 CORE_BOTS = ("hybrid3_x", "hybrid3", "composite")
 
+# A slow or noisy sandbox (backlog R1, docs/drills/r1-timing-log.md). Not a window recipe: it is a property of the box,
+# set once when the sandbox's timing is known or suspect, and stacked with any window recipe (`slow_box+survival`).
+# SafeBot counts only near-timeouts (0.8 ms, not 0.5), and only when they cluster (5 in 60 calls); each cluster steps
+# one level down, and 40 quiet calls step back up (then 80, 160, ...). The composite's levels, in order: no full
+# shadows; the base's exact-ICM decisions to Hero under top-heavy payouts; every section to Hero; the cheap path last.
+# hybrid3_x has one level (lean) before the cheap path, Hero none. At k <= 3 the governor never fires on F; the cliff
+# it replaces cost F 2.2 points a table on th at k = 3 (100-point table) and 0.03-0.16 on 8..1.
+SLOW_RECIPES = {
+    "slow_box": {
+        "composite": {"deadline_ms": 0.8, "panic_window": 60, "panic_ladder": True, "panic_recover": 40,
+                      "degrade": "noshadow,lean,hero"},
+        "core": {"deadline_ms": 0.8, "panic_window": 60, "panic_ladder": True, "panic_recover": 40},
+        "hero": {"deadline_ms": 0.8, "panic_window": 60, "panic_recover": 40},
+    },
+}
+
 
 def recipe(names: str, name: str | None = None) -> dict:
     """The dials of the recipes `names` ("survival", "survival+passive") for the bot `name` (default SHIP)."""
     bot = SHIP if name is None else name
     out: dict = {}
     for part in [x.strip() for x in names.split("+") if x.strip()]:
+        if part in SLOW_RECIPES:
+            r = SLOW_RECIPES[part]
+            out.update(r["composite"] if bot == "composite" else r["core"] if bot in CORE_BOTS else r["hero"])
+            continue
         if part not in HERO_RECIPES:
-            raise KeyError(f"unknown recipe {part!r}; known: {', '.join(HERO_RECIPES)}")
+            raise KeyError(f"unknown recipe {part!r}; known: {', '.join([*HERO_RECIPES, *SLOW_RECIPES])}")
         if bot in ("hero", "cheap"):
             out.update(HERO_RECIPES[part])
         elif bot in CORE_BOTS:

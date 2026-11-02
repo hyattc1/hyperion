@@ -741,7 +741,7 @@ def quiet_report(path: str, ks=(1.0, 1.5, 2.0, 3.0), by="section,street,n_in,ali
         out.append(f"| {k:g} | {ov} ({100 * ov / max(1, n):.2f}%, {ov / max(1, len(tabs)):.2f}/table) | {tm} "
                    f"({100 * tm / max(1, n):.3f}%, {tm / max(1, len(tabs)):.2f}/table) | {pn} of {len(tabs)} | "
                    f"{sum(pc) / len(pc) if pc else 0:.0f} |")
-    names = ("section", "street", "n_in", "alive", "first", "to_call", "moved", "path", "hand")
+    names = ("section", "street", "first", "n_in", "alive", "to_call", "moved", "path", "hand")  # QuietSeat.feat
     for thr in (167, 250, 333):
         out.append(f"\n  decisions over {thr} us (the soft deadline at k = {500 / thr:.1f}), by key "
                    f"(count, share of them, rate within the key):")
