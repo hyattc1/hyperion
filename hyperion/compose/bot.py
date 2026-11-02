@@ -12,6 +12,8 @@ decisions there. Members are built once per bot and play every table:
   r2       rival 2's core behind the same shell (core "rival2"). Donor `r2x` is hybrid_x; `r2` is hybrid.
   rival1   red-team rival 1 as built, through the kit adapter the bestiary uses. Donor `rival1`; `rival1x` with the layer.
   rival3   red-team rival 3 as built (brief's payouts in its ICM, no shell). Donor `rival3`; `rival3x` with the layer.
+  elite1, elite2   the climb's elite builds as built (PersonaMember: payouts and history as the bestiary passes them,
+           the generator seeded per table). Donors `elite1`, `elite2`; `elite1x`, `elite2x` with the layer (S9).
 More can be registered at run time (`register_member`); scratch runners use that for black-box opponents.
 
 **Every member sees everything.** Each member in the route acts on every observation and gets every hand_end, so its
@@ -218,6 +220,60 @@ def _rival_member(module: str, history_at_end: bool):
     return build
 
 
+class PersonaMember(KitMember):
+    """An elite build from hyperion.sim.field (elite1, elite2: our own agents' prepared top-team bots) as a member,
+    through the adapter the bestiary's PersonaBot plays it with: the payouts in the rules dict, the hand's history at
+    hand_end, and its generator (each was written with an unseeded random.Random()) reseeded from the member's seed at
+    every table start, as the bestiary's _EliteBot does, so a table replays exactly. Plain hold'em only, like every raw
+    rival. Backlog S9: a section of F can be routed to one of them (donors `elite1`, `elite2`; `...x` with the layer)."""
+
+    def __init__(self, impl, seed):
+        super().__init__(impl, history_at_end=True)
+        self._seed = 0 if seed is None else int(seed)
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        self.kit.reset()
+        self.impl.new_table({"starting_stack": rules.starting_stack, "hand_cap": rules.max_hands,
+                             "n_players": n_players, "blinds": rules.blind_levels, "payouts": list(rules.payouts)},
+                            seat, n_players)
+
+    def act(self, obs: Observation) -> Action:
+        # the generator is seeded per decision (from the hand, the street and the history's length), so a decision's
+        # draws never depend on which earlier decisions it made in full: a light shadow (below) plays the same
+        rng = getattr(self.impl, "rng", None)
+        if rng is not None:
+            rng.seed(((self._seed * 1_000_003 + obs.hand_no) * 4 + obs.street) * 1024 + len(obs.history))
+        return super().act(obs)
+
+
+def _persona_member(module: str):
+    def build(cfg, seed):
+        from ..sim.field import load
+
+        return PersonaMember(load(module).Bot(), seed)
+    return build
+
+
+# elite1 keeps its reads from the history it scans at each decision (`_scan`) and one fact from its own last answer:
+# `pend`, the seats that still owe a response to its raise (settled from the stacks at its next hand). Its light shadow
+# scans without deciding; its record follows the action taken (a raise taken sets `pend`, anything else clears it), as
+# its own act would have set it, so a light shadow and a full one play the same.
+def _elite1_light(m, obs: Observation) -> None:
+    m.impl._scan(m.kit(obs, obs.hole, obs.board))
+
+
+def _elite1_resync(m, before, obs: Observation, taken: Action) -> None:
+    b = m.impl
+    if taken.kind is _RAISE:
+        me = obs.seat
+        b.pend = {i: obs.stacks[i] for i in range(len(obs.stacks)) if i != me and obs.in_hand[i] and obs.stacks[i] > 0}
+        b.pend_jam = taken.amount >= obs.max_raise
+        b.pend_hand = obs.hand_no + 1  # the kit's 1-based hand number, as elite1 reads it
+        b.pend_st = obs.street
+    else:
+        b.pend = None
+
+
 # name -> factory(cfg, seed) -> member (new_table / act / hand_end, optional set_panic and variant_decide; plain_only)
 MEMBERS: dict[str, Callable] = {
     "base": lambda cfg, seed: _hybrid_member("rival3", cfg, seed),
@@ -225,17 +281,21 @@ MEMBERS: dict[str, Callable] = {
     "r2": lambda cfg, seed: _hybrid_member("rival2", cfg, seed),
     "rival1": _rival_member("rival1", False),
     "rival3": _rival_member("rival3", True),
+    "elite1": _persona_member("elite1"),
+    "elite2": _persona_member("elite2"),
 }
 # member name -> (state(member) captured before act, resync(member, state, obs, taken) when its answer was not taken)
 RESYNC: dict[str, tuple] = {
     "base": (lambda m: _r3_state(m.core), lambda m, st, obs, a: _resync_r3(m.core, st, obs, a)),
     "rival3": (lambda m: _r3_state(m.impl), lambda m, st, obs, a: _resync_r3(m.impl, st, obs, a)),
     "hero": (_hero_state, _resync_hero),
+    "elite1": (lambda m: True, _elite1_resync),
 }
 # member name -> (can a light shadow stand in for its decision on this observation, the light shadow)
 LIGHT: dict[str, tuple] = {
     "hero": (_hero_light_ok, _hero_light),
     "base": (_base_light_ok, _base_light),
+    "elite1": (lambda m, obs: True, _elite1_light),
 }
 # donor name -> (member, the exploit layer acts on its decisions)
 DONORS: dict[str, tuple[str, bool]] = {
@@ -244,6 +304,8 @@ DONORS: dict[str, tuple[str, bool]] = {
     "r2x": ("r2", True), "r2": ("r2", False),
     "rival1": ("rival1", False), "rival1x": ("rival1", True),
     "rival3": ("rival3", False), "rival3x": ("rival3", True),
+    "elite1": ("elite1", False), "elite1x": ("elite1", True),
+    "elite2": ("elite2", False), "elite2x": ("elite2", True),
 }
 
 
