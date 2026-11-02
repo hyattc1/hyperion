@@ -53,3 +53,13 @@ Files: `docs/drills/climb/variants-ranked.md`, `docs/drills/climb/official-chang
   - track V works the ranked list top down and adds **auction** and **deal 5 keep 2** to the main catalogue;
   - variant-aware opponents (fresh one-hour builds per top variant) so "first on 22 of 23" is not against bots that
     ignore the twist.
+
+## 20:57: S1, payout tables (diagnostic; screen seeds 10000-10199, 200 x 8, night, model, load 3-9)
+| payouts | F | Hero (- F) | hybrid3_x (- F) | F p99 us |
+|---|---|---|---|---|
+| 10/7/5/4/3/2/1/0 | 6.072 | -0.155 ± 0.177 | **-0.255 ± 0.192** | 395 |
+| 50/25/12/6/3/2/1/1 (points out of 100) | 23.636 | -0.250 ± 1.166 | -1.223 ± 1.231 | 366 |
+
+F stays first under both tables; every member already prices all-ins from `Rules.payouts` (hybrid/core3.py). The
+cost is time: the exact ICM under a non-linear table lifts F's p99 (R1 has it). S1 closed as a diagnostic; the payout
+tables stay as guards.
