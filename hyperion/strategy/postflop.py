@@ -210,6 +210,7 @@ class PostflopParams:
     size_read_rank_streets: int = 7  # bit mask of the streets the rank prior is used on (1 flop, 2 turn, 4 river)
     size_read_rank_by_street: bool = False  # the seat's size shares on this street only (not pooled over streets)
     size_read_rank_mix: float = 1.0  # the prior is this share of the rank slice plus the rest of SIZE_PRIOR's map
+    size_read_call_tier: int = 0  # the read turns a fold into a call only from this tier (2: a pair; not with air)
     # xr_shift: heads-up, nothing to call, the opponent checked to me on this street and its check-raise rate (prior
     # xr_prior worth xr_n0 chances) is at most xr_max: value-bet this many tiers thinner (a checked range with no
     # check-raises holds few strong hands)
@@ -844,6 +845,8 @@ class Postflop:
                     self.last = "size_raise"
                     return self._bet(spot, p.raise_size, eq=eq_r)
                 gap = (1.0 - w) * (pot_odds + margin - eq) + w * (pot_odds + p.size_read_margin - eq_r)
+                if gap <= 0.0 and tier < p.size_read_call_tier and eq < pot_odds + margin:
+                    gap = 1.0  # too weak for the read to call where F's own rule folds
                 if gap <= 0.0:
                     eq_g = (1.0 - w) * eq + w * eq_r
                     self.last = "size_call"
