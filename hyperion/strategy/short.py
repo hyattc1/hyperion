@@ -100,6 +100,11 @@ class ShortParams:
         self.post = True  # play heads-up pots postflop
         self.post_alive = 2  # ... only with at most this many alive
         self.three = True  # play three-handed preflop (tables/short_3.json)
+        self.three_max = 1000.0  # ... only while the effective stack is at most this many big blinds
+        # preflop goes back to F while an opponent alive 3-bets our opens at least this often (rival 3's core's read in
+        # the base, v3n / v3o smoothed toward 0.12 with 8 chances): a 3-bettor far above equilibrium (exploiter 1
+        # min-3-bets any two) meets F's 3-bet defence (r3.v3_defend) instead of tables solved for a balanced 3-bettor
+        self.defer_3bet = 0.4
         self.flop_size = 0.5
         self.turn_size = 0.66
         self.river_size = 0.75
@@ -170,12 +175,20 @@ class ShortMember:
         return a
 
     # ------------------------------------------------------------------ routing
-    def wants(self, obs: Observation, prof) -> bool:
+    def wants(self, obs: Observation, prof, base=None) -> bool:
         """This decision is ours: the hand maps onto our tables / heads-up postflop, and no opponent alive reads as a
-        clear leak (module doc)."""
+        clear leak (module doc). `base`: the composite's base member, whose rival 3 core keeps the 3-bet read."""
         self.light_observe(obs)
         stacks, bets, in_hand = obs.stacks, obs.bets, obs.in_hand
         alive = [j for j in range(len(stacks)) if stacks[j] + bets[j] > 0 or in_hand[j]]
+        if obs.street == 0 and base is not None and self.p.defer_3bet < 1.0:
+            core = getattr(base, "core", None)
+            v3o, v3n = getattr(core, "v3o", None), getattr(core, "v3n", None)
+            if v3o is not None:
+                for j in alive:
+                    if j != obs.seat and j < len(v3o):
+                        if (v3n[j] + 0.96) / (v3o[j] + 8.0) >= self.p.defer_3bet:
+                            return False
         if prof is not None and self.defer:
             for j in alive:
                 if j != obs.seat:
@@ -188,7 +201,8 @@ class ShortMember:
             if len(alive) == 2:
                 return self._hu_node(obs) is not None
             if len(alive) == 3 and self.t3 is not None:
-                return self._three_node(obs) is not None
+                got = self._three_node(obs)
+                return got is not None and got[4] <= self.p.three_max * (obs.blinds[1] or 1)
             return False
         if not self.p.post or len(alive) > self.p.post_alive:
             return False

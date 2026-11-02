@@ -586,7 +586,7 @@ class CompositeCore:
                     hi = self._hero_idx
                     prof = getattr(self.members[hi], "prof", None) if hi >= 0 else None
                     try:
-                        ok = self.members[si].wants(obs, prof)
+                        ok = self.members[si].wants(obs, prof, self.base)
                     except Exception:  # noqa: BLE001 - a slip in the read keeps F's route
                         ok = False
                         counts["short:error"] += 1
