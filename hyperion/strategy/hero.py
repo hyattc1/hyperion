@@ -91,6 +91,72 @@ def icm_me(stacks, me: int, payouts) -> float:
         return pays[0] - step * acc
     m = len(opp)
     total = float(mine + sum(opp))
+    size, low, prev, cnt, succ = _icm_plan(m)
+    dp = [0.0] * size
+    held = [0.0] * size
+    dp[0] = 1.0
+    out = 0.0
+    for mask in range(size):
+        if mask:
+            held[mask] = held[prev[mask]] + opp[low[mask]]
+        pr = dp[mask]
+        if pr == 0.0:
+            continue
+        rem = total - held[mask]
+        out += pr * mine / rem * pays[cnt[mask]]
+        q = pr / rem
+        for nb, j in succ[mask]:
+            dp[nb] += q * opp[j]
+    return out
+
+
+# The forward pass's bookkeeping depends only on the number of opponents m, so it is built once per m (here, at import:
+# never inside a timed act()): for each subset mask, its lowest member, the mask without it, its size, and the masks it
+# extends to with their new member, in the order the pass adds them. Same float operations in the same order as the
+# loop it replaced (`_icm_me_ref`, kept for the test that they agree exactly), about half the time (R1: 49 -> 25 us at
+# eight seats; docs/drills/r1-timing-log.md).
+_ICM_PLANS: dict = {}
+
+
+def _icm_plan(m: int):
+    p = _ICM_PLANS.get(m)
+    if p is None:
+        size = 1 << m
+        low, prev, cnt, succ = [0] * size, [0] * size, [0] * size, [()] * size
+        for mask in range(size):
+            if mask:
+                lb = mask & -mask
+                low[mask] = lb.bit_length() - 1
+                prev[mask] = mask ^ lb
+                cnt[mask] = cnt[mask ^ lb] + 1
+            succ[mask] = tuple((mask | (1 << j), j) for j in range(m) if not mask & (1 << j))
+        p = _ICM_PLANS[m] = (size, low, prev, cnt, succ)
+    return p
+
+
+for _m in range(1, 12):  # up to twelve seats
+    _icm_plan(_m)
+
+
+def _icm_me_ref(stacks, me: int, payouts) -> float:
+    """icm_me's forward pass as first written (one bit test per opponent per subset): the reference the tests hold
+    icm_me to, bit for bit."""
+    mine = stacks[me]
+    if mine <= 0:
+        return 0.0
+    opp = [s for i, s in enumerate(stacks) if i != me and s > 0]
+    k = len(opp) + 1
+    pays = [float(x) for x in payouts[:k]] + [0.0] * max(0, k - len(payouts))
+    if k == 1:
+        return pays[0]
+    step = _linear_step(pays)
+    if step is not None:
+        acc = 0.0
+        for s in opp:
+            acc += s / (mine + s)
+        return pays[0] - step * acc
+    m = len(opp)
+    total = float(mine + sum(opp))
     size = 1 << m
     dp = [0.0] * size
     held = [0.0] * size
@@ -252,6 +318,12 @@ class Config:
     deadline_ms: float = 0.5
     panic_after: int = 5
     panic_rate: float = 0.02  # ... and at least this share of calls overran
+    # SafeBot's governor (hyperion/strategy/safe.py, backlog R1; all off = the single cliff): Hero has no intermediate
+    # levels, so a ladder is the cliff; window and recover still apply
+    panic_window: int = 0
+    panic_ladder: bool = False
+    panic_recover: int = 0
+    panic_backoff: float = 2.0
     seed: int | None = None  # postflop frequency RNG; None = nondeterministic
 
     @staticmethod
@@ -1006,8 +1078,12 @@ class Hero:
     """SafeBot around HeroCore. `hero.safe.stats()` has errors / overruns / worst latency."""
 
     def __init__(self, config: Config | None = None, tables: Tables | None = None):
+        from .safe import governor
+
         self.core = HeroCore(config, tables)
-        self.safe = SafeBot(self.core, self.core.cfg.deadline_ms, self.core.cfg.panic_after, self.core.cfg.panic_rate)
+        c = self.core.cfg
+        self.safe = SafeBot(self.core, c.deadline_ms, c.panic_after, c.panic_rate,
+                            governor(c.panic_window, c.panic_ladder, c.panic_recover, c.panic_backoff))
 
     @classmethod
     def cheap(cls, tables: Tables | None = None) -> "Hero":

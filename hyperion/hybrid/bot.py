@@ -38,7 +38,7 @@ from ..core.types import Action, HandResult, Observation, Rules
 from ..strategy.hero import Config, HeroCore, config_from_dict
 from ..strategy.safe import SafeBot
 from .dials import Rival3Knobs
-from .kit import KitView, SoftDeadline, from_kit
+from .kit import KitView, LeanICM, SoftDeadline, from_kit
 
 # HybridConfig.core -> (module, class) of the decision core behind the shell. Imported on first use, so a package that
 # ships one core never loads the other: rival 2's module runs a Monte Carlo and gc.freeze() at import (1.2 s on a quiet
@@ -73,6 +73,12 @@ class HybridConfig:
     deadline_ms: float = 0.5
     panic_after: int = 5
     panic_rate: float = 0.02
+    # SafeBot's governor (hyperion/strategy/safe.py, backlog R1; all off = the single cliff); the one intermediate
+    # level is lean (set_level): under payouts with no closed form, exact-ICM decisions go to Hero
+    panic_window: int = 0
+    panic_ladder: bool = False
+    panic_recover: int = 0
+    panic_backoff: float = 2.0
     # payoff and information terms the core has no place for: Hero plays those tables
     hero_on_bounty: bool = True
     hero_on_exposed: bool = True
@@ -265,6 +271,17 @@ class HybridCore:
         if on:
             self._hero_lazy(False)
 
+    def set_lean(self, on) -> None:
+        """A lean level (SafeBot's governor, backlog R1): decisions the core would price with exact ICM go to Hero."""
+        lean = getattr(self.core, "lean", None)
+        if lean is not None:
+            self.core.lean = bool(on)
+
+    levels = 1  # SafeBot's ladder: level 1 is lean (set_level), then panic
+
+    def set_level(self, n: int) -> None:
+        self.set_lean(n >= 1)
+
     def act(self, obs: Observation) -> Action:
         ex = self.ex
         if ex is None:
@@ -314,6 +331,8 @@ class HybridCore:
             if ans is None:  # the core declined (rival 3 does when the move it wants is not legal): Hero decides
                 return self._hero(obs, "hero:core_none")
             a = from_kit(self.core.legalize(ans, kit), obs)
+        except LeanICM:
+            return self._hero(obs, "hero:lean")
         except SoftDeadline:
             return self._hero(obs, "hero:soft_deadline", cheap=True)
         except Exception:  # noqa: BLE001 - the core's failure is Hero's decision, never a forced fold
@@ -380,9 +399,12 @@ class Hybrid:
     worst latency; `hybrid.core.counts` has the decisions by route."""
 
     def __init__(self, config: HybridConfig | None = None):
+        from ..strategy.safe import governor
+
         self.core = HybridCore(config)
         cfg = self.core.cfg
-        self.safe = SafeBot(self.core, cfg.deadline_ms, cfg.panic_after, cfg.panic_rate)
+        self.safe = SafeBot(self.core, cfg.deadline_ms, cfg.panic_after, cfg.panic_rate,
+                            governor(cfg.panic_window, cfg.panic_ladder, cfg.panic_recover, cfg.panic_backoff))
 
     @property
     def config(self) -> HybridConfig:

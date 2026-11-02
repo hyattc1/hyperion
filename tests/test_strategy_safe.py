@@ -92,3 +92,105 @@ def test_safe_action_on_broken_observation():
     assert safe_action(NoLegal()) == Action.fold()
     obs = make_obs(legal=frozenset({ActionKind.CALL}))
     assert safe_action(obs) == Action.call()
+
+
+class Timed:
+    """Each act() reports `cost` seconds on SafeBot's clock (patched), and records the levels it is told."""
+
+    levels = 2
+
+    def __init__(self):
+        self.cost = 0.0
+        self.panic = False
+        self.level = 0
+        self.seen = []
+
+    def new_table(self, *a):
+        pass
+
+    def set_panic(self, on):
+        self.panic = on
+
+    def set_level(self, n):
+        self.level = n
+        self.seen.append(n)
+
+    def act(self, obs):
+        _CLOCK[0] += self.cost
+        return Action.check()
+
+    def hand_end(self, r):
+        pass
+
+
+_CLOCK = [0.0]
+
+
+def _gov_bot(monkeypatch, **kw):
+    from hyperion.strategy import safe as S
+
+    monkeypatch.setattr(S, "perf_counter", lambda: _CLOCK[0])
+    inner = Timed()
+    return inner, SafeBot(inner, 0.5, 5, 0.02, S.governor(**kw))
+
+
+def test_default_governor_is_none_and_the_cliff_is_unchanged():
+    from hyperion.strategy.safe import Governor, governor
+
+    assert governor() is None and not Governor().active
+    assert SafeBot(Returns(Action.check())).gov is None
+
+
+def test_ladder_steps_one_level_per_trigger_then_panics(monkeypatch):
+    inner, bot = _gov_bot(monkeypatch, ladder=True)
+    obs = make_obs(street=1, board="Ah Kd 2c")
+    inner.cost = 0.0006  # over the 0.5 ms soft deadline every call
+    for _ in range(5):
+        bot.act(obs)
+    assert bot.degrade_level == 1 and inner.level == 1 and not bot.panic_mode
+    for _ in range(5):
+        bot.act(obs)
+    assert bot.degrade_level == 2 and inner.level == 2 and not inner.panic
+    for _ in range(5):
+        bot.act(obs)
+    assert bot.panic_mode and inner.panic and bot.degrade_level == 3 and bot.level_max == 3
+
+
+def test_window_ignores_scattered_overruns(monkeypatch):
+    inner, bot = _gov_bot(monkeypatch, window=50)
+    obs = make_obs(street=1, board="Ah Kd 2c")
+    for i in range(400):  # one overrun every 20 calls: never five in fifty
+        inner.cost = 0.0006 if i % 20 == 0 else 0.0001
+        bot.act(obs)
+    assert bot.overruns == 20 and not bot.panic_mode
+    for _ in range(5):  # a burst of five
+        inner.cost = 0.0006
+        bot.act(obs)
+    assert bot.panic_mode
+
+
+def test_recover_steps_back_up_with_backoff(monkeypatch):
+    inner, bot = _gov_bot(monkeypatch, recover=30, backoff=2.0)
+    obs = make_obs(street=1, board="Ah Kd 2c")
+    inner.cost = 0.0006
+    for _ in range(5):
+        bot.act(obs)
+    assert bot.panic_mode
+    inner.cost = 0.0001
+    for _ in range(29):
+        bot.act(obs)
+    assert bot.panic_mode
+    bot.act(obs)
+    assert not bot.panic_mode and not inner.panic and bot.degrade_level == 0
+    inner.cost = 0.0006
+    for _ in range(5):
+        bot.act(obs)
+    assert bot.panic_mode
+    inner.cost = 0.0001
+    for _ in range(59):
+        bot.act(obs)
+    assert bot.panic_mode  # the second recovery needs 60 quiet calls
+    bot.act(obs)
+    assert not bot.panic_mode
+    bot.new_table(Rules(), 0, 8)
+    assert bot.degrade_level == 0 and bot._need == 30 and inner.level == 0

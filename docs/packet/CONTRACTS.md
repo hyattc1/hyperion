@@ -157,6 +157,10 @@ The shell, flat keys (hybrid3_x sets `core` 'rival3' and `exploit` 'hero'; `chea
 | `deadline_ms` | 0.5 |
 | `panic_after` | 5 |
 | `panic_rate` | 0.02 |
+| `panic_window` | 0 |
+| `panic_ladder` | False |
+| `panic_recover` | 0 |
+| `panic_backoff` | 2.0 |
 | `hero_on_bounty` | True |
 | `hero_on_exposed` | True |
 | `hero_on_three_cards` | True |
@@ -373,6 +377,10 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `deadline_ms` | 0.5 |
 | `panic_after` | 5 |
 | `panic_rate` | 0.02 |
+| `panic_window` | 0 |
+| `panic_ladder` | False |
+| `panic_recover` | 0 |
+| `panic_backoff` | 2.0 |
 | `seed` | None |
 
 ## Commands
