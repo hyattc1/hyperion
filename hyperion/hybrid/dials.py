@@ -37,6 +37,10 @@ class Rival3Knobs:
                                    "all-in by ICM")
     call_margin: float = _dial(0.002, "points a committing call must beat folding by: higher = fewer stack-off calls")
     three_bet_scale: float = _dial(1.0, "multiplies the deep value 3-bet range: below 1 tighter")
+    # bounty tables (MIT 2025), where the core plays only with `base.hero_on_bounty` off: as built it is blind to them
+    bounty: float = _dial(0.0, "share of my bounty's expected chips (the house pays (ratio - 1) x the net win + constant "
+                               "when my bounty rank is in my hand or on the board) added to the winning branches of "
+                               "every all-in price: 1 = all of it, 0 = rival 3 as built")
     # postflop
     bluff_scale: float = _dial(1.0, "multiplies the chance of every bluff and semi-bluff, the flop continuation bet "
                                     "included")

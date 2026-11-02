@@ -161,3 +161,63 @@ def test_the_generator_scores_the_short_deck_showdown():
     finally:
         T._init_worker(T.rules_to_dict(Rules()))
     assert not T._FOF and not T._LOW6
+
+
+def test_r3_bounty_is_off_by_default_and_prices_the_bounty_in_the_cores_all_ins():
+    from hyperion.hybrid.bot import HybridCore, hybrid_config
+
+    off = HybridCore(hybrid_config({"core": "rival3", "hero_on_bounty": False}))
+    off.new_table(V.bounty().rules, 0, 8)
+    assert off._table_why is None and off._bounty is None
+    on = HybridCore(hybrid_config({"core": "rival3", "hero_on_bounty": False, "r3.bounty": 1.0}))
+    on.new_table(V.bounty().rules, 0, 8)
+    assert on._bounty == (0.5, 10.0, 1.0)
+    plain = HybridCore(hybrid_config({"core": "rival3", "r3.bounty": 1.0}))
+    plain.new_table(Rules(), 0, 8)
+    assert plain._bounty is None
+    held = on._bounty_price(_obs("7c 2d", "", street=0, extras={"bounties": {0: 5}}))
+    assert held == (1.0, True, 0.5, 10.0, 1.0)
+    p, steal, *_ = on._bounty_price(_obs("Qc 2d", "", street=0, extras={"bounties": {0: 5}}))
+    assert not steal and 0.3 < p < 0.4  # a 7 on a five-card board
+    core = on.core
+    stacks, bets, inh = [1000] * 8, [0] * 6 + [10, 20], [True] * 8
+    stacks[6], stacks[7] = 990, 980
+    core._bounty = None
+    f0, s0, w0, l0 = core._allin(stacks, bets, inh, 0, 7, 0, 8)
+    core._bounty = held
+    f1, s1, w1, l1 = core._allin(stacks, bets, inh, 0, 7, 0, 8)
+    assert (f1, l1) == (f0, l0) and s1 > s0 and w1 > w0
+
+
+def test_bounty_hands_are_scored_with_the_bounties_their_players_were_shown():
+    import dataclasses
+
+    from hyperion.sim.bestiary import ChartTAG
+    from hyperion.sim.engine import Table
+
+    class Seer(ChartTAG):
+        seen: dict = {}
+
+        def act(self, obs):
+            Seer.seen.setdefault(obs.hand_no, dict(obs.extras.get("bounties") or {}))
+            return super().act(obs)
+
+    v = V.bounty()
+    hooks = v.new_hooks()
+    scored = {}
+    real = hooks.on_payout
+
+    def spy(deltas, holes, board, hand_no, rules, rng):
+        out = real(deltas, holes, board, hand_no, rules, rng)
+        scored[hand_no] = dict(hooks.bounties)
+        return out
+
+    hooks.on_payout = spy
+    Seer.seen = {}
+    t = Table([Seer(s) for s in range(8)], dataclasses.replace(v.rules, max_hands=60), seed=3, variant=hooks)
+    while not t.done:
+        t.play_hand()
+    assert 0 in Seer.seen and 25 in Seer.seen and 50 in Seer.seen  # hands 0, 25, 50 show the block's new bounties
+    for h, b in Seer.seen.items():
+        assert b == scored[h], h
+    assert Seer.seen[0] != {} and Seer.seen[24] == Seer.seen[0]

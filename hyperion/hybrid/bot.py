@@ -226,6 +226,7 @@ class HybridCore:
         self.n = 8
         self._remap = None
         self._table_why: str | None = None
+        self._bounty = None
         self._straddle = False
         self._start: list = []  # exact chips per seat at the start of the current hand
         self._start_hand = 0  # 0-based hand number `_start` belongs to
@@ -239,6 +240,12 @@ class HybridCore:
         self._remap = None if is_identity_order(rules) else rules
         self._table_why = table_reason(rules, cfg)
         self._straddle = bool(rules.straddle)
+        ex = rules.extras or {}
+        self._bounty = None  # (ratio - 1, constant, the r3.bounty dial) where the core plays a bounty table priced
+        if self._table_why is None and cfg.r3.bounty > 0.0 and (
+                "bounty_ratio" in ex or "bounty_funding" in ex or ex.get("variant") == "bounty"):
+            self._bounty = (float(ex.get("bounty_ratio", 1.5)) - 1.0, float(ex.get("bounty_constant", 10)),
+                            float(cfg.r3.bounty))
         self.hero.new_table(rules, seat, n_players)
         self._hero_lazy(self._table_why is None and not self._straddle and not self._cheap)
         if self.ex is not None:
@@ -325,6 +332,8 @@ class HybridCore:
             hole = self.core.best_two(hole)
             route = "core:best_two"
         self._core_hand = obs.hand_no
+        if self._bounty is not None:
+            self.core._bounty = self._bounty_price(obs)
         try:
             kit = self.kit(obs, hole, board)
             ans = self.core.decide(kit, t0)
@@ -342,6 +351,29 @@ class HybridCore:
         self.counts[route] += 1
         COUNTS[route] += 1
         return a
+
+    def _bounty_price(self, obs: Observation):
+        """The core's bounty term for this decision (Rival3Core._bounty): my bounty rank in hand pays on a steal and on
+        any win; else it pays on a win only if it lands on the board (the chance the cards still to come bring it)."""
+        b = (obs.extras or {}).get("bounties") or {}
+        r = b.get(obs.seat)
+        if r is None:
+            r = b.get(str(obs.seat))
+        if r is None:
+            return None
+        k, const, share = self._bounty
+        held = any((c >> 2) == r for c in obs.hole)
+        if held or any((c >> 2) == r for c in obs.board):
+            p = 1.0
+        else:
+            rules = self.rules
+            to_come = rules.board_sizes[-1] - len(obs.board)
+            unseen = rules.deck_size - len(obs.hole) - len(obs.board)
+            p_none = 1.0
+            for i in range(to_come):
+                p_none *= (unseen - rules.n_suits - i) / (unseen - i)
+            p = 1.0 - p_none
+        return (p, held, k, const, share)
 
     def _hero(self, obs: Observation, why: str, cheap: bool = False) -> Action:
         self.counts[why] += 1

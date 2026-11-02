@@ -25,9 +25,11 @@ permuted `rank_order` the label `AKs` still means the cards printed A and K.
 | `auction_bid.json` | `{"d": {opponents: {"tier,outs": {n, e_win, e_lose, e_two, d}}}}` | the `auction` entry only: what a third hole card is worth on the flop, by Hero's flop read (tier 0..8, outs bucket 0 / 1-4 / 5-8 / 9+) and 1..4+ opponents. `d = e_win - e_lose`, my pot share when I win the card minus when a rival does, both on the same runout; Hero bids `d x pot / (1 - d)` (`HeroCore._bid`). `tools/gen_auction.py`, 2,000,000 samples per opponent count, ~40 s on two workers. |
 
 Rules extras the generator understands: `removed_ranks` (displayed rank indexes removed from the
-deck, short deck) and `keep` (showdown uses the best `keep` hole cards, a perfect-hindsight discard,
-for Toss or Hold'em). It does not reorder hand categories (short-deck flush over full house): that
-lives in `hyperion.drills.variants.ShortDeckHooks.score_hand` and the engine has to use it.
+deck, short deck), `keep` (showdown uses the best `keep` hole cards, a perfect-hindsight discard,
+for Toss or Hold'em), and since 2026-11-02 `category_order: flush_over_full_house` and `low_straight: A6789`
+(the short deck's showdown, as `hyperion.drills.variants.ShortDeckHooks.score_hand` scores it). The sets on disk
+before that date (`tables/variants/short_deck/`) were generated with hold'em's order and without A-6-7-8-9;
+`tables/variants/short_deck_v2/` is the short deck regenerated with them (Hero's `variant_tables` dial).
 
 Precision at the defaults: preflop equity standard error ~0.35% (20000 samples per class per
 opponent count), matrix ~0.7% per cell. The strategy's `tables.py` falls back to building small

@@ -286,9 +286,20 @@ class BountyHooks(VariantHooks):
     def __init__(self, ratio: float = 1.5, constant: int = 10, rounds_per_bounty: int = 25):
         self.ratio, self.constant, self.rounds = ratio, constant, rounds_per_bounty
         self.bounties: dict[int, int] = {}
+        self._hand = 0  # hands dealt at this table
+
+    def on_deal(self, holes, deck, rng):
+        # drawn when the block's first hand is dealt, so every hand is scored with the bounties its players were shown
+        # (MIT 2025 tells each player its bounty at the start of the round). Until 2026-11-02 they were drawn at the
+        # payout of hands 0, 25, 50 ...: hand 0 showed none and hands 25, 50 ... showed the old ones; the same draws
+        # from the same RNG, so every other hand is unchanged
+        if self._hand % self.rounds == 0 or not self.bounties:
+            self.bounties = {s: rng.randrange(13) for s in range(len(holes))}
+        self._hand += 1
+        return holes
 
     def on_payout(self, deltas, holes, board, hand_no, rules, rng):
-        if hand_no % self.rounds == 0 or not self.bounties:
+        if not self.bounties:
             self.bounties = {s: rng.randrange(13) for s in range(len(deltas))}
         out = list(deltas)
         board_ranks = {c >> 2 for c in board}
@@ -866,9 +877,11 @@ def short_deck() -> Variant:
         breaks=(
             "Rules has no field for removed ranks, so this lives in extras['removed_ranks']; the engine and "
             "gen_tables honour it (classes with removed ranks vanish, equities shift up for pairs and down for "
-            "suited connectors), but the generator's evaluator still orders flush below full house and misses "
-            "A6789, so every table is slightly wrong at the top of the distribution; the sim's showdown uses "
-            "ShortDeckHooks.score_hand. Flop textures change meaning: 'connected' is almost every flop. "
+            "suited connectors). Since 2026-11-02 the generator also scores flush over full house and A6789 "
+            "(category_order, low_straight); tables/variants/short_deck/ predates that (and 4,000 samples), "
+            "tables/variants/short_deck_v2/ has both plus a multiway push/fold solve (Hero's variant_tables dial). "
+            "The sim's showdown uses ShortDeckHooks.score_hand. Flop textures change meaning: 'connected' is "
+            "almost every flop. "
             "Strategy: pairs and sets are stronger, flushes rarer and stronger, straight draws much more live "
             "(16 outs instead of 8 for an open-ender)."
         ),
@@ -882,7 +895,8 @@ def short_deck() -> Variant:
         needs_engine=True,
         tables_to_rerun=("preflop_equity", "preflop_rank", "hu_matrix", "flop_strength"),
         axis="ranking", tables="approximate",
-        tables_note="36-card deck; generator keeps hold'em category order and misses A6789 (top of the distribution off)",
+        tables_note="36-card deck; this set keeps hold'em category order and misses A6789 (top of the distribution "
+                    "off); short_deck_v2 (variant_tables dial) has the short deck's own showdown",
         config_patch={"postflop.value_tier": 3, "preflop.open_frac_default": 0.14},
     )
 

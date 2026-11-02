@@ -84,6 +84,9 @@ class Rival3Core(R3.Bot):
     its raw ('kind', amount) answer, or None where it declines (as built it would then fold; the caller asks Hero)."""
 
     payouts = (8, 7, 6, 5, 4, 3, 2, 1)
+    # bounty tables with the `r3.bounty` dial: (P(the bounty pays if I win the all-in), whether it pays on a steal,
+    # ratio - 1, constant, the dial), set by HybridCore before each decision; None = rival 3 as built
+    _bounty = None
     soft_us = 350.0
     lean = False  # a lean level (HybridCore.set_lean): exact ICM gives the decision to Hero (LeanICM)
     exact_icm = False  # this table's payouts have no closed form from the third place down: icm_points is exact
@@ -397,6 +400,14 @@ class Rival3Core(R3.Bot):
         w[seat] = mytot + c + dead_other
         w[opp] = tot[opp] - c
         ev_win = icm_points(w, seat, pays)
+        b = self._bounty
+        if b is not None:  # the house's bounty on what I take from the others: in the steal and the win
+            p_win, on_steal, k, const, share = b
+            w[seat] += share * p_win * (k * (c + dead_other) + const)
+            ev_win = icm_points(w, seat, pays)
+            if on_steal:
+                st[seat] += share * (k * (pot_all - bets[seat]) + const)
+                ev_steal = icm_points(st, seat, pays)
         lo = list(base)
         lo[seat] = mytot - c
         lo[opp] = tot[opp] + c + dead_other
