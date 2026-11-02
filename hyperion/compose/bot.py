@@ -50,6 +50,13 @@ Counted `level:<n>` once per decision played at level n > 0.
 
 Routes: a dict or "section=donor,..." (sections.parse_route: section names, "pre", "post", "*"). Unrouted sections go
 to the base's donor (`base`).
+
+**The strong-table route** (backlog S9, `strong_route`, off by default): sections played by other donors only while the
+table reads strong. The read is the share of our first-in, not all-in preflop raises this table that faced a re-raise
+before the flop, smoothed toward `strong_prior` with the weight of `strong_prior_n` raises; the table reads strong
+while it is at least `strong_rr` (0: always). At night's tables about 14% of F's opens are re-raised, at tables of
+strong general bots and copies of F 24-26% (docs/drills/climb/s9-log.md). Never in a blind-vs-blind unopened pot unless
+`strong_bvb`. Its donors' members run (and shadow) on every decision, like any routed member's.
 """
 from __future__ import annotations
 

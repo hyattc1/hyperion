@@ -96,6 +96,12 @@ dials that are off by default are added (tests/test_sim_mirror.py; the light-sha
 | candidate (sections pre_open_10, pre_3way, pre_hu to) | night | elite | elite_night | mirror |
 |---|---|---|---|---|
 | E1: elite1x | **-0.117 ± 0.074** | **+0.192 ± 0.084** | **+0.108 ± 0.069** | **+0.258 ± 0.088** |
+| R2: r2x (rival 2's core) | -0.052 ± 0.067 | **+0.194 ± 0.078** | **+0.134 ± 0.061** | **+0.225 ± 0.085** |
+| E2: elite2x | **-0.076 ± 0.065** | **+0.183 ± 0.083** | **+0.123 ± 0.059** | **+0.242 ± 0.077** |
+
+All three strong builds' play gains about the same at strong tables, so the gain is in leaving rival 3's core's way in
+these sections, whichever strong bot replaces it; and F's own way is worth more on night, where its wide min-raise
+steals take what weak seats give away.
 
 E1 is the size of the prize: at every strong table F plays elite1's way in those three sections and gains 0.1-0.26
 points, which takes F from 2nd to 1st on elite (4.87 vs rival 2's 4.91 on the diagnostic seeds) and from last to 2nd
@@ -104,3 +110,66 @@ on the mirror. It loses on night: elite1's tighter opens give up F's profitable 
 Latency: as a full shadow on every decision elite1 adds about 26 us a decision (latency.py at load 10: mean 62 -> 88
 us, p99 258 -> 358). With its light shadow (scan the history only; e3a7d6f) the cost is 62.4 -> 65.9 us mean, p99
 within noise (150 vs 241 at load 10). The light shadow plays exactly as the full one (test).
+
+## 4. A gate by the table's observed play
+
+The leak's mechanism is F's first-in raise being re-raised. How often that happens (s9_rr.py, seeds 8400-8419 x 8,
+F's non-all-in first-in preflop raises; overall / three-handed / heads-up):
+
+| field | re-raised | 3 alive | 2 alive |
+|---|---|---|---|
+| night | 13.7% | 15.0% | 8.2% |
+| night_hard | 16.7% | 19.4% | 12.5% |
+| realistic | 11.9% | 12.0% | 9.7% |
+| top | 20.4% | 23.1% | 24.6% |
+| elite_night | 18.1% | 21.8% | 20.5% |
+| elite | 24.0% | 31.2% | 32.2% |
+| mirror | 25.9% | 49.0% | 31.6% |
+
+So the composite's new `strong_route` (c833522) plays the named sections with the named donors only while the share
+of our first-in raises re-raised this table, smoothed toward 0.15 with the weight of 10 raises, is at least
+`strong_rr`. One value, chosen before any gated run, halfway between night's 14% and the strong fields' 24-26%:
+**strong_rr 0.2**. At night's tables the read mostly stays under it; against seats that re-raise our opens (strong
+bots, push/fold and loose-aggressive seats, an exploiter) it opens, which is where F's min-raises lose.
+
+## 5. Scope change (coordinator, 05:45): heads-up and three-handed preflop go to S11
+
+A second exploiter found F's short-handed leaks (docs/drills/exploiter2/FINDINGS.md on main); S11
+(climb/s11-exploiter2-fixes) fixes blind-vs-blind and heads-up preflop, bet-size tells, check-raises and the big
+blind's folds. So the three-handed and heads-up findings above are recorded for S11, not fixed here:
+- **pre_3way** (elite): F +0.018 bb a decision against rival2 +0.238, elite2 +0.272, elite1 +0.356; F raises first in
+  45% and folds 34% of those raises to a re-raise (rival2 13% / 18%, elite2 23% / 22%, elite1 19% / 17%). Mirror the
+  same: F +0.083 vs +0.27 to +0.44, F's raises folded 44%.
+- **pre_hu** (elite): F +0.072 vs +0.196 / +0.319 / +0.248; F raises 46%, folds 32% of them (elite2 28% / 16%).
+  Mirror: F -0.007 vs +0.23 to +0.32, F's raises folded 46%.
+- Routing pre_3way and pre_hu with pre_open_10 to any strong build was worth most of E1/R2/E2's strong-table gain
+  (the split was not run after the scope change; G1, the gated version of E1, was stopped unfinished).
+
+This worker's fix is now **pre_open_10 only** (unopened, 4+ alive, 10-20 bb: 4-8-handed short-stack opens), and the
+strong route never plays a blind-vs-blind unopened pot (`strong_bvb` off; 372fddc), about 12% of pre_open_10's
+decisions on elite. Secondary in-scope leak: pre_open_short (unopened, 4+ alive, under 10 bb), F +0.161 vs +0.20 to
++0.36 (elite), +0.117 vs +0.20 to +0.54 (mirror).
+
+Variants: elite1 plays only on tables the base plays as plain hold'em (it is a raw rival: elsewhere the composite falls
+back to the base). One table per catalogued entry with the route open: elite1 decides in swap_holdem, swap_one_turn,
+bonus_card, auction, top_heavy, pot_limit, antes_from_level_3 and fast_schedule, and never in the other 17, where the
+candidate therefore plays exactly as F. The variants screen runs those eight.
+
+## 6. pre_open_10 alone, gated (screen, confirm + elite, 200 x 8, code 372fddc)
+
+| candidate | night | elite | elite_night | mirror |
+|---|---|---|---|---|
+| G2: strong_route pre_open_10=elite1x, strong_rr 0.2 (no blind-vs-blind) | -0.017 ± 0.030 | +0.040 ± 0.047 | **+0.048 ± 0.037** | **+0.098 ± 0.062** |
+
+The gate keeps night level (E1's three sections ungated were -0.117) and the change is up beyond noise on two of the
+three strong fields. The gain is smaller than E1's because the three-handed and heads-up sections (most of E1's) are
+now S11's.
+| U2: the same, ungated (strong_rr 0) | -0.056 ± 0.062 | **+0.099 ± 0.080** | +0.053 ± 0.062 | **+0.165 ± 0.094** |
+
+Ungated, pre_open_10 alone gains about twice as much at the all-strong tables but costs on night by its point estimate
+(-0.056, an interval twice G2's), which 400 held-out seeds would likely show beyond noise. The gate is what lets the
+change hold on night: it is kept.
+| G3: G2 plus pre_open_short=elite1x (unopened, 4+ alive, under 10 bb) | -0.028 ± 0.033 | +0.047 ± 0.055 | +0.027 ± 0.040 | **+0.091 ± 0.071** |
+
+Adding the push-or-fold section buys nothing (elite_night loses its gain, night's point estimate drops): not kept.
+**G2 is the candidate.**

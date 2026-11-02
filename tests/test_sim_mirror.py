@@ -140,16 +140,26 @@ def _play(nm, dials, field="elite", offset=9302):
 
 
 def test_strong_route_gate(monkeypatch):
-    """The strong-table route: with the gate open (strong_rr 0) it plays as the same sections routed outright; with a
-    gate that never opens it plays as F; it reads our first-in raises and the re-raises they face."""
+    """The strong-table route: with the gate open (strong_rr 0) and blind-vs-blind pots allowed it plays as the same
+    sections routed outright, and without those pots (the default) it differs; with a gate that never opens it plays
+    as F; it reads our first-in raises and the re-raises they face."""
     _model(monkeypatch)
     secs = "pre_open_10=elite1x,pre_3way=elite1x,pre_hu=elite1x"
     routed = _play("s9_g_route", {"route": ROUTE_E1})
-    assert _play("s9_g_open", {"strong_route": secs}) == routed
+    assert _play("s9_g_open", {"strong_route": secs, "strong_bvb": True}) == routed
+    assert _play("s9_g_nobvb", {"strong_route": secs}) != routed
     f = _play("s9_g_f", {})
     assert _play("s9_g_shut", {"strong_route": secs, "strong_rr": 1.01}) == f
     assert routed != f
+    from hyperion.compose.bot import _bvb
+    from tests.strategy_helpers import preflop_obs
+
     core = CB.ship({"strong_route": secs, "strong_rr": 0.3}, seed=5).core
     assert core.strong is not None and core.strong_table() is False  # the prior (0.15) is under 0.3
     core._rr_n, core._rr_k = 10, 6
     assert core.strong_table() is True  # (6 + 1.5) / 20 = 0.375
+    # button 7: seat 0 is the small blind, seat 1 the big. Folded round to the small blind: blind against blind
+    folds = [(s, Action.fold()) for s in range(2, 8)]
+    assert _bvb(preflop_obs("AsAh", 0, actions=folds))
+    assert not _bvb(preflop_obs("AsAh", 7, actions=folds[:-1]))  # the button, both blinds still in
+    assert not _bvb(preflop_obs("AsAh", 0, actions=folds[:-1] + [(7, Action.raise_to(50))]))  # opened
