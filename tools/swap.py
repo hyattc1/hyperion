@@ -544,13 +544,19 @@ def _spec_bot(name: str, spec: dict) -> str:
 
 
 def _job_paired(args):
-    field, name, spec, off, n, pay, mode, as_built = args
+    field, name, spec, off, n, pay, mode, as_built = args[:8]
+    extra_rules = args[8] if len(args) > 8 else None
     setup_process(mode, as_built)
     from hyperion.core.types import Rules
     from hyperion.sim import bestiary as B
     from hyperion.sim.runner import run_tournament
 
     rules = Rules(payouts=PAYOUTS[pay]) if PAYOUTS[pay] else None
+    if extra_rules:  # --rules: Rules fields from a JSON file, on top of the payouts (a file's own payouts win)
+        kw = {"payouts": PAYOUTS[pay]} if PAYOUTS[pay] else {}
+        kw.update({k: tuple(tuple(x) if isinstance(x, list) else x for x in v) if isinstance(v, list) else v
+                   for k, v in extra_rules.items()})
+        rules = Rules(**kw)
     CB.COUNTS.clear()
     nm = _spec_bot(name, spec)
     l0 = os.getloadavg()[0]
@@ -570,13 +576,19 @@ def cmd_paired(a):
         specs = json.load(fh)
     names = list(specs)
     lo, hi = (int(x) for x in a.seeds.split(":"))
-    path = os.path.join(a.out, f"paired.{a.field}.{a.payouts}.{a.mode}.{lo}-{hi}.{a.tag}.json")
+    extra = None
+    rtag = ""
+    if a.rules:
+        with open(a.rules) as fh:
+            extra = json.load(fh)
+        rtag = "." + os.path.splitext(os.path.basename(a.rules))[0]
+    path = os.path.join(a.out, f"paired.{a.field}.{a.payouts}{rtag}.{a.mode}.{lo}-{hi}.{a.tag}.json")
     os.makedirs(a.out, exist_ok=True)
     done = {}
     if os.path.exists(path) and not a.force:
         with open(path) as fh:
             done = json.load(fh)["res"]
-    jobs = [(a.field, nm, specs[nm], off, min(a.chunk, hi - off), a.payouts, a.mode, a.as_built)
+    jobs = [(a.field, nm, specs[nm], off, min(a.chunk, hi - off), a.payouts, a.mode, a.as_built, extra)
             for off in range(lo, hi, a.chunk) for nm in names if str(off) not in done.get(nm, {})]
     res = {nm: dict(done.get(nm, {})) for nm in names}
     t0 = time.time()
@@ -586,7 +598,7 @@ def cmd_paired(a):
                 res[nm][str(off)] = o
     with open(path + ".tmp", "w") as fh:
         json.dump({"field": a.field, "seeds": a.seeds, "payouts": a.payouts, "mode": a.mode, "specs": specs,
-                   "as_built": a.as_built, "res": res, "secs": time.time() - t0}, fh)
+                   "as_built": a.as_built, "rules": extra, "res": res, "secs": time.time() - t0}, fh)
     os.replace(path + ".tmp", path)
     print(paired_table(path))
 
@@ -651,6 +663,8 @@ def main(argv=None):
     p.add_argument("--tag", default="run", help="paired: names the output file")
     p.add_argument("--mode", default="model", choices=("model", "strict"))
     p.add_argument("--as-built", action="store_true", help="paired: rival 2 keeps its wall-clock sampler")
+    p.add_argument("--rules", default=None, help="paired: a JSON file of Rules fields on top of --payouts (e.g. a "
+                                                 "blind schedule); its file name tags the output")
     a = p.parse_args(argv)
     if a.cmd == "table":
         print(paired_table(a.specs))
