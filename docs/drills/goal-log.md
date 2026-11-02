@@ -248,3 +248,16 @@ and (in judges) `elite_judge`.
 - H1 retired (robustness, V-b, FIN). H2 (21000-21399): FIN's toss_or_holdem replication, then V-b with the fix.
 - Exploiter 2 hung on a tool call after its baseline (heads-up: F with FIN 9.45, the baseline 7.56); restarted with
   its files.
+
+## 04:24: FIN passes addendum 7; S9 (strong tables) started; addendum 8 pre-registered
+- FIN's toss_or_holdem on H2 at 400 seeds: +0.009 ± 0.012 level; H1 and H2 pooled -0.000 ± 0.010, not down. FIN
+  passes the variants check; with addendum 6 it is accepted, pending the timing stage at batch close. It joins batch 3
+  with V-b (H2 running).
+- **Protocol addendum 8 (strong tables), written before any S9 result:** a change aimed at tables of strong general
+  bots (elite, elite_night and the new mirror field, where night's weak seats are absent) is accepted when on a
+  held-out set it is beyond noise up on at least one of those fields and beyond noise down on nothing: night, guards,
+  the other strong fields, variants (with addendum 7), and the judges at batch end, elite_judge first. Night need not
+  rise: it barely contains such tables.
+- S9 started (worktree goal/wt_s9, branch climb/s9-strong-tables): a mirror field (copies of F with the strongest
+  general bots), where F loses at all-strong tables (3rd, behind rival 2 and elite2) and why (it takes 1st 11-13%
+  against 15-24%), and fixes by section, adopting the better bot's section where it beats F.
