@@ -304,6 +304,17 @@ everyone kept their best two of five; `hero.keep_call_shift` 2 reads those calls
 `toss_or_holdem_aware` (vb's value shift moves bets only). Short deck: shove-call margins (`hero.variant_pushfold`, `variant_preflop` shove keys) are level;
 the deep flats (vb's `variant_preflop`) are the lever. Log: `docs/drills/vc-long-boards-log.md`.
 
+**2026-11-02, branch climb/vd-generic-aware: the honest board, F against seats that read any twist.** `gen_mc`,
+`gen_tag`, `gen_pushfold` (hyperion/sim/generic.py) deal, score and pay through the variant's own hooks with no
+per-twist code (a preflop table per variant dealt through the hooks, the hold'em charts applied to each hand's twin at
+the same percentile, made-share reads, runouts, variant decisions by type); validated level with the hand-built aware
+bots on toss, bounty, short deck and river of blood (better on toss) and with the plain archetypes on hold'em. F
+(`tools/aware_board.py`, `generic_aware` vs `realistic`, screen seeds 200 x 8) is **first on all 26** against them,
+but its lead shrinks beyond noise on three: lowball +3.13 -> +0.86, wild_deuces +1.73 -> +0.20, short_deck +0.78 ->
++0.28; elsewhere level. Those three, then the smallest leads (omaha_four +0.45, three_card_keep, hi_lo, two_boards
+about +0.5, fixed_raise +0.08 on both fields), are the variants track's targets. A new twist gets the field in one
+command (Stage 5). Log: `docs/drills/climb/vd-log.md`.
+
 22 READY, 1 PLAYS, 0 WEAK, 0 BROKEN as of 2026-10-31. hybrid3_x and Hero with the exploit layer
 are both 23 READY, first on 22 (final core comparison, 2026-11-01); on hybrid3_x Hero plays 14 of these tables
 whole and the core plays the other nine (permuted ranks, swaps, bonus card, antes, pot limit, fast schedule,
