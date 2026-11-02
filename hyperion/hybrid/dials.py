@@ -58,12 +58,13 @@ class Rival3Knobs:
     v3_min_rate: float = _dial(0.2, "the 3-bettor's estimated 3-bet rate from which the defence plays; under it, as "
                                     "built (tight: most seats rarely 3-bet)")
     v3_prior: float = _dial(0.08, "prior 3-bet rate of a seat facing an open")
-    v3_prior_n: float = _dial(8.0, "weight of that prior, in chances: lower moves sooner")
+    v3_prior_n: float = _dial(20.0, "weight of that prior, in chances: lower moves sooner (8 fired on two 3-bets of a "
+                                    "nit and lost on night)")
     v3_others_w: float = _dial(0.5, "weight of a chance to 3-bet another seat's open (one against our open counts 1)")
     v3_cont: float = _dial(0.04, "share of all hands a 3-bettor continues with against a 4-bet (about QQ+ and AK): "
                                  "its fold rate to a 4-bet is modelled as 1 - this / its 3-bet rate")
     v3_f4_n: float = _dial(4.0, "weight of that model against the 3-bettor's observed folds to 4-bets")
-    v3_f4_cap: float = _dial(1.0, "the model's fold rate to a 4-bet is at most this before folds are observed (a "
+    v3_f4_cap: float = _dial(0.6, "the model's fold rate to a 4-bet is at most this before folds are observed (a "
                                   "4-bet to 2.2x breaks even near 0.5: lower = no bluff 4-bets until it is seen "
                                   "folding)")
     v3_min_n: float = _dial(0.0, "chances to 3-bet (weighted) the 3-bettor must have shown in completed hands")
