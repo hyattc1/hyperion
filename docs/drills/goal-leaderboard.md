@@ -17,6 +17,11 @@ used for tuning:
 | outside (four fresh one-hour builds + night pool) | 5.418 | 5.281 (+0.137 ± 0.075) | 5.138 (+0.279 ± 0.086) |
 | outside_strong (the four + rivals 4, 5 + agent_pushfold) | 5.034 | 4.947 (+0.088 ± 0.088, level) | 4.805 (+0.229 ± 0.091) |
 
+**Against prepared top teams** (the elite field, three fresh builds told to make the strongest general bot; 150 seeds,
+every seat ranked): F is 1st in a night room with two of them (5.35 vs 5.18) and 1st in the held-out strongest room
+(4.93 vs 4.81), but 3rd at a table of only strong bots (4.67, behind rival 2 4.83 and elite 2 4.70, inside noise of
+elite 2). It wins 1st place less often than they do.
+
 **Against the exploiter** (a bot built to beat F from the black box), F loses: 8-max 5.065 vs 5.255, heads-up 8.071
 vs 8.929. The fixes are in progress (S2).
 

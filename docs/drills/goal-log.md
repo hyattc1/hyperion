@@ -179,3 +179,16 @@ in a night room) are tuning fields; `elite_judge` (elite3, elite1, elite2, rival
 is a judge. All three bots were reseeded per table from the seat seed (they used unseeded generators; elite2 seeded
 from the time of day); elite3 plays at a fixed speed in model mode (8 us per clock read). climb_accept stages `elite`
 and (in judges) `elite_judge`.
+
+## 01:41: F against the elite field (diagnostic, 150 seeds x 8, model, every seat ranked)
+| field | 1 | 2 | 3 | F |
+|---|---|---|---|---|
+| elite (top table: elite1, elite2, rivals 1-3, agent_pushfold, agent_default) | rival2 4.829 | elite2 4.699 | **F 4.665** | 3rd, level with elite2 (± 0.12) |
+| elite_night (elite1, elite2 + five night seats) | **F 5.349** | elite2 5.180 | elite1 4.883 | 1st |
+| elite_judge (elite3 held out + elite1, elite2, rivals 4, 5, two outside builds) | **F 4.930** | elite2 4.806 | rival4 4.606 | 1st |
+
+- At a table of only strong bots F is level with the best, not ahead. elite2 is the strongest elite build in every room.
+- F takes 1st place 11-13% of the time at these tables against 15-24% for the elite builds, and makes it up with more
+  3rd-5th places: a survival profile that fits 8..1 points and fits a top-heavy table (35% likely) worse.
+- Backlog: **S8** the elite tuning fields join the strength screens (climb_accept --stages elite); **S10** first-place
+  conversion at strong tables under top-heavy payouts (endgame and heads-up, overlapping S2's heads-up fixes).
