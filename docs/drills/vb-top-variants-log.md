@@ -225,8 +225,8 @@ on 10000-10024 equal the stage's cached candidate). So: no entry beyond noise do
 
 ## 9. Checks
 
-- Full suite on the rebased tree (before the fixed-limit / must-use gate): **985 passed, 1 skipped** in 210 s; after
-  the gate tests/test_vb_dials.py again (11 passed).
+- Full suite on the final tree (ee1d2e8, the fixed-limit / must-use gate in): **985 passed, 1 skipped** in 192 s (and
+  985 passed before the gate).
 - Default play: every new dial is off by default (tested); plain hold'em with the candidate's dials on is
   bit-identical (section 6); the toss hook's acting order and prompt key leave every non-reading bot's play
   identical (section 1). The bounty hook's timing fix is the one deliberate change of default play (bounty only).
