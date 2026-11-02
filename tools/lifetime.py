@@ -264,7 +264,7 @@ def main(argv=None) -> int:
         if i == a.tracemalloc:
             import tracemalloc
 
-            tracemalloc.start(8)
+            tracemalloc.start(1)
             tm0 = tracemalloc.take_snapshot()
         table_seed, names = swap.seating(f"{a.field}@lifetime_one", i)
         rot = i % 8

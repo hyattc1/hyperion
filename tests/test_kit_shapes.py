@@ -112,8 +112,7 @@ def test_shapes_report_their_quirk_and_no_violation(model_f):
         checked(agent.adapter)
         play_shape(shape, model_f, tables=1, agent=agent)
         rep = agent.adapter.conformance
-        bad = {k: v for k, v in rep.counts.items() if not k.startswith("history_")}
-        assert not bad, (shape, rep.summary())
+        assert not rep.counts, (shape, rep.summary())
         assert rep.fixes[fix] > 0, (shape, rep.summary())
 
 
