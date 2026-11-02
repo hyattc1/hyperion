@@ -107,6 +107,7 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 |---|---|---|
 | `r3.open_scale` | `1.0` | multiplies every position's raise-first-in threshold: above 1 opens wider, below 1 tighter |
 | `r3.open_late_scale` | `1.0` | multiplies it again for the cutoff and the button (two or three seats behind) |
+| `r3.open_vs3b_scale` | `0.75` | multiplies it again when a seat behind re-raises more than 20% of the raises it faces (1 = no narrowing) |
 | `r3.short_bb` | `10.0` | effective stack in big blinds at or under which an unopened pot is shove or fold |
 | `r3.push_margin` | `0.002` | points (ICM on the table's payouts) a shove must beat folding by, open or re-shove: higher = fewer shoves, lower or negative = more |
 | `r3.commit_bb` | `18.0` | at or under this effective depth, a call or re-shove facing a raise is priced as all-in by ICM |
@@ -117,6 +118,23 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.raise_shift` | `0.0` | added to the strength rival 3 raises a bet with (0.8; 0.7 when shallow): higher = fewer stack-offs |
 | `r3.prior_scale` | `1.0` | weight of the prior in every seat read (about four actions' worth): below 1 the reads move sooner |
 | `r3.dead_hands` | `22` | hands with no voluntary chip before a seat reads as dead (folds to everything): lower catches folding and timing-out seats sooner |
+| `r3.v3_defend` | `False` | facing one 3-bet of our open, deep and not committed by the price: fold, call, 4-bet or jam by ICM against the 3-bettor's observed 3-bet rate (a prior, then its 3-bets per chance) and its observed folds to 4-bets; off = as built |
+| `r3.v3_min_rate` | `0.2` | the 3-bettor's estimated 3-bet rate from which the defence plays; under it, as built (tight: most seats rarely 3-bet) |
+| `r3.v3_prior` | `0.08` | prior 3-bet rate of a seat facing an open |
+| `r3.v3_prior_n` | `20.0` | weight of that prior, in chances: lower moves sooner (8 fired on two 3-bets of a nit and lost on night) |
+| `r3.v3_others_w` | `0.5` | weight of a chance to 3-bet another seat's open (one against our open counts 1) |
+| `r3.v3_cont` | `0.04` | share of all hands a 3-bettor continues with against a 4-bet (about QQ+ and AK): its fold rate to a 4-bet is modelled as 1 - this / its 3-bet rate |
+| `r3.v3_f4_n` | `4.0` | weight of that model against the 3-bettor's observed folds to 4-bets |
+| `r3.v3_f4_cap` | `0.6` | the model's fold rate to a 4-bet is at most this before folds are observed (a 4-bet to 2.2x breaks even near 0.5: lower = no bluff 4-bets until it is seen folding) |
+| `r3.v3_min_n` | `0.0` | chances to 3-bet (weighted) the 3-bettor must have shown in completed hands |
+| `r3.v3_real_ip` | `0.85` | share of our equity a call of the 3-bet realises in position |
+| `r3.v3_real_oop` | `0.7` | ... out of position |
+| `r3.v3_size` | `2.2` | 4-bet to this multiple of the 3-bet (a 4-bet committing 40% of the stack is a jam) |
+| `r3.v3_min_bb` | `12.0` | effective depth in big blinds from which the defence plays |
+| `r3.v3_margin` | `0.002` | points a call, 4-bet or jam must beat folding by |
+| `r3.bb_defend` | `False` | big blind facing one raise and no caller, not committed: also call when equity against the opener's range times bb_real beats the price (so the range widens against a small open); off = as built (bottom half folds at any price) |
+| `r3.bb_real` | `0.75` | share of its equity the big blind realises out of position |
+| `r3.bb_margin` | `0.0` | equity over the price a big-blind call needs |
 
 The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"exploit": null}` turns the layer off):
 
@@ -315,6 +333,10 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `postflop.cbet_ftc_read` | False |
 | `postflop.cbet_ftc_prior` | 0.5 |
 | `postflop.cbet_ftc_max` | 1.8 |
+| `postflop.wide_bettor_from` | 1.0 |
+| `postflop.wide_bettor_slope` | 1.5 |
+| `postflop.wide_bettor_prior` | 0.4 |
+| `postflop.wide_bettor_n` | 4.0 |
 | `postflop.flush_tier_shift` | 0 |
 | `postflop.straight_tier_shift` | 0 |
 | `postflop.draw_outs_mult` | 1.0 |

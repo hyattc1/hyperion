@@ -135,7 +135,7 @@ def test_hero_presets_apply_overrides():
 
 def test_fields_resolve_to_eight_registered_bots():
     for name, members in B.FIELDS.items():
-        assert len(members) == 8, name
+        assert len(members) == B.FIELD_PLAYERS.get(name.partition("@")[0], 8), name
         for nm in members:
             B.make_bot(nm, seed=1)
     assert B.field_names("Strong") == list(B.FIELDS["strong"])

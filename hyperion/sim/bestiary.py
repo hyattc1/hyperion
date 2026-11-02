@@ -1786,6 +1786,8 @@ EXPLOITERS = ("exploiter1",)
 FIELDS["exploit"] = ("hero", "exploiter1") + _night.seat_names("night")[:6]
 FIELDS["exploit_hu"] = ("hero", "exploiter1")
 FIELDS["exploit_3"] = ("hero", "exploiter1") + _night.seat_names("night")[:1]
+# fields of fewer than eight seats, with the player count their Rules must carry (every other field seats eight)
+FIELD_PLAYERS: dict[str, int] = {"exploit_hu": 2, "exploit_3": 3}
 
 # fields that seat an optional bot: present in FIELDS only when every bot in them is registered
 OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {
