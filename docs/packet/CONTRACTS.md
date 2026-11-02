@@ -88,16 +88,16 @@ The composite (`hyperion/compose/`, the ship bot since the decisions entry "Comp
 
 ## Recipes (the night's dials by name: `--dials survival`, stacked `survival+passive`)
 
-Each resolves for the bot the switch names: on rival 3's core (hybrid3_x, hybrid3, composite) the core's dials plus Hero's as `hero.<key>`; on Hero its Config keys.
+Each resolves for the bot the switch names: on the composite its own (the core's preflop dials, the exploit layer's keys and Hero's as `hero.<key>`: rival 3's core plays only preflop there and one layer sits in front, so the core's postflop dials and Hero's `exploit.*` keys would reach nothing); on hybrid3_x and hybrid3 the core's dials plus Hero's as `hero.<key>`; on Hero its Config keys. `slow_box` (the governor) is in the composite's defaults; it gives the fallbacks theirs.
 
-| recipe | rival 3's core | Hero |
-|---|---|---|
-| `survival` | `{'r3.call_margin': 0.03, 'r3.call_edge': 0.16, 'r3.raise_shift': 0.05, 'r3.three_bet_scale': 0.7}` | {'preflop.patience_deep': 0.3, 'postflop.icm_margin': 0.15, 'postflop.big_value_tier': 7, 'preflop.three_bet_frac': 0.02} |
-| `passive` | `{'r3.open_late_scale': 1.3, 'r3.bluff_scale': 1.3}` | {'preflop.open_frac': {'2': 0.66, '3': 0.48}, 'postflop.cbet_freq_ip_dry': 0.7} |
-| `dead_seats` | `{'r3.prior_scale': 0.5}` | {'exploit.steal_min_fold': 0.5, 'profiler_blend_n': 4.0} |
-| `strong_field` | `{}` | {'preflop.open_frac_mult': 0.9, 'profiler_prior_n': 1.0} |
-| `latency` | `{'exploit': None}` | {'use_profiler': False} |
-| `timeouts` | `{'cheap': True}` | {'cheap': True} |
+| recipe | composite (ships) | hybrid3_x, hybrid3 | Hero |
+|---|---|---|---|
+| `survival` | `{'r3.call_margin': 0.03, 'r3.three_bet_scale': 0.7, 'hero.preflop.patience_deep': 0.3, 'hero.postflop.icm_margin': 0.15, 'hero.postflop.big_value_tier': 7, 'hero.preflop.three_bet_frac': 0.02}` | `{'r3.call_margin': 0.03, 'r3.call_edge': 0.16, 'r3.raise_shift': 0.05, 'r3.three_bet_scale': 0.7}` | {'preflop.patience_deep': 0.3, 'postflop.icm_margin': 0.15, 'postflop.big_value_tier': 7, 'preflop.three_bet_frac': 0.02} |
+| `passive` | `{'r3.open_late_scale': 1.3, 'exploit.bet_min_fold': 0.35, 'hero.preflop.open_frac': {'2': 0.66, '3': 0.48}, 'hero.postflop.cbet_freq_ip_dry': 0.7}` | `{'r3.open_late_scale': 1.3, 'r3.bluff_scale': 1.3}` | {'preflop.open_frac': {'2': 0.66, '3': 0.48}, 'postflop.cbet_freq_ip_dry': 0.7} |
+| `dead_seats` | `{'exploit.steal_min_fold': 0.5, 'hero.profiler_blend_n': 4.0}` | `{'r3.prior_scale': 0.5}` | {'exploit.steal_min_fold': 0.5, 'profiler_blend_n': 4.0} |
+| `strong_field` | `{'hero.preflop.open_frac_mult': 0.9, 'hero.profiler_prior_n': 1.0}` | `{}` | {'preflop.open_frac_mult': 0.9, 'profiler_prior_n': 1.0} |
+| `latency` | `{'late_us': 0}` | `{'exploit': None}` | {'use_profiler': False} |
+| `timeouts` | `{'cheap': True}` | `{'cheap': True}` | {'cheap': True} |
 
 ## Dials of rival 3's core bots (one flat dict: `--dials '{"r3.open_scale": 1.2}'`)
 

@@ -283,3 +283,55 @@ def test_set_keeps_the_composites_governor(tmp_path):
     assert _governor(ship.make_bot(*ship.read_record(copy))) is None
     ship.main(["--set", "slow_box+survival", "--bot", "hybrid3_x"], path=copy)
     assert _governor(ship.make_bot(*ship.read_record(copy))) is not None
+
+
+def _settings(bot) -> dict:
+    """Every setting a composite's play reads: each member's config, the front layer's params, the route and clocks."""
+    import dataclasses
+
+    def flat(obj, pre=""):
+        if dataclasses.is_dataclass(obj):
+            out = {}
+            for f in dataclasses.fields(obj):
+                out.update(flat(getattr(obj, f.name), f"{pre}{f.name}."))
+            return out
+        if isinstance(obj, dict):
+            out = {}
+            for k, v in obj.items():
+                out.update(flat(v, f"{pre}{k}."))
+            return out
+        return {pre[:-1]: obj}
+
+    core = bot.core
+    s = {"route": tuple(core.donors), "layer": flat(core.ex.p) if core.ex is not None else None}
+    for nm, m in zip(core.names, core.members):
+        s[nm] = flat(m.cfg)
+    s["compose"] = {k: v for k, v in flat(core.cfg).items() if not k.startswith(("hero_", "base_", "hybrid_", "route"))}
+    return s
+
+
+def test_every_composite_recipe_key_reaches_a_part_that_decides():
+    """F1: on the composite rival 3's core decides preflop only and one layer sits in front of every member (their own
+    layers are off). A recipe key that changes no setting of the built bot (a Hero `exploit.*` key did: the members'
+    layers are reset), or a core postflop dial (the route sends every postflop section to Hero), would be a dial that
+    moves nothing on the night."""
+    from hyperion.compose import bot as CB
+    from hyperion.compose.sections import POSTFLOP, parse_route
+
+    route = parse_route(CB.SHIP_ROUTE)
+    assert all(route.get(sec) == "hero" for sec in POSTFLOP)
+    postflop_knobs = {"r3.bluff_scale", "r3.call_edge", "r3.raise_shift"}
+    ref = _settings(ship.make_bot("composite", {}))
+    for name, dials in ship.COMPOSITE_RECIPES.items():
+        assert dials == ship.recipe(name, "composite")
+        assert not postflop_knobs & set(dials), name
+        for k, v in dials.items():
+            assert _settings(ship.make_bot("composite", {k: v})) != ref, (name, k)
+    # Hero's recipe keys reach the composite as hero.<key> (its postflop and the tables it plays whole), except the
+    # layer's, which are the composite's own exploit.* keys
+    for name, hero in ship.HERO_RECIPES.items():
+        if name in ("latency", "timeouts"):
+            continue
+        comp = ship.COMPOSITE_RECIPES[name]
+        for k, v in hero.items():
+            assert comp.get(k if k.startswith("exploit.") else "hero." + k) == v, (name, k)

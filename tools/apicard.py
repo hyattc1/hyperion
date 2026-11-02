@@ -138,10 +138,13 @@ def render() -> str:
               "0.2). Its dials: `route` (\"section=donor,...\"), `r3.<name>` for the base's core, `exploit.<field>`, "
               "`hero.<key>` (the hero member and the base's fallback Hero, as on hybrid3_x), `cheap`, `light`.", ""]
     parts += ["## Recipes (the night's dials by name: `--dials survival`, stacked `survival+passive`)", "",
-              "Each resolves for the bot the switch names: on rival 3's core (" + ", ".join(ship.CORE_BOTS) + ") the "
-              "core's dials plus Hero's as `hero.<key>`; on Hero its Config keys.", "",
-              _table([(n, repr(ship.CORE_RECIPES[n]), repr(ship.HERO_RECIPES[n])) for n in ship.HERO_RECIPES],
-                     ("recipe", "rival 3's core", "Hero")), ""]
+              "Each resolves for the bot the switch names: on the composite its own (the core's preflop dials, the "
+              "exploit layer's keys and Hero's as `hero.<key>`: rival 3's core plays only preflop there and one layer "
+              "sits in front, so the core's postflop dials and Hero's `exploit.*` keys would reach nothing); on "
+              "hybrid3_x and hybrid3 the core's dials plus Hero's as `hero.<key>`; on Hero its Config keys. "
+              "`slow_box` (the governor) is in the composite's defaults; it gives the fallbacks theirs.", "",
+              _table([(n, repr(ship.COMPOSITE_RECIPES[n]), repr(ship.CORE_RECIPES[n]), repr(ship.HERO_RECIPES[n]))
+                      for n in ship.HERO_RECIPES], ("recipe", "composite (ships)", "hybrid3_x, hybrid3", "Hero")), ""]
     parts += ["## Dials of rival 3's core bots (one flat dict: `--dials '{\"r3.open_scale\": 1.2}'`)", "",
               "Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):", "",
               _table([("r3." + f.name, repr(f.default), f.metadata.get("doc", ""))
