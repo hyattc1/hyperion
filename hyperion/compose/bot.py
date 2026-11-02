@@ -457,6 +457,22 @@ class CompositeCore:
     def variant_decide(self, prompt: dict):
         return self.base.variant_decide(prompt)
 
+    def defer_hand_end(self, on: bool = True) -> None:
+        """Every member that can (HeroCore.defer_hand_end): hand_end leaves the ICM curves and dials to idle()."""
+        for m in self.members:
+            fn = getattr(m, "defer_hand_end", None)
+            if fn is not None:
+                fn(on)
+
+    def idle(self) -> None:
+        for m in self.members:
+            fn = getattr(m, "idle", None)
+            if fn is not None:
+                try:
+                    fn()
+                except Exception:  # noqa: BLE001 - the next decision computes whatever is still pending
+                    pass
+
     def stats(self) -> dict:
         return dict(self.counts)
 
@@ -488,6 +504,16 @@ class Composite:
         except Exception:  # noqa: BLE001
             self.safe.errors += 1
             return None
+
+    def defer_hand_end(self, on: bool = True) -> None:
+        """For a kit that times the hand end (CompositeCore.defer_hand_end); call idle() when there is time."""
+        self.core.defer_hand_end(on)
+
+    def idle(self) -> None:
+        try:
+            self.core.idle()
+        except Exception:  # noqa: BLE001
+            self.safe.errors += 1
 
 
 def make_bot(route=None, seed: int | None = None, config: ComposeConfig | None = None, **kw) -> Composite:

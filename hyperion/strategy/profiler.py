@@ -110,6 +110,8 @@ class Profiler:
         self.fcb_opp = z()
         self.fcb_fold = z()
         self._dials = [dict(NEUTRAL_DIALS) for _ in range(n)]
+        self._stale = False
+        self._fresh = 0
         self.last_bb = 20
         self.hand_no = -1
         self._finished = True
@@ -183,6 +185,8 @@ class Profiler:
     # ------------------------------------------------------------------ updates
     def observe(self, obs: Observation) -> None:
         """Consume the new tail of obs.history. Call once per act(); cost is O(new actions)."""
+        if self._stale:
+            self._settle()
         hist = obs.history
         if self._finished or obs.hand_no != self.hand_no or len(hist) < self.consumed:
             self._start_hand(obs)
@@ -213,7 +217,21 @@ class Profiler:
         self.inhand = inhand
         self.need = (need & inhand) | (1 << me)
 
+    # `lazy`: hand_end leaves the dials stale instead of computing every seat's; exploit_dials computes a seat's on
+    # first read and the next observe() settles the rest before it changes a counter, so every read sees the dials of
+    # the counters at the hand end, as computed eagerly. The next hand_end recomputes them all, so stale dials nobody
+    # read are skipped. Same reads, less work for a profiler read rarely (the hybrids' fallback Hero).
+    lazy = False
+
+    def _settle(self) -> None:
+        fresh = self._fresh
+        for s in range(self.n):
+            if not fresh >> s & 1:
+                self._dials[s] = self._compute_dials(s)
+        self._stale = False
+
     def hand_end(self, result: HandResult) -> None:
+        self._stale = False  # recomputed below from this hand's counters; nothing reads them in between
         hist = result.history
         if self._finished or result.hand_no != self.hand_no:
             # never observed this hand (we were out or all-in): degraded pass without blind info
@@ -243,8 +261,12 @@ class Profiler:
             if 0 <= s < self.n:
                 self.showdowns[s] += 1
         self._finished = True
-        for s in range(self.n):
-            self._dials[s] = self._compute_dials(s)
+        if self.lazy:
+            self._fresh = 0
+            self._stale = True
+        else:
+            for s in range(self.n):
+                self._dials[s] = self._compute_dials(s)
 
     def _advance(self) -> None:
         if self.tstreet < 3:
@@ -518,7 +540,11 @@ class Profiler:
 
     # ------------------------------------------------------------------ dials
     def exploit_dials(self, s: int) -> dict:
-        """Cached per seat; recomputed at hand_end. Keys: bluff_mult, value_threshold_shift, steal_mult, call_down_mult."""
+        """Cached per seat; recomputed at hand_end (or on first read after it: `lazy`). Keys: bluff_mult,
+        value_threshold_shift, steal_mult, call_down_mult."""
+        if self._stale and not self._fresh >> s & 1:
+            self._dials[s] = self._compute_dials(s)
+            self._fresh |= 1 << s
         return self._dials[s]
 
     def _compute_dials(self, s: int) -> dict:

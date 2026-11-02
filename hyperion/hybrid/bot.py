@@ -234,6 +234,7 @@ class HybridCore:
         self._table_why = table_reason(rules, cfg)
         self._straddle = bool(rules.straddle)
         self.hero.new_table(rules, seat, n_players)
+        self._hero_lazy(self._table_why is None and not self._straddle and not self._cheap)
         if self.ex is not None:
             self.ex.new_table(n_players, seat)
         self.kit.reset()
@@ -245,9 +246,24 @@ class HybridCore:
         if self._table_why is None:
             core.start_hand(1, self._start)
 
+    def _hero_lazy(self, on: bool) -> None:
+        """Where the core plays the table, the fallback Hero decides a few hands in a hundred: its ICM curve and its
+        profiler's dials wait for a decision that reads them (HeroCore.set_lazy; the same values), instead of costing
+        every hand end. Where Hero plays (variant tables, straddles, cheap, panic) they stay eager."""
+        self.hero.set_lazy(on)
+
+    def defer_hand_end(self, on: bool = True) -> None:
+        """HeroCore.defer_hand_end, for a kit that times the hand end; idle() then does the pending work."""
+        self.hero.defer_hand_end(on)
+
+    def idle(self) -> None:
+        self.hero.idle()
+
     def set_panic(self, on: bool) -> None:
         self.panic = on
         self.hero.set_panic(on)
+        if on:
+            self._hero_lazy(False)
 
     def act(self, obs: Observation) -> Action:
         ex = self.ex
@@ -327,6 +343,11 @@ class HybridCore:
         return h.act(obs)
 
     def hand_end(self, result: HandResult) -> None:
+        start = self._start  # the chip chain first: an interrupted hand end leaves it whole
+        chained = len(result.deltas) == len(start) and result.hand_no == self._start_hand
+        if chained:
+            self._start = [max(0, start[s] + result.deltas[s]) for s in range(len(start))]
+            self._start_hand = result.hand_no + 1
         if self.ex is not None:
             try:
                 self.ex.hand_end(result)
@@ -336,12 +357,15 @@ class HybridCore:
             self.hero.hand_end(result)
         finally:
             self.core.end(result)
-            start = self._start
-            if len(result.deltas) == len(start) and result.hand_no == self._start_hand:
-                self._start = [max(0, start[s] + result.deltas[s]) for s in range(len(start))]
-                self._start_hand = result.hand_no + 1
-                if self._table_why is None and self._start[self.seat] > 0:
-                    self.core.start_hand(result.hand_no + 2, self._start)
+            if not chained and result.hand_no >= self._start_hand:
+                # a hand end went missing (an interrupted callback): follow Hero's chain from here, never stay stuck
+                hs = self.hero.last_stacks
+                if hs is not None and len(hs) == len(start) and len(result.deltas) == len(start):
+                    self._start = list(hs)
+                    self._start_hand = result.hand_no + 1
+                    chained = True
+            if chained and self._table_why is None and self._start[self.seat] > 0:
+                self.core.start_hand(result.hand_no + 2, self._start)
 
     # ------------------------------------------------------------------ variant decisions
     def variant_decide(self, prompt: dict):
@@ -380,6 +404,15 @@ class Hybrid:
         except Exception:  # noqa: BLE001
             self.safe.errors += 1
             return None
+
+    def defer_hand_end(self, on: bool = True) -> None:
+        self.core.defer_hand_end(on)
+
+    def idle(self) -> None:
+        try:
+            self.core.idle()
+        except Exception:  # noqa: BLE001
+            self.safe.errors += 1
 
 
 def make_bot(config: HybridConfig | None = None, seed: int | None = None, overrides: dict | None = None,
