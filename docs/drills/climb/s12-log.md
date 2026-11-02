@@ -460,3 +460,57 @@ prior needs re-raises to accumulate), so as the only gate it would remove most o
 **Pre-registered:** candidate **D1** = C7 + `size_read_min_bets` 2, `size_read_min_share` 0.15,
 `size_read_min_buckets` 2, `size_read_skip_weak` true. Fallback D2 = D1 + `size_read_strong_rr` 0.20 (prior 0.15,
 10 raises), only if D1 is still beyond noise down on realistic or a structural variant. No sweep.
+
+## 11:36-12:53: D1's screens (code 6bd9fbb, base batch 4's ship = main 63bd29f's F; screen 10000-10199 x 8)
+
+`climb_accept --set screen --stages confirm,guards,elite,exploit,variants --variants antes_from_level_3,fast_schedule,
+straddle,top_heavy --variant-seeds 200 --aim strong` (run from a detached worktree at 6bd9fbb; the cells were first
+filled by two queues, the failed cells first). D1 - F, paired; 0 errors and 0 timeouts in every cell for both specs.
+
+| cell | F | D1 | D1 - F | | C7 on screen (old base) | C7 on H5 |
+|---|---|---|---|---|---|---|
+| night | 5.968 | 5.998 | +0.030 ± 0.050 | level | -0.031 ± 0.087 | -0.039 ± 0.063 |
+| night_hard | 5.486 | 5.575 | **+0.088 ± 0.055** | UP | +0.070 | +0.066 |
+| **realistic** | 6.346 | 6.394 | **+0.047 ± 0.028** | UP | -0.001 ± 0.088 | **-0.096 ± 0.064** |
+| top | 5.035 | 5.103 | **+0.068 ± 0.056** | UP | +0.103 ± 0.108 | +0.183 ± 0.068 |
+| night @10/7/5/4/3/2/1/0 | 6.149 | 6.227 | +0.078 ± 0.090 | level | +0.055 | |
+| night @50/25/12/6/3/2/1/1 | 24.406 | 24.916 | +0.510 ± 0.603 | level | -0.052 | |
+| night, doubling blinds | 5.830 | 5.812 | -0.018 ± 0.040 | level | -0.046 | |
+| elite | 4.681 | 4.765 | **+0.084 ± 0.063** | UP | +0.256 ± 0.105 | +0.154 ± 0.071 |
+| elite_night | 5.328 | 5.394 | **+0.066 ± 0.058** | UP | +0.227 ± 0.096 | +0.092 ± 0.065 |
+| mirror | 4.414 | 4.543 | **+0.128 ± 0.081** | UP | (not run) | +0.415 ± 0.079 |
+| exploit (8-max) | 5.619 | 5.645 | +0.026 ± 0.093 | level | -0.056 | +0.015 |
+| exploit_hu / exploit_3 | 9.115 / 8.354 | same | identical | | identical | |
+| **antes_from_level_3** | 6.494 | 6.532 | **+0.038 ± 0.029** | UP | | **-0.103 ± 0.090** |
+| **fast_schedule** | 6.114 | 6.106 | -0.008 ± 0.022 | level | | **-0.100 ± 0.083** |
+| **straddle** | 6.380 | 6.391 | +0.011 ± 0.022 | level | | **-0.128 ± 0.088** |
+| top_heavy | 28.629 | 29.232 | **+0.603 ± 0.402** | UP | +1.100 ± 1.450 | |
+| the 22 twist variants | | | identical to F by construction (the hold'em gate; tests) | | | |
+
+Verdict: **ACCEPT** (addendum 8: elite, elite_night and mirror beyond noise up; night not down; no guard, elite or
+variant cell down). The four cells that failed on H5 are now up or level, and the tight intervals there (± 0.022 to
+0.029) are the gate's doing: on realistic it lets through about a tenth of C7's spots (rival 1, pushfold), so the
+paired difference is small and steady. The price is at the strong tables: about a third of C7's screen gain at elite and
+elite_night, and mirror +0.128 against C7's held-out +0.415 (different seeds and base; comparable size is unknown).
+The early-table spots where C7 read a two-size bettor from the prior alone are the ones given up.
+
+**Latency** (`tools/latency.py`, 6bd9fbb, D1 against F, load 9-12): decisions on 20 recorded night tables, per-call
+minimum of 3: mean / p99 / max F 48.2 / 102.0 / 163 µs, D1 49.6 / 100.8 / 155 µs; hand end F 55.9 / 99.9 / 134 µs,
+D1 60.2 / 133.9 / 230 µs; first decision of a table F 104 / 118, D1 102 / 140 µs (mean / max). 20,000 random
+observations: p50 52.9 against 53.3-53.9 µs; p99 4-12 ms for both (the host). The gate adds a pass over five bucket
+counts and an archetype lookup on read spots only.
+
+**Tests:** tests/test_s12_reads.py 15 passed (new: size evidence, the strong-table count, the gates reach decisions
+and change nothing off). Full suite at 6bd9fbb: 1,153 passed, 9 failed, 26 skipped (18.6 min, load 9-12); the 9 are
+the load failures seen before (the outside / elite field and model-mode replay tests that read the wall clock, the
+gate's history-dropping package, the kit-D cheap-bot round trip, slowbox); `test_model_mode_replays_a_table_exactly`
+passed alone.
+
+**Recommended (aim strong, addendum 8):** D1 = `{"hero.postflop.size_read": 1.0, "hero.postflop.size_read_rank": 5.0,
+"hero.postflop.size_read_min_alive": 4, "hero.postflop.size_read_holdem_only": true, "hero.postflop.size_read_min_bets":
+2, "hero.postflop.size_read_min_share": 0.15, "hero.postflop.size_read_min_buckets": 2,
+"hero.postflop.size_read_skip_weak": true}`. D2 (the table gate) was not needed and not run; `size_read_strong_rr` and
+`Profiler.strong_table` stay as a shared signal, off.
+
+Open: a weaker per-seat bar (one bet in each of two buckets with the share test) would fire earlier at strong tables;
+it was not screened (no sweep). S11's facing-a-bet changes still need measuring together with this read.
