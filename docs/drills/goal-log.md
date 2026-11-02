@@ -24,3 +24,14 @@ Protocol: `docs/drills/goal-plan.md` section 2. Live held-out set: **H1 (20000-2
 - SafeBot enters panic (Hero's cheap path for the rest of the table) after 5 overruns of its 0.5 ms soft deadline
   in one table. The `timeouts` recipe (cheap path everywhere) is about two points a table, so panic on a slow or busy
   sandbox is the largest risk found so far. R1 goes to a dedicated worker (branch climb/r1-timing).
+
+## 20:55: unseen variants written; kit E and the held-out catalog started
+- The fresh writer's five (order of its plausibility score): river_of_blood 8/10 (MIT 2023: red rivers deal extra
+  streets until a black card), showtime 6/10 (folded hands shown face up), high_chicago 5/10 (half the pot to the
+  highest spade in the hole), bomb_pot 5/10 (every fifth hand: no blinds, everyone antes, first decision on the flop),
+  unfold 4/10 (folders may pay to re-enter a side pot). Held out: no strength work may use them.
+- river_of_blood is the hidden variant of drill 7 (the next rehearsal). After that drill it is promoted to the main
+  catalog and prepared like the 23, since an MIT variant is a real candidate for the night.
+- Kit E: a fresh agent with no repo access builds an organiser-style kit (event-driven player class, no state
+  snapshot, string cards, its own payout table and schedule) with river_of_blood in its dealer.
+- The held-out catalog goes on branch climb/unseen-variants (engine support, default play bit-identical).
