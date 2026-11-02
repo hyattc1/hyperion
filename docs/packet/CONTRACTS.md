@@ -369,6 +369,7 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `postflop.raiser_slope` | 2.0 |
 | `postflop.balance_sizes` | False |
 | `postflop.balance_size` | 0.5 |
+| `postflop.s11_holdem_only` | False |
 | `postflop.balance_from` | 1.0 |
 | `postflop.size_read` | 0.0 |
 | `postflop.size_read_n0` | 8.0 |
@@ -390,6 +391,10 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `postflop.size_read_strong_rr` | 0.0 |
 | `postflop.size_read_strong_prior` | 0.15 |
 | `postflop.size_read_strong_n` | 10.0 |
+| `postflop.size_read_streets` | 7 |
+| `postflop.size_read_min_cbet` | 0.0 |
+| `postflop.size_read_cbet_prior` | 0.5 |
+| `postflop.size_read_cbet_n` | 4.0 |
 | `postflop.xr_shift` | 0 |
 | `postflop.xr_max` | 0.04 |
 | `postflop.xr_prior` | 0.02 |

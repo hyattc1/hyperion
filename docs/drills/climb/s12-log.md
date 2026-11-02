@@ -514,3 +514,115 @@ passed alone.
 
 Open: a weaker per-seat bar (one bet in each of two buckets with the share test) would fire earlier at strong tables;
 it was not screened (no sweep). S11's facing-a-bet changes still need measuring together with this read.
+
+# S12c: the size read on night (branch climb/s12c-night from main efade19)
+
+The coordinator's H8 run of D1 (27000-27399, base batch 4, `--aim strong`): up mirror +0.188, top +0.079, realistic
++0.041, doubling blinds +0.030, exploit 8-max +0.098, antes +0.048, top_heavy +0.41; level elite +0.008, elite_night
++0.007, night_hard, payouts, aware, the other variants; **down night -0.045 ± 0.031**: rejected.
+
+## 14:49-15:00: which night seats the read misreads (`goal/s12c/diag.py`, diagnostic seeds 9000-9199 x 8, fresh)
+
+At every spot where D1's read engaged: the bettor's identity, F's decision without the read and with it, and the truth:
+our hand's equity against the bettor's actual cards with the board enumerated. dEV = the street's chip EV of the
+read's decision minus F's (call = eq x (pot + call) - call, fold = 0), in big blinds. It overstates the value of a
+flop or turn call (later streets cost more; realisation is under 1) and is exact on the river. Night, 1,600 tables,
+3,276 read spots:
+
+| bettor | spots | fold->call: n, dEV | call->fold: n, dEV | dEV | read eq - true eq |
+|---|---|---|---|---|---|
+| trackb5 | 179 | 38, -175.7 | 11, -19.1 | **-194.9** | +0.157 |
+| agent_montecarlo | 436 | 114, -72.5 | 19, -111.2 | **-183.7** | +0.129 |
+| trackb3 | 226 | 35, -88.2 | 11, -18.6 | **-106.7** | +0.122 |
+| agent_pushfold | 185 | 41, -41.4 | 8, -59.1 | **-100.5** | +0.113 |
+| agent_default | 376 | 74, +82.5 | 14, -73.0 | +9.5 | +0.066 |
+| agent_charts | 316 | 58, -13.3 | 24, +57.0 | +43.7 | +0.083 |
+| pushfold | 89 | 23, +145.1 | 4, -41.1 | +104.0 | +0.025 |
+| rival1 | 423 | 93, +207.6 | 32, -7.3 | +200.4 | -0.037 |
+| rival2 | 439 | 115, +276.5 | 24, -63.9 | +212.5 | +0.045 |
+| rival3 | 586 | 130, +519.1 | 32, +53.7 | +572.8 | +0.002 |
+
+The read costs at four night seats, the two Track B builds and two persona agents, where it overstates our equity by
+0.11-0.16: their small bets are not their weak bets (survey: trackb3/5 bet half pot with tier 4.0-4.1, the larger size
+with 3.8-3.9; agent_montecarlo's half-pot bets are 2% air, agent_pushfold's 12%). What they share, observably: they
+rarely bet without being the aggressor's target. C-bet rate as the preflop raiser (survey seeds 8000-8024): trackb5
+25%, trackb3 28%, agent_montecarlo 39%, agent_pushfold 39%; the seats the read wins against: rival1 100%, pushfold 98%,
+rival2 / rival3 65%, and agent_charts 64%, agent_default 73% (neutral). A seat that bets rarely bets value with every
+size; the rank model assumes a population betting range (bet rate about 0.44) and reads its small bets as air.
+
+The same diagnostic on the strong fields (9000-9099 x 8 each) and the dEV by street:
+
+| field | D1 spots, dEV | river spots, dEV | flop + turn only | + c-bet rate >= 0.55 (prior 0.5 over 4 chances) |
+|---|---|---|---|---|
+| night | 3276, +569 | 562, **-118** | 2714, +687 | 1827, +811 (losing seats 1026 / -586 -> 247 / -98) |
+| elite | 2096, +727 | 272, **-208** | 1824, +935 | 1353, +690 |
+| elite_night | 2194, +398 | 312, **-212** | 1882, +611 | 1244, +640 |
+| mirror | 3071, +2192 | 355, **-264** | 2716, +2457 | 2197, +2024 |
+| top | 1453, +800 | 202, +11 | 1251, +789 | 1133, +691 |
+
+River reads lose in four of five fields, and on the river this measure is exact (no later street): the read's river
+equity is biased high (the offline fit said so too: river error 0.117 for the population map, 0.19 for the rank
+slice). With an evidence count on top (at least 3 c-bet chances seen) the losing night seats drop to 176 spots / -36
+but every strong field loses about 40% of its dEV; not chosen.
+
+**Rule fixed before any screen (D3)** = D1 + `size_read_streets` 3 (flop and turn) + `size_read_min_cbet` 0.55
+(`size_read_cbet_prior` 0.5, `size_read_cbet_n` 4: with the prior under the bar, a seat must show c-bets to be read).
+Observable behaviour only, no identity. No sweep on points.
+
+## 15:00-15:44: D3's screens (code a9de152; F identical to batch 4's ship, checked on a chunk against 6bd9fbb)
+
+Night on the screen seeds and on a fresh 400-seed block, the rest on the screen seeds, 8 rotations each; D3 - F paired,
+0 errors and 0 timeouts everywhere. The combined `climb_accept --set screen --stages confirm,guards,elite,exploit,
+variants --variants antes_from_level_3,fast_schedule,straddle,top_heavy --variant-seeds 200 --aim strong`: **ACCEPT**.
+
+| cell | D3 - F | D1 - F (same code, same seeds) |
+|---|---|---|
+| night 10000-10199 | +0.029 ± 0.034 | +0.030 ± 0.050 |
+| night 10200-10599 (fresh) | **+0.036 ± 0.027** UP | +0.024 ± 0.034 |
+| night, 600 seeds pooled | **+0.034 ± 0.021** UP | |
+| night_hard | **+0.078 ± 0.055** UP | +0.088 ± 0.055 |
+| realistic | **+0.036 ± 0.027** UP | +0.047 ± 0.028 |
+| top | **+0.071 ± 0.053** UP | +0.068 ± 0.056 |
+| night @10/7/5/4/3/2/1/0 | +0.050 ± 0.061 | +0.078 ± 0.090 |
+| night @50/25/12/6/3/2/1/1 | +0.299 ± 0.447 | +0.510 ± 0.603 |
+| night, doubling blinds | +0.001 ± 0.031 | -0.018 ± 0.040 |
+| elite | **+0.086 ± 0.056** UP | +0.084 ± 0.063 |
+| elite_night | +0.039 ± 0.042 | +0.066 ± 0.058 |
+| mirror | **+0.083 ± 0.073** UP | +0.128 ± 0.081 |
+| exploit / exploit2 (8-max) | +0.051 ± 0.086 / -0.006 ± 0.078 | +0.026 ± 0.093 |
+| exploit and exploit2, heads-up and three-handed | identical | identical |
+| antes_from_level_3 | **+0.031 ± 0.028** UP | +0.038 ± 0.029 |
+| fast_schedule | -0.016 ± 0.019 (upper bound +0.003) | -0.008 ± 0.022 |
+| straddle | +0.006 ± 0.019 | +0.011 ± 0.022 |
+| top_heavy | **+0.608 ± 0.339** UP | +0.603 ± 0.402 |
+
+D3 against D1 directly on night (paired, same seeds): -0.001 ± 0.040 (10000-10199), +0.012 ± 0.023 (10200-10599).
+
+What this does and does not show:
+- **The screens cannot reproduce D1's held-out night loss.** D1 itself is +0.03 on both screen blocks (600 seeds),
+  where H8 had -0.045 ± 0.031. So "night level or up on both blocks" is met by D3, but it was met by D1 too; the screens
+  alone do not prove the fix.
+- The case for D3 is the mechanism: the night seats that cost points (trackb3/5, agent_montecarlo, agent_pushfold:
+  -586 bb of street EV in D1's spots on 1,600 diagnostic tables) are read 76% less often (-98 bb left), and the river
+  reads, whose EV is exact and negative in four of five fields, are gone. D3 changes fewer night decisions than D1
+  (night's interval at 400 seeds ±0.027 against ±0.034), so a held-out set has less to find.
+- Strong tables keep D1's level: elite, top equal; mirror and elite_night a little lower (within noise).
+- fast_schedule is the closest cell to a down call (-0.016 ± 0.019); it is played on realistic, where the read now
+  fires only against rival 1 and pushfold.
+
+**Latency** (`tools/latency.py --hand-end --reps 3`, 20 night tables, per-call minimum; a9de152, load 9-10): decisions
+mean / p99 / max F 48.4 / 100.4 / 334 µs, D3 48.2 / 96.8 / 139 µs; hand end F 57.1 / 101.9 / 173 µs, D3 59.4 / 138.5 /
+228 µs; first decision F 105 / 155, D3 104 / 129 µs (mean / max). The new checks are a street bit and one smoothed
+rate on read spots only.
+
+**Tests:** tests/test_s12_reads.py 16 passed. Full suite at a9de152: 1,196 passed, 13 failed, 6 skipped (14 min, load
+9-10): the same load failures as before (outside / elite field replay tests, per-bot budgets in a mixed field, the
+gate's history-dropping package, the kit-D cheap-bot round trip, slowbox; `test_hand_end_interrupt` and the toss
+drill passed alone).
+
+**Recommended (aim strong, addendum 8):** D3 = `{"hero.postflop.size_read": 1.0, "hero.postflop.size_read_rank": 5.0,
+"hero.postflop.size_read_min_alive": 4, "hero.postflop.size_read_holdem_only": true, "hero.postflop.size_read_min_bets":
+2, "hero.postflop.size_read_min_share": 0.15, "hero.postflop.size_read_min_buckets": 2,
+"hero.postflop.size_read_skip_weak": true, "hero.postflop.size_read_streets": 3, "hero.postflop.size_read_min_cbet":
+0.55}`. Night is the risk to watch on the held-out set; if it is down again, the read should wait for showdown
+evidence that a seat's small bets are weaker than its large ones (slow, but the only direct test).

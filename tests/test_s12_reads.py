@@ -186,3 +186,17 @@ def test_the_evidence_gates_reach_decisions_and_change_nothing_off():
     assert any(_digest(d1, t)[0] != _digest({}, t)[0] for t in range(6))
     off = {**c7, "hero.postflop.size_read_min_bets": 0, "hero.postflop.size_read_strong_rr": 0.0}
     assert _digest(off, 1)[0] == _digest(c7, 1)[0]
+
+
+def test_night_rule_reaches_decisions_and_reads_only_seats_that_cbet():
+    c7 = {"hero.postflop.size_read": 1.0, "hero.postflop.size_read_rank": 5.0, "hero.postflop.size_read_min_alive": 4,
+          "hero.postflop.size_read_holdem_only": True}
+    d1 = {**c7, "hero.postflop.size_read_min_bets": 2, "hero.postflop.size_read_skip_weak": True}
+    d3 = {**d1, "hero.postflop.size_read_streets": 3, "hero.postflop.size_read_min_cbet": 0.55}
+    assert any(_digest(d3, t)[0] != _digest(d1, t)[0] for t in range(6))
+    p = Profiler(8)
+    p.reset(8, 0)
+    p.cb_opp[1], p.cbets[1] = 3, 1  # c-bets a third of its chances: (1 + 2) / 7 < 0.55
+    p.cb_opp[2], p.cbets[2] = 3, 3  # (3 + 2) / 7 >= 0.55
+    assert p.cbet_rate(1, 0.5, 4.0) < 0.55 <= p.cbet_rate(2, 0.5, 4.0)
+    assert p.cbet_rate(3, 0.5, 4.0) < 0.55  # no evidence: not read
