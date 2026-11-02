@@ -184,9 +184,10 @@ class PostflopParams:
     raiser_from: float = 1.0
     raiser_slope: float = 2.0
     # balanced sizes (S11): every bet with nothing to call that is not against a station or a dead table (big value,
-    # value, c-bet, semi-bluff) is cbet_size_dry on a dry board and cbet_size_wet on a wet one, whatever the hand, so
-    # the size no longer names the strength. Off: big value 0.8, value 0.5 / 0.7, c-bets 0.33 / 0.5, semi-bluffs 0.5
+    # value, c-bet, semi-bluff) is balance_size of the pot, whatever the hand and the board, so the size no longer names
+    # the strength. Off: big value 0.8, value 0.5 / 0.7, c-bets 0.33 / 0.5, semi-bluffs 0.5
     balance_sizes: bool = False
+    balance_size: float = 0.5
     # ... only heads-up against a seat that raises my heads-up flop and turn bets at a smoothed rate (prior 0.12 worth
     # 5) above balance_from: the reader of sizes shows itself by raising the small ones. 1.0 = off
     balance_from: float = 1.0
@@ -741,12 +742,11 @@ class Postflop:
                                       and prof.raise_my_bet_rate(spot.opps[0]) > p.balance_from)
             if tier >= big_value_tier:
                 self.last = "big_value"
-                return self._bet(spot, (p.cbet_size_wet if wet else p.cbet_size_dry) if bal
-                                 else p.big_value_size, eq=eq)
+                return self._bet(spot, p.balance_size if bal else p.big_value_size, eq=eq)
             if tier >= value_tier:
                 self.last = "value"
                 if bal:
-                    return self._bet(spot, p.cbet_size_wet if wet else p.cbet_size_dry, eq=eq)
+                    return self._bet(spot, p.balance_size, eq=eq)
                 return self._bet(spot, p.value_size_wet if wet else p.value_size_dry, eq=eq)
             if bluff_mult <= 0.0 or spot.my_total <= 0:
                 return _CHECK
@@ -762,13 +762,13 @@ class Postflop:
                 if n_opp > 1:
                     freq *= p.cbet_multiway_mult ** (n_opp - 1)
                 if self.rng.random() < freq:
-                    size = p.cbet_size_wet if wet else p.cbet_size_dry
+                    size = p.balance_size if bal else (p.cbet_size_wet if wet else p.cbet_size_dry)
                     if size * spot.pot_total <= p.bluff_max_stack_frac * spot.my_total:
                         self.last = "cbet"
                         return self._bet(spot, size, bluff=True)
                 return _CHECK
             if tier == 3 and cards_to_come and self.rng.random() < p.semibluff_freq * bluff_mult:
-                size = (p.cbet_size_wet if wet else p.cbet_size_dry) if bal else p.bluff_size
+                size = p.balance_size if bal else p.bluff_size
                 if size * spot.pot_total <= p.bluff_max_stack_frac * spot.my_total:
                     self.last = "semibluff"
                     return self._bet(spot, size, bluff=True)

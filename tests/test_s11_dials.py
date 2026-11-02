@@ -12,7 +12,7 @@ from .test_s2_dials import _digest
 HU = ["hero", "exploiter2"]
 THREE = ["hero", "exploiter2", "loose_aggro"]
 R2, R3 = Rules(n_players=2, payouts=(10, 7)), Rules(n_players=3, payouts=(10, 7, 5))
-FIN = {"r3.v3_defend": True, "hero.postflop.cbet_size_dry": 0.5}
+FIN = {"r3.v3_defend": True}  # F once batch 4 lands (S11 began on FIN = this + cbet_size_dry 0.5)
 
 
 def _obs(street, seat, hist, bets=(0, 0), stacks=(1000, 1000), to_call=0, button=0, pot=100):
@@ -72,5 +72,6 @@ def test_three_handed_with_every_s11_dial_replays_exactly():
          "hero.postflop.cbet_from": 0.7, "hero.postflop.probe_raise_tier": 5, "hero.postflop.probe_trap": 0.5,
          "hero.postflop.probe_margin": 0.03, "hero.postflop.balance_from": 0.3, "hero.postflop.probe_bluff": 0.5,
          "hero.postflop.wide_from": 0.65,
-         "hero.postflop.raiser_from": 0.3, "hero.postflop.balance_sizes": True, "exploit.raise_guard": 0.3}
+         "hero.postflop.raiser_from": 0.3, "hero.postflop.balance_sizes": True, "exploit.raise_guard": 0.3,
+         "r3.v3_bvb_cont": 0.08}
     assert _digest(d, 1, THREE, R3)[0] == _digest(d, 1, THREE, R3)[0]

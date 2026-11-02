@@ -85,6 +85,9 @@ class Rival3Knobs:
     v3_bvb_f4_cap: float = _dial(-1.0, "... and the cap on its modelled fold rate to a 4-bet there (a wide 3-bettor "
                                        "need not fold its wide range to a 4-bet: 0.45 = no bluff 4-bets until it is "
                                        "seen folding to one); -1 = v3_f4_cap")
+    v3_bvb_cont: float = _dial(-1.0, "... and the share of all hands it continues with against a 4-bet there (blind against "
+                                     "blind a 3-bettor defends wider than QQ+ / AK: 0.08 means a seat that 3-bets 18% "
+                                     "folds 56% in the model); -1 = v3_cont")
     # the big blind facing one raise and no callers, deep (S2): call when the equity it realises beats the price
     bb_defend: bool = _dial(False, "big blind facing one raise and no caller, not committed: also call when equity "
                                    "against the opener's range times bb_real beats the price (so the range widens "

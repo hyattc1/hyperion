@@ -133,6 +133,10 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.v3_size` | `2.2` | 4-bet to this multiple of the 3-bet (a 4-bet committing 40% of the stack is a jam) |
 | `r3.v3_min_bb` | `12.0` | effective depth in big blinds from which the defence plays |
 | `r3.v3_margin` | `0.002` | points a call, 4-bet or jam must beat folding by |
+| `r3.v3_bvb_prior` | `-1.0` | the prior 3-bet rate (weight v3_prior_n) when the big blind 3-bets our small-blind open with nobody else in; -1 = the v3_prior and v3_min_rate as everywhere |
+| `r3.v3_bvb_min_rate` | `0.12` | ... and the estimated rate from which the defence plays there |
+| `r3.v3_bvb_f4_cap` | `-1.0` | ... and the cap on its modelled fold rate to a 4-bet there (a wide 3-bettor need not fold its wide range to a 4-bet: 0.45 = no bluff 4-bets until it is seen folding to one); -1 = v3_f4_cap |
+| `r3.v3_bvb_cont` | `-1.0` | ... and the share of all hands it continues with against a 4-bet there (blind against blind a 3-bettor defends wider than QQ+ / AK: 0.08 means a seat that 3-bets 18% folds 56% in the model); -1 = v3_cont |
 | `r3.bb_defend` | `False` | big blind facing one raise and no caller, not committed: also call when equity against the opener's range times bb_real beats the price (so the range widens against a small open); off = as built (bottom half folds at any price) |
 | `r3.bb_real` | `0.75` | share of its equity the big blind realises out of position |
 | `r3.bb_margin` | `0.0` | equity over the price a big-blind call needs |
@@ -158,6 +162,9 @@ The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"
 | `exploit.bet_min_fold` | 0.5 |
 | `exploit.bet_frac` | 0.33 |
 | `exploit.bet_max_stack_frac` | 0.25 |
+| `exploit.raise_guard` | 1.0 |
+| `exploit.raise_prior` | 0.1 |
+| `exploit.raise_n` | 4.0 |
 | `exploit.isolate` | False |
 | `exploit.iso_min_fold` | 0.85 |
 | `exploit.iso_max_bb` | 6.0 |
@@ -338,6 +345,22 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `postflop.wide_bettor_slope` | 1.5 |
 | `postflop.wide_bettor_prior` | 0.4 |
 | `postflop.wide_bettor_n` | 4.0 |
+| `postflop.probe_from` | 1.0 |
+| `postflop.probe_prior` | 0.45 |
+| `postflop.probe_n` | 6.0 |
+| `postflop.cbet_from` | 1.0 |
+| `postflop.wide_from` | 1.0 |
+| `postflop.wide_prior` | 0.5 |
+| `postflop.wide_n` | 2.0 |
+| `postflop.probe_margin` | -1.0 |
+| `postflop.probe_bluff` | 0.0 |
+| `postflop.probe_raise_tier` | 9 |
+| `postflop.probe_trap` | 0.0 |
+| `postflop.raiser_from` | 1.0 |
+| `postflop.raiser_slope` | 2.0 |
+| `postflop.balance_sizes` | False |
+| `postflop.balance_size` | 0.5 |
+| `postflop.balance_from` | 1.0 |
 | `postflop.flush_tier_shift` | 0 |
 | `postflop.straight_tier_shift` | 0 |
 | `postflop.draw_outs_mult` | 1.0 |
@@ -362,6 +385,9 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `exploit.bet_min_fold` | 0.5 |
 | `exploit.bet_frac` | 0.33 |
 | `exploit.bet_max_stack_frac` | 0.25 |
+| `exploit.raise_guard` | 1.0 |
+| `exploit.raise_prior` | 0.1 |
+| `exploit.raise_n` | 4.0 |
 | `exploit.isolate` | False |
 | `exploit.iso_min_fold` | 0.85 |
 | `exploit.iso_max_bb` | 6.0 |
