@@ -263,3 +263,112 @@ failures are wall-clock budgets (test_sim_bestiary under-budget, test_nightof_la
 test_slowbox) and the model-mode replay tests of the exploit and outside fields, whose hero seat diverged between two
 runs under that load; all of those pass alone (test_sim_exploiter, test_slowbox: 24 passed). One real one:
 test_apicard, docs/packet/CONTRACTS.md was stale since f74ec92 (the new dials): regenerated.
+
+## 08:15-09:03: Y3 on every stage but variants (screen seeds, code 8a0ee53, base FIN, 47.7 min)
+
+Y3 = Y1 + `hero.postflop.probe_bluff` 0.4.
+
+| cell | FIN | Y3 | Y3 - FIN | | exploiter FIN / Y3 |
+|---|---|---|---|---|---|
+| exploit (8-max, 10/7/5/4/3/2/1/0) | 5.711 | 5.713 | +0.001 ± 0.125 | level | 4.684 / 4.786 |
+| exploit_hu | 9.107 | 9.227 | +0.120 ± 0.140 | level | 7.893 / 7.772 |
+| exploit_3 | 8.359 | 8.458 | +0.100 ± 0.137 | level | 6.985 / 6.900 |
+| exploit2 (8-max, 10/7/5/4/3/2/1/0) | 5.642 | 5.834 | **+0.192 ± 0.092** | UP | 5.246 / 5.103 |
+| exploit2_hu | 7.540 | 7.848 | **+0.307 ± 0.149** | UP | 9.460 / 9.152 |
+| exploit2_3 | 7.135 | 7.378 | **+0.243 ± 0.129** | UP | 8.573 / 8.165 |
+| night (confirm) | 5.996 | 5.953 | -0.043 ± 0.060 | level | |
+| night_hard | 5.463 | 5.448 | -0.016 ± 0.066 | level | |
+| realistic | 6.348 | 6.352 | +0.004 ± 0.045 | level | |
+| top | 5.024 | 5.021 | -0.004 ± 0.066 | level | |
+| night @10/7/5/4/3/2/1/0 | 6.203 | 6.190 | -0.012 ± 0.111 | level | |
+| night @50/25/12/6/3/2/1/1 | 24.973 | 24.644 | -0.328 ± 0.626 | level | |
+| night, doubling blinds | 5.856 | 5.852 | -0.004 ± 0.048 | level | |
+| elite | 4.708 | 4.764 | +0.055 ± 0.069 | level | |
+| elite_night | 5.346 | 5.392 | +0.046 ± 0.059 | level | |
+
+## 09:03: the base changes (coordinator): FIN's dry c-bet does not ship
+
+Batch 4 ships `r3.v3_defend` alone; `hero.postflop.cbet_size_dry` 0.5 does not (it lost on bonus_card, pooled H2 + H3
+-0.030 ± 0.025, and it is exploiter 2's 78%-fold-to-check-raise leak). From here the base is `{"dials":
+{"r3.v3_defend": true}}`, the candidates that plus their dials. Everything above was measured on FIN; the Y1 variants
+run (base 82 of 100 chunks done, Y1 none) was stopped as moot.
+
+Consequence for `balance_sizes`: it took the c-bet sizes for every bet, so on the new base it would bet dry value at
+0.33. It now has its own size (9cb5e36): `hero.postflop.balance_size` 0.5, one size for every bet with nothing to call
+(c-bets included), not against stations or dead tables. On the new base that includes a dry c-bet at 0.5, so it is a
+dry-board sizing change and goes to the variants stage with bonus_card at 200 seeds.
+
+Z = `{"dials": {"r3.v3_defend": true, "r3.v3_bvb_prior": 0.15, "hero.postflop.probe_from": 0.75,
+"hero.postflop.probe_n": 2, "hero.postflop.probe_margin": 0.03, "hero.postflop.probe_raise_tier": 5,
+"hero.postflop.probe_bluff": 0.4, "hero.postflop.balance_sizes": true}}` (Y3's dials on the new base; same sizes
+as Y3 played). Runs from 09:08 (code 9cb5e36): exploit, confirm, guards, elite; and bonus_card at 200 seeds, then
+every variant at 50.
+
+## 09:08-09:15: Z on bonus_card (realistic, 200 seeds, code 9cb5e36), and latency
+
+- bonus_card: base 5.967, Z 5.935, **-0.032 ± 0.060**, level on the screen set. The point estimate is the size of the
+  held-out loss that sank the dry c-bet (pooled H2 + H3 -0.030 ± 0.025), and Z's one size bets dry c-bets at 0.5 too,
+  so the coordinator's held-out check of bonus_card decides `balance_sizes`. Z0 (Z without balance_sizes) is the
+  fallback below.
+- latency (tools/latency.py --bot composite, 20,000 calls, two runs each, interleaved, host load 13-17):
+
+  | dials | p50 us | p99 us | max us | over 1 ms |
+  |---|---|---|---|---|
+  | base `{"r3.v3_defend": true}` | 48.7 / 49.6 | 353.1 / 260.5 | 6,782 / 11,704 | 0.27% / 0.09% |
+  | Z | 49.7 / 49.1 | 259.3 / 258.5 | 5,350 / 6,494 | 0.10% / 0.14% |
+
+  Z's p99 is the base's on this host; both are over the 200 us line only because of the load (S2 measured the base at
+  144-163 us at load 7-10). The new work per decision is a few counter updates in the profiler and, facing a bet, two
+  smoothed reads.
+
+## 09:35: Z plays exactly as Y3; its cells reuse Y3's chunks
+
+With `balance_sizes` on, every bet that would read `cbet_size_dry` (the c-bet branch, the only reader in hyperion/)
+takes `balance_size` instead, so FIN's dry c-bet changes nothing under it: Z (new base + Y3's dials) and Y3 (FIN +
+the same dials) make the same decisions. Checked: Z's eight night chunks at 9cb5e36 equal Y3's at 8a0ee53 sample for
+sample (all 200 seeds), and the code between them changes no default and no decision (balance_size 0.5 = the sizes Y3
+bet; _v3_model is _vs3bet's own lines). So Z's exploit, guard and elite chunks are Y3's (copied into Z's cache key);
+only the new base's chunks are new. The combined run was stopped at that point (it was recomputing Z's half); the
+base runs in two pieces (exploit stage now, then confirm/guards/elite), and Z's variants (not run for Y3) run in full.
+
+## 09:40-09:55: Z's exploit stage against the new base (code 9cb5e36; base computed, Z = Y3's chunks)
+
+| cell | base `{"r3.v3_defend": true}` | Z | Z - base | | exploiter base / Z |
+|---|---|---|---|---|---|
+| exploit (8-max, 10/7/5/4/3/2/1/0) | 5.619 | 5.713 | +0.094 ± 0.139 | level | 4.727 / 4.786 |
+| exploit_hu (10/7) | 9.115 | 9.227 | +0.113 ± 0.140 | level | 7.885 / 7.772 |
+| exploit_3 (10/7/5) | 8.354 | 8.458 | +0.105 ± 0.143 | level | 6.993 / 6.900 |
+| exploit2 (8-max, 10/7/5/4/3/2/1/0) | 5.754 | 5.834 | +0.079 ± 0.117 | level | 5.175 / 5.103 |
+| exploit2_hu (10/7) | 7.540 | 7.848 | **+0.307 ± 0.149** | UP | 9.460 / 9.152 |
+| exploit2_3 (10/7/5) | 7.142 | 7.378 | **+0.237 ± 0.143** | UP | 8.573 / 8.165 |
+
+F as it will ship (v3_defend, no dry c-bet change) against exploiter 2 on the screen seeds: 8-max 5.754 / 5.175,
+heads-up 7.540 / 9.460, three-handed 7.142 / 8.573: the same picture as FIN (FIN's dry c-bet moved only the 8-max
+cell, 5.642 there). Z: up beyond noise on both short-handed exploiter-2 fields, every other exploit cell up in point
+estimate, against exploiter 1 too.
+
+## 09:15-10:03: Z's variants (realistic, the screen set's first 50 seeds a cell; bonus_card also at 200)
+
+None beyond noise down (25 cells, 0 timeouts, 0 errors). Lowest: permuted_ranks -0.054 ± 0.112, bounty -0.050 ±
+0.120, swap_holdem -0.047 ± 0.146, short_deck -0.035 ± 0.097, deal5_keep2 -0.030 ± 0.036, wild_deuces -0.025 ± 0.111;
+three_card_blind_discard **+0.081 ± 0.078** (UP); flush_over_full_house +0.119 ± 0.133, exposed_card +0.106 ± 0.116,
+knockout_bounty +0.100 ± 0.210. bonus_card +0.027 ± 0.131 at 50 seeds, -0.032 ± 0.060 at 200 (above). 50 seeds a
+cell is a quarter of the protocol's 200: a screen, not a verdict; the coordinator's held-out variants decide, bonus_card
+first.
+
+## 09:58-10:12: Z on confirm, guards and elite against the new base (code 9cb5e36)
+
+| cell | base `{"r3.v3_defend": true}` | Z | Z - base | |
+|---|---|---|---|---|
+| night (confirm) | 5.968 | 5.953 | -0.015 ± 0.072 | level |
+| night_hard | 5.486 | 5.448 | -0.039 ± 0.074 | level |
+| realistic | 6.346 | 6.352 | +0.005 ± 0.057 | level |
+| top | 5.035 | 5.021 | -0.014 ± 0.073 | level |
+| night @10/7/5/4/3/2/1/0 | 6.149 | 6.190 | +0.042 ± 0.129 | level |
+| night @50/25/12/6/3/2/1/1 | 24.406 | 24.644 | +0.238 ± 0.757 | level |
+| night, doubling blinds | 5.830 | 5.852 | +0.022 ± 0.065 | level |
+| elite | 4.681 | 4.764 | +0.082 ± 0.086 | level |
+| elite_night | 5.328 | 5.392 | +0.064 ± 0.068 | level |
+
+No guard and no elite cell down. Against the new base the night estimate is -0.015 (against FIN it was -0.043: FIN's
+dry c-bet was worth +0.028 there, and Z's one size keeps it).
