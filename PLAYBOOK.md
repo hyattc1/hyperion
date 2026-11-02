@@ -261,7 +261,7 @@ BROKEN = exceptions. Full table with VPIP, bust rate and reasons: `docs/decision
 | Strength ordering | permuted_ranks, short_deck, lowball, wild_deuces, flush_over_full_house | | Stage 3 regenerates; lowball and wild cards use the variant's score hook; permuted_ranks re-measured 2026-11-01 with tag, nit and pushfold remapping too: Hero first, 5.95 ± 0.23, next rival1 5.52 |
 | Information | toss_or_holdem, three_card_blind_discard, three_card_keep, omaha_four, swap_holdem, swap_one_turn, exposed_card, bonus_card, auction, deal5_keep2 | two_boards | Hero discards, buys, bids (`auction`: the price at which winning and losing the card come out level, `tables/auction_bid.json`) and keeps (`deal5_keep2`: best pair by the flop read, revealed discards dead; five cards priced by `tables/variants/deal5_keep2/heads.json`) via `variant_decide`; two boards still loses to the rival |
 | Payoff | bounty, knockout_bounty, top_heavy, hi_lo | | hi_lo plays high only; bounty reads only our own posted rank |
-| Betting | pot_limit, antes_from_level_3, fixed_raise, fast_schedule, straddle | | antes and straddle feed `stack_bb` |
+| Betting | pot_limit, antes_from_level_3, fixed_raise, fast_schedule, straddle, river_of_blood | | antes and straddle feed `stack_bb`; river_of_blood (a red river deals more streets) needs `hero.long_board` to read boards past five cards |
 
 **2026-11-01, branch climb/v-catalog:** two entries added from the research's gaps, `auction` (MIT 2024's sealed-bid
 second-price auction for a third card) and `deal5_keep2` (CMU 2026), and the four drawing hooks now draw from shuffled
@@ -281,6 +281,18 @@ flat range was the top 45%); on bounty rival 3's core plays the preflop better t
 best two, so value thresholds go up two tiers. Pricing the bounty into stack-offs, betting a hit bounty, the face-up
 tosses as dead cards, a short-deck postflop read and regenerated short-deck tables (`tables/variants/short_deck_v2`)
 are all in as dials and measured level or worse. Log: `docs/drills/vb-top-variants-log.md`.
+
+**2026-11-02, branch climb/vc-long-boards: river_of_blood joins the catalog (26 entries), boards past five, and
+the calls on deal5_keep2 and toss_or_holdem.** river_of_blood (MIT 2023; held out until drill 7) is in `CATALOG` with its hooks; the any-size
+evaluator is `core.eval.evaluate_many`. `hero.long_board` reads any board length (no table built in a decision, the
+board's own best five for "playing the board", draws while a red last card means another street; a street that may
+not be the last plays as a turn): without it F checks or folds every decision past 8 cards. Level in points on
+`river_of_blood_aware` (rob_tag, rob_pushfold, rob_mc; F +1.33 over the best of them) because long boards are 1% of
+F's decisions, but correct. deal5_keep2: F called 79% of postflop bets with hold'em-calibrated equity on a table where
+everyone kept their best two of five; `hero.keep_call_shift` 2 reads those calls two tiers lower: **+0.36** on
+`realistic_keep2`. The same lever on toss_or_holdem (the likeliest twist): `hero.toss_call_shift` 1, **+0.23** on
+`toss_or_holdem_aware` (vb's value shift moves bets only). Short deck: shove-call margins (`hero.variant_pushfold`, `variant_preflop` shove keys) are level;
+the deep flats (vb's `variant_preflop`) are the lever. Log: `docs/drills/vc-long-boards-log.md`.
 
 22 READY, 1 PLAYS, 0 WEAK, 0 BROKEN as of 2026-10-31. hybrid3_x and Hero with the exploit layer
 are both 23 READY, first on 22 (final core comparison, 2026-11-01); on hybrid3_x Hero plays 14 of these tables
