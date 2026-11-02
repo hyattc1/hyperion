@@ -566,3 +566,18 @@ and (in judges) `elite_judge`.
   night's twist. Not included: lowball flats (+0.40 generic, -0.073 realistic). Night procedure: the twist's table
   must be prepared before packing (stage 5's `--aware generic:<variant>` builds it), or the twins do nothing.
 - Candidate on H10 (29000-29399): aware (11 generic + 4 hand-built) and all 26 variants.
+
+## 15:49: S12c merged (4bd362f), D3 on H11; drill 8's kit and S13 (short-handed specialist) started
+- S12c: the night loss traced (diagnostic seeds 9000-9199 x 8, every spot the read engaged, its decision against the
+  truth): four night seats (trackb5, agent_montecarlo, trackb3, agent_pushfold) c-bet only 25-39%, so their small
+  bets are not their weak ones (-586 bb in D1's spots); river reads lose everywhere (biased high). D3 = D1 on flop and
+  turn only, for seats whose c-bet rate is at least 0.55 (rule fixed from the diagnostic before points). Screen: night
+  +0.034 ± 0.021 over 600 seeds (UP), mirror +0.083, top +0.071, elite +0.086, realistic +0.036, night_hard +0.078
+  UP; nothing down. Caveat: the screen seeds do not reproduce D1's H8 night loss either (D1 +0.03 on them), so the case
+  rests on the diagnostic. D3 on H11 (31000-31399; held-out sets now skip the judge set, daa3ec3), --aim strong.
+- Drill 8 (rehearsal, track H): a fresh organiser agent with no repo access builds kit F with a twist of its own
+  invention (not any of our 26 catalog entries or the 4 held-out ones) and an interface with at least three unusual
+  choices (goal/drill8/kit). A fresh player agent runs the hour on it after batch 5 is frozen.
+- S13 (structural, strength): a short-handed specialist member (3 or fewer alive) with near-equilibrium heads-up and
+  three-handed preflop tables from our own offline solver, balanced heads-up postflop, deviations only on clear reads.
+  Targets: win heads-up against exploiter2, hold against exploiter1, more 1st places at strong tables.
