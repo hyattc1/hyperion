@@ -18,8 +18,12 @@ anything non-standard. A filled rehearsal example: `docs/packet/EXAMPLE-rule-she
 - Board: cards per street, number of boards, any community cards that change.
 - Hand ranking: standard? Any rank permutation, removed ranks, added categories, must-use-two rule?
 - Betting: no-limit / pot-limit / fixed. Min raise rule. Raise amounts as raise-to totals or
-  increments? Antes? Straddles? Any non-standard rule with no `Rules` field in CONTRACTS.md: write
-  ENGINE CANNOT REPRESENT and what the sim will play instead.
+  increments? Antes? Straddles? A non-standard rule with no `Rules` field in CONTRACTS.md: first check the
+  variant hooks (`hyperion/drills/variants.py`: on_deal, on_street, score_hand, score_splits, on_payout, on_bust,
+  charges and charges_dead; the shape hooks in `hyperion/sim/engine.py`'s header: forced_bets, after_forced,
+  next_card, on_fold, settle). Most twists fit them as a file (`hyperion/drills/variant_file_example.py`): a hand
+  the house deals, a pot that carries to the next hand (drill 8's Ghost: on_deal, settle, after_forced). Write
+  ENGINE CANNOT REPRESENT, and what the sim will play instead, only if none fits.
 - Blind schedule: levels and hands per level. Starting stack. Table size. Hand cap.
 - Scoring: points by finish position (table), ICM at the cap, any bounty or side payoff.
 - Agent interface: class or function name, method signature, every state field and its type, the

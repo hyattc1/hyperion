@@ -135,6 +135,7 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.v3_margin` | `0.002` | points a call, 4-bet or jam must beat folding by |
 | `r3.v3_bvb_prior` | `-1.0` | the prior 3-bet rate (weight v3_prior_n) when the big blind 3-bets our small-blind open with nobody else in; -1 = the v3_prior and v3_min_rate as everywhere |
 | `r3.v3_bvb_min_rate` | `0.12` | ... and the estimated rate from which the defence plays there |
+| `r3.v3_bvb_holdem_only` | `False` | ... and only on hold'em tables (hero.holdem_table): on twist tables it lost a little on six variants and two aware fields (held-out H9) |
 | `r3.v3_bvb_f4_cap` | `-1.0` | ... and the cap on its modelled fold rate to a 4-bet there (a wide 3-bettor need not fold its wide range to a 4-bet: 0.45 = no bluff 4-bets until it is seen folding to one); -1 = v3_f4_cap |
 | `r3.v3_bvb_cont` | `-1.0` | ... and the share of all hands it continues with against a 4-bet there (blind against blind a 3-bettor defends wider than QQ+ / AK: 0.08 means a seat that 3-bets 18% folds 56% in the model); -1 = v3_cont |
 | `r3.bb_defend` | `False` | big blind facing one raise and no caller, not committed: also call when equity against the opener's range times bb_real beats the price (so the range widens against a small open); off = as built (bottom half folds at any price) |
