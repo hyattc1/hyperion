@@ -304,3 +304,16 @@ and (in judges) `elite_judge`.
   acceptance under addendum 6. S9 told to leave those sections to S11.
 - R2-R4 (goal/wt_r2, climb/r2-lifetime-kits): one object for 10,000 tables, kit shapes through the adapter,
   memory, import time, sizes; addendum 2.
+
+## 06:04: batch 3 combined on H2 (3rd use): one variant cell down; judges level; bonus_card replicating on H3
+- FIN + V-b against F on H2: exploit +0.657 ± 0.093 / +1.050 ± 0.120 / +1.242 ± 0.136; night +0.022 ± 0.031
+  level; guards level, doubling blinds up (+0.039 ± 0.032); elite and elite_night level; aware all up (toss
+  +0.146, bounty +0.305, short deck +0.185); variants seven up, bonus_card down (-0.049 ± 0.040; alone it was
+  V-b H1 -0.013 ± 0.020, FIN H1 -0.014 ± 0.034, V-b H2 +0.002 ± 0.023).
+- Judges once on the judge set (30000-30399) against the batch-2 ship: judge +0.021, judge2 +0.014, judge2_night
+  +0.014, judge_top +0.008, outside +0.019, outside_strong +0.009, elite_judge +0.008; all level, none down.
+- Under addenda 6 and 7 (night need not rise; a lone variant down replicates): bonus_card for the combination on
+  H3 (22000-22399) at 400 seeds decides; screen runs of FIN alone, V-b alone and both on bonus_card say which part
+  moves it. H2 retired.
+- climb_accept learns the addenda (f2a31a8): `--aim exploit` (6) and `--aim strong` (8) replace "night up" with
+  "an aimed field up, night not down", so the verdict and REPLICATE come out right for those changes.
