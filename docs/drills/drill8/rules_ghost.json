@@ -1,0 +1,14 @@
+{
+ "hole_cards": 2,
+ "board_sizes": [0, 3, 4, 5],
+ "starting_stack": 2000,
+ "small_blind": 10,
+ "big_blind": 20,
+ "blind_levels": [[10, 20], [15, 30], [25, 50], [40, 80], [60, 120], [100, 200], [150, 300], [250, 500]],
+ "hands_per_level": 25,
+ "max_hands": 200,
+ "n_players": 8,
+ "payouts": [16, 11, 8, 6, 4, 2, 1, 0],
+ "betting": "nolimit",
+ "extras": {"cap_places": "chips"}
+}
