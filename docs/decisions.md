@@ -3097,3 +3097,51 @@ Every section's full list on night, on realistic and with Hero as the base is in
   tuned on, are the fields to weigh, and F leads on all three.
 - Model mode now plays rival 2, rival 5, agent_montecarlo and agent_pushfold at a fixed speed. Top numbers here are
   not comparable with the final core comparison's top / top2 rows, which played rival 2 on the wall clock.
+
+## The climb: protocol addenda and batches 1-2 (2026-11-02, builder: the climb's coordinator)
+
+Brief: `docs/prompts/goal.md` (the long `/goal` run; our regional is Pittsburgh, Nov 12; stop by Nov 11 18:00 ET).
+Plan and frozen protocol: `docs/drills/goal-plan.md`. Running log: `docs/drills/goal-log.md`. Leaderboard:
+`docs/drills/goal-leaderboard.md`.
+
+**Protocol addenda** (the plan's section 2 says a change needs an entry here):
+1. *A doubling blind schedule is a guard* (`docs/drills/climb/rules/double.json`), beside the two payout tables: the
+   research pass puts a schedule that roughly doubles each level at 40% (`docs/drills/climb/variants-ranked.md`).
+2. *Robustness changes have their own acceptance rule.* A change that plays bit-identically on a normal box (timing,
+   setup, hand end) is accepted when: model-mode play is identical on the confirm set (or the default-play fingerprint
+   test holds); the slow-box harness (`tools/slowbox.py`) shows a gain beyond noise at k = 3 on a held-out set, and no
+   loss at k = 1; the full suite passes.
+3. *`tools/swap.py paired` specs skip `SHIP_DIALS`.* `{"dials": {}}` there is the composite without the shipped dials
+   (P, not F). Every climb measurement of F goes through `tools/climb_accept.py`, which resolves dials on top of
+   `SHIP_DIALS` as `hyperion.ship` builds the bot. A payout diagnostic run before this was found measured P and was
+   re-labelled.
+4. *New judge-like fields, never tuned on:* `outside` and `outside_strong` (four one-hour builds by fresh agents with no
+   repo access, frozen copies in hyperion/sim/field/outside_*.py). At the owner's direction an `elite` field is being
+   built from three prepared top-team builds (one shared general brief); two will be a tuning field and one stays held out.
+5. *Variant-aware opponents* join the variant checks (auction_tag, keep2_tag, and per likely variant), so readiness is
+   not measured only against bots that ignore the twist.
+
+**Batch 1 (b48c272): infrastructure, hold'em play unchanged.**
+- Hooks draw extra cards from the shuffled undealt deck (four entries had drawn from an unshuffled tail: two_boards'
+  second board began with the ace of spades in 60% of seeds); the pot award no longer loses chips when a folded player
+  out-contributed every contender; bonus_card's price is dead money.
+- New catalogue entries `auction` (MIT 2024, sealed bid, 8-way second price) and `deal5_keep2` (CMU 2026, 52-card), each
+  with F's decision (bid from a precomputed card-value table; keep the best two with dead cards) and a variant-aware
+  opponent. F 25/25 READY, first on 24.
+- Setup 0.95 s -> 0.14 s cold (evaluator tables only for the card counts the Rules imply, grown from the next smaller);
+  hand end cheaper and safe if a kit interrupts it; event-driven kit entry and gate-seat templates (from drill 7).
+- Check: F's per-seed night samples identical before and after (screen seeds); full suite green.
+
+**Batch 2 (f7914c0): the governor ships in F's defaults.**
+- SafeBot counts only near-timeouts (0.8 ms) that cluster (5 in 60 calls); each cluster steps the composite one level
+  down (no full shadows; the base's exact-ICM spots to Hero under top-heavy payouts; every section to Hero; the cheap
+  path last), and quiet calls step it back up. Before, 5 overruns of 0.5 ms in a table sent the rest of it to the cheap
+  path, which fired on this host's noise.
+- Held-out seeds 20000-20199 x 8, 3x slower box (dilated clock), F vs F with the governor: payouts 50/25/12/6/3/2/1/1
+  **+3.64 ± 0.80** of 100 (panic tables 772 -> 0 of 1600); 8..1 **+0.144 ± 0.072** (502 -> 0). Bit-identical in model mode.
+- Also: the exact ICM forward pass at half the cost, bit-identical (tests hold it to the old loop).
+- Not measured: the governor on the fallbacks hybrid3_x and Hero (they keep the old rule; `--dials slow_box` gives them
+  a subset).
+
+**What is not yet accepted:** any change to how F plays on a normal box. The exploiter's findings (F folds about 90% to
+3-bets after wide opens; size tells; heads-up any-two shoves) and the top-variant work are with workers on branches.
