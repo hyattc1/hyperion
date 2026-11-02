@@ -82,3 +82,25 @@ elite): its raise-first-in rule also opens any hand up to the 85th percentile wh
 0.55 > 0` (pf: everyone behind folds), a price that never counts a re-raise, and short-handed it widens every
 threshold by 1.2. It shoves only at 10 bb or less; rival 2 shoves at 13 bb or less (16 with two behind) and elite2 at
 14 or less. Against weak seats the min-raise steal works (they fold or call); strong bots re-shove it.
+
+## 3. Adopting the strong builds' play in the three sections
+
+The composite can route a section to another member, so adopting a better bot's code for a section is a route, not a
+rewrite. New members (e3a7d6f): `elite1`, `elite2` (PersonaMember: the frozen builds through the bestiary's adapter,
+the generator seeded per decision). Rival 2's core is already the `r2` member (donor `r2x`).
+
+Runs: `climb_accept` on the screen seeds (10000-10199, 200 x 8), stages confirm and elite, base F. The base's cached
+chunks are pinned to code version ab31e165de (scratch wrapper `goal/s9/s9_accept.py`): F's play does not change while
+dials that are off by default are added (tests/test_sim_mirror.py; the light-shadow and gate tests below).
+
+| candidate (sections pre_open_10, pre_3way, pre_hu to) | night | elite | elite_night | mirror |
+|---|---|---|---|---|
+| E1: elite1x | **-0.117 ± 0.074** | **+0.192 ± 0.084** | **+0.108 ± 0.069** | **+0.258 ± 0.088** |
+
+E1 is the size of the prize: at every strong table F plays elite1's way in those three sections and gains 0.1-0.26
+points, which takes F from 2nd to 1st on elite (4.87 vs rival 2's 4.91 on the diagnostic seeds) and from last to 2nd
+on the mirror. It loses on night: elite1's tighter opens give up F's profitable steals against weak seats.
+
+Latency: as a full shadow on every decision elite1 adds about 26 us a decision (latency.py at load 10: mean 62 -> 88
+us, p99 258 -> 358). With its light shadow (scan the history only; e3a7d6f) the cost is 62.4 -> 65.9 us mean, p99
+within noise (150 vs 241 at load 10). The light shadow plays exactly as the full one (test).

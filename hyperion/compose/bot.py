@@ -345,17 +345,26 @@ class ComposeConfig:
     panic_backoff: float = 2.0
     degrade: str = ""  # "noshadow,base": the intermediate levels, in order (module doc)
     start_level: int = 0  # measurement: play every table at this level from its first decision (a level's strength)
+    # the strong-table route (backlog S9, module doc): these sections go to these donors while the table reads strong,
+    # i.e. while the share of our first-in preflop raises that were re-raised, smoothed toward `strong_prior` with the
+    # weight of `strong_prior_n` raises, is at least `strong_rr`. Empty (the default): every section as `route` says
+    strong_route: dict = field(default_factory=dict)
+    strong_rr: float = 0.0  # 0 = always strong (the strong route always on, when it is set)
+    strong_prior: float = 0.15
+    strong_prior_n: float = 10.0
     seed: int | None = None
 
 
 def compose_config(route=None, seed=None, **kw) -> ComposeConfig:
     cfg = ComposeConfig(seed=seed, **kw)
     cfg.route = parse_route(route)
-    for sec, d in cfg.route.items():
-        if sec not in SECTIONS:
-            raise KeyError(f"unknown section {sec!r}")
-        if d not in DONORS:
-            raise KeyError(f"unknown donor {d!r} for {sec}; known: {', '.join(DONORS)}")
+    cfg.strong_route = parse_route(cfg.strong_route)
+    for r in (cfg.route, cfg.strong_route):
+        for sec, d in r.items():
+            if sec not in SECTIONS:
+                raise KeyError(f"unknown section {sec!r}")
+            if d not in DONORS:
+                raise KeyError(f"unknown donor {d!r} for {sec}; known: {', '.join(DONORS)}")
     if cfg.base_donor not in DONORS or DONORS[cfg.base_donor][0] != "base":
         raise KeyError(f"base_donor must be a donor of the base member, got {cfg.base_donor!r}")
     for lv in degrade_levels(cfg.degrade):
@@ -383,7 +392,7 @@ class CompositeCore:
         self.cfg = cfg = config or ComposeConfig()
         donors = [cfg.route.get(s, cfg.base_donor) for s in SECTIONS]
         names = ["base"]  # index 0 is always the base
-        for d in donors:
+        for d in donors + [cfg.strong_route[s] for s in SECTIONS if s in cfg.strong_route]:
             m = DONORS[d][0]
             if m not in names:
                 names.append(m)
@@ -394,6 +403,9 @@ class CompositeCore:
         self.base = self.members[0]
         idx = {n: i for i, n in enumerate(names)}
         self.route = [(idx[DONORS[d][0]], DONORS[d][1]) for d in donors]  # per section: (member index, layer on)
+        sr = cfg.strong_route
+        self.strong = [(idx[DONORS[sr[s]][0]], DONORS[sr[s]][1]) if s in sr else None for s in SECTIONS] if sr else None
+        self._rr_reset()
         self.donors = donors
         self.plain_only = [bool(getattr(m, "plain_only", False)) for m in self.members]
         self.resync = [RESYNC.get(n) for n in names]
@@ -428,8 +440,22 @@ class CompositeCore:
         self._hero_idx = names.index("hero") if "hero" in names else -1
 
     # ------------------------------------------------------------------ Bot protocol
+    def _rr_reset(self) -> None:
+        self._rr_n = 0  # our first-in preflop raises (not all-in) this table
+        self._rr_k = 0  # ... that faced a re-raise before the flop
+        self._rr_hand = -1
+        self._rr_open = False  # our first-in raise this hand, not yet re-raised
+
+    def strong_table(self) -> bool:
+        """The strong-table read: the share of our first-in raises re-raised (smoothed) is at least strong_rr."""
+        c = self.cfg
+        if c.strong_rr <= 0.0:
+            return True
+        return (self._rr_k + c.strong_prior * c.strong_prior_n) / (self._rr_n + c.strong_prior_n) >= c.strong_rr
+
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
         self.panic = False
+        self._rr_reset()
         for m in self.members:
             m.new_table(rules, seat, n_players)
         if self.cfg.start_level or self.level:
@@ -478,6 +504,18 @@ class CompositeCore:
         self.last_section = sec
         mi, layer = self.route[sec]
         counts = self.counts
+        strong = self.strong
+        if strong is not None:
+            if obs.hand_no != self._rr_hand:
+                self._rr_hand, self._rr_open = obs.hand_no, False
+            elif self._rr_open and (obs.street or obs.to_call > 0):
+                if not obs.street:
+                    self._rr_k += 1  # we act again before the flop, facing a bet: our raise was re-raised
+                self._rr_open = False
+            sr = strong[sec]
+            if sr is not None and self.strong_table():
+                mi, layer = sr
+                counts["strong"] += 1
         if self.level:
             counts["level:%d" % self.level] += 1
             if self._force is not None and not self.panic:
@@ -567,6 +605,10 @@ class CompositeCore:
                 tap(self, obs, sec, mi, own, a, props, ex)
         for j in range(nm):
             props[j] = None
+        if strong is not None and not obs.street and a.kind is _RAISE and max(obs.bets) <= obs.blinds[1] \
+                and a.amount < obs.max_raise:
+            self._rr_n += 1  # a first-in raise that is not all-in: will it be re-raised?
+            self._rr_open = True
         key = SECTIONS[sec] + ":" + self.names[mi]
         counts[key] += 1
         COUNTS[key] += 1

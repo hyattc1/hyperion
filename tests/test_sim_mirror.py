@@ -102,3 +102,54 @@ def test_copies_are_independent_players(monkeypatch):
                 assert isinstance(a, Action) and (a.kind, a.amount) == e[2]
             else:
                 b.hand_end(copy.deepcopy(e[1]))
+
+
+ROUTE_E1 = "post=hero,pre_raised_short=hero,pre_open_10=elite1x,pre_3way=elite1x,pre_hu=elite1x"
+
+
+def test_elite_members_route_and_play_legally(monkeypatch):
+    _model(monkeypatch)
+    assert {"elite1", "elite1x", "elite2", "elite2x"} <= set(CB.DONORS)
+    for donor in ("elite1x", "elite2x"):
+        nm = "s9_" + donor
+        CB.register(nm, dials={**CB.SHIP_DIALS, "route": ROUTE_E1.replace("elite1x", donor)})
+        rep = R.run_tournament(B.field_names(f"elite@{nm}"), 1, seed=1, rotate=True, mode="model",
+                               hero_config=dict(MODEL_HERO), table_offset=9300)
+        st = rep.bots[nm].stats
+        assert st.exceptions == 0 and st.illegal == 0 and st.safe_err == 0
+
+
+def test_elite1_light_shadow_plays_as_the_full_one(monkeypatch):
+    """elite1's light shadow (its history scan, no decision; its pending raise from the action taken) and its per-decision
+    seed: the composite plays every table the same with light shadows on and off."""
+    _model(monkeypatch)
+    out = []
+    for light in (False, True):
+        nm = f"s9_light{int(light)}"
+        CB.register(nm, dials={**CB.SHIP_DIALS, "route": ROUTE_E1, "light": light})
+        rep = R.run_tournament(B.field_names(f"mirror@{nm}"), 1, seed=1, rotate=True, mode="model",
+                               hero_config=dict(MODEL_HERO), table_offset=9301)
+        out.append(rep.bots[nm].samples)
+    assert out[0] == out[1]
+
+
+def _play(nm, dials, field="elite", offset=9302):
+    CB.register(nm, dials={**CB.SHIP_DIALS, **dials})
+    return R.run_tournament(B.field_names(f"{field}@{nm}"), 1, seed=1, rotate=True, mode="model",
+                            hero_config=dict(MODEL_HERO), table_offset=offset).bots[nm].samples
+
+
+def test_strong_route_gate(monkeypatch):
+    """The strong-table route: with the gate open (strong_rr 0) it plays as the same sections routed outright; with a
+    gate that never opens it plays as F; it reads our first-in raises and the re-raises they face."""
+    _model(monkeypatch)
+    secs = "pre_open_10=elite1x,pre_3way=elite1x,pre_hu=elite1x"
+    routed = _play("s9_g_route", {"route": ROUTE_E1})
+    assert _play("s9_g_open", {"strong_route": secs}) == routed
+    f = _play("s9_g_f", {})
+    assert _play("s9_g_shut", {"strong_route": secs, "strong_rr": 1.01}) == f
+    assert routed != f
+    core = CB.ship({"strong_route": secs, "strong_rr": 0.3}, seed=5).core
+    assert core.strong is not None and core.strong_table() is False  # the prior (0.15) is under 0.3
+    core._rr_n, core._rr_k = 10, 6
+    assert core.strong_table() is True  # (6 + 1.5) / 20 = 0.375
