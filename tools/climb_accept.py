@@ -15,7 +15,8 @@ SHIP_DIALS, as hyperion.ship builds it, so {"dials": {}} is the shipped F (the d
 paired takes a spec's dials alone, without SHIP_DIALS; there {"dials": {}} is not F. A spec may also be recipe names
 (`survival`, `dead_seats+survival`; hyperion/ship.py resolves them for the composite) or '' (F as shipped).
 
-Sets: `screen` 10000-10199; `H1` 20000-20399, `H2` 21000-21399, ... (+1000 each); `judge` 30000-30399; or `lo:hi`.
+Sets: `screen` 10000-10199; `H1` 20000-20399, `H2` 21000-21399, ... (+1000 each; H11 on skip the judge set: H11 is
+31000-31399); `judge` 30000-30399; or `lo:hi`.
 Stages (comma-separated; default confirm,guards,variants):
 - confirm: night;
 - guards: night_hard, realistic, top, night under payouts 10/7/5/4/3/2/1/0 and 50/25/12/6/3/2/1/1, night under a
@@ -98,6 +99,8 @@ def seed_range(name: str) -> tuple[int, int]:
     if name.upper().startswith("H") and name[1:].isdigit():
         k = int(name[1:])
         lo = 20000 + 1000 * (k - 1)
+        if lo >= 30000:  # H11 would be the judge set (30000-30399): held-out sets from H11 on start at 31000
+            lo += 1000
         return lo, lo + 400
     raise SystemExit(f"unknown set {name!r}")
 

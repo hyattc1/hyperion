@@ -105,3 +105,11 @@ def test_an_edit_to_an_untracked_module_changes_the_code_version(tmp_path):
         assert v1 != v2
     finally:
         os.remove(p)
+
+
+def test_no_held_out_set_overlaps_the_judge_set():
+    jl, jh = CA.seed_range("judge")
+    for k in range(1, 30):
+        lo, hi = CA.seed_range(f"H{k}")
+        assert hi <= jl or lo >= jh, k
+    assert CA.seed_range("H10") == (29000, 29400) and CA.seed_range("H11") == (31000, 31400)
