@@ -340,8 +340,9 @@ class Config:
     # over full house), more samples and a multiway push/fold solve. "" = the set extras["variant"] names
     variant_tables: str = ""
     # PreflopParams overrides for a catalogued twist's tables only (rules.extras["variant"] names one, not plain
-    # hold'em): e.g. {"call_raise_frac": 0.15}. On F, Hero plays every preflop decision of the 14 Hero tables (short deck,
-    # three hole cards, bounties ...) and few elsewhere; this reaches the first and none of the second. {} = off
+    # hold'em; not fixed limit or must-use-k, where they measured worse): e.g. {"call_raise_frac": 0.15}. On F, Hero
+    # plays every preflop decision of the 14 Hero tables (short deck, three hole cards ...) and few elsewhere; this
+    # reaches the first and none of the second. {} = off
     variant_preflop: dict = field(default_factory=dict)
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
@@ -641,8 +642,11 @@ class HeroCore:
             pre, pf, t = mods  # the set the cached modules were built on (a label view is rebuilt per call)
             self._label = t.scheme != "169"
         vp = cfg.variant_preflop
-        if vp and ex.get("variant") and str(ex.get("variant")).lower() not in PLAIN_NAMES:
-            # a catalogued twist (rules.extras["variant"]): this table's preflop module with variant_preflop on top
+        if vp and ex.get("variant") and str(ex.get("variant")).lower() not in PLAIN_NAMES \
+                and rules.betting != "fixedlimit" and not rules.must_use_hole:
+            # a catalogued twist (rules.extras["variant"]): this table's preflop module with variant_preflop on top.
+            # Not fixed limit (a flat costs one bet, so the wide flat range pays) or must-use (Omaha: four-card hands
+            # run close): there the tighter flats measured -0.108 +- 0.073 and -0.065 +- 0.051
             vkey = ("variant_preflop", id(pre))
             vpre = self._modules.get(vkey)
             if vpre is None:
