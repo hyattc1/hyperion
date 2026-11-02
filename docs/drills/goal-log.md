@@ -538,3 +538,13 @@ and (in judges) `elite_judge`.
   `hero.postflop.s11_holdem_only` (811c216): on a table that fails hero.holdem_table, Postflop plays with those two
   off. Tests: on short deck ungated Z differs from F on 4 of 4 tables, gated it is identical; F identical by default
   (14 cells). Z2 = Z + the gate on H9 (28000-28399), --aim exploit, all stages.
+
+## 14:47: D1 (the gated size read) on H8: rejected on night; back to S12 to find the misread night seats
+- H8 (27000-27399), base batch 4, --aim strong: mirror +0.188 ± 0.060, top +0.079 ± 0.040, realistic +0.041 ±
+  0.022 (fixed), doubling blinds +0.030 ± 0.026, exploit 8-max +0.098 ± 0.069, antes +0.048 ± 0.030, top_heavy
+  +0.41 ± 0.35 UP; elite +0.008, elite_night +0.007 (screen +0.084 / +0.066), night_hard, payout tables, aware,
+  other variants level; night -0.045 ± 0.031 DOWN. REJECT (night must not be down). H8 used once.
+- The read has now been slightly negative on night twice held out (C7 H5 -0.039 ± 0.063, D1 H8 -0.045): some night
+  seats pass the per-seat gate with sizes that do not mean what the read assumes. S12 resumed: survey the night seats
+  against the simulator's truth on fresh diagnostic seeds, a rule from the survey (by observable behaviour, not
+  identity), then night screened on 600 seeds so a 0.04 effect shows.
