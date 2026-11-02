@@ -372,3 +372,83 @@ first.
 
 No guard and no elite cell down. Against the new base the night estimate is -0.015 (against FIN it was -0.043: FIN's
 dry c-bet was worth +0.028 there, and Z's one size keeps it).
+
+## 10:05-10:15: Z0 = Z without balance_sizes (exploit cells and night, code 9cb5e36, base `{"r3.v3_defend": true}`)
+
+| cell | exploit | exploit_hu | exploit_3 | exploit2 | exploit2_hu | exploit2_3 | night |
+|---|---|---|---|---|---|---|---|
+| Z0 - base | +0.032 ± 0.058 | +0.090 ± 0.134 | +0.037 ± 0.116 | +0.011 ± 0.041 | +0.098 ± 0.141 | -0.102 ± 0.116 | -0.015 ± 0.015 |
+
+Without the one size the rest is worth little against exploiter 2 (its three-handed estimate even turns negative):
+the reads and the bvb prior pay only once the sizes stop naming the hands. Z0 is not a fallback worth recommending.
+
+## 10:15: merged main 5b4591a (2570fcd)
+
+The coordinator merged S12 (bet-size read, `hero.postflop.size_read*`, `r3.l3_on`, `hero.postflop.xr_shift`) and
+batch 4 (`r3.v3_defend` in SHIP_DIALS). Conflicts resolved so both work, each off by default:
+- postflop.py, the facing-a-bet block: S11's wide-bettor reads adjust `eq` and the margin and lower the raise tier
+  first; then S11's bluff raise; then S12's size read, which blends its read equity with the call rule as S11 left it
+  (at weight 1.0 its read decides the call, as S12 noted). Constants and parameters of both kept.
+- profiler.py: both sets of counters; core3.py: `_v3_model` (S11) and `_light3` (S12) both kept; climb_accept.py:
+  main's elite list (with `mirror`) and `--aim`, S11's six exploit cells; CONTRACTS.md regenerated.
+- tests: test_s11_dials (new: S11 + C7 on together replay at 8-max), test_s12_reads, test_sim_mirror, test_ship,
+  test_compose, test_strategy_postflop, test_strategy_profiler, test_hand_end_timing, test_s2_dials, test_apicard,
+  test_climb_accept: pass; test_sim_exploiter's exploit2 replay failed once under load (hero seat) and passes alone.
+
+Screens at 2570fcd against main's F, `{"dials": {}}` (v3_defend shipped): Z (its dials without r3.v3_defend, now in
+SHIP_DIALS) and Z + C7 (`hero.postflop.size_read` 1.0, `size_read_rank` 5.0, `size_read_min_alive` 4,
+`size_read_holdem_only`), on the six exploit cells and elite, elite_night, mirror.
+
+## 10:20-10:58: Z and Z + C7 against main's F (code 2570fcd, base `{"dials": {}}`, screen seeds)
+
+Main's F plays exactly as the batch-4 base did at 9cb5e36 on every one of these cells (same means), and Z exactly as
+before. Z + C7's short-handed chunks are Z's (C7 plays only with four or more alive: `size_read_min_alive` 4); its
+8-max and elite cells were played.
+
+| cell | F (main) | Z | Z + C7 | (Z + C7) - Z | exploiter F / Z / Z+C7 |
+|---|---|---|---|---|---|
+| exploit (8-max) | 5.619 | +0.094 ± 0.139 | +0.146 ± 0.176 | +0.052 ± 0.153 | 4.727 / 4.786 / 4.722 |
+| exploit_hu | 9.115 | +0.113 ± 0.140 | +0.113 ± 0.140 | (same) | 7.885 / 7.772 / 7.772 |
+| exploit_3 | 8.354 | +0.105 ± 0.143 | +0.105 ± 0.143 | (same) | 6.993 / 6.900 / 6.900 |
+| exploit2 (8-max) | 5.754 | +0.079 ± 0.117 | +0.046 ± 0.153 | -0.034 ± 0.146 | 5.175 / 5.103 / 5.189 |
+| exploit2_hu | 7.540 | **+0.307 ± 0.149** | **+0.307 ± 0.149** | (same) | 9.460 / 9.152 / 9.152 |
+| exploit2_3 | 7.142 | **+0.237 ± 0.143** | **+0.237 ± 0.143** | (same) | 8.573 / 8.165 / 8.165 |
+| elite | 4.681 | +0.082 ± 0.086 | **+0.257 ± 0.116** | **+0.175 ± 0.110** | |
+| elite_night | 5.328 | +0.064 ± 0.068 | **+0.209 ± 0.096** | **+0.145 ± 0.087** | |
+| mirror | 4.414 | +0.002 ± 0.075 | **+0.431 ± 0.107** | **+0.429 ± 0.105** | |
+
+They compose: nothing down, C7's strong-table gains intact on top of Z, Z's short-handed gains intact under C7.
+
+## Summary (screen seeds 10000-10199)
+
+**Recommended: Z** = `{"r3.v3_bvb_prior": 0.15, "hero.postflop.probe_from": 0.75, "hero.postflop.probe_n": 2,
+"hero.postflop.probe_margin": 0.03, "hero.postflop.probe_raise_tier": 5, "hero.postflop.probe_bluff": 0.4,
+"hero.postflop.balance_sizes": true}` on main's F (r3.v3_defend shipped). Against F: exploit2_hu +0.307 ± 0.149
+and exploit2_3 +0.237 ± 0.143 (UP), every other exploit cell up in point estimate (exploiter 1 too); night -0.015 ±
+0.072, every guard level, elite +0.082 / elite_night +0.064 / mirror +0.002 (level); 25 variants level at 50 seeds a
+cell (three_card_blind_discard UP), bonus_card -0.032 ± 0.060 at 200; latency p99 = F's on the same host. Heads-up
+against exploiter 2 it is still behind (7.85 against 9.15): the goal of winning heads-up is not reached.
+
+What each part does, measured alone or by removal:
+- `balance_sizes` (one size, 0.5 pot, for every bet with nothing to call but against stations or dead tables): the
+  largest single piece (+0.18 heads-up, +0.16 three-handed alone); without it the rest is nearly nothing (Z0). It sets
+  dry c-bets to 0.5, the change that lost on bonus_card held out: bonus_card decides it.
+- the probe read (`probe_*`): floats and raises against a seat that leads into me or stabs after my check almost every
+  time (exploiter 2: 0.99; exploiter 1 0.61, elite2 0.72, night seats 0.25): never fires on exploiter 1.
+- `r3.v3_bvb_prior`: the 3-bet defence from the first blind-against-blind 3-bet (+0.14 against exploiter 1 heads-up).
+
+Tried and not kept: the c-bet and combined wide-bettor reads (`cbet_from`, `wide_from`: fire on exploiter 1 and elite2,
+-0.17 to -0.5 against exploiter 1), the BvB 4-bet cap (`v3_bvb_f4_cap`: kills the light 4-bets exploiter 1 folds to),
+`exploit.raise_guard` (blocks bet_checked on exploiter 1 too), `r3.bb_defend` (costs again), `raiser_from` and
+`balance_from` (never or barely fire), `cbet_ftc_read` (nothing), `r3.v3_follow` (folded more; removed).
+`r3.v3_bvb_cont` is in the code, off, unmeasured.
+
+Open:
+- the big blind against exploiter 2's c-bet folds about 70% (-900 bb in 120 heads-up tables): its c-bet frequency is
+  not unusual (0.71), so a frequency read cannot separate it from exploiter 1 or elite2; a showdown read (it barrels air
+  and never bluffs the river) could;
+- the light blind-against-blind 4-bet that folds to its jam (about -14.5 bb, 1.4 a heads-up table): `v3_bvb_cont`
+  (0.08) is the principled next try;
+- the layer's 0.33-pot bet_checked, raised by exploiter 2 with any hand (-750 bb in 120 tables): a guard that does not
+  also fire on exploiter 1;
+- variants at 50 seeds only; the held-out set decides, bonus_card first.
