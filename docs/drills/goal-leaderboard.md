@@ -3,7 +3,7 @@
 One page, updated after every accepted batch. Points are per table, averaged over the seeds shown, every seed played
 in all eight seat rotations; "margin" is F minus the other bot on the same deals, with the 95% interval.
 
-## Where we stand (2026-11-02 06:50 ET, batch 3)
+## Where we stand (2026-11-02 06:18 ET, batch 3)
 
 **F (the composite) is first against every judge field.** On fresh seeds (30000-30399, 400 x 8), none of them ever
 used for tuning (batch 3 changes only twist tables, so these hold'em numbers stand):
@@ -47,6 +47,6 @@ minute 8 and the ship bot gated at minute 20; that zip beat raw F under the vari
 | 2026-11-01 20:28 (start) | composite F | d3a7ca5 | 3dc08142...0696d28783 | decisions entry "Composite bot" |
 | 2026-11-01 22:52 (batch 1) | composite F | b48c272 | 8eeb870a...61987c3428d | same hold'em play; setup 0.95 -> 0.14 s, hand end cheaper and interrupt-safe, hook draws fixed, auction and deal5_keep2 |
 | 2026-11-02 00:20 (batch 2) | composite F + governor | f7914c0 | a59f45b9...7f4f134327 | slow or noisy box: +3.64 of 100 (th), +0.14 (8..1) at 3x; bit-identical on a normal box |
-| 2026-11-02 06:45 (batch 3) | composite F + governor + variant play | 9e620c8 | 774f0636...89bcf6f20 | twist tables: aware toss +0.13, bounty +0.30, short deck +0.18; plain hold'em identical |
+| 2026-11-02 06:18 (batch 3) | composite F + governor + variant play | 9e620c8 | 774f0636...89bcf6f20 | twist tables: aware toss +0.13, bounty +0.30, short deck +0.18; plain hold'em identical |
 
 Zips live in `frozen/` (git-ignored); each is rebuilt from its commit with `tools/pack.py --slim`.
