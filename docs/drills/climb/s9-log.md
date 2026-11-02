@@ -261,3 +261,80 @@ Notes:
 
 Full suite at 4704d4c (load 15-18): 993 passed, 8 skipped, 21 failed, all wall-clock or timing tests; re-run alone,
 20 pass and one skips on its own oversubscribed-host guard.
+
+## 9. After H4 (coordinator, 2026-11-02 ~10:00): twist tables and the timing tail
+
+H4 (23000-23399, against batch 3's ship): mirror +0.078 ± 0.039 UP; elite, elite_night, night, guards, exploit, aware
+level; **three variants down**: auction -0.016 ± 0.014, bounty -0.027 ± 0.018, knockout_bounty -0.030 ± 0.029. And the
+sim's p99 column was several times F's (e.g. night_hard 643 vs 4110 us at load ~17). Rebased onto main 5b4591a (batch
+4 ships: r3.v3_defend and V-c's dials; S12's hero.holdem_table).
+
+**Twist tables (361a1de).** elite1 is twist-blind, and batch 3 lets the base play bounty tables (base.hero_on_bounty
+false), so the route reached them. The elite members now play only tables that are hold'em by Hero's test
+(hero.holdem_table, S12's: only payouts, blinds, antes or a straddle may differ; any twist key turns it off); the
+composite plays the base in their sections everywhere else. With the route open (strong_rr 0) the candidate now plays
+every catalogued twist exactly as F (2 screen tables each, and a test with one table each); before the fix, swap_holdem,
+auction, knockout_bounty and river_of_blood differed on the same tables. The route still plays the hold'em-structure
+entries top_heavy, antes_from_level_3 and fast_schedule (straddle falls back: the base's own straddle rule).
+
+**The timing tail (aec41bd).** The shipped bot builds the composite with light shadows; climb_accept's seats do not, so
+in every screen elite1 decided in full on each of our decisions as a shadow and the answer was thrown away. That was
+the tail. Its light shadow plays exactly as the full one (test), so it is now used everywhere (ALWAYS_LIGHT).
+
+Per decision, model mode as climb_accept builds the seat, night_hard seeds 8600-8602 x 8, interleaved twice, load 12
+(one stray run used seeds 23400-23401, outside every held-out set, for timing only):
+
+| | mean us | p50 | p99 |
+|---|---|---|---|
+| F | 107 / 126 | 78 / 79 | 597 / 754 |
+| candidate, elite1 full shadow (before) | 155 / 154 | 113 / 114 | 806 / 709 |
+| candidate, light shadow (after) | 136 / 119 | 88 / 88 | 730 / 663 |
+
+The shipped form, tools/latency.py --hand-end --tables 20 --reps 3 (per-call minimum), load 12-13:
+
+| field | bot | act p99 / max | first act mean / max | hand_end p99 / max |
+|---|---|---|---|---|
+| night | F | 88.5 / 118.2 | 87.8 / 101.3 | 93.4 / 121.7 |
+| night | candidate (gate 0.2) | 102.2 / 150.8 | 107.6 / 139.0 | 99.2 / 132.6 |
+| realistic | F | 92.7 / 218.6 | 93.9 / 107.3 | 96.3 / 142.6 |
+| realistic | candidate (gate 0.2) | 101.1 / 159.7 | 107.7 / 132.9 | 99.3 / 142.6 |
+| night | candidate, gate always open | 111.2 / 158.5 | 117.8 / 139.0 | 104.4 / 215.4 |
+| mirror | F | 106.3 / 183.8 | 107.6 / 139.8 | 100.5 / 166.9 |
+| mirror | candidate, gate always open | 117.5 / 186.3 | 114.8 / 137.3 | 105.7 / 586.0 |
+
+Slowest calls (mirror, gate open, per-call minimum of 3): act max 168 us, of which elite1 84 us (a pre_open_10 decision it
+plays); elite1's part of a decision p50 5.8 us, p99 41.5, max 83.5; of a hand end p99 3.1, max 43.7. The 586 us hand
+end did not repeat (max 177 on the next pass, elite1 6.6 of it). Nothing near 1 ms; the candidate costs about 10 us
+a decision over F (elite1's history scan, and its decision when it plays).
+
+### The fixed candidate's screen (code aec41bd, version b2e72aab1d; against batch 4's ship; --aim strong; 200 x 8)
+
+| stage | cell | F | candidate | candidate - F |
+|---|---|---|---|---|
+| confirm | night | 5.968 | 5.949 | -0.019 ± 0.030 level |
+| guards | night_hard / realistic / top | | | +0.010 ± 0.039 / -0.010 ± 0.018 / +0.040 ± 0.045, level |
+| | night @10/7/5... / @50/25/12... / doubling blinds | | | -0.027 ± 0.055 / +0.023 ± 0.299 / +0.001 ± 0.032, level |
+| elite | elite | 4.681 | 4.722 | +0.040 ± 0.047 level |
+| | elite_night | 5.328 | 5.379 | **+0.050 ± 0.037 UP** |
+| | mirror | 4.414 | 4.512 | **+0.098 ± 0.062 UP** |
+| exploit | 8-max / heads-up / 3-handed | | | +0.026 ± 0.086 / identical / identical |
+| variants | top_heavy / antes_from_level_3 / fast_schedule | | | -0.134 ± 0.240 / +0.010 ± 0.018 / -0.007 ± 0.029, level |
+| | straddle, bounty, knockout_bounty, auction | | | +0.000 ± 0.000 (identical to F) |
+
+climb_accept's verdict on confirm, guards and elite with --aim strong: ACCEPT (elite_night and mirror up, night not down,
+nothing down). The variants run took the four entries elite1 can still play and the three H4 rejected on, plus straddle;
+the other 18 twist entries play exactly as F by construction (the route falls back on every non-hold'em table) and by
+test (one table each) and check (two screen tables each), so they were not re-run at 200 seeds. The p99 column is
+now level between F and the candidate (e.g. elite 4141/4156, mirror 4097/4119, night 8693/8199 us at load ~15: every
+column is the worst chunk's p99 on a loaded host).
+
+Full suite at aec41bd (load 7-10): 1113 passed, 7 skipped, 15 failed; re-run alone 13 pass. The two left,
+tests/test_nightof_latency.py's cheap-bot round trips through kits b/c and d, fail the same way on main 5b4591a (four
+runs, two each, at load 5-8): one gen-2 collection inside 100 adapter calls is their p99 (4.7 ms). Not from this
+branch.
+
+### Recommendation (unchanged spec, fixed code)
+
+    {"dials": {"strong_route": "pre_open_10=elite1x", "strong_rr": 0.2}}    at aec41bd (or later)
+
+With aec41bd's code the route can no longer reach a twist table, and elite1 costs what the ship pays (light shadow).
