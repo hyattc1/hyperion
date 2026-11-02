@@ -517,7 +517,7 @@ class BonusCardHooks(VariantHooks):
 
 
 class AuctionHooks(VariantHooks):
-    """MIT Pokerbots 2024 ("No-Limit Auction Hold'em"), eight-handed.
+    """MIT 2024 ("No-Limit Auction Hold'em"), eight-handed.
 
     Right after the flop is dealt and before the flop betting, every player still in the hand submits a sealed bid,
     an integer from 0 to their stack behind. The highest bid wins a third hole card from the deck and pays the
