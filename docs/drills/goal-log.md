@@ -227,7 +227,7 @@ and (in judges) `elite_judge`.
 - Next exploit work (S2 list): squeezes; fold-to-4-bet learned from more than 4-bets; heads-up shove/fold 10-15 bb; the
   0.8-pot tell; and a fresh exploiter against F with FIN on.
 
-## 04:30: V-b and FIN on held-out H1: one variant cell down each; lowball fixed; addendum 7
+## 04:19: V-b and FIN on held-out H1: one variant cell down each; lowball fixed; addendum 7
 - V-b (H1, 2nd use, 43 min): aware fields all up (toss +0.203 ± 0.059, bounty +0.320 ± 0.083, short deck
   +0.158 ± 0.068); variants eleven up, lowball down (-0.062 ± 0.047). Cause: variant_preflop reached lowball, whose
   classes are mirrored, as it had reached fixed limit and Omaha before (-0.108, -0.065). Fix (e0e338d): off in lowball,
