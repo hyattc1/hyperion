@@ -599,3 +599,13 @@ and (in judges) `elite_judge`.
   hundreds of tables (import + Agent() 2 s once, new_table 50 ms, act 1 ms, hand_over 1 ms). Points 16/11/8/6/4/2/1/0.
 - Player: a fresh agent with the repo pinned at 15df280 (batch 4's ship), the handout zip only, prompts 00-05 and the
   playbook, 60 minutes, no docs/drills, decisions, HANDOFF or research (goal/drill8/night).
+
+## 16:42: owner: the twist will be real, not cosmetic; V-f started to carry hold'em gains into the likely twists
+- The owner pointed out that Sequoia is unlikely to pick a cosmetic twist, while our recent gains (D3, Z2,
+  strong_route) are gated to plain hold'em. Agreed: variants-ranked.md gives plain or structure-only about 10%. But the
+  likeliest families play ordinary hold'em after one twist step: deal-extra-then-discard 20%, bounty 11%, extra card
+  for a price 7%, swap 6%, exposed card 4%. The all-or-nothing gate gives those gains up exactly there.
+- V-f (goal/wt_vf, climb/vf-twist-carry): per gain and per family, turn the gain on where its logic holds (dead
+  cards, the bounty payoff, the kept two cards respected), measured against V-d's generic aware opponents per
+  variant; keep a family only where it is not down. Big unseen twists stay with the general path (V-e's twins,
+  generic aware opponents in one command, drill 8).
