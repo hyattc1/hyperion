@@ -3,10 +3,10 @@
 One page, updated after every accepted batch. Points are per table, averaged over the seeds shown, every seed played
 in all eight seat rotations; "margin" is F minus the other bot on the same deals, with the 95% interval.
 
-## Where we stand (2026-11-02 06:18 ET, batch 3)
+## Where we stand (2026-11-02 08:59 ET, batch 4)
 
 **F (the composite) is first against every judge field.** On fresh seeds (30000-30399, 400 x 8), none of them ever
-used for tuning (batch 3 changes only twist tables, so these hold'em numbers stand):
+used for tuning (batches 3 and 4 left every judge level, so these numbers stand):
 
 | field | 1. F | 2. hybrid3_x (margin) | 3. Hero (margin) |
 |---|---|---|---|
@@ -23,9 +23,8 @@ every seat ranked): F is 1st in a night room with two of them (5.35 vs 5.18) and
 elite 2). It wins 1st place less often than they do.
 
 **Against bots built to beat F** (fresh agents that see F only by playing it):
-- exploiter 1: F loses (8-max 5.07 vs 5.26, heads-up 8.07 vs 8.93). Its fix, a 3-bet defence that reads a seat's
-  3-bet rate, turns every format around on held-out seeds (+0.58 / +1.08 / +1.34) and is being confirmed alone for
-  batch 4 (its companion c-bet change lost on one variant and opened a new leak).
+- exploiter 1: F now beats it in every format (batch 4's 3-bet defence, held-out seeds): 8-max 5.62 vs 4.65,
+  heads-up 9.08 vs 7.92, three-handed 8.41 vs 7.03. Before, F lost all three.
 - exploiter 2, against F with that fix: heads-up 9.52 vs F 7.48, three-handed 8.61 vs 7.21; 8-max F still ahead
   (5.65 vs 5.15). It defends wide against F's small-blind opens, reads F's bet sizes, and stabs when F checks. Fixes
   in progress (S11). Short-handed play decides 1st place, so this is the biggest open gap.
@@ -35,7 +34,11 @@ it lost 3.6 points of 100 under a top-heavy table (half the tables fell to the c
 
 **Variants:** 25 of 25 catalogued entries READY, first on 24 (second on fixed_raise, level with rival 1). Against
 variant-aware opponents (bots built for the twist), batch 3 adds toss_or_holdem +0.13, bounty +0.30, short deck +0.18
-points a table (held-out seeds).
+points a table (held-out seeds); batch 4 adds deal5_keep2 +0.29 to +0.31 and toss +0.10 more.
+
+**At a table of strong general bots** (the mirror field: three copies of F with rival 2, elite 1, elite 2,
+hybrid3_x), F is last of six (4.43; rival 2 4.79) and takes 1st 8% of the time. Cause found (its 10-20 bb opens with
+four or more players); a fix that hands those spots to elite 1 at tables that re-raise is in held-out confirmation.
 
 **Rehearsal (drill 7):** a fresh agent on an unfamiliar event-driven kit with an unseen variant had a legal upload at
 minute 8 and the ship bot gated at minute 20; that zip beat raw F under the variant (+3.4 ± 6.5 of 100).
@@ -48,5 +51,6 @@ minute 8 and the ship bot gated at minute 20; that zip beat raw F under the vari
 | 2026-11-01 22:52 (batch 1) | composite F | b48c272 | 8eeb870a...61987c3428d | same hold'em play; setup 0.95 -> 0.14 s, hand end cheaper and interrupt-safe, hook draws fixed, auction and deal5_keep2 |
 | 2026-11-02 00:20 (batch 2) | composite F + governor | f7914c0 | a59f45b9...7f4f134327 | slow or noisy box: +3.64 of 100 (th), +0.14 (8..1) at 3x; bit-identical on a normal box |
 | 2026-11-02 06:18 (batch 3) | composite F + governor + variant play | 9e620c8 | 774f0636...89bcf6f20 | twist tables: aware toss +0.13, bounty +0.30, short deck +0.18; plain hold'em identical |
+| 2026-11-02 08:59 (batch 4) | + 3-bet defence, keep2/toss calls, kit fixes | e3cec13 | bb5820cc...6197fe | beats exploiter 1 in every format; keep2 +0.29; adapter reads 20 kit shapes; no test bots in the zip |
 
 Zips live in `frozen/` (git-ignored); each is rebuilt from its commit with `tools/pack.py --slim`.

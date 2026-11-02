@@ -417,3 +417,16 @@ and (in judges) `elite_judge`.
   H3 retired (bonus_card replication, defence, V-c).
 - Batch 4 = the defence + V-c + R2-R4's fixes. Judges once on the judge set against batch 3's ship and timing by
   per-call minimum, from goal/wt_measure at 9304576. strong_route (S9's G2) is on H4 now, for batch 5.
+
+## 09:00: batch 4 accepted and frozen (e3cec13)
+- Judges on the judge set against batch 3's ship: all seven level (five identical). Timing by per-call minimum: p99
+  plain 87 vs 88 us, deal5_keep2 68 vs 70, toss 65 vs 64, river_of_blood 83 vs 87.
+- SHIP_DIALS += r3.v3_defend, hero.long_board, hero.keep_call_shift 2, hero.toss_call_shift 1. Two tests encoded the
+  old defaults (the S2 dial test compares against the dial off now; test_ship expects v3_defend on). Full suite at
+  load 17: 1115 passed, 4 wall-clock tests failed (kit B/C and D round trips, exploiter1 budget, sim CLI), all pass
+  alone or are the known load group.
+- Frozen: frozen/B4-e3cec13, sha256 bb5820cc...6197fe, 813 KB slim (no judge or test-opponent files); gate pass
+  (0 exceptions, 0 illegal; timeouts 0.79% under the load clause).
+- S11 told: its base is now F with the defence; the dry c-bet stays out.
+- Round 3 so far: accepted V-b (V), F1 (H), the defence (S), V-c (V), R2-R4 (R); rejected FIN's c-bet (S). The stop
+  counter stays at zero.

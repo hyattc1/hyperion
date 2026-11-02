@@ -3221,3 +3221,27 @@ V-b on H2 the judges were all level, but bonus_card was down (-0.049 ± 0.040); 
 extra screen seeds puts the loss on the dry c-bet (-0.025 ± 0.027; the 3-bet defence plays bonus_card identically), and
 a second exploiter found the same c-bet folds 78% to a check-raise. Next: the 3-bet defence alone, which carries nearly
 all of FIN's exploit gain on S2's screens (+0.62 / +1.11 / +1.33) and never fires on night.
+
+## The climb: batch 4 (the 3-bet defence, keep2 and toss calls, kit robustness) (2026-11-02, builder: the climb's coordinator)
+
+**Batch 4 (e3cec13).** On top of batch 3's ship:
+- `r3.v3_defend`: rival 3's core, facing one 3-bet of its own open, reads that seat's observed 3-bet rate (prior 0.08
+  worth 20 chances; plays from an estimated rate of 0.2; fold to a 4-bet capped at 0.6) and defends wider against a
+  frequent 3-bettor. Built against the first black-box exploiter (S2). Held-out H3 (22000-22399), `--aim exploit`
+  (addendum 6): exploit +0.629 ± 0.077 (8-max), +1.087 ± 0.120 (heads-up), +1.402 ± 0.136 (three-handed); F now beats
+  exploiter1 in every format. Night +0.000 ± 0.007 (it almost never fires against our fields); guards, elite, aware
+  and all 26 variants level. FIN's other half, the half-pot dry c-bet, stays off (batch 3's entry).
+- V-c's variant dials: `hero.long_board` (any board length read correctly; about 1% of decisions, a correctness fix),
+  `hero.keep_call_shift` 2 (deal5_keep2: calls one tier tighter after the flop), `hero.toss_call_shift` 1. H3:
+  deal5_keep2 +0.286 ± 0.045 (realistic) and +0.307 ± 0.039 (keep2-aware), toss aware +0.095 ± 0.044; nothing down.
+- R2-R4's robustness fixes, play identical (addendum 2 widened: a demonstrated failure fixed with bit-identical play
+  counts as a gain): the adapter reads 20 kit shapes (seven had broken it, five sending every decision to
+  check/fold); memory flat per table for a fresh bot (was +71 KB) and per fresh import (was +28 MB, kit E's 256 MB cap
+  by table 8); a kit with no table-start hook restarts the bot when hand numbers go back. `--slim` keeps only what the
+  ship bots import (no judges or test opponents in a submission).
+- Judges once on the judge set against batch 3's ship: all seven level (judge, judge2, judge_top, outside_strong,
+  elite_judge identical; judge2_night +0.001, outside +0.002). Timing by per-call minimum: p99 64-87 us on plain,
+  deal5_keep2, toss and river_of_blood, same as batch 3.
+- Frozen: frozen/B4-e3cec13, kit B zip sha256 bb5820cc2c5439f48aa0bf1177c3ffac425f27842621120935ee6a3d746197fe
+  (813 KB, slim); gate pass (40 tables strict, 0 exceptions, 0 illegal; 0.79% timeouts at load 17, the gate's load
+  clause).
