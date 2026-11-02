@@ -320,3 +320,18 @@ def test_a_kit_without_a_log_gives_the_baseline_no_log(tmp_path):
     # the package's tables: no wrapper; the baselines': the inference, then (--kit-log bets) the bets alone
     assert seen == [None, "InferSeat", None, "NoLogSeat"], seen
     assert p.stats.exceptions == p.stats.illegal == 0 and b.stats.calls > 0
+
+
+def test_the_entry_is_found_when_it_is_not_named_submission_py(tmp_path):
+    """F1 rehearsal: prompt 04 packs `--entry submission/<entry>.py`, and a kit B entry named agent.py failed the gate's
+    old default (`no submission.py at the top`) in the middle of a window."""
+    find = load_tool("gate").find_entry
+    (tmp_path / "hyperion").mkdir()
+    (tmp_path / "agent.py").write_text("")
+    assert find(tmp_path, None) == ("agent.py", None)
+    (tmp_path / "adapter.py").write_text("")
+    entry, why = find(tmp_path, None)
+    assert entry is None and "agent.py, adapter.py" in why.replace("adapter.py, agent.py", "agent.py, adapter.py")
+    assert find(tmp_path, "agent.py") == ("agent.py", None) and find(tmp_path, "bot.py")[0] is None
+    (tmp_path / "submission.py").write_text("")
+    assert find(tmp_path, None) == ("submission.py", None)
