@@ -164,3 +164,15 @@ def test_a_variant_from_a_file_registers_and_the_generic_bots_find_its_hooks(tmp
                          rules=dataclasses.replace(v.rules, max_hands=30), variant=v)
     for g in GEN:
         assert rep.bots[g].stats.exceptions == 0 and rep.bots[g].stats.illegal == 0
+
+
+@pytest.mark.parametrize("first", ["hyperion.sim.aware", "hyperion.sim.generic", "hyperion.sim.bestiary"])
+def test_any_import_order_registers_everything(first):
+    # climb_accept's aware stage imports aware before the bestiary: a cycle once made that an ImportError
+    import subprocess
+    import sys
+
+    code = (f"import {first}\nfrom hyperion.sim import bestiary as B\n"
+            "assert 'gen_mc' in B.REGISTRY and 'generic_aware' in B.FIELDS and 'toss_tag' in B.REGISTRY")
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    subprocess.run([sys.executable, "-c", code], check=True, cwd=root)
