@@ -91,3 +91,14 @@ Files: `docs/drills/climb/variants-ranked.md`, `docs/drills/climb/official-chang
 One command for the protocol's acceptance rule: a candidate spec against the ship on a set (`screen`, `H1`.., `judge`)
 through stages confirm, guards, variants, judges, timing; per-spec cached results keyed by the code tree, so a batch's
 base runs once. Dials specs are resolved on top of `SHIP_DIALS`, so `{"dials": {}}` is F (the trap above).
+
+## 21:51: drill 7 (H1) done: report docs/drills/prompt-drill-7.md
+- First valid upload minute 8, ship bot gated minute 18, final minute 20, stopped minute 23 (drill 6: 12 / 29 / 34).
+- Final zip under the real variant (operator, main's sim with the held-out hooks, kit E's payouts and antes, night,
+  seeds 30000-30059): package 26.70 vs raw F 23.30 points of 100, paired +3.40 ± 6.49; 0 exc, 0 ill, 1 timeout.
+- New backlog items from it: H3 event-driven adapter and gate-seat templates; R5 cheap, interrupt-safe hand end (kit E
+  times end_hand: ours p99 658 us); R6 setup only for the card counts the rules imply (warm(8) is 0.62 s of a 1 s
+  per-table budget); V3 a generic river view for boards longer than 5; prompt 01 asks for setup budget, timed
+  callbacks and the zip cap.
+- river_of_blood is now promoted out of the held-out set (into the main catalog with V3); the held-out set keeps
+  showtime, high_chicago, bomb_pot, unfold.

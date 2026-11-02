@@ -1,0 +1,25 @@
+{
+ "hole_cards": 2,
+ "board_sizes": [0, 3, 4, 5],
+ "rank_order": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+ "n_suits": 4,
+ "starting_stack": 2000,
+ "small_blind": 10,
+ "big_blind": 20,
+ "blind_levels": [[10, 20], [15, 30], [25, 50], [40, 80], [60, 120], [100, 200], [150, 300], [200, 400]],
+ "hands_per_level": 25,
+ "max_hands": 200,
+ "n_players": 8,
+ "payouts": [50, 25, 15, 10, 0, 0, 0, 0],
+ "ante": 0,
+ "ante_from_level": 3,
+ "ante_per_level": [0, 0, 0, 10, 15, 25, 40, 50],
+ "betting": "nolimit",
+ "straddle": 0,
+ "must_use_hole": 0,
+ "extras": {
+  "kit_variant": "river_of_blood",
+  "run_rule": "ENGINE CANNOT REPRESENT: if the river (5th card) is red another community card and betting round follow, repeating until a black card; sim plays the standard 3/1/1 board",
+  "ante_rule": "antes from level 4 (0-based 3): 10/15/25/40/50, dead money, posted before blinds"
+ }
+}
