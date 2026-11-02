@@ -118,3 +118,12 @@ def test_s11_holdem_only_plays_a_twist_table_exactly_as_f():
     gated = {**Z, "hero.postflop.s11_holdem_only": True}
     assert all(_digest({k: v for k, v in gated.items() if k.startswith("hero.")}, t, rules=rules)[0]
                == _digest({}, t, rules=rules)[0] for t in range(2)), hooks.name
+
+
+def test_all_of_z_gated_plays_every_twist_table_exactly_as_f():
+    from hyperion.drills import variants as V
+
+    gated = {**Z, "hero.postflop.s11_holdem_only": True, "r3.v3_bvb_holdem_only": True}
+    for name in ("bounty", "swap_holdem", "auction"):
+        rules = V.get(name).rules
+        assert all(_digest(gated, t, rules=rules)[0] == _digest({}, t, rules=rules)[0] for t in range(2)), name

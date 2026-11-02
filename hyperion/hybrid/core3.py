@@ -25,7 +25,7 @@ from time import perf_counter
 from ..core.types import HandResult, Rules
 from ..sim.rivals import rival3 as R3
 from ..sim.rivals.rival3 import CLASSES, PCT, _cls, _eqvs
-from ..strategy.hero import icm_me
+from ..strategy.hero import holdem_table, icm_me
 from .dials import Rival3Knobs
 from .kit import LeanICM, SoftDeadline
 
@@ -185,6 +185,7 @@ class Rival3Core(R3.Bot):
         self.new_table({"starting_stack": rules.starting_stack, "hand_cap": rules.max_hands,
                         "n_players": n_players, "blinds": rules.blind_levels}, seat, n_players)
         self.payouts = tuple(rules.payouts)
+        self.holdem = holdem_table(rules)  # v3_bvb_holdem_only reads it
         lin = _linear_from([float(p) for p in self.payouts])
         self.exact_icm = lin is None or lin[2] > 2
         self.soft_us = float(cfg.soft_us)
@@ -567,7 +568,8 @@ class Rival3Core(R3.Bot):
         to a 4-bet, as _vs3bet reads them; None under the floor (rival 3 as built)."""
         kn = self.k
         prior, min_rate, f4_cap, cont = kn.v3_prior, kn.v3_min_rate, kn.v3_f4_cap, kn.v3_cont
-        if kn.v3_bvb_prior >= 0.0:  # S11: our small-blind open (heads-up: the button's) 3-bet by the big blind
+        if kn.v3_bvb_prior >= 0.0 and (getattr(self, "holdem", True) or not kn.v3_bvb_holdem_only):
+            # S11: our small-blind open (heads-up: the button's) 3-bet by the big blind
             alive = [i for i in range(n) if stacks[i] + bets[i] > 0 or inh[i]]
             sbs, bbs = self._blind_seats(alive, button, n)
             if seat == sbs and agg == bbs and sum(1 for i in range(n) if inh[i]) == 2:
