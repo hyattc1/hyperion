@@ -626,3 +626,16 @@ and (in judges) `elite_judge`.
   +0.038 ± 0.029, mirror +0.158 ± 0.056 UP; guards, exploit (6 cells), variants (26, all bit-identical but the
   structural four, level) and aware level. ACCEPT (addendum 8). H11 used once.
 - Batch 5 so far: strong_route (H6), V-e (H10), D3 (H11). Pending: Z3 (H12).
+
+## 18:10: drill 8 scored; pack.py and prompts fixed; V-g started (does our sim transfer to an organiser's engine?)
+- The player had batch 4's ship gated at minute 12 (cheap bot minute 6, insurance minute 1), tried four Stage 5
+  dial sets in the kit's simulator (none better) and stalled at minute 20 on a tool call that never returned.
+- In the kit's own simulator, under the real twist, the zip (F, no Ghost patch) scored 7.64 a table against the
+  organiser's Ghost-aware bot 6.39 (duplicate, 400 deals x 8; a seat averages 6.0), and 8.98 ± 0.50 on a softer field
+  (ghostwise 7.67). Write-up docs/drills/prompt-drill-8.md.
+- Fixes: pack.py drops the red-team rivals' kit import in the packed copy and names imports outside the stdlib
+  (a46f958); prompt 01 checks the variant hooks before ENGINE CANNOT REPRESENT, prompt 02 has the entry import its
+  adapter as a sibling (d18b2fa).
+- V-g (goal/wt_vg, climb/vg-ghost): Ghost Hold'em as a variant file in our hooks, then the drill's four candidates
+  measured in our sim and in the kit's, to see if our sim ranks changes the way an engine we did not write does;
+  then whether the general twist path (prepared tables, twins) finds the Ghost's edges by itself.
