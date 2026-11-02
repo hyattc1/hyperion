@@ -627,7 +627,7 @@ and (in judges) `elite_judge`.
   structural four, level) and aware level. ACCEPT (addendum 8). H11 used once.
 - Batch 5 so far: strong_route (H6), V-e (H10), D3 (H11). Pending: Z3 (H12).
 
-## 18:10: drill 8 scored; pack.py and prompts fixed; V-g started (does our sim transfer to an organiser's engine?)
+## 18:05: drill 8 scored; pack.py and prompts fixed; V-g started (does our sim transfer to an organiser's engine?)
 - The player had batch 4's ship gated at minute 12 (cheap bot minute 6, insurance minute 1), tried four Stage 5
   dial sets in the kit's simulator (none better) and stalled at minute 20 on a tool call that never returned.
 - In the kit's own simulator, under the real twist, the zip (F, no Ghost patch) scored 7.64 a table against the
