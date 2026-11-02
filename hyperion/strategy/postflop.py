@@ -230,6 +230,10 @@ class PostflopParams:
     # information-axis knobs
     multi_tier_penalty: int = 1  # three or four hole cards: made pairs and two pairs (tiers 3..5) drop this much
     two_boards_size_mult: float = 0.5  # every bet size when the pot splits over two boards
+    # facing a bet when the pot splits over two boards: this call margin replaces call_margin (and the c-bet margin).
+    # The equity proxy there is the mean of two boards' proxies, a steadier number than one board's, and a hand that
+    # holds one board wins half the pot nearly for sure. -1 = off (call_margin as everywhere)
+    split_call_margin: float = -1.0
     wild_board_penalty: int = 1  # a wild on the shared board helps everyone: one tier off my read
     low_draw_outs_cap: int = 12  # lowball: at most this many outs to a better low are counted
 
@@ -826,6 +830,8 @@ class Postflop:
                 and prof.pre_raiser == bettor and obs.bets[spot.me] == 0 and obs.pot > 0 \
                 and spot.to_call <= p.vs_cbet_max_pot * obs.pot and prof.cbet_rate(bettor) >= p.vs_cbet_min_rate:
             base_margin = p.vs_cbet_margin
+        if board2 is not None and p.split_call_margin >= 0.0:
+            base_margin = p.split_call_margin
         margin = base_margin / call_down if call_down > 0 else base_margin
         if p.tight_aggro_margin > 0.0 and street >= 2 and bettor >= 0 and prof is not None and not cheap \
                 and prof.vpip_rate(bettor) < p.tight_vpip and prof.aggression(bettor) > p.tight_agg:
