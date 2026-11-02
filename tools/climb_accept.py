@@ -168,7 +168,9 @@ def run_cells(out: str, specs: dict, cells: list, lo: int, hi: int, workers: int
         os.makedirs(os.path.join(out, key), exist_ok=True)
         with open(os.path.join(out, key, "spec.json"), "w") as fh:
             json.dump({"name": name, "spec": spec}, fh)
-    with Pool(workers) as p:
+    # maxtasksperchild: a worker that played many variants holds every one's tables and evaluator caches (2.7 GB per
+    # process was seen with 25 variants), so each worker is replaced after two jobs; finished chunks are cached anyway
+    with Pool(workers, maxtasksperchild=2) as p:
         for key, cell, res in p.imap_unordered(_job, jobs):
             path = cell_path(out, key, cell)
             with open(path + ".tmp", "w") as fh:
