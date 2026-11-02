@@ -226,3 +226,25 @@ and (in judges) `elite_judge`.
   default play unchanged, so it stands).
 - Next exploit work (S2 list): squeezes; fold-to-4-bet learned from more than 4-bets; heads-up shove/fold 10-15 bb; the
   0.8-pot tell; and a fresh exploiter against F with FIN on.
+
+## 04:30: V-b and FIN on held-out H1: one variant cell down each; lowball fixed; addendum 7
+- V-b (H1, 2nd use, 43 min): aware fields all up (toss +0.203 ± 0.059, bounty +0.320 ± 0.083, short deck
+  +0.158 ± 0.068); variants eleven up, lowball down (-0.062 ± 0.047). Cause: variant_preflop reached lowball, whose
+  classes are mirrored, as it had reached fixed limit and Omaha before (-0.108, -0.065). Fix (e0e338d): off in lowball,
+  as there. Lowball now plays exactly as F (+0.000 ± 0.000, 24 screen seeds); every other cell is untouched by the fix.
+  V-b with the fix is re-confirmed on H2 (aware + variants) rather than accepted on the set that showed the loss.
+- FIN (H1, 3rd use, 76 min): exploit +0.583 ± 0.095 / +1.076 ± 0.118 / +1.343 ± 0.133 (F beats exploiter1 in all
+  three formats: 5.60 vs 4.71, 9.08 vs 7.92, 8.41 vs 6.93); night +0.021 ± 0.034 level; guards level or up (both
+  payout tables up); elite level, elite_night up (+0.040 ± 0.033); variants all level but toss_or_holdem
+  (-0.018 ± 0.016, upper bound -0.002).
+- **Protocol addendum 7 (a lone variant cell down is replicated).** The variants stage checks 25 cells at a 95%
+  interval each, so a change that does nothing shows at least one cell beyond noise down about 47% of the time
+  (1 - 0.975^25), which made the rule reject sound changes on a coin flip and would make the stop rule fire on noise.
+  From now on, for every candidate: when exactly one variant cell is beyond noise down and every other check passes,
+  that cell is re-run on the next held-out set at 400 seeds (climb_accept prints REPLICATE; `--variants NAME
+  --variant-seeds 400`). It rejects if the re-run is beyond noise down, or if both sets pooled (seed-weighted) are.
+  A real loss the size of FIN's (-0.018) fails the re-run about 999 times in 1000; two or more cells down still reject
+  outright. Guards, elite, judges and confirm are unchanged. Recorded in docs/decisions.md with the batch.
+- H1 retired (robustness, V-b, FIN). H2 (21000-21399): FIN's toss_or_holdem replication, then V-b with the fix.
+- Exploiter 2 hung on a tool call after its baseline (heads-up: F with FIN 9.45, the baseline 7.56); restarted with
+  its files.
