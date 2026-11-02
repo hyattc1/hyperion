@@ -242,3 +242,96 @@ def test_slow_box_recipe_turns_the_governor_on_for_each_bot():
     # since the climb's batch 2 the composite ships with the governor on (SHIP_DIALS); hybrid3_x and Hero do not
     assert ship.make_bot("composite", {}).safe.gov is not None and ship.make_bot("composite", {}).core.levels == 3
     assert ship.make_bot("hybrid3_x", {}).safe.gov is None and ship.make_bot("hero", {}).safe.gov is None
+
+
+def _governor(bot):
+    """SafeBot's governor as built: (deadline s, window, ladder, recover, the core's degradation levels), or None."""
+    g = bot.safe.gov
+    return None if g is None else (bot.safe.deadline, g.window, g.ladder, g.recover, getattr(bot.core, "levels", 0))
+
+
+def test_set_keeps_the_composites_governor(tmp_path):
+    """F1: the governor is in the composite's SHIP_DIALS (batch 2), and `python -m hyperion.ship --set <recipes>` writes
+    only the recipes' dials into DIALS, which ship() lays on top of SHIP_DIALS. So every window's bot, alone or stacked,
+    and the package built from the record (tools/pack.py writes it, the entry and tools/gate.py build from it), keeps
+    the governor exactly as shipped: no recipe silently drops it."""
+    from hyperion.compose import bot as CB
+
+    ref = _governor(ship.make_bot("composite", {}))
+    assert ref == (0.0008, 60, True, 40, 3)
+    gov_keys = {"deadline_ms", "panic_window", "panic_ladder", "panic_recover", "degrade"}
+    assert gov_keys <= set(CB.SHIP_DIALS)
+    copy = tmp_path / "ship.py"
+    copy.write_text(Path(ship.__file__).read_text())
+    assert ship.read_record(copy)[0] == "composite"
+    names = [*ship.HERO_RECIPES, *ship.SLOW_RECIPES, "survival+passive", "slow_box+survival", "survival+slow_box",
+             "dead_seats+latency", "latency+dead_seats", "passive+timeouts", "strong_field+survival+passive"]
+    for spec in names:
+        ship.main(["--set", spec], path=copy)
+        bot, dials = ship.read_record(copy)
+        assert bot == "composite" and dials == ship.recipe(spec, "composite"), spec
+        if "slow_box" not in spec:  # the record carries the recipe alone; the governor comes from SHIP_DIALS
+            assert not gov_keys & set(dials), spec
+        built = ship.make_bot(bot, dials)
+        assert _governor(built) == ref, spec
+        assert built.core.cfg.degrade == CB.SHIP_DIALS["degrade"], spec
+    # the record a package carries is read back the same way (tools/pack.py write_record, tools/gate.py read_record)
+    ship.write_record(copy, "composite", ship.recipe("survival", "composite"))
+    assert _governor(ship.make_bot(*ship.read_record(copy))) == ref
+    # the fallbacks do not have it by default; slow_box gives it to them
+    ship.main(["--set", "survival", "--bot", "hybrid3_x"], path=copy)
+    assert _governor(ship.make_bot(*ship.read_record(copy))) is None
+    ship.main(["--set", "slow_box+survival", "--bot", "hybrid3_x"], path=copy)
+    assert _governor(ship.make_bot(*ship.read_record(copy))) is not None
+
+
+def _settings(bot) -> dict:
+    """Every setting a composite's play reads: each member's config, the front layer's params, the route and clocks."""
+    import dataclasses
+
+    def flat(obj, pre=""):
+        if dataclasses.is_dataclass(obj):
+            out = {}
+            for f in dataclasses.fields(obj):
+                out.update(flat(getattr(obj, f.name), f"{pre}{f.name}."))
+            return out
+        if isinstance(obj, dict):
+            out = {}
+            for k, v in obj.items():
+                out.update(flat(v, f"{pre}{k}."))
+            return out
+        return {pre[:-1]: obj}
+
+    core = bot.core
+    s = {"route": tuple(core.donors), "layer": flat(core.ex.p) if core.ex is not None else None}
+    for nm, m in zip(core.names, core.members):
+        s[nm] = flat(m.cfg)
+    s["compose"] = {k: v for k, v in flat(core.cfg).items() if not k.startswith(("hero_", "base_", "hybrid_", "route"))}
+    return s
+
+
+def test_every_composite_recipe_key_reaches_a_part_that_decides():
+    """F1: on the composite rival 3's core decides preflop only and one layer sits in front of every member (their own
+    layers are off). A recipe key that changes no setting of the built bot (a Hero `exploit.*` key did: the members'
+    layers are reset), or a core postflop dial (the route sends every postflop section to Hero), would be a dial that
+    moves nothing on the night."""
+    from hyperion.compose import bot as CB
+    from hyperion.compose.sections import POSTFLOP, parse_route
+
+    route = parse_route(CB.SHIP_ROUTE)
+    assert all(route.get(sec) == "hero" for sec in POSTFLOP)
+    postflop_knobs = {"r3.bluff_scale", "r3.call_edge", "r3.raise_shift"}
+    ref = _settings(ship.make_bot("composite", {}))
+    for name, dials in ship.COMPOSITE_RECIPES.items():
+        assert dials == ship.recipe(name, "composite")
+        assert not postflop_knobs & set(dials), name
+        for k, v in dials.items():
+            assert _settings(ship.make_bot("composite", {k: v})) != ref, (name, k)
+    # Hero's recipe keys reach the composite as hero.<key> (its postflop and the tables it plays whole), except the
+    # layer's, which are the composite's own exploit.* keys
+    for name, hero in ship.HERO_RECIPES.items():
+        if name in ("latency", "timeouts"):
+            continue
+        comp = ship.COMPOSITE_RECIPES[name]
+        for k, v in hero.items():
+            assert comp.get(k if k.startswith("exploit.") else "hero." + k) == v, (name, k)

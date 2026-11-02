@@ -866,12 +866,27 @@ def check_kit(kit: str, rules: Rules, variant) -> None:
                              f"round-start hole cards, and this variant changes cards mid-hand")
 
 
+def find_entry(pkg: Path, entry: str | None) -> tuple:
+    """(the entry's file name, None), or (None, why not). tools/pack.py copies the entry to the top of the package under
+    its own name (prompt 04: `--entry submission/<entry>.py`), so with no --entry: submission.py, else the only .py
+    there (a rehearsal's agent.py failed the gate on the old default)."""
+    if entry is not None:
+        return (entry, None) if (pkg / entry).is_file() else (None, f"no {entry}")
+    if (pkg / "submission.py").is_file():
+        return "submission.py", None
+    tops = sorted(x.name for x in pkg.glob("*.py"))
+    if len(tops) == 1:
+        return tops[0], None
+    return None, (f"several .py files ({', '.join(tops)}): pass --entry <the kit's entry>" if tops else "no .py file")
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("package", help="the submission zip, or the directory it was zipped from")
     p.add_argument("--kit", required=True, help="a | b | c | d (the fake kits) or a seat file for tonight's kit")
     p.add_argument("--kit-module", help="the kit's kit.py, importable as `kit` (default: the fake kit's)")
-    p.add_argument("--entry", default="submission.py", help="the entry file at the top of the package")
+    p.add_argument("--entry", default=None, help="the entry file at the top of the package (default: submission.py, "
+                                                 "else the package's only top-level .py)")
     p.add_argument("--tables", type=int, default=100)
     p.add_argument("--seed", type=int, default=11)
     p.add_argument("--field", default="realistic", help="a bestiary field; its `hero` seat is the one gated")
@@ -918,8 +933,9 @@ def main(argv=None) -> int:
     with tempfile.TemporaryDirectory(prefix="gate_") as tmp:
         tmp = Path(tmp)
         pkg = unpack(src, tmp)
-        if not (pkg / a.entry).is_file():
-            print(f"GATE FAIL: no {a.entry} at the top of {src}")
+        a.entry, why = find_entry(pkg, a.entry)
+        if a.entry is None:
+            print(f"GATE FAIL: {why} at the top of {src}")
             return 1
         kit_dir = tmp / "kit"
         kit_dir.mkdir()

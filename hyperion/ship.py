@@ -106,9 +106,10 @@ class SimSeat:
 # ---------------------------------------------------------------- the night's dials by name, for whichever bot ships
 # The windows (PLAYBOOK section 5, prompt 06) and the timeout fallbacks name a recipe, not keys: `--dials survival`
 # on the sim, latency, pack and gate resolves it for the bot SHIP (or --bot) names, so the prompts stay right
-# whatever the switch says. On the hybrids and the composite a recipe is the core's dials plus Hero's own recipe as
-# `hero.<key>` (the tables, or sections, Hero plays). Join names with "+" to stack them: "survival+passive".
-# Checked to move play the stated way (docs/decisions.md, "Ship hybrid3_x as the base").
+# whatever the switch says. On the hybrids a recipe is the core's dials plus Hero's own recipe as `hero.<key>` (the
+# tables Hero plays); the composite has its own (COMPOSITE_RECIPES). Join names with "+" to stack them:
+# "survival+passive". Checked to move play the stated way: Hero and hybrid3_x in docs/decisions.md ("Ship hybrid3_x as
+# the base"), the composite in docs/drills/f1-windows-log.md.
 HERO_RECIPES = {
     "survival": {"preflop.patience_deep": 0.3, "postflop.icm_margin": 0.15, "postflop.big_value_tier": 7,
                  "preflop.three_bet_frac": 0.02},
@@ -127,6 +128,32 @@ CORE_RECIPES = {  # rival 3's core: hybrid3_x, hybrid3 and the composite's base
     "timeouts": {"cheap": True},  # every decision Hero's cheap path
 }
 CORE_BOTS = ("hybrid3_x", "hybrid3", "composite")
+# The composite (F) is not hybrid3_x with a route: rival 3's core decides preflop only (Hero plays postflop and short
+# facing a raise), and one exploit layer sits in front of every member, whose own layers are off. So on F the core's
+# postflop dials (r3.call_edge, r3.raise_shift, r3.bluff_scale) never decide (the same play, seed for seed), a Hero
+# `exploit.*` key reaches nothing, and the layer is worth 0.2 points ({"exploit": null}: -0.22 +- 0.09 on night). Its
+# recipes: the core's preflop dials, the layer's own keys, Hero's postflop where the stated play is Hero's, and Hero's
+# recipe as `hero.<key>` (Hero's postflop, its short re-shoves and the 14 tables it plays whole). Measured on F,
+# seeds 10000-10199 x 8, paired, model mode (docs/drills/f1-windows-log.md).
+COMPOSITE_RECIPES = {
+    # all-in calls 10.9% -> 6.8%, deep 3-bets 5.7% -> 4.0%, 7th-8th finishes 8.1% -> 7.2%; postflop stays Hero's
+    # (hero.postflop.call_margin 0.25 on top folds 2 points more there and measured -0.06 +- 0.06 on `strong`)
+    "survival": {"r3.call_margin": 0.03, "r3.three_bet_scale": 0.7, "hero.preflop.patience_deep": 0.3,
+                 "hero.postflop.icm_margin": 0.15, "hero.postflop.big_value_tier": 7, "hero.preflop.three_bet_frac": 0.02},
+    # cutoff and button opens 59.9% -> 63.4%, bets when checked to 54.3% -> 58.1% (the layer bets at a 0.35 fold read)
+    "passive": {"r3.open_late_scale": 1.3, "exploit.bet_min_fold": 0.35, "hero.preflop.open_frac": {"2": 0.66, "3": 0.48},
+                "hero.postflop.cbet_freq_ip_dry": 0.7},
+    # the layer steals at a 0.5 fold read (0.7 shipped) and Hero's reads act sooner: steals 67% -> 75% on `timeouts`
+    # (+0.06 +- 0.05). Not r3.prior_scale 0.5 (hybrid3_x's): on F it opened wider at strong tables and lost there
+    "dead_seats": {"exploit.steal_min_fold": 0.5, "hero.profiler_blend_n": 4.0},
+    # nothing measurable on plain hold'em (-0.004 +- 0.021 on night): Hero's keys reach its postflop reads and the
+    # tables it plays whole; the core keeps its own play, as on hybrid3_x
+    "strong_field": {"hero.preflop.open_frac_mult": 0.9, "hero.profiler_prior_n": 1.0},
+    # no shadow decisions (members not chosen skip the call): about 17 us a call and 30 us at p99, points level; the
+    # layer stays (off it saves about 5 us and costs 0.22 points)
+    "latency": {"late_us": 0},
+    "timeouts": {"cheap": True},  # every decision Hero's cheap path: -1.58 +- 0.14 on night, an emergency
+}
 
 # A slow or noisy sandbox (backlog R1, docs/drills/r1-timing-log.md). Not a window recipe: it is a property of the box,
 # set once when the sandbox's timing is known or suspect, and stacked with any window recipe (`slow_box+survival`).
@@ -158,6 +185,8 @@ def recipe(names: str, name: str | None = None) -> dict:
             raise KeyError(f"unknown recipe {part!r}; known: {', '.join([*HERO_RECIPES, *SLOW_RECIPES])}")
         if bot in ("hero", "cheap"):
             out.update(HERO_RECIPES[part])
+        elif bot == "composite":
+            out.update(COMPOSITE_RECIPES[part])
         elif bot in CORE_BOTS:
             out.update(CORE_RECIPES[part])
             if part not in ("latency", "timeouts"):

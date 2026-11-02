@@ -5,10 +5,15 @@ the current ship on the frozen protocol's seeds and fields, and prints the verdi
     .venv/bin/python tools/climb_accept.py --cand '{"dials": {"exploit.bet_min_fold": 0.35}}' --set H1
     .venv/bin/python tools/climb_accept.py --cand cand.json --base '{"bot": "hybrid3_x"}' --set screen --stages confirm
     .venv/bin/python tools/climb_accept.py --cand ... --set judge --stages judges
+    .venv/bin/python tools/climb_accept.py --stages window --base dead_seats --cand dead_seats+survival \
+        --rules submission/rules_tonight.json [--variant NAME] --workers 4          (a window, prompt 06)
+    .venv/bin/python tools/climb_accept.py --stages window --base '' --cand '' --rules ... (at the freeze: F cached,
+        so the first window plays only its candidate)
 
 Specs are {"bot": NAME} for a registered bot, or {"dials": {...}}: the composite with these dials ON TOP OF the shipped
 SHIP_DIALS, as hyperion.ship builds it, so {"dials": {}} is the shipped F (the default base). Note: tools/swap.py
-paired takes a spec's dials alone, without SHIP_DIALS; there {"dials": {}} is not F.
+paired takes a spec's dials alone, without SHIP_DIALS; there {"dials": {}} is not F. A spec may also be recipe names
+(`survival`, `dead_seats+survival`; hyperion/ship.py resolves them for the composite) or '' (F as shipped).
 
 Sets: `screen` 10000-10199; `H1` 20000-20399, `H2` 21000-21399, ... (+1000 each); `judge` 30000-30399; or `lo:hi`.
 Stages (comma-separated; default confirm,guards,variants):
@@ -25,6 +30,9 @@ Stages (comma-separated; default confirm,guards,variants):
   heads-up (`exploit_hu`, rules hu.json: 10/7) and three-handed (`exploit_3`, three.json: 10/7/5); its own points are
   printed too. Diagnostic: not part of the acceptance rule (it is one opponent we know).
 - timing: tools/latency.py p99 for both specs (20,000 calls).
+- window: night alone, the check a window needs (prompt 06): the candidate not beyond noise down. With --rules (the
+  night's rules JSON: payouts, blinds, antes ...) and --variant (a catalog entry's hooks) it plays tonight's game;
+  both also apply to confirm, guards and elite cells (a guard's own payouts or schedule still wins there).
 
 Every run is model mode at fixed speed, eight rotations per seed, the same deals for both specs, with panic, soft
 deadlines and `late_us` off (tools/swap.py's setup_process), so it replays exactly. The unit is one table seed; the
@@ -84,13 +92,23 @@ def seed_range(name: str) -> tuple[int, int]:
     raise SystemExit(f"unknown set {name!r}")
 
 
+def _record_line(line: bytes) -> bool:
+    """A changed line of hyperion/ship.py's record (SHIP = ..., DIALS: dict = ...), which `python -m hyperion.ship --set`
+    rewrites in every window: specs here name their dials, so the record never changes what a cell plays."""
+    return line[:1] in (b"+", b"-") and line[1:].startswith((b"SHIP = ", b"DIALS: dict = ", b"DIALS = "))
+
+
 def code_version() -> str:
     """The tree hash of hyperion/ and the blob of tools/swap.py at HEAD (so a docs-only commit keeps the cache), plus a
-    hash of any uncommitted change under hyperion/ and tools/."""
+    hash of any uncommitted change under hyperion/ and tools/ (changed lines only, the switch's record lines left out,
+    so a window's `--set` keeps the cache of the windows before it)."""
     trees = subprocess.run(["git", "-C", ROOT, "rev-parse", "HEAD:hyperion", "HEAD:tools/swap.py"], capture_output=True,
                            text=True).stdout.split()
     head = hashlib.md5(" ".join(trees).encode()).hexdigest()
-    diff = subprocess.run(["git", "-C", ROOT, "diff", "HEAD", "--", "hyperion", "tools"], capture_output=True).stdout
+    raw = subprocess.run(["git", "-C", ROOT, "diff", "-U0", "HEAD", "--", "hyperion", "tools"],
+                         capture_output=True).stdout
+    diff = b"\n".join(ln for ln in raw.splitlines()
+                      if ln[:1] in (b"+", b"-") and not ln.startswith((b"+++", b"---")) and not _record_line(ln))
     untracked = subprocess.run(["git", "-C", ROOT, "ls-files", "--others", "--exclude-standard", "hyperion"],
                                capture_output=True, text=True).stdout
     h = hashlib.md5(diff + untracked.encode()).hexdigest()[:8]
@@ -102,10 +120,16 @@ def spec_key(spec: dict, version: str) -> str:
 
 
 def load_spec(s: str) -> dict:
+    """A spec: JSON inline or in a file, or recipe names for the composite (`survival+passive`; '' = F as shipped)."""
     if os.path.exists(s):
         with open(s) as fh:
             return json.load(fh)
-    return json.loads(s)
+    t = s.strip()
+    if t.startswith("{"):
+        return json.loads(t)
+    from hyperion import ship
+
+    return {"dials": ship.recipe(t, "composite") if t else {}}
 
 
 def resolve(spec: dict) -> dict:
@@ -122,16 +146,33 @@ def resolve(spec: dict) -> dict:
     return {**{k: v for k, v in spec.items() if k != "dials"}, "dials": {**base, **dials}}
 
 
+def _rules_file(rules_name: str) -> str:
+    """A cell's rules: a name in docs/drills/climb/rules, or a path to a Rules JSON (--rules, the night's file)."""
+    return rules_name if os.sep in rules_name or rules_name.endswith(".json") else os.path.join(RULES_DIR,
+                                                                                                 rules_name + ".json")
+
+
 def _rules(pay: str, rules_name):
     from hyperion.core.types import Rules
 
-    kw = {"payouts": SW.PAYOUTS[pay]} if SW.PAYOUTS[pay] else {}
+    kw = {}
     if rules_name:
-        with open(os.path.join(RULES_DIR, rules_name + ".json")) as fh:
+        with open(_rules_file(rules_name)) as fh:
             extra = json.load(fh)
         kw.update({k: tuple(tuple(x) if isinstance(x, list) else x for x in v) if isinstance(v, list) else v
                    for k, v in extra.items()})
+    if SW.PAYOUTS[pay]:  # a guard's payout table wins over a rules file's
+        kw["payouts"] = SW.PAYOUTS[pay]
     return Rules(**kw) if kw else None
+
+
+def _rules_tag(rules_name) -> str:
+    if not rules_name:
+        return "-"
+    if os.sep in rules_name or rules_name.endswith(".json"):  # a file: its content names the cell
+        with open(rules_name, "rb") as fh:
+            return "f" + hashlib.md5(fh.read()).hexdigest()[:10]
+    return rules_name
 
 
 def _job(args):
@@ -162,17 +203,18 @@ def _job(args):
 
 def cell_path(out: str, key: str, cell) -> str:
     field, pay, rules_name, variant, off = cell
-    return os.path.join(out, key, f"{field}.{pay}.{rules_name or '-'}.{variant or '-'}.{off}.json")
+    return os.path.join(out, key, f"{field}.{pay}.{_rules_tag(rules_name)}.{variant or '-'}.{off}.json")
 
 
 def run_cells(out: str, specs: dict, cells: list, lo: int, hi: int, workers: int) -> None:
     """Run every (spec, cell, chunk) not yet cached."""
-    jobs = []
+    jobs, seen = [], set()
     for name, (key, spec) in specs.items():
         for field, pay, rules_name, variant in cells:
             for off in range(lo, hi, CHUNK):
                 p = cell_path(out, key, (field, pay, rules_name, variant, off))
-                if not os.path.exists(p):
+                if not os.path.exists(p) and p not in seen:  # base == cand (warming the cache) runs once
+                    seen.add(p)
                     jobs.append((key, name, spec, field, pay, rules_name, variant, off, min(CHUNK, hi - off)))
     if not jobs:
         return
@@ -226,9 +268,9 @@ def label(cell4) -> str:
     if pay != "lin":
         s += f" @{ {'brief': '10/7/5/4/3/2/1/0', 'th': '50/25/12/6/3/2/1/1'}.get(pay, pay)}"
     if rules_name:
-        s += f" +{rules_name}"
+        s += f" +{os.path.basename(rules_name)}"
     if variant:
-        s = f"{variant} ({field})"
+        s = f"{variant} ({s})"
     return s
 
 
@@ -250,9 +292,11 @@ def latency(spec: dict) -> dict:
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--cand", required=True, help="the candidate spec: JSON inline or a file")
-    p.add_argument("--base", default='{"dials": {}}', help="the reference spec (default: the shipped composite F)")
-    p.add_argument("--set", default="H1")
+    p.add_argument("--cand", required=True, help="the candidate spec: JSON inline or a file, or recipe names")
+    p.add_argument("--base", default='{"dials": {}}', help="the reference spec (default: the shipped composite F), "
+                                                           "or recipe names ('' = F)")
+    p.add_argument("--set", default=None, help="screen, H1, H2 ..., judge or lo:hi (default H1; screen for --stages "
+                                                "window)")
     p.add_argument("--stages", default="confirm,guards,variants")
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--out", default=os.path.join(ROOT, "scratch", "climb"))
@@ -261,25 +305,39 @@ def main(argv=None) -> int:
     p.add_argument("--variants", default=None, help="the variants stage's entries (default: the whole catalog)")
     p.add_argument("--variant-seeds", type=int, default=VARIANT_SEEDS,
                    help="seeds per variant cell, from the set's first (addendum 7's replication: 400)")
+    p.add_argument("--rules", default=None, help="a Rules JSON (the night's rules_tonight.json) for the window, "
+                                                 "confirm, guards and elite cells")
+    p.add_argument("--variant", default=None, help="a catalog variant's hooks for the same cells")
     a = p.parse_args(argv)
     version = code_version()
     base_raw, cand_raw = load_spec(a.base), load_spec(a.cand)
     base, cand = resolve(base_raw), resolve(cand_raw)
     specs = {"base": (spec_key(base, version), base), "cand": (spec_key(cand, version), cand)}
-    lo, hi = seed_range(a.set)
     stages = [s.strip() for s in a.stages.split(",") if s.strip()]
+    a.set = a.set or ("screen" if stages == ["window"] else "H1")
+    lo, hi = seed_range(a.set)
     rows, verdict = [], {"version": version, "set": a.set, "seeds": [lo, hi], "base": base, "cand": cand,
                          "stages": {}}
     t0 = time.time()
     from hyperion.drills import variants as V
 
+    rules_path = os.path.abspath(a.rules) if a.rules else None
+    if a.variant:
+        V.get(a.variant)  # an unknown name fails here, not in a worker
+
+    def tonight(cells):  # the night's rules and variant on a stage's cells (a cell's own rules or variant wins)
+        return [(f, pay, rn if rn else rules_path, *(c[3:] if len(c) > 3 else (a.variant,)))
+                for c in cells for f, pay, rn in [c[:3]]]
+
     plan = []
+    if "window" in stages:
+        plan.append(("window", tonight(CONFIRM), lo, hi))
     if "confirm" in stages:
-        plan.append(("confirm", CONFIRM, lo, hi))
+        plan.append(("confirm", tonight(CONFIRM), lo, hi))
     if "guards" in stages:
-        plan.append(("guards", GUARDS, lo, hi))
+        plan.append(("guards", tonight(GUARDS), lo, hi))
     if "elite" in stages:
-        plan.append(("elite", ELITE, lo, hi))
+        plan.append(("elite", tonight(ELITE), lo, hi))
     if "judges" in stages:
         plan.append(("judges", JUDGES, lo, hi))
     if "aware" in stages:
@@ -311,6 +369,9 @@ def main(argv=None) -> int:
     # the protocol's rule
     st = verdict["stages"]
     checks = []
+    if "window" in st:
+        checks.append(("window: night not beyond noise down (a recipe answers the standings; it need not gain)",
+                       all(r["flag"] != "DOWN" for r in st["window"])))
     if "confirm" in st:
         checks.append(("confirm: night beyond noise up", all(r["flag"] == "UP" for r in st["confirm"])))
     for s in ("guards", "elite", "variants", "judges", "aware"):
@@ -341,7 +402,7 @@ def main(argv=None) -> int:
             print(f"| {r['cell']} | {r['base']:.3f} | {r['cand']:.3f} | {r['delta']:+.3f} ± {r['ci']:.3f} | "
                   f"{r['flag']} | {r['n']} | {ob if ob is None else round(ob, 3)}/{oc if oc is None else round(oc, 3)} | "
                   f"{r['p99'][0]:.0f}/{r['p99'][1]:.0f} |")
-    for s in ("confirm", "guards", "elite", "judges", "variants", "aware"):
+    for s in ("window", "confirm", "guards", "elite", "judges", "variants", "aware"):
         if s not in st:
             continue
         print(f"\n## {s}\n\n| cell | base | cand | cand - base | | n | tmo b/c | err b/c | p99 b/c |")

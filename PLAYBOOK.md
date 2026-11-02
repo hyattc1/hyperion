@@ -121,7 +121,7 @@ Done at home. Not optional; each item has sunk a drill or will.
 | 4 | WIRE | 0:25–0:40 | `04-wire-hero` | high | Kit sim 100 hands clean; our strict sim (the Stage 0 command with `--rules rules_tonight.json`): 0 exc, 0 illegal, p99 < 300 µs, over-1 ms rate < 0.3%, the ship line within its own CI of the Stage 0 number. Ship vs tag is not the gate. Then `tools/gate.py` on the zip itself: GATE PASS (paired against the bot the zip records), before this and every later upload | Only the bot's own line fails: `--bot hero`, same gates. Else resubmit the Stage 2 cheap package unchanged |
 | 5 | PATCH | 0:40–0:50 | `05-variant-patch`, the section for the named axis | xhigh | The same sim in model mode with and without the dials; points did not drop beyond CI; then strict, errors still zero | Revert. Ship without the patch. |
 | — | SUBMIT | 0:50 | — | — | Portal confirms; sha256, bot and dials in `NIGHT.md`; copy to `frozen/T1` | Resubmit the Stage 2 cheap bot |
-| 6 | WINDOWS | after T1, ×5 | `06-windows` with standings pasted | high | One dial, verified in strict sim, submitted by minute 15 of the window | Keep the frozen bot. Submit nothing. |
+| 6 | WINDOWS | after T1, ×5 | `06-windows` with standings pasted | high | One recipe: the window check (`tools/climb_accept.py --stages window`, paired) not beyond noise down, strict run and kit simulator clean, GATE PASS at 40 tables; submitted by minute 15 of the window | Keep the frozen bot. Submit nothing. |
 
 ### Stage 1: READ (0:00–0:05)
 
@@ -203,21 +203,28 @@ ship unverified.
 
 ### Submit and freeze (0:50)
 
-Submit the ship bot. Hash it. `cp` it to `frozen/T1`. Write the hash and minute in `NIGHT.md`. From 0:55 to
-1:00 touch nothing; re-read the submission rules once: under 100 MB, no network, entry point named
-exactly as the kit wants.
+Submit the ship bot. Hash it. `cp` it to `frozen/T1`. Write the hash and minute in `NIGHT.md`. Then, while T1 plays,
+warm the windows' cache once (about 1.5 minutes; the bot is not touched): `python tools/climb_accept.py --stages window
+--base '' --cand '' --rules submission/rules_tonight.json --workers 4` (plus `--variant <name>`), so the first
+window plays only its candidate. From 0:55 to 1:00 touch nothing else; re-read the submission rules once: under 100 MB,
+no network, entry point named exactly as the kit wants.
 
 ### Stage 6: WINDOWS (after T1, five times)
 
 Each window is 20 minutes and the same loop. Minutes 0 to 5: read standings; our rank, our mean,
 the spread, and if the kit shows per-table results, ten tables we finished last in. Minutes 5 to
-12: one dial from the signal table in `06-windows.md`, verified in the strict sim against the
-previous number; verification must finish by minute 10. Minute 12: freeze then upload, or upload
+12: one recipe from the signal table (section 5, `06-windows.md`) through prompt 06's six steps: the window check
+(`tools/climb_accept.py --stages window`: the recipe paired against the bot we ship, the night field under tonight's
+rules, 200 seeds x 8), `--set`, the strict run, the kit simulator, the repack and the gate at 40 tables. Rehearsed on
+recorded standings: 4.0 minutes for all six on a host at load 12 with 2 workers, the check 3.2 of them cold and
+1.6 with the cache warm (docs/drills/f1-windows-log.md);
+verification must finish by minute 10. Minute 12: freeze then upload, or upload
 nothing; there is no retry inside the window (§3.5). Minutes 15 to 20: three
 lines in `NIGHT.md`.
 
 Hard rules: one change per window; no new modules; nothing unverified; timeouts or errors in any log
-override everything (the dial `{"cheap": true}`: every decision Hero's cheap path; verify, submit). Tournaments 5 and 6 are 52% of
+override everything (`latency` first: no shadow decisions, points level; `timeouts`, every decision Hero's cheap path,
+for errors or timeouts it did not cure; verify, submit). Tournaments 5 and 6 are 52% of
 the score: the bot that plays T6 should be a bot that has already played T4 or T5 clean.
 
 ---
@@ -283,43 +290,29 @@ entry on its axis is the recipe; if it is not hold'em underneath, the FIT VERDIC
 
 ## 5. The signal table (what a window does)
 
-A window applies one recipe to the ship bot (see the switch): `--dials <recipe>` on the sim (`--field
-realistic@ship`), kept with `python -m hyperion.ship --set <recipes>`. A recipe means the same thing on every bot
-and resolves to that bot's keys (`hyperion/ship.py`, RECIPES): rival 3's core dials for hybrid3_x, hybrid3 and the
-composite, plus Hero's keys as `hero.<key>` for the tables Hero plays there; Hero's Config keys for Hero. Each was
-checked on both bots in a paired run (200 tables, model mode, realistic unless named; decisions, "Ship hybrid3_x
-as the base"). The play moves as stated, and on our fields no recipe gains points beyond noise. A recipe answers
-tonight's standings; it is not a free improvement.
+A window applies one recipe to the ship bot (see the switch), measured with `tools/climb_accept.py --stages window`
+(prompt 06: F on the night field under tonight's rules, 200 duplicate seeds x 8, paired) and kept with
+`python -m hyperion.ship --set <recipes>`. A recipe means the same thing on every bot and resolves to that bot's keys
+(`hyperion/ship.py`): the composite has its own (`COMPOSITE_RECIPES`: rival 3's core decides only preflop there and one
+exploit layer sits in front of every member, so the core's postflop dials and Hero's `exploit.*` keys would reach
+nothing); hybrid3_x and hybrid3 take the core's dials plus Hero's as `hero.<key>`; Hero its Config keys. On F each was
+checked to move play as stated, on the night field and on a field that shows its signal (paired, model mode, seeds
+10000-10199 x 8; docs/drills/f1-windows-log.md). Only `dead_seats` gained points beyond noise on its own signal;
+`latency` cuts timeouts at level points; the rest are level. A recipe answers tonight's standings; it is not a free
+improvement. The governor (`slow_box`) is in F's defaults: no recipe removes it (a test holds it).
 
-| Standings say | Likely cause | Recipe | On rival 3's core (hybrid3_x, the composite) | On Hero |
+| Standings say | Likely cause | Recipe | On F (the composite, ships): dials, what moved, points | On the fallbacks (hybrid3_x / Hero) |
 |---|---|---|---|---|
-| Many firsts, many 7th/8th | busting early, too willing to gamble | `survival` | `r3.call_margin` 0.03, `r3.call_edge` 0.16, `r3.raise_shift` 0.05, `r3.three_bet_scale` 0.7: all-in calls 16% to 10%, 3-bets 6.3% to 4.4%, folds to a postflop bet 62% to 67%; points -0.04 ± 0.23. Not `r3.push_margin`: 0.03 cut short-stack shoves from 72% to 22% and busts rose | `preflop.patience_deep` 0.3, `postflop.icm_margin` 0.15, `postflop.big_value_tier` 7, `preflop.three_bet_frac` 0.02: 3-bets 4.5% to 3.5%; points -0.00 ± 0.16 |
-| Mid-table, few firsts, few lasts | too passive for this field | `passive` | `r3.open_late_scale` 1.3, `r3.bluff_scale` 1.3: cutoff and button opens 58% to 61%, bets when checked to 56% to 59%; -0.04 ± 0.17 | `preflop.open_frac` for 2 and 3 behind to 0.66 and 0.48, `postflop.cbet_freq_ip_dry` 0.7: late opens 52.5% to 55.7%; -0.01 ± 0.15 |
-| Many near-zero scorers in the field | lots of dead/timing-out bots | `dead_seats` | `r3.prior_scale` 0.5 (reads move twice as fast), `timeouts` field: late opens 57% to 61%; +0.12 ± 0.18, busts -4.5 ± 5.3 | `exploit.steal_min_fold` 0.5, `profiler_blend_n` 4, `timeouts` field: late opens 56% to 70%; +0.10 ± 0.16, busts -3.5 ± 5.3 |
-| Top scores bunched, field tight | strong field | `strong_field` | nothing: Hero's recipe on the core (`r3.open_scale` 0.85 with `r3.prior_scale` 0.5) measured -0.48 ± 0.33 and busts +11 ± 7.5 on `top` | `preflop.open_frac_mult` 0.9, `profiler_prior_n` 1, `top` field: late opens 62% to 58%; +0.23 ± 0.24 |
-| Any timeout or error in our log | we are the problem | `latency` if latency is the cause, else `timeouts`; verify, submit, then investigate | `latency`: `{"exploit": null}` (the layer's ~6 µs). `timeouts`: `{"cheap": true}`, every decision Hero's cheap path: -1.86 ± 0.38, busts +32%, an emergency | `latency`: `use_profiler` false. `timeouts`: `cheap` true |
+| Many firsts, many 7th/8th | busting early, too willing to gamble | `survival` | `r3.call_margin` 0.03, `r3.three_bet_scale` 0.7 and Hero's keys: calls of an all-in 11% to 7%, deep 3-bets 6% to 4%, 7th-8th places 8.1% to 7.2% (night), 16.0% to 14.3% (`strong`, the table that busts F most); postflop stays Hero's. Points: night +0.01 ± 0.07, `strong` +0.04 ± 0.08, every guard level or up (`night_hard` +0.10 ± 0.07) | core: also `r3.call_edge` 0.16, `r3.raise_shift` 0.05 (postflop folds 62% to 67%), -0.04 ± 0.23. Hero: `preflop.patience_deep` 0.3, `postflop.icm_margin` 0.15, `postflop.big_value_tier` 7, `preflop.three_bet_frac` 0.02, -0.00 ± 0.16. Never `r3.push_margin` (0.03 cut short shoves 72% to 22%, busts rose) |
+| Mid-table, few firsts, few lasts | too passive for this field | `passive` | `r3.open_late_scale` 1.3, the layer's `exploit.bet_min_fold` 0.35 and Hero's keys: cutoff and button opens 60% to 63% (night), 47% to 52% (`elite`, where F sits mid-table), bets when checked to 54% to 58%. Points: night -0.00 ± 0.06, `elite` -0.03 ± 0.07, every guard level or up (realistic +0.08 ± 0.07) | core: `r3.open_late_scale` 1.3, `r3.bluff_scale` 1.3, -0.04 ± 0.17. Hero: `preflop.open_frac` 2 / 3 behind 0.66 / 0.48, `postflop.cbet_freq_ip_dry` 0.7, -0.01 ± 0.15 |
+| Many near-zero scorers in the field | lots of dead/timing-out bots | `dead_seats` | the layer's `exploit.steal_min_fold` 0.5 (0.7 shipped), `hero.profiler_blend_n` 4: steals 67% to 75%, cutoff and button opens 54% to 64% (`timeouts`). Points: `timeouts` +0.06 ± 0.05 (beyond noise), a table with four near-zero scorers +0.06 ± 0.06, night +0.01 ± 0.07, realistic +0.11 ± 0.06. Only on this signal: at strong tables it loses (`top` -0.12 ± 0.08, `elite` -0.16 ± 0.08). Not `r3.prior_scale` 0.5: on F it lost on a dead-seat table (-0.11 ± 0.06) | core: `r3.prior_scale` 0.5, +0.12 ± 0.18 (`timeouts`). Hero: `exploit.steal_min_fold` 0.5, `profiler_blend_n` 4, +0.10 ± 0.16 |
+| Top scores bunched, field tight | strong field | `strong_field` | nothing measurable: Hero's keys only (`hero.preflop.open_frac_mult` 0.9, `hero.profiler_prior_n` 1); night -0.00 ± 0.02, `top` -0.00 ± 0.03, `elite` -0.01 ± 0.02. It is the frozen bot: spend the window on another signal or on nothing | core: nothing (Hero's recipe on the core lost -0.48 ± 0.33 on `top`). Hero: those keys, +0.23 ± 0.24 on `top` |
+| Any timeout or error in our log | we are the problem | `latency` if latency is the cause, else `timeouts`; verify, submit, then investigate | `latency`: `late_us` 0, no shadow decisions (the members not chosen skip the call): 17 µs a call, 30 µs at p99; on a 8x / 5x slower box 32% / 19% fewer timeouts, points level. Points: night -0.02 ± 0.05, every guard level. Not the layer off (main's `latency`): -0.22 ± 0.09 on night, -0.34 ± 0.13 on the slow box. `timeouts`: `cheap` true, every decision Hero's cheap path: -1.58 ± 0.14 on night; on a slow box still -1.6 (8..1) and -14 of 100 (top-heavy), because the governor already steps down: for errors, an emergency | `latency`: hybrid3_x `{"exploit": null}`, Hero `use_profiler` false. `timeouts`: `cheap` true (-1.86 ± 0.38 on hybrid3_x). On a slow box add `slow_box` first: `--set slow_box+<recipe>` |
 
 Single dials for a hill climb or a measured exception (CONTRACTS.md has every key): `r3.push_margin` is steep
-(0.01 cut short-stack shoves by 7 points, 0.03 by 50); `r3.open_scale` 1.25 / 0.8 moved opens by +3 / -2 points;
-`r3.bluff_scale` 1.4 / 0.6 moved bets when checked to by +5 / -8. Hero's earlier strong-field and dead-seat keys
-(`preflop.open_frac_default`, `profiler_dial_strength`) moved none of the probed rates by a point.
-
----|---|---|---|---|
-| Many firsts, many 7th/8th | busting early, too willing to gamble | `{"r3.call_margin": 0.03, "r3.call_edge": 0.16, "r3.raise_shift": 0.05, "r3.three_bet_scale": 0.7}` | all-in calls 16% to 10%, 3-bets 6.3% to 4.4%, folds to a postflop bet 62% to 67%; points -0.04 ± 0.23. Not `r3.push_margin`: 0.03 cut short-stack shoves from 72% to 22% and busts rose | raise `preflop.patience_deep`, raise `postflop.icm_margin` and `postflop.big_value_tier`, lower `preflop.three_bet_frac` |
-| Mid-table, few firsts, few lasts | too passive for this field | `{"r3.open_late_scale": 1.3, "r3.bluff_scale": 1.3}` | cutoff and button opens 58% to 61%, bets when checked to 56% to 59%; points -0.04 ± 0.17 | raise `preflop.open_frac` for the last two seats, raise `postflop.cbet_freq_ip_dry` |
-| Many near-zero scorers in the field | lots of dead/timing-out bots | `{"r3.prior_scale": 0.5}` (reads move sooner) | `timeouts` field: opens 56% to 58%, late opens 57% to 61%; points +0.12 ± 0.18, busts -4.5 ± 5.3 | lower `profiler_blend_n` (8 to 4) so reads act sooner; raise `profiler_dial_strength` |
-| Top scores bunched, field tight | strong field | none: keep the frozen bot | `top` field: Hero's recipe on the core (`r3.open_scale` 0.85 with `r3.prior_scale` 0.5) -0.48 ± 0.33 and busts +11 ± 7.5; each half alone -0.05 and -0.22 | lower `preflop.open_frac_default`, keep `preflop.patience_deep` up, lower `profiler_blend_n` |
-| Any timeout or error in our log | we are the problem | `{"exploit": null}` if latency is the cause (the layer's ~6 µs), else `{"cheap": true}` (every decision Hero's cheap path); verify, submit, then investigate | `cheap`: -1.86 ± 0.38 points, busts +32%: an emergency dial | `Config.cheap=True`, verify, submit, then investigate |
-
-Step sizes: `r3.push_margin` is steep (0.01 cut short-stack shoves by 7 points, 0.03 by 50), `r3.open_scale`
-1.25 / 0.8 moved opens by +3 / -2 points, `r3.bluff_scale` 1.4 / 0.6 moved bets when checked to by +5 / -8.
-
----|---|---|
-| Many firsts, many 7th/8th | busting early, too willing to gamble | raise `preflop.patience_deep`, raise `postflop.icm_margin` and `postflop.big_value_tier`, lower `preflop.three_bet_frac` |
-| Mid-table, few firsts, few lasts | too passive for this field | raise `preflop.open_frac` for the last two seats, raise `postflop.cbet_freq_ip_dry` |
-| Many near-zero scorers in the field | lots of dead/timing-out bots | lower `profiler_blend_n` (8 to 4) so reads act sooner; raise `profiler_dial_strength` |
-| Top scores bunched, field tight | strong field | lower `preflop.open_frac_default`, keep `preflop.patience_deep` up, lower `profiler_blend_n` |
-| Any timeout or error in our log | we are the problem | `Config.cheap=True`, verify, submit, then investigate |
+(0.01 cut short-stack shoves by 7 points, 0.03 by 50); `r3.open_scale` 1.25 / 0.8 moved opens by +3 / -2 points (both
+on hybrid3_x). On F, `r3.bluff_scale`, `r3.call_edge` and `r3.raise_shift` move nothing (postflop is Hero's), and the
+layer's keys are `exploit.*`, never `hero.exploit.*`.
 
 ---
 
@@ -381,6 +374,12 @@ Step sizes: `r3.push_margin` is steep (0.01 cut short-stack shoves by 7 points, 
   - 23/23 variants READY, first on 22. Gate PASS on kit B (night, the log rebuilt) and kit A.
   - Strict timeouts level with hybrid3_x; p99 113 us at a table, 329 us through kit B with the deferred hand end.
   - The owner's other bot, tried as a black-box donor, won no section.
+
+- Windows on F (2026-11-02, docs/drills/f1-windows-log.md; paired, model mode, 200 x 8): each recipe moves F's play
+  as stated after the fixes; none gains on night; `dead_seats` gains among timing-out seats (+0.06 ± 0.05) and loses
+  at strong tables (`top` -0.12, `elite` -0.16); `latency` cuts timeouts by a fifth to a third on a 5-8x slower box at
+  level points; `timeouts` costs 1.1-2.4 points everywhere (8..1). A rehearsed window takes 4 minutes of commands
+  (window check 3.2 cold, 1.6 warm, 2 workers at load 12); the governor survives every `--set` and the package.
 
 **Unverified**
 - Track B spec v2 (step 0 rank map, steps 2b and 3b, the value-curve ICM, the p99 gate). Drill 3
@@ -453,6 +452,7 @@ The track is decided in Stage 0, never on the night.
 | 2026-11-01 | Infer the action log on kits without one: every adapter rebuilds the hand's log from the states when the kit has no log or part of one (`history_source` "bets" / "partial"; `hyperion/drills/infer_history.py`), holds a bare hand end for the next state's stacks, and conformance reports `history_infer` / `history_gap`; Stage 2 reads what the kit shows of the betting, section 4 says a kit with no log needs no patch, prompt 02 steps 1, 2, 4, 7 and prompt 04 step 1 follow; `tools/gate.py --kit-log no` pairs against the rebuild (`--kit-log bets` is the old baseline); wins back 86-95% of 0.56-0.92 points a table; section 6 evidence | action-log inference |
 | 2026-11-01 | Ship the composite: `SHIP = "composite"` (rival 3's core preflop, Hero postflop and short facing a raise, two climb dials; `hyperion/compose/`); section 0 "What we ship" says so; section 6 evidence. hybrid3_x and Hero stay one word away (`--bot`) | compose |
 
+| 2026-11-02 | The windows on F (backlog F1): the composite's own recipes (`COMPOSITE_RECIPES`: no dead keys, the layer's `exploit.*` keys, `latency` = no shadow decisions instead of the layer off), checked on F on night and on a field showing each signal; section 5 rewritten with F's column and the stale tables removed; Stage 6 and prompt 06 use `tools/climb_accept.py --stages window` (paired, tonight's rules) with rehearsed step times; warm its cache at the freeze; the gate finds the entry | F1 worker |
 ---
 
 ## 10. The email (send before the event)

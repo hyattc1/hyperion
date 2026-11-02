@@ -25,7 +25,8 @@ COMMANDS = [
     ("Run tests", "python -m pytest -q"),
     ("The ship bot (see the switch) vs realistic field, strict 1 ms", "python -m hyperion.sim --tables 300 --seed 11 --mode strict --field realistic@ship"),
     ("Same, duplicate-dealt (seating luck cancels)", "python -m hyperion.sim --tables 40 --rotate --seed 11 --mode strict --field realistic@ship"),
-    ("A recipe or dials, measured (same seed without it is the before)", "python -m hyperion.sim --tables 300 --seed 11 --mode model --field realistic@ship --dials passive"),
+    ("A window's recipe, measured (prompt 06: paired against the bot we ship, the night field, tonight's rules)", "python tools/climb_accept.py --stages window --base '<kept>' --cand '<kept>+passive' --rules submission/rules_tonight.json --workers 4"),
+    ("A recipe or dials in a sim run (same seed without it is the before)", "python -m hyperion.sim --tables 300 --seed 11 --mode model --field realistic@ship --dials passive"),
     ("Keep dials in the switch / print it", "python -m hyperion.ship --set survival+passive   |   python -m hyperion.ship"),
     ("Hero instead (the base until 2026-11-01)", "python -m hyperion.sim --tables 300 --seed 11 --mode strict --field realistic   (and --bot hero on pack, gate, latency)"),
     ("Pack the upload (records the bot; --bot cheap at Stage 2)", "python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py submission/rules_tonight.json"),
@@ -138,10 +139,13 @@ def render() -> str:
               "0.2). Its dials: `route` (\"section=donor,...\"), `r3.<name>` for the base's core, `exploit.<field>`, "
               "`hero.<key>` (the hero member and the base's fallback Hero, as on hybrid3_x), `cheap`, `light`.", ""]
     parts += ["## Recipes (the night's dials by name: `--dials survival`, stacked `survival+passive`)", "",
-              "Each resolves for the bot the switch names: on rival 3's core (" + ", ".join(ship.CORE_BOTS) + ") the "
-              "core's dials plus Hero's as `hero.<key>`; on Hero its Config keys.", "",
-              _table([(n, repr(ship.CORE_RECIPES[n]), repr(ship.HERO_RECIPES[n])) for n in ship.HERO_RECIPES],
-                     ("recipe", "rival 3's core", "Hero")), ""]
+              "Each resolves for the bot the switch names: on the composite its own (the core's preflop dials, the "
+              "exploit layer's keys and Hero's as `hero.<key>`: rival 3's core plays only preflop there and one layer "
+              "sits in front, so the core's postflop dials and Hero's `exploit.*` keys would reach nothing); on "
+              "hybrid3_x and hybrid3 the core's dials plus Hero's as `hero.<key>`; on Hero its Config keys. "
+              "`slow_box` (the governor) is in the composite's defaults; it gives the fallbacks theirs.", "",
+              _table([(n, repr(ship.COMPOSITE_RECIPES[n]), repr(ship.CORE_RECIPES[n]), repr(ship.HERO_RECIPES[n]))
+                      for n in ship.HERO_RECIPES], ("recipe", "composite (ships)", "hybrid3_x, hybrid3", "Hero")), ""]
     parts += ["## Dials of rival 3's core bots (one flat dict: `--dials '{\"r3.open_scale\": 1.2}'`)", "",
               "Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):", "",
               _table([("r3." + f.name, repr(f.default), f.metadata.get("doc", ""))
