@@ -33,6 +33,7 @@ replay, and each table's first decision. Each table starts with the ICM memos em
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import gc
 import importlib
 import json
@@ -387,7 +388,6 @@ def main(argv=None) -> int:
 
     rules = load_rules(a.rules, a.variant)
     if a.payouts:
-        import dataclasses
         rules = dataclasses.replace(rules, payouts=tuple(float(x) for x in a.payouts.split(",")))
     from hyperion import ship
 
@@ -406,10 +406,18 @@ def main(argv=None) -> int:
         adapter = load_attr(a.adapter)(bot, rules)
         adapter.start(a.seat, rules.n_players, rules)
         build = native_builder(a.native)
-        natives = [build(o) for o in obs]
-        for x in natives[: len(warm)]:
+        # hand numbers in order, as one table deals them: the generator's random numbers would go back about every
+        # other call, which the adapter reads as a new table with no table-start hook (a restart, and every 16th one a
+        # full collection), so the round trip would time table starts rather than decisions
+        hands = sorted(o.hand_no for o in obs)
+        lo = hands[0] if hands else 0
+        natives_warm = [build(dataclasses.replace(o, hand_no=lo)) for o in warm]
+        natives = [build(dataclasses.replace(o, hand_no=h)) for o, h in zip(obs, hands)]
+        for x in natives_warm:
             adapter.decide(x)
         runs.append(("adapter.decide", measure(adapter.decide, natives)))
+        if getattr(adapter, "tables_seen", 0):
+            print(f"note: the adapter restarted the bot {adapter.tables_seen} times (hand number went back)")
 
     label = ship.describe(None, dials) if a.bot == "ship" else (ship.describe(a.bot, dials or {})
                                                                if a.bot in ship.BUILDERS else a.bot)
