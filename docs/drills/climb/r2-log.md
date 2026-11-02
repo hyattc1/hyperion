@@ -29,7 +29,7 @@ Scratch files: the session scratchpad, `goal/r2/`.
 | R4: stdlib only, clean `/usr/bin/python3 -I` (3.10, no venv) | pass | imports, builds, plays; no module from outside the package and the stdlib |
 | R4: decision time, `tools/latency.py`, 20,000 calls | report | 3.12: p50 50 us, p99 444 us, max 9.7 ms (load 10-12); 3.10: p50 75 us, CPU 1.38x 3.12's |
 | R4: slim leaves the opponents out | done | `--slim` drops sim/field, sim/aware.py, every rival but rival 3; slim kit B zip 1,159,582 -> 807,488 bytes |
-| identical play (climb_accept screen, confirm + guards) | see below | |
+| identical play (climb_accept screen, confirm + guards, main vs branch) | pass | 7 cells x 200 seeds: all 1,400 per-seed samples identical, timeouts / errors 0 on both |
 
 ## R2: instance lifetime
 
@@ -250,3 +250,7 @@ timeout clause), plus two of mine since fixed (the runner's --list, and the r2x 
 rival 2 runs a Monte Carlo at import). Re-run alone: my tests and the replay tests in one process, 98 passed; the
 wall-clock set fails the same way on main's tree at the same load (14 failures there, 11 on the branch, different bots
 each run).
+
+Final run at 422e09f (load 14): 7 failed, 1,073 passed, 9 skipped. All seven are in that family (the gate's history
+test, the kit D latency round trip, one exploiter replay, four outside / elite replays); the runner's --list and the
+r2x pack test pass.
