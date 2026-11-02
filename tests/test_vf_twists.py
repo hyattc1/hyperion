@@ -141,3 +141,31 @@ def test_the_twist_read_skips_a_bettor_the_twist_explains():
     pf.holdem = True  # a hold'em table: no twist to respect
     pf.family = None
     assert pf._tw is None and not pf._twist_read_off(_spot({"bought": {1: True}}), 1)
+
+
+def _vdigest(dials, name, table=0):
+    from hyperion import ship
+    from hyperion.sim import bestiary as B
+    from hyperion.sim.engine import play_table
+
+    from .test_ship import QUIET, _Recorder
+
+    seed = 11 * 1_000_003 + table
+    names = B.field_names("realistic")
+    bots = [B.make_bot(nm, seed=seed * 64 + s) for s, nm in enumerate(names)]
+    for b in bots:
+        if hasattr(b, "use_cost_model"):
+            b.use_cost_model(True)
+    bot = ship.make_bot("composite", {**QUIET, "late_us": 1e9, **dials}, seed=seed * 64)
+    rec = bots[0] = _Recorder(bot)
+    v = V.get(name, seed=seed)
+    play_table(bots, v.rules, seed=seed, mode="model", variant=v.new_hooks())
+    return rec.h.hexdigest()
+
+
+@pytest.mark.parametrize("name", sorted(FAMILY))
+def test_each_gain_gated_to_hold_em_plays_every_family_exactly_as_f(name):
+    # so one F run is the base of all three twist extensions on these tables (docs/drills/climb/vf-log.md)
+    f = _vdigest({}, name)
+    for gain in (D3, Z3, SR):
+        assert _vdigest(gain, name) == f, (name, gain)
