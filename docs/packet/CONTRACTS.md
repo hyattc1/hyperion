@@ -364,6 +364,10 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `label_bonus_pair` | 0.04 |
 | `label_bonus_suited` | 0.02 |
 | `label_open_step` | 1 |
+| `auction_implied` | 0.05 |
+| `auction_spr_cap` | 4.0 |
+| `auction_stack_frac` | 0.33 |
+| `auction_pot_frac` | 0.75 |
 | `cheap` | False |
 | `deadline_ms` | 0.5 |
 | `panic_after` | 5 |
