@@ -20,7 +20,9 @@ without its variant set because --tables-dir was not passed). Then, from a fresh
 directory with PYTHONPATH cleared, imports the entry module with <out>/submission first on sys.path,
 checks that `hyperion` resolved from there, and times the import (fail over --import-budget seconds), then
 builds the recorded bot there once if the entry imports hyperion (`hyperion.ship.make_bot()`; fail if it raises).
-Checks the size against --max-mb, zips to <out>/submission.zip with the entry at the top level, prints
+Packed copies of the red-team rivals lose their `from kit import` (they subclass object, as with no kit), and an
+`imports` line names any module a .py file imports that is neither the stdlib nor in the package (a static
+import check, kit F's, fails on those). Checks the size against --max-mb, zips to <out>/submission.zip with the entry at the top level, prints
 sha256, size and import time, and appends the same as a row under "## Submissions" in NIGHT.md if that
 file exists (the minute is computed from a `T0: HH:MM` line in NIGHT.md when there is one).
 Exit 1 if any check fails.
@@ -125,6 +127,53 @@ def route_rivals(dest: Path, dials: dict) -> list[str]:
         if not (rivals / f).exists():
             shutil.copy2(SLIM_RIVALS / f, rivals / f)
             out.append(f)
+    return out
+
+
+_KIT_BASE = re.compile(r"try:\n[ \t]+from kit import Agent as (\w+)\nexcept Exception:[^\n]*\n[ \t]+\1 = object\n")
+
+
+def drop_kit_imports(dest: Path) -> list[str]:
+    """The red-team rivals subclass the brief's kit Agent when a module named `kit` exists, else `object`, and never
+    call it. In the package that import goes: a kit whose checker allows only the stdlib and the zip's own modules
+    fails on it (drill 8, kit F), and on a night whose runner has a `kit` of its own the class would subclass theirs.
+    The packed copy plays as it does with no kit; the repo file is unchanged. Returns the files changed."""
+    out = []
+    for p in sorted((dest / "hyperion").rglob("*.py")):
+        t = p.read_text()
+        if "from kit import" not in t:
+            continue
+        n = _KIT_BASE.sub(lambda m: f"{m.group(1)} = object  # tools/pack.py: no kit import in the package\n", t)
+        if n != t:
+            p.write_text(n)
+            out.append(str(p.relative_to(dest)))
+    return out
+
+
+def foreign_imports(dest: Path) -> dict:
+    """Top-level modules the package's .py files import (absolute imports, anywhere in a file, try blocks included:
+    what a static checker sees) that are neither the stdlib nor a module or directory at the package's top level."""
+    import ast
+
+    std = set(getattr(sys, "stdlib_module_names", ())) | {"__future__"}
+    local = {q.stem if q.suffix == ".py" else q.name for q in dest.iterdir()}
+    out: dict = {}
+    for p in sorted(dest.rglob("*.py")):
+        try:
+            tree = ast.parse(p.read_text())
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [a.name for a in node.names]
+            elif isinstance(node, ast.ImportFrom) and not node.level:
+                names = [node.module or ""]
+            else:
+                continue
+            for name in names:
+                top = name.split(".")[0]
+                if top and top not in std and top not in local:
+                    out.setdefault(top, []).append(str(p.relative_to(dest)))
     return out
 
 
@@ -337,12 +386,23 @@ def main(argv=None) -> int:
         if back:
             print(f"slim     the route names {', '.join(back)}: kept")
 
+    dropped = drop_kit_imports(dest)
+    if dropped:
+        print(f"kit      packed without its `from kit import` (plays as with no kit): {', '.join(dropped)}")
+    foreign = foreign_imports(dest)
     ok, detail, secs = verify_import(dest, entry.stem, a.import_budget)
     size, count = tree_size(dest)
     print(f"package  {dest}  ({count} files, {human(size)})")
     print(f"bot      {bot}  dials {dials}  (recorded in the package's hyperion/ship.py; the gate pairs against it)")
     print(f"tables   {tables}  (rules {rules_path or 'none found'})")
     print(f"import   {'ok' if ok else 'FAIL'} {secs:.2f} s  {detail}")
+    if foreign:
+        where = "; ".join(f"{k} ({', '.join(sorted(set(v))[:3])}{', ...' if len(set(v)) > 3 else ''})"
+                          for k, v in sorted(foreign.items()))
+        print(f"imports  WARN outside the stdlib and the package: {where}. A kit that checks imports fails on "
+              f"these (--slim drops the opponents)")
+    else:
+        print("imports  stdlib and the package only")
     if not ok:
         return 1
     if size > a.max_mb * 1e6:

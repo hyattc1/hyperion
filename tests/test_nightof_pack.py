@@ -185,6 +185,11 @@ def test_slim_drops_the_opponents_and_every_ship_bot_still_builds_and_plays(tmp_
     hyp = tmp_path / "out" / "submission" / "hyperion"
     assert not (hyp / "sim" / "field").exists() and not (hyp / "sim" / "aware.py").exists()
     assert sorted(p.name for p in (hyp / "sim" / "rivals").glob("*.py")) == ["__init__.py", "rival3.py"]
+    # drill 8: kit F's checker allows only the stdlib and the zip's own modules; rival 3's `from kit import` failed it
+    assert "imports  stdlib and the package only" in r.stdout and "kit      packed without" in r.stdout, r.stdout
+    packed = (hyp / "sim" / "rivals" / "rival3.py").read_text()
+    assert "from kit import" not in packed and "_Base = object  # tools/pack.py" in packed
+    assert "from kit import Agent as _Base" in (ROOT / "hyperion" / "sim" / "rivals" / "rival3.py").read_text()
     names = zipfile.ZipFile(tmp_path / "out" / "submission.zip").namelist()
     for bad in ("elite", "outside_", "exploiter", "judge", "rival1", "rival2", "rival4", "rival5", "agent_", "night.py",
                 "trackb", "aware.py", "bestiary.py"):
@@ -204,4 +209,5 @@ def test_slim_keeps_a_rival_the_recorded_route_names(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     rivals = tmp_path / "out" / "submission" / "hyperion" / "sim" / "rivals"
     assert sorted(p.name for p in rivals.glob("*.py")) == ["__init__.py", "rival2.py", "rival3.py"]
+    assert "imports  WARN outside the stdlib and the package: kit (hyperion/sim/rivals/rival2.py)" in r.stdout
     assert "rival2.py: kept" in r.stdout and "import   ok" in r.stdout
