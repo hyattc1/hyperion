@@ -290,8 +290,13 @@ seven 90.7, eight 99.7, nine or more 101.8 (max 101.8). 0 timeouts in every mode
 
 - Full suite on the branch before the rebase: 1016 passed, 1 skipped. After the rebase onto main 77d8932: 1032 passed,
   2 skipped, 1 failed, `tests/test_sim_outside.py::...[outside_strong]` (an exact-replay check of Hero in model mode,
-  run while a climb_accept was playing at load 12; it passes alone, 14 of 14): the known load flake. The final tree's
-  run is at the end of this section.
+  run while a climb_accept was playing at load 12; it passes alone, 14 of 14): the known load flake.
+- **Final tree** (rebased again onto main 2d14fa5, F's dials unchanged there): 1020 passed, 13 skipped, 8 failed at
+  load 12-13 with a climb_accept running beside it, every one a wall-clock test (test_slowbox x3, the kit D latency
+  round trip, two exact-replay checks, two per-bot budget checks); the 8 rerun alone: **8 passed**. The budget check
+  flakes on main too at this load (6 of 10 runs fail on main, 8 of 10 on the branch, which has three more bots in it).
+  The two cells the extended candidate moves reproduce on this tree (code 190d1daed3): toss_or_holdem_aware +0.230 +-
+  0.078, realistic_keep2 +0.356 +- 0.062.
 - Every new dial is off by default (tests/test_vc_dials.py, tests/test_river_of_blood.py); with all of them on, plain
   hold'em is bit-identical (section 7, per seed) and 22 of 26 catalog entries are identical (section 7).
 - tests/test_river_of_blood.py: the spec numbers and run streets (moved), conservation, `evaluate_many` against
