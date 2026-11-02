@@ -416,6 +416,11 @@ class Config:
     # ... also on a two-card twist that has a variant table set (short deck): its twins from the prepared table in place
     # of the set (the hold'em tables, read through the twins). False = the set, as before
     twin_force: bool = False
+    # three or four hole cards (Omaha, the three-card games): the variant's label tables re-cut from its own prepared
+    # table (tables.recut_label_tables: rank by the doc's value share, equity the set's distribution at that rank),
+    # used when the re-cut moves labels by at least this mean percentile (Omaha's catalog set, 300 samples a label,
+    # 0.17; the three-card sets 0.06-0.08). 0 = off
+    twin_multi: float = 0.0
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5
@@ -603,6 +608,9 @@ def holdem_table(rules: Rules) -> bool:
             and set(ex) <= _HOLDEM_EXTRAS and ex.get("variant") in _HOLDEM_VARIANTS)
 
 
+_TWINS: dict = {}  # HeroCore._twins' cache: (variant, extras, hole cards, threshold, tables) -> twin map or None
+
+
 class HeroCore:
     """The unguarded strategy. Hero wraps it in SafeBot; tests may poke it directly."""
 
@@ -738,6 +746,10 @@ class HeroCore:
                 mods = self._modules[key] = (pre, pf, t)
             pre, pf, t = mods  # the set the cached modules were built on (a label view is rebuilt per call)
             self._label = t.scheme != "169"
+            if cfg.twin_multi > 0.0 and self._label:
+                rc = self._recut(rules, t)
+                if rc is not None:
+                    pre, pf, t = rc
         vp = cfg.variant_preflop
         vpf = cfg.variant_pushfold
         twist = (vp or vpf) and ex.get("variant") and str(ex.get("variant")).lower() not in PLAIN_NAMES \
@@ -789,12 +801,30 @@ class HeroCore:
         from .tables import generic_doc, twin_classes, twin_shift
 
         key = (str((rules.extras or {}).get("variant")), _json.dumps(rules.extras or {}, sort_keys=True, default=str),
-               rules.hole_cards, self.cfg.twin_preflop)
-        cache = self._modules.setdefault("twins", {})
+               rules.hole_cards, self.cfg.twin_preflop, self.tables.dir, self.tables.source)
+        cache = _TWINS  # once per process: reading the table is ~1.5 ms, at a table start
         if key not in cache:
             tm = twin_classes(generic_doc(rules), self.tables)
             cache[key] = tm if tm is not None and twin_shift(tm, self.tables) >= self.cfg.twin_preflop else None
         return cache[key]
+
+    def _recut(self, rules: Rules, t):
+        """(Preflop, PushFold, Tables) on the re-cut label tables (Config.twin_multi), built once per set and process;
+        None when the variant has no prepared table or the re-cut moves labels less than the threshold."""
+        from .tables import generic_doc, recut_label_tables
+
+        key = ("recut", t.dir, t.source, str((rules.extras or {}).get("variant")), self.cfg.twin_multi)
+        if key not in _TWINS:
+            res = recut_label_tables(generic_doc(rules), t)
+            _TWINS[key] = res[0] if res is not None and res[1] >= self.cfg.twin_multi else None
+        t2 = _TWINS[key]
+        if t2 is None:
+            return None
+        mkey = ("recut", id(t2))
+        mods = self._modules.get(mkey)
+        if mods is None:
+            mods = self._modules[mkey] = (Preflop(self.cfg.preflop, t2), self._base[1].with_tables(t2), t2)
+        return mods
 
     def set_panic(self, on: bool) -> None:
         self.panic = on

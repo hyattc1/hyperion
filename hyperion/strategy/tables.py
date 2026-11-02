@@ -508,3 +508,63 @@ def twin_shift(twins: dict[str, str], base: Tables) -> float:
     wild deuces 0.21, hi-lo 0.10)."""
     rank = base.rank
     return sum(abs(rank[twins.get(c, c)] - rank[c]) * combos_of(c) for c in CLASSES) / TOTAL_COMBOS
+
+
+def recut_label_tables(doc: dict | None, t: Tables) -> tuple[Tables, float] | None:
+    """A 3- or 4-card variant's label tables re-cut from its own prepared table (`generic_doc`: best2+tags labels,
+    hundreds of thousands of hands dealt and scored through the hooks, against the catalog sets' 300-1,500 a label):
+    rank = the label's combo percentile by its value share there; equity vs n opponents = the set's combo-weighted
+    n-opponent equity at that percentile (the set's distribution, the doc's order, so one noisy label no longer moves
+    its own number). Returns (tables, shift), shift the combo-weighted mean |new rank - old rank|; None when there is
+    no prepared table or it is not a label table of this hole-card count."""
+    if not doc or t.scheme == "169" or int(doc.get("k", 0) or 0) != t.hole_cards or not isinstance(t.rank, dict):
+        return None
+    labels = doc.get("labels") or {}
+    try:
+        lab = {lb: (float(v[0]), float(v[1])) for lb, v in labels.items() if "+" in lb and float(v[1]) > 0.0}
+        old = {lb: (float(t.rank[lb]), [float(x) for x in t.equity[lb]]) for lb in lab if lb in t.rank}
+    except (KeyError, TypeError, ValueError, IndexError):
+        return None
+    if not lab or len(old) < 0.5 * len(lab):
+        return None
+    tot = sum(sh for _, sh in lab.values())
+    order = sorted(lab, key=lambda lb: (-lab[lb][0], lb))
+    pct, acc = {}, 0.0
+    for lb in order:  # combo percentile, weakest 0: the set's rank convention
+        sh = lab[lb][1] / tot
+        pct[lb] = 1.0 - (acc + sh / 2)
+        acc += sh
+    n_eq = len(next(iter(old.values()))[1])
+    cols = []  # per n: the set's equities sorted, with cumulative combo share (weights: the doc's combo shares)
+    for k in range(n_eq):
+        pts = sorted((old[lb][1][k], lab[lb][1]) for lb in old)
+        w = sum(x for _, x in pts)
+        cum, a = [], 0.0
+        for e, x in pts:
+            a += x / w
+            cum.append((a - x / w / 2, e))
+        cols.append(cum)
+    from bisect import bisect_left
+
+    def at(k: int, q: float) -> float:
+        col = cols[k]
+        i = bisect_left(col, (q, -1.0))
+        if i <= 0:
+            return col[0][1]
+        if i >= len(col):
+            return col[-1][1]
+        (q0, e0), (q1, e1) = col[i - 1], col[i]
+        return e0 + (e1 - e0) * ((q - q0) / (q1 - q0) if q1 > q0 else 0.0)
+
+    rank = dict(t.rank) if isinstance(t.rank, dict) else {}
+    equity = dict(t.equity) if isinstance(t.equity, dict) else {}
+    shift = 0.0
+    for lb in lab:
+        q = pct[lb]
+        if lb in old:
+            shift += abs(q - old[lb][0]) * lab[lb][1] / tot
+        rank[lb] = round(q, 4)
+        equity[lb] = [round(at(k, q), 4) for k in range(n_eq)]
+    out = Tables(equity, rank, t.hu, t.source + "+recut", t.dir, t.scheme, t.hole_cards, tuple(rank),
+                 dict(t.combo_count) if t.combo_count else None)
+    return out, shift

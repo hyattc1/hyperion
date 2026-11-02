@@ -134,3 +134,30 @@ def test_multi_and_mu_call_shifts_reach_their_tables_only():
     h = HeroCore(config_from_dict(d))
     h.new_table(Rules(), 0, 8)
     assert _captured_shift(d, "fixed_raise", "Ah Kd", "As 9d 2h") == 0
+
+
+def test_twin_multi_recuts_omaha_labels_from_the_prepared_table():
+    from hyperion.strategy.tables import recut_label_tables, tables_for
+
+    base = load(need_hu=True)
+    r = V.get("omaha_four").rules
+    t = tables_for(r, base)
+    t2, shift = recut_label_tables(generic_doc(r), t)
+    assert shift > 0.1 and t2.source.endswith("+recut") and t2.scheme == t.scheme
+    # the catalog set (300 hands a label) has quad deuces at equity 0.05 and AQs+hh above most aces; the re-cut has
+    # every equity column monotone in rank, and AA+ss above AQs+hh
+    assert t2.rank["AA+ss"] > t2.rank["AQs+hh"] and t2.equity["22+pp"][0] > 0.2
+    doc = generic_doc(r)["labels"]
+    labs = sorted((lb for lb in t2.rank if lb in doc), key=t2.rank.get)
+    for k in range(7):
+        pairs = [(t2.rank[lb], t2.equity[lb][k]) for lb in labs]
+        assert all(e0 <= e1 + 1e-3 for (r0, e0), (r1, e1) in zip(pairs, pairs[1:]) if r0 < r1), k
+    h = HeroCore(config_from_dict({"twin_multi": 0.05}))
+    h.new_table(r, 0, 8)
+    assert h.active.source.endswith("+recut")
+    h = HeroCore(config_from_dict({"twin_multi": 0.5}))  # above the shift: the set as is
+    h.new_table(r, 0, 8)
+    assert h.active is t or not h.active.source.endswith("+recut")
+    h = HeroCore(Config())
+    h.new_table(r, 0, 8)
+    assert not h.active.source.endswith("+recut")
