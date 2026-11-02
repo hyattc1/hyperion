@@ -47,8 +47,8 @@ Conventions, also recorded in docs/decisions.md:
 - Antes go straight into the pot (Observation.pot), never into bets; a seat that cannot cover the
   ante is all-in for what it has. Antes are posted before the blinds.
 - Side pots follow the contenders' contribution levels. What a folded player put in above every contender goes into
-  the top pot (no default hand gets there; a variant that hands chips back can), and a hook's dead money into the
-  first pot whose level reaches the payer's contribution when it paid.
+  the top pot (no default hand gets there; a variant that hands chips back can), and a hook's dead money is a pot of
+  its own for the players still in who had chips behind when it was paid.
 - Straddle (Rules.straddle = k big blinds): with three or more in the hand the seat after the big
   blind posts k bb as a live bet, action starts after it, and the min re-raise increment is the
   straddle. Heads-up there is no straddle.
@@ -325,13 +325,15 @@ class HooksVariant(Variant):
 
         By default a charge is a contribution like a bet (it raises the payer's side-pot level, so whatever nobody
         else matched comes back to the payer at showdown). With `hooks.charges_dead = True` it is dead money: in the
-        pot, not a contribution, and won with the pot the payer was contesting when it paid (the first pot whose level
-        reaches the payer's contribution at that moment); see Table._award."""
+        pot, not a contribution, won by the best hand among the players still in at showdown who had chips behind when
+        it was paid (the players who could have bid it; a player all-in before then cannot win it, as with a bet made
+        after their all-in); see Table._award."""
         charges = getattr(self.hooks, "charges", None)
         if not charges:
             return
         stacks = self.table.stacks
         dead = bool(getattr(self.hooks, "charges_dead", False))
+        with_chips = frozenset(s for s in range(len(stacks)) if hand.in_hand[s] and stacks[s] > 0) if dead else None
         for s, amt in charges.items():
             if hand.in_hand[s] and amt > 0:
                 put = amt if amt < stacks[s] else stacks[s]
@@ -340,7 +342,7 @@ class HooksVariant(Variant):
                 if dead:
                     if hand.dead is None:
                         hand.dead = []
-                    hand.dead.append((hand.contrib[s], put))
+                    hand.dead.append((with_chips, put))
                 else:
                     hand.contrib[s] += put
         charges.clear()
@@ -528,7 +530,7 @@ class Table:
         hs.history = []
         hs.showdown = {}
         hs.extras = _NO_EXTRAS
-        hs.dead = None  # [(level, chips)]: dead money a hook put in the pot (HooksVariant._apply_charges)
+        hs.dead = None  # [(seats with chips then, chips)]: dead money a hook put in the pot (HooksVariant._apply_charges)
         hs.ante = ante = rules.ante_at(self.hand_no)
         self.variant.on_deal(hs, self.vrng)
         post_blinds, skip_pre = True, False
@@ -798,7 +800,8 @@ class Table:
     def _award(self, hs: HandState) -> None:
         """Side pots by the contenders' contribution levels. Two rules no default hand reaches (both keep every chip):
         what a folded player put in above the highest contender's level goes into the top pot, and a hook's dead money
-        (hs.dead) goes into the first pot whose level reaches the payer's contribution when it paid (else the top)."""
+        (hs.dead: [(seats that had chips when it was paid, chips)]) is a pot of its own for those of them still in
+        (none still in: the top pot's contenders)."""
         n, stacks, contrib, in_hand = self.n, self.stacks, hs.contrib, hs.in_hand
         contenders = [s for s in range(n) if in_hand[s]]
         dead = hs.dead
@@ -819,44 +822,43 @@ class Table:
             scores = {s: tuple(splits(hs.holes[s], board, rules)) for s in contenders}
             k = len(next(iter(scores.values())))
         top = levels[-1]
-        extra = None
-        if dead:  # chips per pot index: the first level that reaches the payer's contribution when it paid, else the top
-            extra = [0] * len(levels)
-            for at, chips in dead:
-                i = 0
-                while i < len(levels) - 1 and levels[i] < at:
-                    i += 1
-                extra[i] += chips
         prev = 0
-        for i, lvl in enumerate(levels):
-            pot = extra[i] if extra else 0
+        for lvl in levels:
+            pot = 0
             last = lvl == top
             for s in range(n):
                 c = contrib[s]
                 if c > prev:
                     # the top pot also takes whatever a folded player put in above every contender (else it is lost)
                     pot += (c if (c < lvl or last) else lvl) - prev
-            eligible = [s for s in contenders if contrib[s] >= lvl]
-            if k == 1:
-                best = max(scores[s][0] for s in eligible)
-                self._pay(pot, [s for s in eligible if scores[s][0] == best], order)
-            else:
-                # one share per score column; a column nobody qualifies for (all None) goes to column 0
-                base, rem = divmod(pot, k)
-                winners0 = None
-                for col in range(k):
-                    part = base + (rem if col == 0 else 0)
-                    vals = [scores[s][col] for s in eligible if scores[s][col] is not None]
-                    if vals:
-                        best = max(vals)
-                        winners = [s for s in eligible if scores[s][col] == best]
-                    else:
-                        winners = winners0
-                    if col == 0:
-                        winners0 = winners
-                    if part and winners:
-                        self._pay(part, winners, order)
+            self._settle_pot(pot, [s for s in contenders if contrib[s] >= lvl], scores, k, order)
             prev = lvl
+        if dead:
+            for seats, chips in dead:
+                eligible = [s for s in contenders if s in seats] or [s for s in contenders if contrib[s] >= top]
+                self._settle_pot(chips, eligible, scores, k, order)
+
+    def _settle_pot(self, pot: int, eligible: list, scores: dict, k: int, order: list) -> None:
+        """One pot to the best of `eligible`: one score column (k == 1), or one share per column (two boards, hi/lo),
+        a column nobody qualifies for (all None) going to column 0's winners."""
+        if k == 1:
+            best = max(scores[s][0] for s in eligible)
+            self._pay(pot, [s for s in eligible if scores[s][0] == best], order)
+            return
+        base, rem = divmod(pot, k)
+        winners0 = None
+        for col in range(k):
+            part = base + (rem if col == 0 else 0)
+            vals = [scores[s][col] for s in eligible if scores[s][col] is not None]
+            if vals:
+                best = max(vals)
+                winners = [s for s in eligible if scores[s][col] == best]
+            else:
+                winners = winners0
+            if col == 0:
+                winners0 = winners
+            if part and winners:
+                self._pay(part, winners, order)
 
     def _pay(self, pot: int, winners: list, order: list) -> None:
         stacks = self.stacks

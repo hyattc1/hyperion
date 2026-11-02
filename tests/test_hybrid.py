@@ -60,7 +60,7 @@ def test_hybrid_plays_300_hands_legally_with_no_error_swallowed(monkeypatch):
 
 HERO_ONLY = {"short_deck", "lowball", "wild_deuces", "flush_over_full_house", "omaha_four", "exposed_card",
              "two_boards", "bounty", "knockout_bounty", "hi_lo", "fixed_raise", "toss_or_holdem",
-             "three_card_blind_discard", "three_card_keep"}
+             "three_card_blind_discard", "three_card_keep", "deal5_keep2"}
 
 
 @pytest.mark.parametrize("name", V.catalog_names())

@@ -63,7 +63,7 @@ from itertools import combinations
 from typing import Callable, Sequence
 
 from hyperion.core.cards import remap
-from hyperion.core.eval import MAX_STRENGTH, category, evaluate, evaluate_displayed
+from hyperion.core.eval import MAX_STRENGTH, category, evaluate, evaluate_displayed, warm
 from hyperion.core.types import Observation, Rules
 
 Holes = list  # list[tuple[int, ...]] per seat
@@ -470,9 +470,9 @@ class ExposedCardHooks(VariantHooks):
 
 
 class BonusCardHooks(VariantHooks):
-    """A fixed-price third hole card on the flop (the auction from MIT 2023, with the auction replaced by
-    a posted price so it fits an 8-max engine). The bot answers {"decision": "buy_card", "price"} with
-    truthy to buy; the price goes into the pot (dead money). Default: buy."""
+    """A fixed-price third hole card on the flop (the auction from MIT 2024, with the auction replaced by
+    a posted price; `auction` is the auction itself). The bot answers {"decision": "buy_card", "price"} with
+    truthy to buy; the price goes into the pot. Default: buy."""
 
     def __init__(self, price_bb: float = 1.0) -> None:
         self.price_bb = price_bb
@@ -508,6 +508,185 @@ class BonusCardHooks(VariantHooks):
     def extras(self, hand) -> dict:
         self.price = int(round(self.price_bb * hand.blinds[1]))
         return {"bonus_card_price": self.price, "bought": dict(self.bought)}
+
+
+class AuctionHooks(VariantHooks):
+    """MIT Pokerbots 2024 ("No-Limit Auction Hold'em"), eight-handed.
+
+    Right after the flop is dealt and before the flop betting, every player still in the hand submits a sealed bid,
+    an integer from 0 to their stack behind. The highest bid wins a third hole card from the deck and pays the
+    second-highest bid into the pot. MIT's rule heads-up is "the winner pays the loser's bid"; with eight players the
+    loser's bid becomes the second-highest bid of all (a Vickrey auction). Tied highest bids: every tied player gets a
+    card and pays the tied amount (MIT: "both players pay the bid amount to the pot and both receive a third hole
+    card"); that is the same rule, as the second-highest bid then equals the top one. Everyone bidding 0 is a tie at 0:
+    everyone gets a free card. A player all-in before the flop bids 0. The price is dead money in the pot the bidders
+    are contesting (`charges_dead`): it goes to whoever wins that pot, as MIT's "added to the pot" does heads-up. After
+    the auction every bid and the winners are public (MIT sends both bids to both players); the card is private.
+    Showdown: the best five of the two or three hole cards and the board.
+
+    The bot answers {"decision": "bid", "hole", "board", "pot", "stack", "max_bid", "n_bidders", "big_blind"} with an
+    int. An answer outside 0..stack, or not a number, is a bid of 0 (MIT's engine bids 0 for an illegal bid). A bot
+    with no variant_decide (or None) bids the naive default, `default_frac` of the pot (a quarter), capped at the
+    stack, so a field of unaware bots does not hand out free cards. Public after the auction: obs.extras["bids"]
+    ({seat: bid}), ["auction_winners"] (seats) and ["auction_price"].
+    """
+
+    charges_dead = True
+    wants_view = True
+
+    def __init__(self, street: int = 1, default_frac: float = 0.25) -> None:
+        self.street = street
+        self.default_frac = default_frac
+        self.charges: dict[int, int] = {}
+        self.view: dict = {}
+        self.bids: dict[int, int] = {}
+        self.winners: tuple[int, ...] = ()
+        self.price = 0
+        warm(8)  # three hole cards and five board cards: the 8-card tables, built here and not inside a bot's act()
+
+    def on_deal(self, holes, deck, rng):
+        self.bids, self.winners, self.price = {}, (), 0
+        return holes
+
+    def on_street(self, street, board, holes, deck, rng, ask=None):
+        if street != self.street:
+            return board, holes
+        view = self.view or {}
+        stacks = view.get("stacks") or [0] * len(holes)
+        pot = int(view.get("pot", 0) or 0)
+        blinds = view.get("blinds") or (0, 0)
+        bidders = [s for s, h in enumerate(holes) if h]
+        bids: dict[int, int] = {}
+        for s in bidders:
+            cap = max(0, int(stacks[s]))
+            bid = 0
+            if cap > 0:
+                ans = None
+                if ask is not None:
+                    try:
+                        ans = ask(s, {"decision": "bid", "hole": holes[s], "board": board, "pot": pot, "stack": cap,
+                                      "max_bid": cap, "n_bidders": len(bidders), "big_blind": int(blinds[1])})
+                    except Exception:  # noqa: BLE001
+                        ans = None
+                bid = default_bid(pot, cap, self.default_frac) if ans is None else legal_bid(ans, cap)
+            bids[s] = bid
+        if not bids:
+            return board, holes
+        ordered = sorted(bids.values(), reverse=True)
+        top = ordered[0]
+        price = ordered[1] if len(ordered) > 1 else 0
+        winners = tuple(s for s in bidders if bids[s] == top)
+        new_holes = list(holes)
+        for s in winners:
+            if deck:
+                new_holes[s] = tuple(holes[s]) + (deck.pop(),)
+            if price:
+                self.charges[s] = price
+        self.bids, self.winners, self.price = bids, winners, price
+        return board, new_holes
+
+    def extras(self, hand) -> dict:
+        return {"bids": dict(self.bids), "auction_winners": self.winners, "auction_price": self.price}
+
+
+def legal_bid(ans, cap: int) -> int:
+    """A bot's bid as the engine takes it: an int in 0..cap, anything else 0 (MIT treats an illegal bid as 0)."""
+    if isinstance(ans, bool):
+        return 0
+    try:
+        v = int(ans)
+    except (TypeError, ValueError, OverflowError):
+        return 0
+    return v if 0 <= v <= cap else 0
+
+
+def default_bid(pot: int, cap: int, frac: float = 0.25) -> int:
+    """The naive bid of a bot that does not bid: a fixed share of the pot, capped at the stack."""
+    b = int(pot * frac)
+    return b if b < cap else cap
+
+
+class Keep2Hooks(VariantHooks):
+    """CMU AI Poker Tournament 2026 (CMU Data Science Club with Jump Trading), eight-handed on a 52-card deck.
+
+    Five hole cards each, and preflop is played with all five. When the flop is dealt, before any flop betting, every
+    player still in the hand keeps two and discards three, face up. CMU heads-up: the big blind discards first, then
+    the small blind, each after seeing the other's discards; here the order is the postflop acting order (first seat
+    left of the button first) and each player sees every discard made before theirs. Discards are dead, not
+    community cards: showdown is the two kept cards with the five-card board. Players all-in before the flop discard
+    too (they need two cards at showdown).
+
+    The bot answers {"decision": "keep", "hole" (five cards), "board" (the flop), "revealed" ({seat: three cards}
+    so far), "keep": 2} with two distinct indices into hole. CMU's engine folds an invalid discard; here an invalid
+    answer, or none, keeps `default_keep` (the pair with the best made hand on the flop), since a hook cannot fold.
+    Public afterwards: obs.extras["revealed"] = {seat: three discarded cards}.
+    """
+
+    wants_view = True
+
+    def __init__(self, keep: int = 2, street: int = 1) -> None:
+        if keep != 2:
+            raise ValueError("Keep2Hooks keeps two cards")
+        self.keep, self.street = keep, street
+        self.view: dict = {}
+        self.revealed: dict[int, tuple[int, ...]] = {}
+        self.order: tuple[int, ...] = ()
+
+    def on_deal(self, holes, deck, rng):
+        self.revealed, self.order = {}, ()
+        return holes
+
+    def on_street(self, street, board, holes, deck, rng, ask=None):
+        if street != self.street:
+            return board, holes
+        n = len(holes)
+        button = int((self.view or {}).get("button", n - 1))
+        order = tuple(s for s in ((button + 1 + i) % n for i in range(n)) if len(holes[s]) > self.keep)
+        new_holes = list(holes)
+        for s in order:
+            h = tuple(holes[s])
+            pick = None
+            if ask is not None:
+                try:
+                    ans = ask(s, {"decision": "keep", "hole": h, "board": board, "revealed": dict(self.revealed),
+                                  "keep": self.keep})
+                except Exception:  # noqa: BLE001
+                    ans = None
+                pick = legal_keep(ans, len(h), self.keep)
+            if pick is None:
+                pick = default_keep(h, board)
+            new_holes[s] = tuple(h[i] for i in pick)
+            self.revealed[s] = tuple(c for i, c in enumerate(h) if i not in pick)
+        self.order = order
+        return board, new_holes
+
+    def extras(self, hand) -> dict:
+        return {"revealed": dict(self.revealed)}
+
+
+def legal_keep(ans, n: int, keep: int = 2) -> tuple[int, ...] | None:
+    """`keep` distinct indices into an n-card hole, sorted; None when the answer is not that."""
+    try:
+        idx = tuple(sorted(int(i) for i in ans))
+    except (TypeError, ValueError):
+        return None
+    if len(idx) != keep or len(set(idx)) != keep or not all(0 <= i < n for i in idx):
+        return None
+    return idx
+
+
+def default_keep(hole: Sequence[int], board: Sequence[int]) -> tuple[int, int]:
+    """The two cards a naive bot keeps: the best made hand with the flop (displayed ranks), ties to the higher pair of
+    cards; before a flop, a pair, else the two highest."""
+    best, best_key = (0, 1), None
+    for i in range(len(hole)):
+        for j in range(i + 1, len(hole)):
+            a, b = hole[i], hole[j]
+            made = evaluate_displayed((a, b) + tuple(board), Rules()) if len(board) >= 3 else 0
+            key = (made, (a >> 2) == (b >> 2), (a & 3) == (b & 3), max(a >> 2, b >> 2), min(a >> 2, b >> 2))
+            if best_key is None or key > best_key:
+                best, best_key = (i, j), key
+    return best
 
 
 class KnockoutHooks(VariantHooks):
@@ -875,6 +1054,72 @@ def bonus_card() -> Variant:
     )
 
 
+def auction() -> Variant:
+    rules = Rules(extras={"variant": "auction", "auction_street": 1, "auction_price": "second_highest_bid",
+                          "auction_ties": "every_tied_bidder_wins_and_pays"})
+    return Variant(
+        name="auction",
+        summary="Right after the flop, before the flop betting, everyone still in bids for a third hole card in a "
+                "sealed bid, from 0 up to their stack. The highest bid gets the card and pays the second-highest "
+                "bid into the pot; tied top bids all get a card and all pay. Bids are shown afterwards, the card is not. "
+                "(MIT 2024's Auction Hold'em, heads-up there: the winner paid the loser's bid.)",
+        rules=rules,
+        breaks=(
+            "Preflop is plain hold'em and every table stays valid there. On the flop a new decision arrives "
+            "(variant_decide {'decision': 'bid'}) and afterwards some players hold three cards, so made hands are "
+            "stronger at showdown (8 cards) and the bids tell who wanted the card. Hero's postflop plays a third card "
+            "with its keep-all read. The bid is worth the equity a card adds times the pot it will win, less what "
+            "the price feeds the pot the bidder may lose; the payment is dead money for whoever wins the pot. An "
+            "unaware bot bids a quarter of the pot (the hook's default), so bidding just above that buys the card "
+            "cheaply. The rival cores do not see the auction: on F the core plays preflop and Hero every postflop "
+            "decision, as with a bought card."
+        ),
+        checklist=(
+            "No regeneration (tables/auction_bid.json is the bid table: tools/gen_auction.py).",
+            "Hero: variant_decide('bid') = the indifference price of the card, d x pot / (1 - d), d = equity "
+            "with the card minus equity if a rival gets it (by flop read and bidders), plus a share for the stack "
+            "still to bet, capped at a third of the stack.",
+        ),
+        hooks_factory=AuctionHooks,
+        needs_engine=True,
+        axis="information",
+        config_patch={},
+    )
+
+
+def deal5_keep2() -> Variant:
+    rules = Rules(hole_cards=5, extras={"variant": "deal5_keep2", "keep": 2, "discard_street": 1,
+                                        "discard_face_up": True, "discard_count": 3})
+    return Variant(
+        name="deal5_keep2",
+        summary="Five hole cards, and preflop is played with all five. When the flop comes, everyone still in keeps "
+                "two and throws three away face up, one player at a time in the flop's acting order, each seeing the "
+                "discards before theirs. Discards are dead; showdown is your two plus the board. (CMU 2026, heads-up "
+                "on a 27-card deck there.)",
+        rules=rules,
+        breaks=(
+            "Five hole cards break every 169-class table: Hero plays preflop from the label view (best-two class plus "
+            "tag bonuses, one position tighter, tables.tables_for) and the rival cores cannot play the table at all "
+            "(table_reason 'hole_cards'), so on F Hero plays it whole. Everyone's two cards are stronger than in "
+            "hold'em because they were chosen from five after seeing the flop: top pair is weaker, and the 24 revealed "
+            "discards are dead cards that change every draw's outs (Hero removes them from its postflop reads). "
+            "The keep (variant_decide {'decision': 'keep'}) is a new decision: the best pair by Hero's flop read, "
+            "with the revealed discards and its own as dead cards."
+        ),
+        checklist=(
+            "No regeneration: no table set for five cards (the label view stands in; a best2+tags set would take "
+            "hours to sample).",
+            "Hero: variant_decide('keep') = the pair with the best flop read, revealed discards and own discards dead.",
+            "Hero: obs.extras['revealed'] into the postflop dead cards.",
+        ),
+        hooks_factory=Keep2Hooks,
+        needs_engine=True,
+        axis="information", tables="approximate",
+        tables_note="no five-card set: the label view of the default tables (best-two class plus tag bonuses)",
+        config_patch={},
+    )
+
+
 def lowball() -> Variant:
     rules = Rules(extras={"variant": "lowball", "lowball": "2-7"})
     return Variant(
@@ -1101,6 +1346,8 @@ CATALOG: dict[str, Callable[..., Variant]] = {
     "exposed_card": exposed_card,
     "two_boards": two_boards,
     "bonus_card": bonus_card,
+    "auction": auction,
+    "deal5_keep2": deal5_keep2,
     # payoff
     "bounty": bounty,
     "knockout_bounty": knockout_bounty,
@@ -1149,7 +1396,8 @@ def validate(v: Variant) -> list[str]:
     problems = []
     if sorted(r.rank_order) != list(range(13)):
         problems.append("rank_order is not a permutation of 0..12")
-    if r.hole_cards < 1 or r.hole_cards > 4:
+    keep = int(r.extras.get("keep", 0) or 0)
+    if r.hole_cards < 1 or r.hole_cards > (5 if 0 < keep < r.hole_cards else 4):
         problems.append("hole_cards out of range")
     if list(r.board_sizes) != sorted(r.board_sizes) or r.board_sizes[0] != 0:
         problems.append("board_sizes must start at 0 and not decrease")

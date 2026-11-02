@@ -23,7 +23,10 @@ Observation.extras; every default is the plain game:
                the house points for busting a covered opponent in every all-in EV (Spot.ko_points)
   decisions    variant_decide: discard (keep the best two by the flop read, or by preflop rank before
                the flop), swap (keep made hands and draws, replace the lowest dead card), buy_card
-               (when the price is at most a tenth of the stack)
+               (when the price is at most a tenth of the stack), bid (the auction: the price at which winning
+               and losing the third card come out level, from tables/auction_bid.json), keep (deal 5 keep 2:
+               the best pair by the flop read, every revealed discard and our own as dead cards)
+  dead cards   deal5_keep2's revealed discards (obs.extras['revealed']) come off the postflop draw outs
 """
 from __future__ import annotations
 
@@ -215,6 +218,13 @@ class Config:
     label_bonus_pair: float = 0.04
     label_bonus_suited: float = 0.02
     label_open_step: int = 1  # ... and this many positions tighter on opens
+    # the auction entry's bid (variant_decide 'bid'): d x pot_eff / (1 - d), d from tables/auction_bid.json by flop read
+    # and bidders; pot_eff = pot x (1 + auction_implied x min(stack / pot, auction_spr_cap)) for the betting still to
+    # come; capped at auction_stack_frac of the stack and auction_pot_frac of the pot
+    auction_implied: float = 0.05
+    auction_spr_cap: float = 4.0
+    auction_stack_frac: float = 0.33
+    auction_pot_frac: float = 0.75
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5
@@ -401,6 +411,7 @@ class HeroCore:
         self._bounty = None  # (ratio, constant) when a bounty variant is on
         self._ko = 0.0  # knockout points per bust
         self._swap_street = 0
+        self._auction = None  # the auction entry's bid table (tables/auction_bid.json), loaded when the rules name it
         self._pre_aggr = False  # my last preflop action this hand was a raise nobody re-raised (when history is absent)
         self.inferred = 0  # decisions whose betting state came from the bets because the history could not explain it
 
@@ -442,6 +453,8 @@ class HeroCore:
             self._bounty = (float(ex.get("bounty_ratio", 1.5)), float(ex.get("bounty_constant", 10)))
         self._ko = float(ex.get("ko_points", 0.0) or 0.0)
         self._swap_street = int(ex.get("swap_street", 0) or 0)
+        if self._auction is None and (ex.get("variant") == "auction" or "auction_price" in ex):
+            self._auction = auction_table()
         low = bool(ex.get("lowball"))
         wild = ex.get("wild_rank", None)
         wild_c = int(rules.rank_order[int(wild)]) if wild is not None else -1
@@ -533,6 +546,9 @@ class HeroCore:
             ex = extras.get("exposed")
             if ex:
                 exposed, dead = self._exposed(ex, obs.seat)
+            rv = extras.get("revealed")
+            if rv:  # deal5_keep2: every face-up discard, our own included, is out of the deck
+                dead = dead + self._revealed(rv)
             if obs.street > 0:
                 bs = extras.get("boards")
                 if bs and len(bs) > 1 and len(bs[1]) == len(board):
@@ -691,6 +707,16 @@ class HeroCore:
         win = obs.pot + sum(obs.bets) - obs.bets[obs.seat]
         return p * ((ratio - 1.0) * (win if win > 0 else 0) + const)
 
+    def _revealed(self, rv: dict) -> tuple:
+        """deal5_keep2's face-up discards ({seat: cards}), every seat's, as canonical cards."""
+        rm = self._remap
+        out = []
+        for cards in rv.values():
+            for c in cards:
+                c = int(c)
+                out.append(rm.rank_order[c >> 2] * 4 + (c & 3) if rm is not None else c)
+        return tuple(out)
+
     def _exposed(self, ex: dict, me: int):
         """Other seats' face-up cards: {seat: canonical card} and the dead tuple for draw reads."""
         rm = self._remap
@@ -726,7 +752,66 @@ class HeroCore:
             seat = int(prompt.get("seat", self.seat))
             mine = stacks[seat] if stacks and 0 <= seat < len(stacks) else 0
             return price <= 0.1 * mine
+        if kind == "bid":
+            return self._bid(hole, board, prompt)
+        if kind == "keep":
+            rv = prompt.get("revealed") or {}
+            return self._keep(hole, board, self._revealed(rv) if rv else ())
         return None
+
+    def _bid(self, hole, board, prompt: dict) -> int:
+        """The auction (MIT 2024's second-price sealed bid for a third card): bid the price at which winning and losing
+        come out level. Winning at price x is worth e_win (pot + x) - x, losing (a rival pays x) e_lose (pot + x), so
+        x = d pot / (1 - d) with d = e_win - e_lose, the pot share winning the card is worth (tables/auction_bid.json,
+        by flop read and the number of other bidders). The pot is grown by the stack still to bet (`auction_implied`),
+        and the bid is capped at a share of the stack and of the pot. A tie pays the bid too."""
+        cfg = self.cfg
+        stack = int(prompt.get("max_bid", prompt.get("stack", 0)) or 0)
+        pot = int(prompt.get("pot", 0) or 0)
+        if stack <= 0 or pot <= 0 or len(hole) < 2 or len(board) < 3:
+            return 0
+        t = self._auction
+        if t is None:
+            t = self._auction = auction_table()
+        k = int(prompt.get("n_bidders", 2) or 2) - 1
+        k = 1 if k < 1 else 4 if k > 4 else k
+        tier, outs, _ = self.postflop._read(hole[:2], board, 0, ())
+        cells = t.get(k) or {}
+        d = cells.get((tier, 0 if outs <= 0 else 1 if outs <= 4 else 2 if outs <= 8 else 3))
+        if d is None:
+            d = cells.get("mean", 0.25)
+        if d <= 0.0:
+            return 0
+        spr = stack / pot
+        pot_eff = pot * (1.0 + cfg.auction_implied * (spr if spr < cfg.auction_spr_cap else cfg.auction_spr_cap))
+        x = d * pot_eff / (1.0 - d) if d < 0.95 else pot_eff * 19.0
+        cap = min(cfg.auction_stack_frac * stack, cfg.auction_pot_frac * pot)
+        b = int(x if x < cap else cap)
+        return b if b < stack else stack
+
+    def _keep(self, hole, board, dead: tuple = ()):
+        """deal 5 keep 2: indices of the two to keep, the best by the flop read (made tier, draws) with every revealed
+        discard and the three we throw as dead cards, the preflop rank breaking ties. None (the hook's default) when
+        there is nothing to choose."""
+        n = len(hole)
+        if n <= 2:
+            return None
+        rank = self.tables.rank
+        best, best_s = None, -1.0
+        read = self.postflop._read
+        flop = len(board) >= 3
+        for i in range(n):
+            for j in range(i + 1, n):
+                keep = (hole[i], hole[j])
+                if flop:
+                    own = tuple(hole[m] for m in range(n) if m != i and m != j)
+                    tier, outs, _ = read(keep, board, 0, dead + own)
+                    s = max(TIER_EQUITY[tier], outs * 0.04) + 0.01 * rank[hole_class(keep)]
+                else:
+                    s = rank[hole_class(keep)]
+                if s > best_s:
+                    best_s, best = s, (i, j)
+        return best
 
     def _keep_score(self, keep, board) -> float:
         """How good the two kept cards are: the flop read when a board is shown, else the preflop rank."""
@@ -774,6 +859,37 @@ class HeroCore:
         if not cands:
             return -1
         return min(cands, key=lambda i: hole[i] >> 2)
+
+
+_AUCTION: dict | None = None
+
+
+def auction_table(path=None) -> dict:
+    """tables/auction_bid.json as {bidders - 1 (1..4): {(tier, outs bucket): d, "mean": d}}, read once per process."""
+    global _AUCTION
+    if _AUCTION is not None and path is None:
+        return _AUCTION
+    import json
+    from pathlib import Path
+
+    from .tables import TABLES_DIR
+
+    with open(Path(path) if path else Path(TABLES_DIR) / "auction_bid.json") as f:
+        raw = json.load(f)["d"]
+    out: dict = {}
+    for k, cells in raw.items():
+        m: dict = {}
+        tot = acc = 0.0
+        for key, c in cells.items():
+            tier, ob = (int(x) for x in key.split(","))
+            m[(tier, ob)] = float(c["d"])
+            tot += c["n"]
+            acc += c["n"] * c["d"]
+        m["mean"] = acc / tot if tot else 0.25
+        out[int(k)] = m
+    if path is None:
+        _AUCTION = out
+    return out
 
 
 class Hero:
