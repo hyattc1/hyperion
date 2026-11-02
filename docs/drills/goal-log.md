@@ -205,3 +205,24 @@ and (in judges) `elite_judge`.
 - Confirmation running: H1 (2nd use), stages aware + variants.
 - Started: V-c (river_of_blood promoted to the main catalog; boards longer than 5 cards; deal5_keep2 busts; short-deck
   shove calls) and F1 (the five windows rehearsed on F: every recipe re-checked, the signal table, a timed window).
+
+## 02:41: S2 merged (b0bd3e8); its candidate FIN queued for held-out confirmation
+- exploiter1 is a frozen test opponent (fields exploit, exploit_hu, exploit_3; climb_accept stage exploit).
+  Against the frozen copy F loses as in the arena: 5.00 vs 5.37 (8-max), 8.01 vs 9.00 (heads-up), 7.03 vs 8.33 (3).
+- FIN = {"r3.v3_defend": true, "hero.postflop.cbet_size_dry": 0.5}: a 3-bet defence that reads a seat's observed 3-bet
+  rate (prior 0.08 worth 20 chances, plays from an estimated rate of 0.2, fold-to-4-bet capped at 0.6), and a half-pot
+  dry-board c-bet. Screen: exploit +0.712 / +1.103 / +1.332 (F then beats the exploiter in all three formats: 5.71 vs
+  4.68, 9.11 vs 7.89, 8.36 vs 6.99); night +0.023 ± 0.048; every guard, both elite fields and all 25 variants level.
+  The first, looser defence lost on night (-0.037 ± 0.030) and three guards by reading nits as 3-bettors; the guarded
+  one almost never fires against our fields.
+- Not kept: big-blind defence by price (no points, -0.10 heads-up with the defence), calling down frequent bettors
+  (level), 0.7-pot big-value bets (doubling blinds -0.019 ± 0.018). Heads-up push/fold is near Nash; no change.
+- **Protocol addendum 6 (exploit resistance):** a change aimed at adaptive, exploiting opponents (which no tuning field
+  contains, so night cannot show it) is accepted when on a held-out set it is beyond noise up on at least one exploit
+  field and beyond noise down on nothing: night, guards, elite fields, variants (and the judges at batch end). Recorded
+  in docs/decisions.md with the batch.
+- Process fix: long measurements now run from a detached worktree at the measured commit (goal/wt_measure at b0bd3e8),
+  not from the live tree, where merges can land mid-run (the V-b run started from the live tree; S2's merge leaves
+  default play unchanged, so it stands).
+- Next exploit work (S2 list): squeezes; fold-to-4-bet learned from more than 4-bets; heads-up shove/fold 10-15 bb; the
+  0.8-pot tell; and a fresh exploiter against F with FIN on.
