@@ -128,6 +128,8 @@ def main(argv=None) -> int:
     p.add_argument("--workers", type=int, default=2)
     p.add_argument("--out", default=os.path.join(ROOT, "scratch", "aware_board"))
     p.add_argument("--json", default=None)
+    p.add_argument("--field-set", action="append", default=[], metavar="FIELD=SET",
+                   help="play FIELD on its own seed set (lo:hi), e.g. the twist-blind field on fewer seeds")
     p.add_argument("--field-version", action="append", default=[], metavar="FIELD=TAG",
                    help="key FIELD's cells by TAG instead of the code version: a field whose bots and the spec are the "
                         "same at two commits (realistic before and after an opponent-only change) is played once")
@@ -142,6 +144,7 @@ def main(argv=None) -> int:
     variants = V.catalog_names() if a.variants == "all" else a.variants.split(",")
     fields = a.fields.split(",")
     tags = dict(fv.split("=", 1) for fv in a.field_version)
+    seeds = {f: CA.seed_range(r) for f, r in (fs.split("=", 1) for fs in a.field_set)}
     keys = {f: CA.spec_key(spec, tags.get(f, version)) for f in fields}
     t0 = time.time()
     if "generic_aware" in fields:
@@ -152,12 +155,15 @@ def main(argv=None) -> int:
             path, _ = GEN.prepare(v, workers=a.workers)
             if time.time() - t1 > 1:
                 print(f"generic table for {v}: {os.path.relpath(path, ROOT)} ({time.time() - t1:.1f} s)", flush=True)
-    run(a.out, keys, spec, [(f, v) for v in variants for f in fields], lo, hi, a.workers)
+    for f in fields:
+        f_lo, f_hi = seeds.get(f, (lo, hi))
+        run(a.out, keys, spec, [(f, v) for v in variants], f_lo, f_hi, a.workers)
     rows = []
     for v in variants:
         row = {"variant": v}
+        diffs = {}
         for f in fields:
-            agg = gather(a.out, keys[f], f, v, lo, hi)
+            agg = gather(a.out, keys[f], f, v, *seeds.get(f, (lo, hi)))
             ranked = sorted(agg, key=lambda n: -agg[n]["mean"])
             others = [n for n in agg if n != "F"]
             best, m, h = margin(agg, others)
@@ -165,28 +171,36 @@ def main(argv=None) -> int:
                       "margin": m, "ci": h, "n": len(agg["F"]["samples"]),
                       "bots": {n: {k: agg[n][k] for k in ("mean", "exc", "ill", "tmo", "calls", "p50", "p99", "max_us")}
                                for n in agg}}
+            diffs[f] = [x - y for x, y in zip(agg["F"]["samples"], agg[best]["samples"])]
             if f == "generic_aware":
                 gb, gm, gh = margin(agg, [n for n in GENERIC if n in agg])
                 row[f].update({"best_gen": gb, "gen_margin": gm, "gen_ci": gh})
+        if "generic_aware" in diffs and "realistic" in diffs:
+            # the shrink on the seeds both fields played: F's margin over its best opponent, realistic minus generic
+            d = [r - g for r, g in zip(diffs["realistic"], diffs["generic_aware"])]
+            m = sum(d) / len(d)
+            h = 1.96 * math.sqrt(sum((x - m) ** 2 for x in d) / (len(d) - 1) / len(d)) if len(d) > 1 else 0.0
+            row["shrink"] = {"mean": m, "ci": h, "n": len(d)}
         rows.append(row)
     print(f"# aware_board: set {a.set} ({lo}-{hi - 1}) x 8 rotations, code {version}, spec {json.dumps(spec)[:80]}, "
           f"{(time.time() - t0) / 60:.1f} min\n")
     if "generic_aware" in fields and "realistic" in fields:
         print("| variant | F generic | rank | margin over best generic bot | margin over best opponent | "
-              "F realistic | rank | margin over best opponent | shrink |")
+              "F realistic | rank | margin over best opponent | shrink (paired seeds) |")
         print("|---|---|---|---|---|---|---|---|---|")
-        for r in sorted(rows, key=lambda r: -(r["realistic"]["margin"] - r["generic_aware"]["margin"])):
-            g, z = r["generic_aware"], r["realistic"]
+        for r in sorted(rows, key=lambda r: -r["shrink"]["mean"]):
+            g, z, k = r["generic_aware"], r["realistic"], r["shrink"]
             print(f"| {r['variant']} | {g['F']:.3f} | {g['rank']} | {g['gen_margin']:+.3f} ± {g['gen_ci']:.3f} "
-                  f"({g['best_gen']}) | {g['margin']:+.3f} ± {g['ci']:.3f} ({g['best']}) | {z['F']:.3f} | {z['rank']} | "
-                  f"{z['margin']:+.3f} ± {z['ci']:.3f} ({z['best']}) | {z['margin'] - g['margin']:+.3f} |")
+                  f"({g['best_gen']}) | {g['margin']:+.3f} ± {g['ci']:.3f} ({g['best']}) | {z['F']:.3f} | "
+                  f"{z['rank']} | {z['margin']:+.3f} ± {z['ci']:.3f} ({z['best']}) | {k['mean']:+.3f} ± {k['ci']:.3f} "
+                  f"(n {k['n']}) |")
     else:
         for f in fields:
             print(f"\n## {f}\n\n| variant | F | rank | margin over best opponent |\n|---|---|---|---|")
             for r in rows:
                 g = r[f]
-                print(f"| {r['variant']} | {g['F']:.3f} | {g['rank']}/{g['n_bots']} | {g['margin']:+.3f} ± {g['ci']:.3f} "
-                      f"({g['best']}) |")
+                print(f"| {r['variant']} | {g['F']:.3f} | {g['rank']}/{g['n_bots']} | {g['margin']:+.3f} ± "
+                      f"{g['ci']:.3f} ({g['best']}) |")
     if "generic_aware" in fields:
         print("\n| variant | " + " | ".join(f"{b} pts / exc / ill / p50 / p99 us" for b in GENERIC) + " |")
         print("|---|" + "---|" * len(GENERIC))
