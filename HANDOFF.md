@@ -5,14 +5,17 @@ is either committed or named as lost-if-killed.
 
 ## State in one paragraph
 
-**As of 2026-11-01 18:00 ET the ship bot is the composite** (`hyperion/ship.py`: `SHIP = "composite"`, `DIALS = {}`):
-rival 3's core with the exploit layer preflop, Hero with the layer postflop and when facing a raise short, behind
-Hero's shell (adapter, `Rules`, 23 variant hooks, SafeBot, action-log rebuild). Measured once at 400 x 8 it beats
-hybrid3_x and Hero beyond noise on held-out night, night_hard, realistic and top and on three of four judge fields
-(judge_top ahead inside noise); 23/23 READY, gate PASS on kits A and B, p99 329 µs in the gate, strict timeouts level
-with hybrid3_x. Fallbacks are one word away: `python -m hyperion.ship --bot hybrid3_x` or `--bot hero` (decisions entry
-"Composite bot", log `docs/drills/compose-log.md`). No agents are running. What is left: strict timing re-checks on a
-quiet host, the Nov 7 re-research of the Menlo Park kit, and the owner's items (who sits at the table, the email).
+**The climb is running** (since 2026-11-01 20:20 ET; brief `docs/prompts/goal.md`, plan and frozen protocol
+`docs/drills/goal-plan.md`, running log `docs/drills/goal-log.md`, one-page leaderboard `docs/drills/goal-leaderboard.md`;
+our regional is Pittsburgh, Nov 12; it stops by Nov 11 18:00 ET). The ship bot is still the composite F
+(`hyperion/ship.py`: `SHIP = "composite"`, `DIALS = {}`), now with the SafeBot governor in its defaults (batch 2,
+f7914c0: a slow or noisy box no longer sends tables to the cheap path). F is first on every judge field, including the
+new `outside` and `outside_strong` fields (fresh one-hour builds). A black-box exploiter beats it (folds ~90% to
+3-bets after wide opens, size tells, heads-up any-two shoves): fixes are on branch climb/s2-exploit-fixes. Every
+measurement of F goes through `tools/climb_accept.py` (never `tools/swap.py paired` specs, which skip SHIP_DIALS).
+Frozen fallback zips are in `frozen/` (git-ignored), listed with their sha256 in the leaderboard. Fallbacks are one word
+away: `python -m hyperion.ship --bot hybrid3_x` or `--bot hero`. Decisions entry: "The climb: protocol addenda and
+batches 1-2". Workers run on `climb/*` branches in worktrees under the session scratchpad; the coordinator merges.
 
 History: Hero was tuned to finish first against every field we wrote, then a red-team rival built blind beat it; the
 plan changed to choosing the best core behind Hero's shell (below), and then to combining the best sections.

@@ -145,3 +145,13 @@ Pittsburgh's top tables will hold prepared quant teams who adapt and exploit. Ch
 - The exploiter's findings (S2) are what a strong adaptive team would use; they stay first in the strength queue.
 - Backlog: **S8** play against the elite field (profile, fix the weakest section); **S9** mirror and strong-table play
   (F against copies of itself and the elite bots).
+
+## 00:24: batch 2 accepted: the governor (slow_box) ships in F's defaults (f7914c0)
+- R1 merged (ca8563e): tools/slowbox.py (dilated clock, seat-only timing, contention, noise), SafeBot's governor
+  (near-timeouts 0.8 ms, clusters of 5 in 60 calls, one level per cluster, recovery), the composite's levels, exact ICM
+  at half the cost (bit-identical).
+- Held-out confirm (H1 seeds 20000-20199 x 8, k = 3, CPU-time clock, load 4-7): th **+3.640 ± 0.796** of 100, panic
+  tables 772 -> 0 of 1600; lin **+0.144 ± 0.072**, 502 -> 0. Bit-identical in model mode (R1's checks).
+- Accepted under addendum 2 (robustness rule, decisions entry). Frozen: frozen/B2-f7914c0, kit B zip sha256
+  a59f45b9...7f4f134327. H1 confirmations used: 1 of 3 (robustness), so H1 stays live.
+- Wall-clock tests flake at load 9-10 (a different two to six each full run, all pass alone); none fails consistently.
