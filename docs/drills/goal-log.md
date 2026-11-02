@@ -36,7 +36,7 @@ Protocol: `docs/drills/goal-plan.md` section 2. Live held-out set: **H1 (20000-2
   snapshot, string cards, its own payout table and schedule) with river_of_blood in its dealer.
 - The held-out catalog goes on branch climb/unseen-variants (engine support, default play bit-identical).
 
-## 21:00: research pass (variants ranked, official surfaces re-checked)
+## 20:50: research pass (variants ranked, official surfaces re-checked)
 Files: `docs/drills/climb/variants-ranked.md`, `docs/drills/climb/official-changes-2026-11-01.md`.
 - **Nothing about the game changed** on the official site since Oct 27 (diffed against Wayback captures). Only
   eligibility moved (Canada; under-18s with consent).
@@ -60,13 +60,13 @@ Files: `docs/drills/climb/variants-ranked.md`, `docs/drills/climb/official-chang
 | 10/7/5/4/3/2/1/0 | 6.072 | -0.155 ± 0.177 | **-0.255 ± 0.192** | 395 |
 | 50/25/12/6/3/2/1/1 (points out of 100) | 23.636 | -0.250 ± 1.166 | -1.223 ± 1.231 | 366 |
 
-**Correction (21:55):** the spec `{"dials": {}}` in `tools/swap.py paired` is NOT F: swap.py hands a spec's dials to
+**Correction (21:33):** the spec `{"dials": {}}` in `tools/swap.py paired` is NOT F: swap.py hands a spec's dials to
 `parse_dials` alone, without `SHIP_DIALS`, so the "F" above is P (F before the last climb's two dials: layer fold read
 0.5, Hero call margin 0.15). The numbers stand for P. `tools/climb_accept.py` resolves dials on top of `SHIP_DIALS`
 (as `hyperion.ship` builds the bot); S1 is re-measured on F with it. Every member already prices all-ins from
 `Rules.payouts` (hybrid/core3.py); the cost is time (R1 has it).
 
-## 21:40: test sets in
+## 21:24: test sets in
 - **Outside field wired** (c1c18c7): four fresh one-hour builds, no repo access: `out_veterans` (minute 38),
   `out_selfplay` (45), `out_lag` (39), `out_quants` (36). Fields `outside` (the four + three night-pool seats) and
   `outside_strong` (the four + rival 4 + rival 5 + agent_pushfold: the stronger room Pittsburgh is expected to be).
@@ -87,7 +87,7 @@ Files: `docs/drills/climb/variants-ranked.md`, `docs/drills/climb/official-chang
   see_action, see_showdown, end_hand, choose(request) with legal options and no state snapshot), raise-to amounts,
   payouts 50/25/15/10/0/0/0/0, antes from level 4, river_of_blood in the dealer; self-test 141/141.
 
-## 21:55: tools/climb_accept.py
+## 21:33: tools/climb_accept.py
 One command for the protocol's acceptance rule: a candidate spec against the ship on a set (`screen`, `H1`.., `judge`)
 through stages confirm, guards, variants, judges, timing; per-spec cached results keyed by the code tree, so a batch's
 base runs once. Dials specs are resolved on top of `SHIP_DIALS`, so `{"dials": {}}` is F (the trap above).
