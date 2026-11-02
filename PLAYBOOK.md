@@ -263,6 +263,18 @@ realistic, 300 tables, seed 7): **25 READY, first on 24** (second on fixed_raise
 0.23 (next tag 5.14; 6.35 against two variant-aware bidders, `realistic_auction`), deal5_keep2 6.61 ± 0.14 (next
 rival1 6.25; 6.51 on `realistic_keep2`). Log: `docs/drills/v-catalog-log.md`.
 
+**2026-11-02, branch climb/vb-top-variants: the three likeliest twists against bots that play them.** Fields
+`toss_or_holdem_aware`, `bounty_aware`, `short_deck_aware` (hyperion/sim/aware.py: a TAG, a push/fold bot and a Monte
+Carlo bot per twist that use it, plus rival 1 with the aware toss; never in a night pool). F is first on all three. One
+dial set, each part acting only on its twist, moves it (screen seeds, 200 x 8, paired): toss +0.16, bounty +0.30,
+short deck +0.20, so F's margin over the best aware bot goes +0.50 -> +0.67, +1.00 -> +1.32, +0.28 -> +0.53:
+`{"hero.variant_preflop": {"call_raise_frac": 0.15, "three_bet_frac": 0.05}, "hero.toss_value_shift": 2,
+"hero.toss_dead": true, "base.hero_on_bounty": false}`. Hero flatted 35% of deep raises on every Hero table (its
+flat range was the top 45%); on bounty rival 3's core plays the preflop better than Hero; on toss everyone kept their
+best two, so value thresholds go up two tiers. Pricing the bounty into stack-offs, betting a hit bounty, the face-up
+tosses as dead cards, a short-deck postflop read and regenerated short-deck tables (`tables/variants/short_deck_v2`)
+are all in as dials and measured level or worse. Log: `docs/drills/vb-top-variants-log.md`.
+
 22 READY, 1 PLAYS, 0 WEAK, 0 BROKEN as of 2026-10-31. hybrid3_x and Hero with the exploit layer
 are both 23 READY, first on 22 (final core comparison, 2026-11-01); on hybrid3_x Hero plays 14 of these tables
 whole and the core plays the other nine (permuted ranks, swaps, bonus card, antes, pot limit, fast schedule,

@@ -135,3 +135,46 @@ with an equity test against *random* hands; on plain hold'em rival 3's core play
 - toss_or_holdem: everyone kept the best two of three, so made hands are worth less than their tier (the deal5_keep2
   reason, `keep_value_shift` there): thresholds up two tiers.
 - The short deck's tables and postflop read were wrong in detail, and correcting the read changed nothing measurable.
+
+Two more, after 9472b3d: `hero.variant_tables: "short_deck_v2"` -0.009 +- 0.067 (the cleaner tables and the multiway
+solve change nothing measurable either), `hero.toss_value_shift` 3 +0.122 +- 0.076 (level with 2).
+
+## 5. The candidate: one dial set, every part gated to its twist
+
+    {"hero.variant_preflop": {"call_raise_frac": 0.15, "three_bet_frac": 0.05}, "hero.toss_value_shift": 2,
+     "hero.toss_dead": true, "base.hero_on_bounty": false}
+
+`variant_preflop` acts only where rules.extras["variant"] names a twist (every Hero table, not plain hold'em),
+`toss_*` only on a three-card face-up toss, `hero_on_bounty` only on a bounty (or knockout) table. Branch rebased onto
+origin/main 06dfb4b (batch 2: SHIP_DIALS with the SafeBot governor) before these numbers; F's and the candidate's
+numbers on the three aware fields came out identical to the pre-rebase runs (model mode).
+
+**Paired, the candidate against F** (`tools/climb_accept.py --stages aware --set screen`):
+
+| field | F | candidate | candidate - F |
+|---|---|---|---|
+| toss_or_holdem_aware | 6.131 | 6.287 | **+0.156 +- 0.087 UP** |
+| bounty_aware | 5.963 | 6.260 | **+0.298 +- 0.119 UP** |
+| short_deck_aware | 5.754 | 5.953 | **+0.198 +- 0.097 UP** |
+
+**F's margin over the best aware bot, before and after** (every bot's points, paired per seed with F):
+
+| field | best aware bot | before: F - it | after: F - it | best bot of any kind, after |
+|---|---|---|---|---|
+| toss_or_holdem_aware | toss_rival1 (5.632 / 5.619) | +0.499 +- 0.146 | **+0.668 +- 0.121** | the same |
+| bounty_aware | bounty_tag (4.961 / 4.944) | +1.002 +- 0.150 | **+1.317 +- 0.139** | rival1, blind (5.331 / 5.315): +0.632 -> +0.945 +- 0.148 |
+| short_deck_aware | short_tag (5.478 / 5.423) | +0.276 +- 0.135 | **+0.529 +- 0.123** | the same |
+
+F first on all three before and after; finishes first 29% (toss), 53% (bounty, from 45%), 36% (short deck) of seats.
+After the candidate the short-deck profile (scratch `prof1`, F and short_tag in Hero's seat) has F's flats facing a
+deep raise at 16% (from 35%) and that section at +0.069 bb a decision (from -0.088; the TAG +0.172); it is still F's
+weakest section there, with facing an all-in (calls 28%, +0.097; the TAG 10%, +0.324) next.
+
+## 6. Plain hold'em does not move
+
+`tools/climb_accept.py --cand <the candidate> --set screen --stages confirm,guards` (after the rebase): every cell
+**identical**, +0.000 +- 0.000, per seed: night 5.973, night_hard 5.485, realistic 6.346, top 5.035, night at
+10/7/5/4/3/2/1/0 6.159, at 50/25/12/6/3/2/1/1 24.443, night with doubling blinds 5.828; 0 timeouts, 0 errors on both.
+(The tool prints REJECT because the confirm line asks for night beyond noise up, which a variant-only change cannot
+give; the guards line holds.) The p99 column there (543-1329 us) is the model-mode wall clock on a host at load 9+ with
+other workers running, the same for both specs; section 7 has latency.py.
