@@ -514,3 +514,57 @@ passed alone.
 
 Open: a weaker per-seat bar (one bet in each of two buckets with the share test) would fire earlier at strong tables;
 it was not screened (no sweep). S11's facing-a-bet changes still need measuring together with this read.
+
+# S12c: the size read on night (branch climb/s12c-night from main efade19)
+
+The coordinator's H8 run of D1 (27000-27399, base batch 4, `--aim strong`): up mirror +0.188, top +0.079, realistic
++0.041, doubling blinds +0.030, exploit 8-max +0.098, antes +0.048, top_heavy +0.41; level elite +0.008, elite_night
++0.007, night_hard, payouts, aware, the other variants; **down night -0.045 ± 0.031**: rejected.
+
+## 14:49-15:00: which night seats the read misreads (`goal/s12c/diag.py`, diagnostic seeds 9000-9199 x 8, fresh)
+
+At every spot where D1's read engaged: the bettor's identity, F's decision without the read and with it, and the truth:
+our hand's equity against the bettor's actual cards with the board enumerated. dEV = the street's chip EV of the
+read's decision minus F's (call = eq x (pot + call) - call, fold = 0), in big blinds. It overstates the value of a
+flop or turn call (later streets cost more; realisation is under 1) and is exact on the river. Night, 1,600 tables,
+3,276 read spots:
+
+| bettor | spots | fold->call: n, dEV | call->fold: n, dEV | dEV | read eq - true eq |
+|---|---|---|---|---|---|
+| trackb5 | 179 | 38, -175.7 | 11, -19.1 | **-194.9** | +0.157 |
+| agent_montecarlo | 436 | 114, -72.5 | 19, -111.2 | **-183.7** | +0.129 |
+| trackb3 | 226 | 35, -88.2 | 11, -18.6 | **-106.7** | +0.122 |
+| agent_pushfold | 185 | 41, -41.4 | 8, -59.1 | **-100.5** | +0.113 |
+| agent_default | 376 | 74, +82.5 | 14, -73.0 | +9.5 | +0.066 |
+| agent_charts | 316 | 58, -13.3 | 24, +57.0 | +43.7 | +0.083 |
+| pushfold | 89 | 23, +145.1 | 4, -41.1 | +104.0 | +0.025 |
+| rival1 | 423 | 93, +207.6 | 32, -7.3 | +200.4 | -0.037 |
+| rival2 | 439 | 115, +276.5 | 24, -63.9 | +212.5 | +0.045 |
+| rival3 | 586 | 130, +519.1 | 32, +53.7 | +572.8 | +0.002 |
+
+The read costs at four night seats, the two Track B builds and two persona agents, where it overstates our equity by
+0.11-0.16: their small bets are not their weak bets (survey: trackb3/5 bet half pot with tier 4.0-4.1, the larger size
+with 3.8-3.9; agent_montecarlo's half-pot bets are 2% air, agent_pushfold's 12%). What they share, observably: they
+rarely bet without being the aggressor's target. C-bet rate as the preflop raiser (survey seeds 8000-8024): trackb5
+25%, trackb3 28%, agent_montecarlo 39%, agent_pushfold 39%; the seats the read wins against: rival1 100%, pushfold 98%,
+rival2 / rival3 65%, and agent_charts 64%, agent_default 73% (neutral). A seat that bets rarely bets value with every
+size; the rank model assumes a population betting range (bet rate about 0.44) and reads its small bets as air.
+
+The same diagnostic on the strong fields (9000-9099 x 8 each) and the dEV by street:
+
+| field | D1 spots, dEV | river spots, dEV | flop + turn only | + c-bet rate >= 0.55 (prior 0.5 over 4 chances) |
+|---|---|---|---|---|
+| night | 3276, +569 | 562, **-118** | 2714, +687 | 1827, +811 (losing seats 1026 / -586 -> 247 / -98) |
+| elite | 2096, +727 | 272, **-208** | 1824, +935 | 1353, +690 |
+| elite_night | 2194, +398 | 312, **-212** | 1882, +611 | 1244, +640 |
+| mirror | 3071, +2192 | 355, **-264** | 2716, +2457 | 2197, +2024 |
+| top | 1453, +800 | 202, +11 | 1251, +789 | 1133, +691 |
+
+River reads lose in four of five fields, and on the river this measure is exact (no later street): the read's river
+equity is biased high (the offline fit said so too: river error 0.117 for the population map, 0.19 for the rank
+slice). With an evidence count on top (at least 3 c-bet chances seen) the losing night seats drop to 176 spots / -36
+but every strong field loses about 40% of its dEV; not chosen.
+
+**Rule fixed before any screen (D3)** = D1 + `size_read_streets` 3 (flop and turn) + `size_read_min_cbet` 0.55
+(`size_read_cbet_prior` 0.5, `size_read_cbet_n` 4: with the prior under the bar, a seat must show c-bets to be read).
+Observable behaviour only, no identity. No sweep on points.

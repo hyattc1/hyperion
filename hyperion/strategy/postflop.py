@@ -272,6 +272,13 @@ class PostflopParams:
     size_read_strong_rr: float = 0.0
     size_read_strong_prior: float = 0.15
     size_read_strong_n: float = 10.0
+    # S12c (night): the read on these streets only (bit mask: 1 flop, 2 turn, 4 river; its river reads lost in every
+    # field), and only for a bettor whose observed c-bet rate (Profiler.cbet_rate with this prior and weight) is at
+    # least size_read_min_cbet: a seat that rarely c-bets bets value with every size (0 = off)
+    size_read_streets: int = 7
+    size_read_min_cbet: float = 0.0
+    size_read_cbet_prior: float = 0.5
+    size_read_cbet_n: float = 4.0
     # xr_shift: heads-up, nothing to call, the opponent checked to me on this street and its check-raise rate (prior
     # xr_prior worth xr_n0 chances) is at most xr_max: value-bet this many tiers thinner (a checked range with no
     # check-raises holds few strong hands)
@@ -1019,6 +1026,11 @@ class Postflop:
     def _size_eq(self, spot: Spot, prof: Profiler, bettor: int, street: int, tier: int):
         """(equity against the bettor's read range for a bet of this size, weight) or None (size_read, S12)."""
         p = self.p
+        if not p.size_read_streets >> (street - 1) & 1:
+            return None
+        if p.size_read_min_cbet > 0.0 and \
+                prof.cbet_rate(bettor, p.size_read_cbet_prior, p.size_read_cbet_n) < p.size_read_min_cbet:
+            return None
         if p.size_read_min_bets > 0 and not prof.size_evidence(bettor, p.size_read_min_bets, p.size_read_min_share,
                                                                 p.size_read_min_buckets):
             return None
