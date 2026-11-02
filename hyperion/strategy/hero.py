@@ -225,6 +225,9 @@ class Config:
     auction_spr_cap: float = 4.0
     auction_stack_frac: float = 0.33
     auction_pot_frac: float = 0.75
+    # deal5_keep2: everyone kept their best two of five on this flop, so a made hand is worth less than its board-relative
+    # tier says: postflop value thresholds this many tiers up (as before a swap street)
+    keep_value_shift: int = 1
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5
@@ -412,6 +415,9 @@ class HeroCore:
         self._ko = 0.0  # knockout points per bust
         self._swap_street = 0
         self._auction = None  # the auction entry's bid table (tables/auction_bid.json), loaded when the rules name it
+        # deal5_keep2 (rules.extras discard_count): obs.extras["revealed"] discards are dead cards. Scoped to the rule:
+        # the held-out showtime uses the same key for folded hands, and the held-out set is not tuned on
+        self._revealed_dead = False
         self._pre_aggr = False  # my last preflop action this hand was a raise nobody re-raised (when history is absent)
         self.inferred = 0  # decisions whose betting state came from the bets because the history could not explain it
 
@@ -455,6 +461,7 @@ class HeroCore:
         self._swap_street = int(ex.get("swap_street", 0) or 0)
         if self._auction is None and (ex.get("variant") == "auction" or "auction_price" in ex):
             self._auction = auction_table()
+        self._revealed_dead = bool(ex.get("discard_count"))
         low = bool(ex.get("lowball"))
         wild = ex.get("wild_rank", None)
         wild_c = int(rules.rank_order[int(wild)]) if wild is not None else -1
@@ -546,9 +553,10 @@ class HeroCore:
             ex = extras.get("exposed")
             if ex:
                 exposed, dead = self._exposed(ex, obs.seat)
-            rv = extras.get("revealed")
-            if rv:  # deal5_keep2: every face-up discard, our own included, is out of the deck
-                dead = dead + self._revealed(rv)
+            if self._revealed_dead:
+                rv = extras.get("revealed")
+                if rv:  # deal5_keep2: every face-up discard, our own included, is out of the deck
+                    dead = dead + self._revealed(rv)
             if obs.street > 0:
                 bs = extras.get("boards")
                 if bs and len(bs) > 1 and len(bs[1]) == len(board):
@@ -602,6 +610,8 @@ class HeroCore:
         else:
             aggressor = prof is not None and prof.pre_raiser == obs.seat
         value_shift = 1 if (self._swap_street and obs.street < self._swap_street) else 0
+        if self._revealed_dead:
+            value_shift += cfg.keep_value_shift
         self.last_path = "postflop"
         a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
                               value_shift=value_shift)

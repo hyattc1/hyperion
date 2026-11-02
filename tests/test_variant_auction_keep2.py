@@ -261,3 +261,31 @@ def test_f_plays_the_new_entries_against_their_aware_field_without_errors(name, 
     st = rep.bots["ship"].stats
     assert st.exceptions == 0 and st.illegal == 0 and st.safe_err == 0 and rep.hands > 0
     assert all(b.stats.exceptions == 0 for nm, b in rep.bots.items() if nm in ("auction_tag", "keep2_tag"))
+
+
+def test_revealed_discards_are_dead_cards_on_deal5_keep2_only():
+    from hyperion.drills import variants_unseen as U
+    from hyperion.strategy.hero import HeroCore
+
+    core = HeroCore()
+    core.new_table(V.get("deal5_keep2").rules, 0, 8)
+    assert core._revealed_dead
+    core.new_table(U.get("showtime").rules, 0, 8)  # the held-out showtime uses the same key: left as it was
+    assert not core._revealed_dead
+    core.new_table(Rules(), 0, 8)
+    assert not core._revealed_dead and core._auction is None
+
+
+def test_five_cards_are_read_by_their_head_priced_among_five_card_hands():
+    from hyperion.strategy.tables import load, tables_for
+
+    base = load(need_hu=True)
+    t = tables_for(V.get("deal5_keep2").rules, base)
+    assert t.source.endswith("+headview") and t.scheme == "best2+tags"
+    # tags carry no bonus: the head's price is the price
+    assert t.rank["AA+lll"] == t.rank["AA+pss"] > 0.95
+    assert t.rank["KQo+hls"] < 0.6 < base.rank["KQo"]  # a top-20% two-card hand is about the median five-card hand
+    assert t.equity["AA+lll"][0] < base.equity["AA"][0]  # everyone else keeps their best two too
+    # a variant with no heads.json keeps the label view
+    other = dataclasses.replace(V.get("deal5_keep2").rules, extras={"variant": "nothing_here", "keep": 2})
+    assert tables_for(other, base).source.endswith("+labelview")

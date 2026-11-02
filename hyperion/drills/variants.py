@@ -1098,24 +1098,26 @@ def deal5_keep2() -> Variant:
                 "on a 27-card deck there.)",
         rules=rules,
         breaks=(
-            "Five hole cards break every 169-class table: Hero plays preflop from the label view (best-two class plus "
-            "tag bonuses, one position tighter, tables.tables_for) and the rival cores cannot play the table at all "
-            "(table_reason 'hole_cards'), so on F Hero plays it whole. Everyone's two cards are stronger than in "
-            "hold'em because they were chosen from five after seeing the flop: top pair is weaker, and the 24 revealed "
-            "discards are dead cards that change every draw's outs (Hero removes them from its postflop reads). "
-            "The keep (variant_decide {'decision': 'keep'}) is a new decision: the best pair by Hero's flop read, "
-            "with the revealed discards and its own as dead cards."
+            "Five hole cards break every 169-class table and the standard generator (a best2+tags set would take "
+            "hours to sample). Hero reads five cards by their head, the Chen-best two, priced among five-card hands "
+            "(tables/variants/deal5_keep2/heads.json, tools/gen_keep2.py, ~100 s): the plain label view priced them "
+            "as two-card hands against two-card hands, and F opened 78% and busted 78% of tables. The rival cores "
+            "cannot play the table at all (table_reason 'hole_cards'), so on F Hero plays it whole. Everyone's two "
+            "cards are stronger than in hold'em because they were chosen from five after seeing the flop: a made "
+            "hand is worth less than its tier (Hero's postflop value thresholds go up one tier, keep_value_shift), "
+            "and the 24 revealed discards are dead cards for every draw's outs. The keep (variant_decide "
+            "{'decision': 'keep'}) is a new decision: the best pair by Hero's flop read, the revealed discards and its "
+            "own as dead cards."
         ),
         checklist=(
-            "No regeneration: no table set for five cards (the label view stands in; a best2+tags set would take "
-            "hours to sample).",
+            "python tools/gen_keep2.py --workers 2  (heads.json; the head view loads it through tables.tables_for)",
             "Hero: variant_decide('keep') = the pair with the best flop read, revealed discards and own discards dead.",
-            "Hero: obs.extras['revealed'] into the postflop dead cards.",
+            "Hero: obs.extras['revealed'] into the postflop dead cards; value thresholds one tier up.",
         ),
         hooks_factory=Keep2Hooks,
         needs_engine=True,
-        axis="information", tables="approximate",
-        tables_note="no five-card set: the label view of the default tables (best-two class plus tag bonuses)",
+        axis="information", tables="unsupported",
+        tables_note="the generator has no five-card scheme; tools/gen_keep2.py writes the head view's heads.json",
         config_patch={},
     )
 

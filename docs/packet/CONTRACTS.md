@@ -368,6 +368,7 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `auction_spr_cap` | 4.0 |
 | `auction_stack_frac` | 0.33 |
 | `auction_pot_frac` | 0.75 |
+| `keep_value_shift` | 1 |
 | `cheap` | False |
 | `deadline_ms` | 0.5 |
 | `panic_after` | 5 |
