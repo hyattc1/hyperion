@@ -84,6 +84,8 @@ class Rival3Knobs:
     v3_bvb_min_rate: float = _dial(0.12, "... and the estimated rate from which the defence plays there")
     v3_bvb_holdem_only: bool = _dial(False, "... and only on hold'em tables (hero.holdem_table): on twist tables it lost "
                                             "a little on six variants and two aware fields (held-out H9)")
+    v3_bvb_twists: str = _dial("", "... and on these one-step twist families as well (hero.TWIST_FAMILIES, comma-"
+                                   "separated: discard, bounty, knockout, buy, swap, exposed; V-f); '' = hold'em only")
     v3_bvb_f4_cap: float = _dial(-1.0, "... and the cap on its modelled fold rate to a 4-bet there (a wide 3-bettor "
                                        "need not fold its wide range to a 4-bet: 0.45 = no bluff 4-bets until it is "
                                        "seen folding to one); -1 = v3_f4_cap")

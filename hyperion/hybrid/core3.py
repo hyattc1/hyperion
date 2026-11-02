@@ -25,7 +25,7 @@ from time import perf_counter
 from ..core.types import HandResult, Rules
 from ..sim.rivals import rival3 as R3
 from ..sim.rivals.rival3 import CLASSES, PCT, _cls, _eqvs
-from ..strategy.hero import holdem_table, icm_me
+from ..strategy.hero import holdem_table, icm_me, twist_families, twist_family
 from .dials import Rival3Knobs
 from .kit import LeanICM, SoftDeadline
 
@@ -190,6 +190,9 @@ class Rival3Core(R3.Bot):
         self.exact_icm = lin is None or lin[2] > 2
         self.soft_us = float(cfg.soft_us)
         self.k = getattr(cfg, "r3", None) or Rival3Knobs()
+        tw = self.k.v3_bvb_twists
+        if tw and not self.holdem and twist_family(rules) in twist_families(tw):
+            self.holdem = True  # V-f: a twist family the BvB prior is carried to plays it as on hold'em
         self.replay_errors = 0
         self.seat = seat
         self._v3_reset()

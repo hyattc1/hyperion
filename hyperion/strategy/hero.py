@@ -615,6 +615,68 @@ def holdem_table(rules: Rules) -> bool:
             and set(ex) <= _HOLDEM_EXTRAS and ex.get("variant") in _HOLDEM_VARIANTS)
 
 
+# V-f: the one-step twist families that still play ordinary hold'em after the twist (docs/drills/climb/vf-log.md). The
+# hold'em-gated gains (S12's size read, S11's probe read and one size, S9's strong-table route) can be carried to a
+# family by a dial that lists it (postflop.size_read_twists, postflop.s11_twists, the composite's strong_route_twists).
+# A table is in a family when its structure is hold'em (52 cards, board 3/4/5, no-limit, rank order as dealt; two hole
+# cards, three only for a face-up discard down to two) and its extras hold that family's keys and nothing else; the
+# variant name, when given, must be one of the family's catalog entries. Anything else is no family: the gate stays shut
+TWIST_FAMILIES: dict = {
+    "discard": ({"toss_or_holdem", "three_card_blind_discard"},
+                {"discard_street", "discard_face_up", "keep", "blind_discard"}),
+    "bounty": ({"bounty"}, {"bounty_ratio", "bounty_constant", "rounds_per_bounty", "bounty_funding"}),
+    "knockout": ({"knockout_bounty"}, {"ko_points", "ko_funding"}),
+    "buy": ({"bonus_card", "auction"}, {"price_bb", "street", "auction_street", "auction_price", "auction_ties"}),
+    "swap": ({"swap_holdem", "swap_one_turn"}, {"swap_p_flop", "swap_p_turn", "swap_street", "swap_count"}),
+    "exposed": ({"exposed_card"}, {"exposed_index"}),
+}
+
+
+def twist_families(spec) -> frozenset:
+    """A dial's family list ("discard,swap" or a list) as a set; an unknown name is an error, not a silent no-op."""
+    if not spec:
+        return frozenset()
+    names = [x.strip() for x in (spec.split(",") if isinstance(spec, str) else spec) if str(x).strip()]
+    bad = [x for x in names if x not in TWIST_FAMILIES]
+    if bad:
+        raise KeyError(f"unknown twist family {bad[0]!r}; known: {', '.join(TWIST_FAMILIES)}")
+    return frozenset(names)
+
+
+def twist_family(rules: Rules) -> str | None:
+    """The one-step twist family of a table that is hold'em but for that twist (TWIST_FAMILIES), or None (hold'em
+    itself, or any other table)."""
+    ex = rules.extras or {}
+    if not (tuple(rules.board_sizes) == (0, 3, 4, 5) and rules.n_suits == 4 and not rules.must_use_hole
+            and rules.betting == "nolimit" and is_identity_order(rules)):
+        return None
+    if "discard_face_up" in ex:
+        fam = "discard"
+    elif "bounty_ratio" in ex or "bounty_funding" in ex or ex.get("variant") == "bounty":
+        fam = "bounty"
+    elif "ko_points" in ex:
+        fam = "knockout"
+    elif "price_bb" in ex or "auction_price" in ex or ex.get("variant") in ("bonus_card", "auction"):
+        fam = "buy"
+    elif "swap_p_flop" in ex or "swap_p_turn" in ex or "swap_street" in ex:
+        fam = "swap"
+    elif "exposed_index" in ex or ex.get("variant") == "exposed_card":
+        fam = "exposed"
+    else:
+        return None
+    names, keys = TWIST_FAMILIES[fam]
+    v = ex.get("variant")
+    if (v is not None and v not in names) or not set(ex) <= keys | _HOLDEM_EXTRAS:
+        return None
+    if fam == "discard":
+        ok = rules.hole_cards == 3 and bool(ex.get("discard_face_up")) and int(ex.get("keep", 2) or 2) == 2
+    elif fam == "knockout":
+        ok = rules.hole_cards == 2 and float(ex.get("ko_points", 0.0) or 0.0) > 0.0
+    else:
+        ok = rules.hole_cards == 2
+    return fam if ok else None
+
+
 _TWINS: dict = {}  # HeroCore._twins' cache: (variant, extras, hole cards, threshold, tables) -> twin map or None
 
 
@@ -726,6 +788,7 @@ class HeroCore:
         fof = ex.get("category_order") == "flush_over_full_house"
         short = cfg.short_deck_read and set(ex.get("removed_ranks") or ()) == {0, 1, 2, 3}
         self.postflop.set_mode(low=low, wild_rank=wild_c, flush_over_full=fof, short=short)
+        self.postflop.family = twist_family(rules)  # (before holdem: the setter picks the params from both)
         self.postflop.holdem = holdem_table(rules)
         self._cls_map = mirror_map(self.tables.rank) if low else wild_map(wild_c) if wild_c >= 0 else None
         t = tables_for(rules, self.tables, name=cfg.variant_tables or None)
