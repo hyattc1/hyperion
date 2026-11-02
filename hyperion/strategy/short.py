@@ -106,6 +106,10 @@ class ShortParams:
         #                              both exploiters short-handed: not clear leaks there)
         self.post = True  # play heads-up pots postflop
         self.post_alive = 2  # ... only with at most this many alive
+        # ... only against a seat that bets into heads-up pots at least this often (F's profiler: its bets per chance
+        # on the flop and turn, leads and stabs with the aggressor's bets, smoothed toward 0.4 with 4 chances): the
+        # balanced play defends against bettors; against a passive seat F's reads take more (0 = always)
+        self.post_aggr = 0.0
         self.three = True  # play three-handed preflop (tables/short_3.json)
         self.three_max = 1000.0  # ... only while the effective stack is at most this many big blinds
         # preflop goes back to F while an opponent alive 3-bets our opens at least this often (rival 3's core's read in
@@ -236,6 +240,14 @@ class ShortMember:
             return False
         if sum(1 for x in in_hand if x) != 2 or len(obs.hole) != 2:
             return False
+        if self.p.post_aggr > 0 and prof is not None:
+            opp = next((j for j in range(len(in_hand)) if in_hand[j] and j != obs.seat), -1)
+            try:
+                rate = (prof.pb_bet[opp] + prof.ab_bet[opp] + 1.6) / (prof.pb_opp[opp] + prof.ab_opp[opp] + 4.0)
+            except Exception:  # noqa: BLE001
+                rate = 1.0
+            if rate < self.p.post_aggr:
+                return False
         return bool(self._start) and self._replay(obs) is not None
 
     # ------------------------------------------------------------------ preflop: heads-up
