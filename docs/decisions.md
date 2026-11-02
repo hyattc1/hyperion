@@ -3145,3 +3145,40 @@ Plan and frozen protocol: `docs/drills/goal-plan.md`. Running log: `docs/drills/
 
 **What is not yet accepted:** any change to how F plays on a normal box. The exploiter's findings (F folds about 90% to
 3-bets after wide opens; size tells; heads-up any-two shoves) and the top-variant work are with workers on branches.
+
+## The windows on F: the composite's own recipes (2026-11-02, builder: F1)
+
+Backlog F1. The window recipes had been checked on hybrid3_x ("Ship hybrid3_x as the base"); F ships since, with the
+governor in its defaults. Log: docs/drills/f1-windows-log.md (paired, model mode, F as hyperion.ship builds it, screen
+seeds 10000-10199 x 8, night plus a field that shows each signal; no judge, outside or held-out field).
+
+**What was wrong on F.** Rival 3's core decides only preflop there and one exploit layer sits in front of every member
+(their own layers are reset). Resolved the hybrid3_x way, three keys moved nothing (`r3.call_edge`, `r3.raise_shift`,
+`r3.bluff_scale`: identical play seed for seed), one reached nothing (`hero.exploit.steal_min_fold`), `survival` did
+not cut postflop calls, `passive` barely raised bets when checked to, and `latency` (the layer off) cost -0.22 ± 0.09
+points on night and -0.34 ± 0.13 on an 8x slower box.
+
+**What ships.** `hyperion/ship.py` COMPOSITE_RECIPES, F's own set (hybrid3_x and Hero keep theirs):
+- `survival`: `r3.call_margin` 0.03, `r3.three_bet_scale` 0.7 and Hero's keys. Postflop stays Hero's: Hero's call
+  margin 0.25 on top made the stated "fewer postflop calls" true but measured -0.06 ± 0.06 on the busting field, so the
+  claim changed, not the dials.
+- `passive`: `r3.open_late_scale` 1.3, the layer's `exploit.bet_min_fold` 0.35, Hero's keys.
+- `dead_seats`: the layer's `exploit.steal_min_fold` 0.5 and `hero.profiler_blend_n` 4; not `r3.prior_scale` 0.5
+  (-0.11 ± 0.06 on a dead-seat table, and it opens wider at strong ones).
+- `strong_field`: Hero's keys only; nothing measurable on F (it is the frozen bot).
+- `latency`: `late_us` 0 (no shadow decisions): 17 µs a call, 30 µs at p99, points level, 19-32% fewer timeouts on a
+  5-8x slower box. `timeouts`: unchanged (`cheap`).
+- `slow_box`: already F's defaults; `--set <recipes>` never drops the governor (test).
+
+**Points.** Confirm and guards on the screen seeds (night, night_hard, realistic, top, night under 10/7/5/4/3/2/1/0,
+50/25/12/6/3/2/1/1 and a doubling schedule): `survival` level or up (night_hard +0.10 ± 0.07); `passive` level or up;
+`dead_seats` level on night, up on realistic (+0.11 ± 0.06), **down on `top` (-0.12 ± 0.08)** and at elite tables
+(-0.16 ± 0.08), up among timing-out seats (+0.06 ± 0.05): a recipe for its signal only; `strong_field` and `latency`
+level everywhere; `timeouts` -1.1 to -2.4 (8..1) and -13 of 100 (top-heavy), the emergency it was. No recipe gains on
+night. A rehearsed window (fake kit B, top-heavy rules, recorded standings) takes about 4 minutes of commands.
+
+**The windows' tools.** The window check is `tools/climb_accept.py --stages window` (paired, exactly replayable, the
+night field under tonight's rules file and variant; recipe names as specs; its cache survives `--set`), replacing two
+unpaired 300-table `realistic@ship` runs whose ±2.5 points of 100 under top-heavy payouts could not verify anything.
+The gate finds an entry not named submission.py (a rehearsal failed on it). Prompt 06, PLAYBOOK section 5 and Stage 6
+carry F's recipes and the rehearsed step times.
