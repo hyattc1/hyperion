@@ -603,7 +603,10 @@ SHIP_ROUTE = "post=hero,pre_raised_short=hero"  # the route the composite ships 
 # and +0.14 (8..1) on a 3x slower box, held-out seeds 20000-20199 (docs/drills/goal-log.md; decisions "The climb").
 SHIP_DIALS: dict = {"route": SHIP_ROUTE, "exploit.bet_min_fold": 0.4, "hero.postflop.call_margin": 0.2,
                     "deadline_ms": 0.8, "panic_window": 60, "panic_ladder": True, "panic_recover": 40,
-                    "degrade": "noshadow,lean,hero"}
+                    "degrade": "noshadow,lean,hero",
+                    # batch 3 (V-b): twist tables only, plain hold'em identical (docs/decisions.md)
+                    "hero.variant_preflop": {"call_raise_frac": 0.15, "three_bet_frac": 0.05},
+                    "hero.toss_value_shift": 2, "hero.toss_dead": True, "base.hero_on_bounty": False}
 
 
 def parse_dials(dials: dict | None) -> tuple:
