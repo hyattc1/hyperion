@@ -94,7 +94,8 @@ def test_kit_c_adapter_parses_lines_and_only_answers_L_lines(capsys):
     ad.serve(inp, out)
     lines = out.getvalue().split("\n")
     assert lines[0] == "OK" and lines[1].startswith("R") and lines[2] == "" and len(lines) == 3
-    obs = ad.to_observation("H1 D0 S1 KAs,Ad BKh,7d,2c C2000,1990,1980,2000 E0,0,0,0 I1011 O60 LF,K,R20-2000 V10/20 T9")
+    # seat 2 holds 2000, so a raise to 2000 is its all-in (make_observation caps a max above stack + bet)
+    obs = ad.to_observation("H1 D0 S1 KAs,Ad BKh,7d,2c C2000,1990,2000,1980 E0,0,0,0 I1011 O60 LF,K,R20-2000 V10/20 T9")
     assert obs.seat == 2 and obs.pot == 60 and obs.to_call == 0 and obs.in_hand == [True, False, True, True]
     assert obs.min_raise == 20 and obs.max_raise == 2000 and ActionKind.CALL not in obs.legal
 

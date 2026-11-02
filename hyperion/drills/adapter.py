@@ -13,10 +13,21 @@ from typing import Any, Callable, Iterable
 from hyperion.core.types import Action, ActionKind, Bot, HandResult, Observation, Rules, parse_card
 
 KIND_BY_NAME = {"fold": ActionKind.FOLD, "check": ActionKind.CHECK, "call": ActionKind.CALL, "raise": ActionKind.RAISE}
+# the other words kits use for the four (legal_kinds); "all in" is a raise unless the call already takes every chip
+KIND_WORDS = {**KIND_BY_NAME, "bet": ActionKind.RAISE, "raise_to": ActionKind.RAISE, "raiseto": ActionKind.RAISE,
+              "f": ActionKind.FOLD, "k": ActionKind.CHECK, "x": ActionKind.CHECK, "r": ActionKind.RAISE,
+              "b": ActionKind.RAISE}
+ALL_IN_WORDS = {"allin", "all_in", "all-in", "all in", "shove", "jam", "push"}
+# a check when nothing is owed, else a call ("c" as the ACPC protocol uses it)
+CHECK_OR_CALL_WORDS = {"check/call", "check_call", "checkcall", "call/check", "check_or_call", "checkorcall", "c"}
+_NAME_KEYS = ("type", "action", "kind", "name", "move", "act", "id")
 
 
 class Adapter:
     """Base class. Subclasses implement the three translation hooks; decide() does the rest safely.
+
+    One object may play many tables. The kit's table-start hook calls start() (the bot's new_table); a kit with none
+    gets it from decide(), lazily on the first decision and again whenever the hand number goes back (a new table).
 
     `history_source` says where obs.history comes from, and conformance holds the adapter to it:
       "log"      the kit's action log, the whole hand so far, so within a hand every decision's history extends the
@@ -43,6 +54,11 @@ class Adapter:
         self._last_hist: list = []
         self._last_hand = None
         self._pending = None  # a hand end waiting for the next hand's first state (defer_hand_end)
+        self._hand_seen = None  # the last decision's hand number, to see a new table the kit did not announce
+        self.tables_seen = 0  # new tables found that way (a kit with one bot object for many tables and no hook)
+        self.seat_fixes = 0  # tables whose hook named a seat the observations did not (decide() restarted the bot)
+        self.fallbacks = 0  # decisions that went to native_safe (the translation or the bot raised)
+        self._seat_check = False
 
     # -- translation hooks ------------------------------------------------------------
     def to_observation(self, native: Any) -> Observation:
@@ -63,6 +79,8 @@ class Adapter:
         self.n_players = n_players
         self.started = True
         self._pending = None
+        self._hand_seen = None
+        self._seat_check = True  # the first decision's seat wins over the hook's (a 1-based or relative label)
         self.inference.new_table(self.rules)
         try:
             self.bot.new_table(self.rules, seat, n_players)
@@ -88,6 +106,19 @@ class Adapter:
             obs = self.to_observation(native)
             if not self.started:
                 self.start(obs.seat, obs.n_players)
+            elif self._hand_seen is not None and obs.hand_no < self._hand_seen:
+                # the hand number went back: a new table, and the kit called no table-start hook (one bot object for
+                # the tournament or the night, kit D's handle_new_round only). The bot's new_table, as a fresh one
+                # would get (Adapter.start itself: a subclass's start may reset kit state this decision just read).
+                Adapter.start(self, obs.seat, obs.n_players)
+                self.tables_seen += 1
+            elif self._seat_check and obs.seat != self.seat:
+                # the hook named our seat differently from the observations (numbered from 1, or by id): the bot's
+                # table state follows the seat it is asked to act in
+                Adapter.start(self, obs.seat, obs.n_players)
+                self.seat_fixes += 1
+            self._seat_check = False
+            self._hand_seen = obs.hand_no
             if self._pending is not None:
                 self._deliver(obs)
             try:
@@ -98,6 +129,7 @@ class Adapter:
             self.inference.acted(action)
             return self.from_action(action, obs, native)
         except Exception:  # noqa: BLE001
+            self.fallbacks += 1
             return self.native_safe(native)
 
     def hand_end(self, hand_no: int, delta: int, n_players: int | None = None, history=None, deltas=None,
@@ -246,22 +278,153 @@ def dealer_state(obs: Observation, discards_at: int | None = None) -> dict:
     }
 
 
-def make_observation(*, hole, board, street, seat, button, stacks, bets, in_hand, pot, to_call, min_raise,
-                     max_raise, legal: Iterable[str], hand_no, blinds, history=None) -> Observation:
-    """Assemble an Observation from already-translated pieces; `legal` are lowercase kind names.
+def _legal_word(item) -> str:
+    """One entry of a kit's legal list -> its lowercase word: a string, an ActionKind, a dict with a type/action/kind/name
+    key, or an object with such an attribute (an enum member's name, a class such as CheckAction)."""
+    if isinstance(item, ActionKind):
+        return item.value
+    if isinstance(item, str):
+        return item.strip().lower()
+    if isinstance(item, dict):
+        for k in _NAME_KEYS:
+            v = item.get(k)
+            if isinstance(v, str):
+                return v.strip().lower()
+        raise KeyError(f"legal action {item!r} has none of the keys {_NAME_KEYS}")
+    for k in ("name", "value", "kind", "type", "action"):
+        v = getattr(item, k, None)
+        if isinstance(v, str):
+            return v.strip().lower()
+    name = getattr(item, "__name__", None) or type(item).__name__
+    name = name.lower()
+    return name[:-6] if name.endswith("action") and len(name) > 6 else name
+
+
+def legal_kinds(legal, to_call: int, my_stack: int) -> frozenset:
+    """A kit's legal actions -> frozenset[ActionKind]. Takes our names in any case, the usual other words (bet, the
+    one-letter F/K/X/C/R/B, check/call, all-in), a comma or space separated string, dicts ({"type": "raise", ...}),
+    ActionKinds and objects (CheckAction). An "all in" is a call when the call already takes every chip, else a raise
+    (the raise bounds then end at the all-in). Raises KeyError on a word it does not know: say what the kit means."""
+    try:  # the usual case, our names in any case: as fast as before
+        if not isinstance(legal, str):
+            return frozenset(KIND_BY_NAME[k.lower()] for k in legal)
+    except (KeyError, AttributeError, TypeError):
+        pass
+    if isinstance(legal, str):
+        t = legal.strip()
+        if t.lower() in CHECK_OR_CALL_WORDS:
+            legal = [t]
+        elif any(sep in t for sep in ",|;"):
+            legal = [x for x in t.replace("|", ",").replace(";", ",").split(",") if x.strip()]
+        else:
+            legal = t.split()
+    out = set()
+    for item in legal:
+        w = _legal_word(item)
+        k = KIND_WORDS.get(w)
+        if k is None:
+            if w in ALL_IN_WORDS or w.replace(" ", "").replace("-", "").replace("_", "") == "allin":
+                k = ActionKind.CALL if to_call >= my_stack else ActionKind.RAISE
+            elif w in CHECK_OR_CALL_WORDS:
+                k = ActionKind.CHECK if to_call <= 0 else ActionKind.CALL
+            else:
+                raise KeyError(f"legal action {item!r}: not one of {sorted(KIND_WORDS)} or an all-in word; map it in "
+                               f"the adapter (TODO 5)")
+        out.add(k)
+    return frozenset(out)
+
+
+def raise_bounds(min_raise, max_raise, stacks, bets, seat: int, big_blind: int, raise_legal: bool) -> tuple:
+    """(min raise-to, max raise-to, what was fixed) from what the kit gave. Missing (None) bounds are derived: the max is
+    my stack plus my bet (no-limit), the min the top bet plus the last raise's increment (the big blind at least,
+    from this street's bets: a little high when a short all-in raised, never low). Swapped bounds are put in order; an
+    all-in below a full raise (the kit's min above everything I have) leaves one raise, the all-in."""
+    fixed = []
+    if not raise_legal:
+        return int(min_raise or 0), int(max_raise or 0), fixed
+    n = len(bets)
+    me_ok = 0 <= seat < n and len(stacks) == n
+    cap = (stacks[seat] + bets[seat]) if me_ok else None
+    cur = max(bets) if n else 0
+    if min_raise is not None and max_raise is not None and cur < min_raise <= max_raise and (cap is None or
+                                                                                            max_raise <= cap):
+        return int(min_raise), int(max_raise), fixed  # a clean kit
+    lo = None if min_raise is None else int(min_raise)
+    hi = None if max_raise is None else int(max_raise)
+    if hi is None or (hi <= 0 and cap is not None):
+        if cap is None:
+            raise ValueError("max_raise missing and no stack to derive it from")
+        hi = cap
+        fixed.append("max_raise_derived")
+    if lo is None or lo <= 0:
+        below = max((b for b in bets if b < cur), default=0)
+        lo = cur + max(int(big_blind), cur - below)
+        fixed.append("min_raise_derived")
+    if lo > hi and (cap is None or hi != cap):
+        lo, hi = hi, lo
+        fixed.append("raise_bounds_swapped")
+    if cap is not None and cur < cap < hi and lo <= cap:  # a max above everything I have (an "unlimited" max)
+        hi = cap
+        fixed.append("max_raise_capped")
+    if lo > hi:
+        lo = hi
+        fixed.append("all_in_below_min_raise")
+    return lo, hi, fixed
+
+
+def drop_blind_posts(history, big_blind: int, street: int = 0) -> tuple[list, int]:
+    """A log that starts with the forced bets as raises (a kit that logs "post 10", "post 20", or antes, as bets): those
+    leading RAISEs to the big blind or less are dropped (a real raise preflop goes above the big blind). After the
+    flop only when the first is below the big blind (a small blind or an ante: a log of this street alone can start
+    with a min bet of exactly the big blind). Returns the history and how many were dropped. Hero reads raises from
+    history: two posts read as a raise and a re-raise."""
+    if not history:
+        return history, 0
+    a0 = history[0][1]
+    if a0.kind is not ActionKind.RAISE or a0.amount > big_blind or (street > 0 and a0.amount >= big_blind):
+        return history, 0
+    i = 0
+    for _, a in history:
+        if a.kind is ActionKind.RAISE and a.amount <= big_blind:
+            i += 1
+        else:
+            break
+    return (history[i:], i) if i else (history, 0)
+
+
+def make_observation(*, hole, board, street, seat, button, stacks, bets, in_hand, pot, to_call=None, min_raise=None,
+                     max_raise=None, legal: Iterable, hand_no, blinds, history=None) -> Observation:
+    """Assemble an Observation from already-translated pieces. `legal`: our names fold / check / call / raise, or the
+    kit's own words, dicts or objects (legal_kinds). Raise bounds are raise-to totals; missing ones (None) are derived,
+    swapped or impossible ones put right (raise_bounds); to_call None is max(bets) - my bet, capped by my stack.
+    A history that starts with the blinds posted as raises loses those entries (drop_blind_posts).
     No `history` (or an empty one) while somebody has bet above the blind: raises are rebuilt from the bets, and
     `extras["history_from_bets"]` says so (the shipped bot's core then reads no history: a replay of raises alone
-    would book every raiser as a seat that raises every hand)."""
+    would book every raiser as a seat that raises every hand). What was put right is listed in
+    `extras["kit_fixes"]` (conformance counts it), absent when nothing was."""
+    stacks, bets, seat = list(stacks), list(bets), int(seat)
+    me_ok = 0 <= seat < len(stacks) and len(bets) == len(stacks)
+    my_stack = stacks[seat] if me_ok else 0
+    if to_call is None:
+        to_call = max(0, min(max(bets) - bets[seat], my_stack)) if me_ok else 0
+    to_call = int(to_call)
+    kinds = legal_kinds(legal, to_call, my_stack)
+    lo, hi, fixed = raise_bounds(min_raise, max_raise, stacks, bets, seat, int(blinds[1]), ActionKind.RAISE in kinds)
     hist = list(history or [])
     extras = {}
+    if hist:
+        hist, dropped = drop_blind_posts(hist, int(blinds[1]), int(street))
+        if dropped:
+            fixed.append("blind_posts_dropped")
     if not hist:
         hist = history_from_bets(int(street), int(button), stacks, bets, int(blinds[1]))
         extras["history_from_bets"] = True
+    if fixed:
+        extras["kit_fixes"] = tuple(fixed)
     return Observation(
-        hole=tuple(hole), board=tuple(board), street=int(street), seat=int(seat), button=int(button),
-        stacks=list(stacks), bets=list(bets), in_hand=list(in_hand), pot=int(pot), to_call=int(to_call),
-        min_raise=int(min_raise), max_raise=int(max_raise),
-        legal=frozenset(KIND_BY_NAME[k.lower()] for k in legal), hand_no=int(hand_no),
+        hole=tuple(hole), board=tuple(board), street=int(street), seat=seat, button=int(button),
+        stacks=stacks, bets=bets, in_hand=list(in_hand), pot=int(pot), to_call=to_call,
+        min_raise=lo, max_raise=hi, legal=kinds, hand_no=int(hand_no),
         blinds=(int(blinds[0]), int(blinds[1])), history=hist, extras=extras,
     )
 
@@ -566,3 +729,84 @@ class KitDBot:
 
     def handle_round_over(self, game_state: Any, terminal_state: Any, active: int) -> None:
         self.adapter.round_over(game_state, terminal_state, active)
+
+
+# ------------------------------------------------------------------ kit S: one quirk per shape (R3)
+
+class KitSAdapter(Adapter):
+    """Fake kit S (hyperion/drills/fakekits/kit_s): one dict per decision, its quirk named in native["rules"] as a rule
+    sheet names it. Written the way the template asks: cards through parse_card (any format), legal moves and the raise
+    bounds as the kit gives them (make_observation puts them right), seats through the rule sheet's numbering, amounts
+    through its convention both ways."""
+
+    LOG = {"full": "log", "own": "partial", "last3": "partial", "none": "bets"}
+
+    def __init__(self, bot: Bot, rules: Rules | None = None):
+        super().__init__(bot, rules)
+        self.amounts, self.base, self.raise_word = "to", 0, "raise"
+
+    def to_observation(self, o: dict) -> Observation:
+        r = o.get("rules") or {}
+        self.amounts = r.get("amounts", "to")
+        self.base = base = int(r.get("seat_base", 0))
+        self.history_source = self.LOG.get(r.get("log", "full"), "partial")
+        players = sorted(o["players"], key=lambda p: p["seat"])
+        bets = [int(p["bet"]) for p in players]
+        seat = int(o["me"]) - base
+        legal = o["legal"]
+        words = [_legal_word(x) for x in (legal.replace("|", ",").split(",") if isinstance(legal, str) else legal)]
+        self.raise_word = next((w for w in words if w in ("raise", "bet", "all-in", "allin", "all_in")), "raise")
+        lo, hi = o.get("min"), o.get("max")
+        if lo is not None:
+            lo, hi = self.to_total(lo, bets, seat), self.to_total(hi, bets, seat)
+        hist = [] if "log" not in o else [
+            (int(e["seat"]) - base, Action(KIND_WORDS[str(e["act"]).lower()], int(e.get("to", 0) or 0)))
+            for e in o["log"] if str(e["act"]).lower() in KIND_WORDS]
+        return make_observation(
+            hole=[parse_card(c) for c in o["hole"]], board=[parse_card(c) for c in o["board"]],
+            street=_B_STREETS[len(o["board"])], seat=seat, button=int(o["button"]) - base,
+            stacks=[p["stack"] for p in players], bets=bets, in_hand=[bool(p["in"]) for p in players],
+            pot=o["pot"], to_call=o.get("to_call"), min_raise=lo, max_raise=hi, legal=legal, hand_no=o["hand"],
+            blinds=o["blinds"], history=hist,
+        )
+
+    def to_total(self, amount: int, bets, seat: int) -> int:
+        if self.amounts == "by":
+            return int(amount) + max(bets)
+        if self.amounts == "put_in":
+            return int(amount) + bets[seat]
+        return int(amount)
+
+    def from_action(self, a: Action, obs: Observation, o: dict) -> dict:
+        if a.kind is ActionKind.RAISE:
+            amt = a.amount - (max(obs.bets) if self.amounts == "by" else obs.bets[obs.seat] if self.amounts == "put_in"
+                              else 0)
+            return {"act": self.raise_word, "amount": int(amt)}
+        return {"act": a.kind.value, "amount": 0}
+
+    def native_safe(self, o: Any) -> dict:
+        try:
+            legal = o["legal"]
+            words = [_legal_word(x) for x in (legal.split(",") if isinstance(legal, str) else legal)]
+            return {"act": "check" if "check" in words else "fold", "amount": 0}
+        except Exception:  # noqa: BLE001
+            return {"act": "fold", "amount": 0}
+
+
+class KitSAgent:
+    """Kit S's `Agent`: new_table(info) at each table start (`hook=False`: never called, one object for every table),
+    act(native) -> reply, hand_over(hand_no, delta)."""
+
+    def __init__(self, bot: Bot | None = None, hook: bool = True):
+        self.adapter = KitSAdapter(bot or _default_bot())
+        self.hook = hook
+
+    def new_table(self, info: dict) -> None:
+        if self.hook:
+            self.adapter.start(int(info["seat"]), int(info["players"]))  # the kit's label: decide() checks it
+
+    def act(self, native: dict) -> dict:
+        return self.adapter.decide(native)
+
+    def hand_over(self, hand_no: int, delta: int) -> None:
+        self.adapter.hand_end(hand_no, delta)
