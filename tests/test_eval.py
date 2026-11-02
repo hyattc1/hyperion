@@ -88,3 +88,49 @@ def test_speed_seven_card():
     per = (time.perf_counter() - t) / len(hands)
     # 1 ms budget; we want two orders of magnitude of headroom
     assert per < 20e-6, f"{per*1e6:.1f} us per 7-card eval"
+
+
+# ----- table builds (R6: the setup budget) -----------------------------------------------------------
+
+def test_grown_tables_equal_the_brute_force_ones():
+    for n in (6, 7):
+        assert ev.unsuited_table(n) == ev._build_unsuited_slow(n), n
+    assert ev._grow(ev.unsuited_table(7)) == ev._build_unsuited_slow(8)
+
+
+def test_grown_flush_masks_equal_the_brute_force_ones():
+    from itertools import combinations
+
+    for k in (6, 7, 8):
+        for bits in combinations(range(13), k):
+            m = sum(1 << r for r in bits)
+            assert ev._FLUSH_N[m] == ev._best_flush_for_mask(m)
+    assert len(ev._FLUSH_N) == 1287 + 1716 + 1716 + 1287
+
+
+def test_a_missing_table_is_exact_and_never_built_inside_evaluate(monkeypatch):
+    """An 8-card evaluate before warm(8): the best of its 7-card subsets, no build; the next warm() builds it."""
+    monkeypatch.setattr(ev, "_UNSUITED_N", {k: v for k, v in ev._UNSUITED_N.items() if k <= 7})
+    monkeypatch.setattr(ev, "WANTED", set())
+    rng = random.Random(8)
+    deck = list(range(52))
+    for _ in range(1500):
+        rng.shuffle(deck)
+        hand = deck[:8]
+        assert ev.evaluate(hand) == ev.evaluate_slow(hand), hand
+    assert 8 not in ev._UNSUITED_N and ev.WANTED == {8}
+    ev.warm(7)
+    assert 8 in ev._UNSUITED_N and not ev.WANTED
+
+
+def test_max_cards_follows_the_rules():
+    from hyperion.drills import variants as V
+
+    assert ev.max_cards(Rules()) == 7
+    assert ev.max_cards(V.get("toss_or_holdem").rules) == 7  # 3 + 3 before the flop discard, 2 + 5 after
+    assert ev.max_cards(V.get("three_card_keep").rules) == 8
+    assert ev.max_cards(V.get("bonus_card").rules) == 8  # a third hole card bought on the flop
+    assert ev.max_cards(V.get("omaha_four").rules) == 5  # two hole plus three board, always
+    assert ev.max_cards(Rules(board_sizes=(0, 3, 4))) == 6
+    for name in V.catalog_names():
+        assert 5 <= ev.max_cards(V.get(name).rules) <= 8

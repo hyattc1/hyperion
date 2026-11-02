@@ -2,8 +2,16 @@
 
 Strength is an int: higher is better, 1..7462 for 5-card classes. Any n>=5 cards evaluates the best
 5-card hand. For n in 5..8, non-flush hands resolve in ONE dict lookup keyed by the product of rank
-primes (tables built lazily at import or first use and memoized), and flush hands in one lookup keyed
-by the rank bitmask of the suited cards. Typical 7-card evaluate: a few microseconds.
+primes, and flush hands in one lookup keyed by the rank bitmask of the suited cards. Typical 7-card
+evaluate: a few microseconds.
+
+Tables: 5 cards and the flush masks at import, 6 and 7 at strategy import (`warm(7)`), and a bot's table start
+builds what its Rules need (`warm(max_cards(rules))`: 8 only for three kept hole cards or a bought card). Each
+n-card table is grown from the (n-1)-card one (the best five of n cards is the best of the n (n-1)-card subsets'),
+so 6, 7 and 8 cost about 3, 20 and 60 ms instead of 0.02, 0.12 and 0.61 s, with the same entries. An evaluate on
+6 to 8 cards whose table is not built yet never builds it inside the call (that would be a 1 ms decision spent on
+a 60 ms build): it takes the best of its (n-1)-card subsets, exact, and the next `warm()` builds the table. Past
+8 cards the table is still built on first use (seconds; hyperion/drills/variants_unseen.py guards it in the sim).
 
 Rank permutation variants: pass a Rules whose rank_order is not identity and call evaluate_displayed,
 or remap cards yourself with cards.remap. The tables never change.
@@ -110,21 +118,52 @@ def _best_flush_for_mask(mask: int) -> int:
 
 
 def _ensure_flush_masks() -> None:
+    """Every 6-, 7- and 8-bit suited mask: the best of the masks one bit smaller (the same as
+    _best_flush_for_mask on each, in 3 ms rather than 20)."""
     if len(_FLUSH_N) > len(FLUSH5):
         return
-    for k in (6, 7, 8):
-        for bits in combinations(range(13), k):
-            m = 0
-            for r in bits:
-                m |= 1 << r
-            _FLUSH_N[m] = _best_flush_for_mask(m)
+    layer = FLUSH5
+    for _ in (6, 7, 8):
+        nxt: dict[int, int] = {}
+        get = nxt.get
+        for m, v in layer.items():
+            for r in range(13):
+                b = 1 << r
+                if not m & b and get(m | b, 0) < v:
+                    nxt[m | b] = v
+        _FLUSH_N.update(nxt)
+        layer = nxt
 
 
 _ensure_flush_masks()
 
 
+_P4 = tuple(p ** 4 for p in PRIMES)
+
+
+def _grow(prev: dict[int, int]) -> dict[int, int]:
+    """The (n+1)-rank table from the n-rank one: each multiset's best is the best over the multisets one rank
+    smaller, so every entry of `prev` raises each one-rank extension (at most four of a rank) to its value."""
+    out: dict[int, int] = {}
+    get = out.get
+    for p, v in prev.items():
+        for r in range(13):
+            if p % _P4[r]:
+                q = p * PRIMES[r]
+                if get(q, 0) < v:
+                    out[q] = v
+    return out
+
+
 def _build_unsuited(n: int) -> dict[int, int]:
-    """Prime-product -> best 5-of-n non-flush strength, for every valid n-rank multiset."""
+    """Prime-product -> best 5-of-n non-flush strength, for every valid n-rank multiset (grown from n - 1)."""
+    if n <= 5:
+        return UNSUITED5
+    return _grow(unsuited_table(n - 1))
+
+
+def _build_unsuited_slow(n: int) -> dict[int, int]:
+    """The same table by brute force over each multiset's five-rank subsets (the reference, for tests)."""
     table: dict[int, int] = {}
     for combo in combinations_with_replacement(range(13), n):
         # at most 4 of a rank
@@ -163,10 +202,55 @@ def unsuited_table(n: int) -> dict[int, int]:
     return t
 
 
+WANTED: set[int] = set()  # 6..8-card evaluations met before their table was built: the next warm() builds them
+
+
 def warm(max_cards: int = 7) -> None:
-    """Build lookup tables for all hand sizes up to max_cards. Call at import in the bot."""
-    for n in range(5, max_cards + 1):
+    """Build lookup tables for all hand sizes up to max_cards, and any 6..8 an evaluate has met since. Call it at
+    import or at table start, never inside a timed call."""
+    top = max(max_cards, max(WANTED, default=0))
+    for n in range(5, top + 1):
         unsuited_table(n)
+    WANTED.clear()
+
+
+def max_cards(rules: Rules) -> int:
+    """The most cards one of our evaluations holds under `rules` (5 to 8): the hole cards held at each street (all
+    of them before a discard street, extras["keep"] from it on, one more from a bought card's street) plus that
+    street's board; 5 when the hand must use k hole cards (every evaluation is k + (5 - k) cards); 8 when the board
+    can run past its last size (extras["run_until_black"]). A table start warms this many; a count it misses is
+    still evaluated exactly, through the (n-1)-card subsets, and built at the next warm()."""
+    if rules.must_use_hole:
+        return 5
+    ex = rules.extras or {}
+    sizes = tuple(rules.board_sizes) or (0,)
+    hole = int(rules.hole_cards)
+    top = 0
+    ds = ex.get("discard_street")
+    keep = ex.get("keep")
+    bought = ex.get("variant") == "bonus_card" or "price_bb" in ex
+    buy_street = int(ex.get("street", 1) or 1) if bought else len(sizes)
+    for st, board in enumerate(sizes):
+        h = hole
+        if ds is not None and keep is not None and st >= int(ds):
+            h = int(keep)
+        if st >= buy_street:
+            h += 1
+        top = max(top, h + int(board))
+    if ex.get("run_until_black"):
+        top = 8
+    return max(5, min(8, top))
+
+
+def _from_subsets(cards: Sequence[int], n: int) -> int:
+    """Best five of 6..8 cards with no n-card table yet: the best of the (n-1)-card subsets, each exact."""
+    WANTED.add(n)
+    best = 0
+    for i in range(n):
+        s = evaluate(cards[:i] + cards[i + 1:])
+        if s > best:
+            best = s
+    return best
 
 
 def evaluate(cards: Sequence[int]) -> int:
@@ -193,16 +277,23 @@ def evaluate(cards: Sequence[int]) -> int:
         f = _FLUSH_N[m]
         if n < 8:
             return f  # with <=7 cards, 5 suited rules out quads and full houses
+        table = _UNSUITED_N.get(n)
+        if table is None:
+            if n <= 8:
+                return _from_subsets(tuple(cards), n)
+            table = unsuited_table(n)
         p = 1
         for c in cards:
             p *= PRIMES[c >> 2]
-        u = unsuited_table(n)[p]
+        u = table[p]
         return f if f > u else u
     p = 1
     for c in cards:
         p *= PRIMES[c >> 2]
     table = _UNSUITED_N.get(n)
     if table is None:
+        if n <= 8:
+            return _from_subsets(tuple(cards), n)
         table = unsuited_table(n)
     return table[p]
 

@@ -61,7 +61,7 @@ def _build_completers() -> list[int]:
 
 
 COMPLETERS = _build_completers()
-warm(7)  # eval builds its 6/7-card lookups lazily (~100 ms each): pay at import, never in act()
+warm(7)  # hold'em's 6/7-card lookups (about 25 ms): pay at import, never in act()
 TIER_EQUITY = (0.10, 0.20, 0.32, 0.42, 0.58, 0.72, 0.84, 0.92, 0.98)
 _LOW_TIER = {0: 8, 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 7, 7: 6, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1}  # pairless low by its top card
 

@@ -33,7 +33,7 @@ from functools import lru_cache
 from math import erf, sqrt
 
 from ..core.cards import hole_class, is_identity_order, remap
-from ..core.eval import warm
+from ..core.eval import max_cards, warm
 from ..core.types import RANKS, Action, ActionKind, HandResult, Observation, Rules
 from ..tablegen import hole_label
 from .exploit import Exploit, ExploitParams, ShippedExploitParams
@@ -422,7 +422,9 @@ class HeroCore:
             for t in range(rules.max_hands - 1, -1, -1):
                 var[t] = var[t + 1] + float(rules.blinds_at(t)[1]) ** 2
             self._cap_var = var
-        warm(8)  # 8-card lookups (three kept hole cards, a bought card) are built here, never inside a timed act()
+        # the evaluator tables these rules need (8 cards only for three kept hole cards or a bought card: 60 ms), here
+        # and never inside a timed act(); a count they miss is still exact (eval.max_cards)
+        warm(max_cards(rules))
         self._configure(rules)
         if self.prof is not None:
             self.prof.reset(n_players, seat)
