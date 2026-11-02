@@ -19,7 +19,9 @@ PRE = [(7, R(50)), (1, C)]
 
 def test_every_new_dial_is_off_by_default():
     c = Config()
-    assert (c.twin_preflop, c.twin_force, c.variant_preflop_ex, c.postflop.split_call_margin) == (0.0, False, {}, -1.0)
+    assert (c.twin_preflop, c.twin_force, c.twin_multi, c.variant_preflop_ex, c.call_shift_ex, c.multi_call_shift,
+            c.mu_call_shift, c.postflop.split_call_margin, c.postflop.split_tier_eq) == (0.0, False, 0.0, {}, {}, 0, 0,
+                                                                                         -1.0, False)
 
 
 def test_twins_come_from_the_variants_own_table():
@@ -131,6 +133,9 @@ def test_multi_and_mu_call_shifts_reach_their_tables_only():
     assert _captured_shift(d, "three_card_keep", "Ah Kd 7c", "As 9d 2h") == 1
     assert _captured_shift(d, "omaha_four", "Ah Kd 7c 7s", "As 9d 2h") == 2
     assert _captured_shift(d, "short_deck", "Ah Kd", "As 9d 7h") == 0
+    assert _captured_shift({"call_shift_ex": {"deck": 1, "wild": 2}}, "short_deck", "Ah Kd", "As 9d 7h") == 1
+    assert _captured_shift({"call_shift_ex": {"deck": 1, "wild": 2}}, "wild_deuces", "Ah Kd", "As 9d 7h") == 2
+    assert _captured_shift({"call_shift_ex": {"deck": 1, "wild": 2}}, "lowball", "Ah Kd", "As 9d 7h") == 0
     h = HeroCore(config_from_dict(d))
     h.new_table(Rules(), 0, 8)
     assert _captured_shift(d, "fixed_raise", "Ah Kd", "As 9d 2h") == 0

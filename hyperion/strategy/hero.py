@@ -406,6 +406,9 @@ class Config:
     # mu_call_shift for must-use-k. 0 = off
     multi_call_shift: int = 0
     mu_call_shift: int = 0
+    # ... and by the table's rule (variant_preflop_ex's gates: "must_use", "fixedlimit", "lowball", "deck", "boards",
+    # "wild"), added to the above, e.g. {"deck": 1}. {} = off
+    call_shift_ex: dict = field(default_factory=dict)
     # two-card twists with no variant table set (lowball, wild cards, hi-lo, any new showdown): read each hand as its
     # hold'em twin from the variant's own preflop table (tables/generic/, hyperion/sim/generic.py's prepare: the value
     # share of every class dealt and scored through the variant's hooks), the hold'em class at the same combo
@@ -661,6 +664,7 @@ class HeroCore:
         # the held-out showtime uses the same key for folded hands, and the held-out set is not tuned on
         self._revealed_dead = False
         self._toss = False  # three hole cards and a face-up toss (toss_or_holdem, three_card_blind_discard)
+        self._gate = None  # the twist table's rule for the *_ex dials (_configure)
         self._run = False  # rules.extras["run_until_black"] (river_of_blood): a red last card deals another street
         self._pre_aggr = False  # my last preflop action this hand was a raise nobody re-raised (when history is absent)
         self.inferred = 0  # decisions whose betting state came from the bets because the history could not explain it
@@ -764,12 +768,15 @@ class HeroCore:
             if vpre is None:
                 vpre = self._modules[vkey] = Preflop(replace(pre.p, **vp), t)
             pre = vpre
-        vx = cfg.variant_preflop_ex
-        if vx and ex.get("variant") and str(ex.get("variant")).lower() not in PLAIN_NAMES:
+        gate = None  # the table's rule for the *_ex dials: the first that applies
+        if ex.get("variant") and str(ex.get("variant")).lower() not in PLAIN_NAMES:
             gate = "must_use" if rules.must_use_hole else "fixedlimit" if rules.betting == "fixedlimit" else \
                 "lowball" if ex.get("lowball") else "deck" if ex.get("removed_ranks") else \
                 "boards" if int(ex.get("n_boards", 1) or 1) > 1 else "wild" if ex.get("wild_rank") is not None else None
-            over = vx.get(gate) if gate else None
+        self._gate = gate
+        vx = cfg.variant_preflop_ex
+        if vx and gate:
+            over = vx.get(gate)
             if over:
                 vkey = ("variant_preflop_ex", gate, id(pre))
                 vpre = self._modules.get(vkey)
@@ -995,6 +1002,8 @@ class HeroCore:
             call_shift += cfg.toss_call_shift
         elif nh >= 3:
             call_shift += cfg.mu_call_shift if mu else cfg.multi_call_shift
+        if cfg.call_shift_ex and self._gate:
+            call_shift += int(cfg.call_shift_ex.get(self._gate, 0) or 0)
         self.last_path = "postflop"
         nb = len(board)
         if cfg.long_board and (nb > 5 or (self._run and nb >= 5)) and nh == 2 and not mu:
