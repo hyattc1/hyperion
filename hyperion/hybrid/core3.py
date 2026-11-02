@@ -480,12 +480,20 @@ class Rival3Core(R3.Bot):
                 break
         if opener != seat or not (0 <= agg < len(self.v3o)):
             return None
-        t3 = (self.v3n[agg] + 1.0 + kn.v3_prior * kn.v3_prior_n) / (self.v3o[agg] + 1.0 + kn.v3_prior_n)
-        if t3 < kn.v3_min_rate or self.v3o[agg] < kn.v3_min_n:
+        prior, min_rate, f4_cap = kn.v3_prior, kn.v3_min_rate, kn.v3_f4_cap
+        if kn.v3_bvb_prior >= 0.0:  # S11: our small-blind open (heads-up: the button's) 3-bet by the big blind
+            alive = [i for i in range(n) if stacks[i] + bets[i] > 0 or inh[i]]
+            sbs, bbs = self._blind_seats(alive, button, n)
+            if seat == sbs and agg == bbs and sum(1 for i in range(n) if inh[i]) == 2:
+                prior, min_rate = kn.v3_bvb_prior, kn.v3_bvb_min_rate
+                if kn.v3_bvb_f4_cap >= 0.0:
+                    f4_cap = kn.v3_bvb_f4_cap
+        t3 = (self.v3n[agg] + 1.0 + prior * kn.v3_prior_n) / (self.v3o[agg] + 1.0 + kn.v3_prior_n)
+        if t3 < min_rate or self.v3o[agg] < kn.v3_min_n:
             return None
         w3 = min(1.0, t3)
         cont = min(w3, kn.v3_cont)
-        fo4 = (self.v4f[agg] + kn.v3_f4_n * min(kn.v3_f4_cap, 1.0 - cont / w3)) / (self.v4o[agg] + kn.v3_f4_n)
+        fo4 = (self.v4f[agg] + kn.v3_f4_n * min(f4_cap, 1.0 - cont / w3)) / (self.v4o[agg] + kn.v3_f4_n)
         eq = _eqvs(ci, w3)
         eqc = _eqvs(ci, max(0.015, w3 * (1.0 - fo4)))
         pays = self.payouts
