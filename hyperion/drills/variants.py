@@ -139,17 +139,23 @@ class Variant:
 # ------------------------------------------------------------------------------- hooks
 
 class TossHooks(VariantHooks):
-    """3 hole cards; after the flop each player discards one hole card face up (OOP first).
+    """3 hole cards; after the flop each player discards one hole card face up, in the postflop acting order (first
+    seat left of the button first), each seeing the discards made before theirs.
 
     8-max adaptation: the discard is public information (self.discards, which the engine puts in
     obs.extras['discards']) but not a community card, so showdown is 2 hole + 5 board. MIT's
     heads-up original added discards to the board; see docs/decisions.md. `see_flop=False` asks
-    for the discard before the flop is shown (the prompt carries an empty board).
+    for the discard before the flop is shown (the prompt carries an empty board). The prompt's
+    "discards" ({seat: card}) are the face-up discards made so far this hand (2026-11-01: before, seats were asked in
+    seat order and the prompt carried no discards; no bot read them, so play is unchanged for those that ignore it).
     """
+
+    wants_view = True  # the button, for the acting order
 
     def __init__(self, see_flop: bool = True) -> None:
         self.see_flop = see_flop
         self.discards: dict[int, int] = {}
+        self.view: dict = {}
 
     def on_deal(self, holes, deck, rng):
         self.discards = {}
@@ -160,14 +166,17 @@ class TossHooks(VariantHooks):
             return board, holes
         new_holes = list(holes)
         shown = board if self.see_flop else ()
-        for seat in range(len(holes)):  # the engine passes holes ordered so OOP seats come first
+        n = len(holes)
+        button = int((self.view or {}).get("button", n - 1))
+        for seat in ((button + 1 + i) % n for i in range(n)):  # the postflop acting order
             h = holes[seat]
             if len(h) != 3:
                 continue
             idx = None
             if ask is not None:
                 try:
-                    ans = ask(seat, {"decision": "discard", "hole": h, "board": shown})
+                    ans = ask(seat, {"decision": "discard", "hole": h, "board": shown,
+                                     "discards": dict(self.discards)})
                     idx = None if ans is None else int(ans)
                 except Exception:  # noqa: BLE001
                     idx = None

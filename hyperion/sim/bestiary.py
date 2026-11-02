@@ -1678,6 +1678,7 @@ FIELDS: dict[str, tuple[str, ...]] = {
                           "timeout_then_recover"),
     "realistic_keep2": ("hero", "montecarlo30", "keep2_tag", "pushfold", "loose_aggro", "rival1", "keep2_tag",
                         "timeout_then_recover"),
+    # `toss_or_holdem_aware`, `bounty_aware`, `short_deck_aware`: added by hyperion/sim/aware.py (end of this file)
     # the table where everybody did their homework, plus two Hero copies with other settings
     "strong": ("hero", "pushfold", "pushfold", "tag", "hero_tight", "hero_loose", "nit", "loose_aggro"),
     # the strong room with both rivals: rival 1 twice, rival 2 (in the seat montecarlo30 had until
@@ -1812,3 +1813,11 @@ def make_bot(name: str, seed: Optional[int] = None):
             raise _unavailable(key)
         raise KeyError(f"unknown bot {name!r}; known: {', '.join(REGISTRY)}")
     return cls(seed)
+
+
+# the variant-aware opponents of the three likeliest twists (toss_or_holdem, bounty, short_deck: a TAG, a push/fold bot and
+# a Monte Carlo bot each) and their `<variant>_aware` fields: the entry's three aware bots in the seats of the honest Monte
+# Carlo bot, the push/fold bot and the TAG, the rest as in `realistic`; play them with the variant (`--variant
+# toss_or_holdem --field toss_or_holdem_aware`, tools/climb_accept.py's `aware` stage). Never in a night pool. The module
+# registers them here when it finishes loading (whichever of the two is imported first).
+from . import aware as _aware  # noqa: E402,F401
