@@ -18,7 +18,9 @@ Track A (repo present):
    your own rebuild and do not override `decide`; the rebuild needs TODO 3 (pot), 6 (seats, in_hand) and
    the stacks exactly right. Drill 6's empty history cost 2.5 points a table.
    An event-driven kit (no state snapshot, one call per event): copy `hyperion/drills/event_player_template.py` as the entry instead (EventTracker keeps pot, stacks, bets and the log; worked example `hyperion/drills/event_example.py` on `fakekits/kit_e_style`), and for step 7 `hyperion/drills/gate_seat_template.py` as `submission/gate_seat.py` (hand end untimed).
-2. The kit's entry point builds `bot = hyperion.ship.make_bot()` behind `make_adapter(bot, rules)`, with
+2. The zip flattens `submission/`: the entry imports its adapter as a sibling (`from adapter import ...`), never
+   `submission.adapter` (drill 8's first package failed the kit's import check on it).
+   The kit's entry point builds `bot = hyperion.ship.make_bot()` behind `make_adapter(bot, rules)`, with
    everything imported and warmed at module import, not on the first decision; if the kit has no
    per-table hook, `start()` a throwaway adapter at import so every cache is hot before the first
    packet. `make_bot()` builds whatever the package records (step 6 packs it with `--bot cheap`:
