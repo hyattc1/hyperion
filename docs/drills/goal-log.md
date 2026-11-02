@@ -494,3 +494,17 @@ and (in judges) `elite_judge`.
   F through kit D now p99 440 us, 0 gen-2 collections in 2,000 calls at load 11 (was 61, p99 11.6 ms). Real cost
   that remains: on a kit with no table-start hook, one table in 16 pays a 10-20 ms first decision (a timed-out
   first action, usually a fold anyway). Backlog (robustness, low): run that collection outside the decision.
+
+## 12:26: S11 merged (ebd05d8); its candidate Z on H7
+- exploiter2 frozen as a test opponent (hyperion/sim/field/exploiter2/, reseeded per table; fields exploit2,
+  exploit2_hu, exploit2_3, now in climb_accept's exploit stage beside exploiter1's). Against batch 4's F on screen:
+  8-max F 5.754 vs 5.175, heads-up 7.540 vs 9.460, three-handed 7.142 vs 8.573.
+- Z = blind-vs-blind 3-bet prior 0.15 (the defence from the first blind-vs-blind 3-bet), a probe read (a seat that
+  bets into us often after we check), one bet size for value and bluffs (`balance_sizes`). Screen against batch 4:
+  exploit2_hu +0.307 ± 0.149 and exploit2_3 +0.237 ± 0.143 UP; exploiter1 cells +0.09 to +0.11; night -0.015;
+  guards, elite level; variants level at 50 seeds. Z + C7 compose (mirror +0.431 UP). Still loses heads-up to
+  exploiter2 (about 7.85 vs 9.15). Not kept: a combined wide-bettor read (+0.66 heads-up against exploiter2 but
+  -0.41 against exploiter1), bb_defend, 4-bet caps. Open: our BB folds ~70% to exploiter2's c-bet; a light
+  blind-vs-blind 4-bet that folds to its jam (about 14.5 bb, 1.4 times a heads-up table; `r3.v3_bvb_cont` unmeasured).
+- F identical after the merge (14 cells). Z on H7 (26000-26399), --aim exploit, all stages; bonus_card at 200 seeds
+  decides the one-size risk (0.5 pot includes the dry c-bet that lost there).
