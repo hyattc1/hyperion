@@ -136,6 +136,14 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.bb_defend` | `False` | big blind facing one raise and no caller, not committed: also call when equity against the opener's range times bb_real beats the price (so the range widens against a small open); off = as built (bottom half folds at any price) |
 | `r3.bb_real` | `0.75` | share of its equity the big blind realises out of position |
 | `r3.bb_margin` | `0.0` | equity over the price a big-blind call needs |
+| `r3.l3_on` | `False` | facing one open and no caller, deep: also 3-bet a hand inside l3_max_pct when the opener's read fold-to-3-bet (a prior, then its folds per 3-bet faced in completed hands) times the folds of the seats still behind pays for the raise |
+| `r3.l3_prior` | `0.6` | prior fold-to-3-bet of an opener (the tuning fields' openers fold 0.43-0.9; a low prior waits for evidence) |
+| `r3.l3_prior_n` | `6.0` | weight of that prior, in 3-bets faced |
+| `r3.l3_min_n` | `0.0` | 3-bets the opener must have been seen facing before a light 3-bet |
+| `r3.l3_min_fold` | `0.65` | the opener's read fold-to-3-bet from which a light 3-bet is considered |
+| `r3.l3_max_pct` | `0.35` | light 3-bets only with hands inside this share of rival 3's preflop ranking |
+| `r3.l3_lose` | `0.75` | share of the raise lost when the light 3-bet is not folded to (called or 4-bet) |
+| `r3.l3_min_bb` | `25.0` | effective depth in big blinds from which a light 3-bet is considered |
 
 The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"exploit": null}` turns the layer off):
 
@@ -339,6 +347,23 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `postflop.wide_bettor_slope` | 1.5 |
 | `postflop.wide_bettor_prior` | 0.4 |
 | `postflop.wide_bettor_n` | 4.0 |
+| `postflop.size_read` | 0.0 |
+| `postflop.size_read_n0` | 8.0 |
+| `postflop.size_read_margin` | 0.03 |
+| `postflop.size_read_evid` | False |
+| `postflop.size_read_raise` | 2.0 |
+| `postflop.size_read_pool` | False |
+| `postflop.size_read_rank` | 0.0 |
+| `postflop.size_read_rank_streets` | 7 |
+| `postflop.size_read_rank_by_street` | False |
+| `postflop.size_read_rank_mix` | 1.0 |
+| `postflop.size_read_call_tier` | 0 |
+| `postflop.size_read_min_alive` | 0 |
+| `postflop.xr_shift` | 0 |
+| `postflop.xr_max` | 0.04 |
+| `postflop.xr_prior` | 0.02 |
+| `postflop.xr_n0` | 10.0 |
+| `postflop.xr_streets` | 7 |
 | `postflop.flush_tier_shift` | 0 |
 | `postflop.straight_tier_shift` | 0 |
 | `postflop.draw_outs_mult` | 1.0 |

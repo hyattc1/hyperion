@@ -115,3 +115,10 @@ def test_rank_prior_reads_a_two_size_bettor_as_polarised_and_a_one_size_bettor_a
     p.szc[2][0][1] = 200  # one size: its bets are its whole betting range
     whole = Postflop._rank_prior(p, 2, 0, 1, 5.0)
     assert max(abs(a - b / sum(POP_BET[0])) for a, b in zip(whole, POP_BET[0])) < 0.05
+
+
+def test_short_handed_gate_turns_the_size_read_off_heads_up():
+    d = {"hero.postflop.size_read": 1.0, "hero.postflop.size_read_rank": 5.0, "hero.postflop.size_read_min_alive": 4}
+    r = Rules(n_players=2, payouts=(10, 7))
+    names = ["hero", "rival1"]
+    assert _digest(d, 1, names, r)[0] == _digest({}, 1, names, r)[0]  # never three or more alive: F's own play

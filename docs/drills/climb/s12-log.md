@@ -146,8 +146,8 @@ ten cells about four hours); the intervals are therefore about ±0.15 (8..1) and
 | night | +0.042 ± 0.144 | +1.110 ± 1.722 |
 | realistic | **+0.181 ± 0.148** | **+2.108 ± 1.564** |
 | night_hard | +0.022 ± 0.155 | +0.288 ± 1.587 |
-| top | +0.021 ± 0.143 | (running) |
-| elite | **-0.236 ± 0.161** | (running) |
+| top | +0.021 ± 0.143 | +0.491 ± 1.556 |
+| elite | **-0.236 ± 0.161** | -0.282 ± 1.332 |
 
 Read: **reading faster with today's reads is worth little, and loses at the strongest table.** Perfect long-run
 knowledge of every per-seat stat F keeps, from hand 0, gains beyond noise only on realistic (a weak-heavy room: two
@@ -155,3 +155,122 @@ Monte Carlo bots that time out, a bot that breaks, a loose student) and is level
 beyond noise down: F's responses to its reads (archetype dials, steals by fold reads, call-down dials) are sized for
 weak seats, and acting on them at full strength from the first hand costs against prepared bots, as `dead_seats`
 did in F1 (-0.160 at elite). The value is not in reading sooner but in reading what F does not read yet.
+
+## 07:00-07:10: three candidate reads, each a dial, off by default (0db5695)
+
+- **`hero.postflop.size_read`** (Hero's postflop, which plays every postflop decision of F): facing a single bet heads-up
+  (or a raise of my bet), the bettor's range for a bet of that size is a tier histogram: a prior worth
+  `size_read_n0` (8) bets plus the bettor's own bets of that size whose cards were shown (counted at hand end from the
+  showdown, `Profiler._size_end`). Equity against it is a tier race (a higher tier wins 0.78 / 0.86 / 0.97 of the
+  time on the flop / turn / river, an equal tier splits). The call decision blends F's own (proxy equity - margin
+  against pot odds) with this one (read equity - 0.03) at weight `size_read`. Size buckets of the pot before the bet:
+  under 0.4, 0.4-0.6, 0.6-0.85, 0.85-1.2, over 1.2 (all-ins included), and a raise. Prior (`SIZE_PRIOR`): the survey's
+  population histogram per street and bucket.
+- **`hero.postflop.xr_shift`**: heads-up, nothing to call, the opponent checked to me this street and its check-raise
+  rate (prior 0.02 worth 10 chances) is at most 0.04: value-bet `xr_shift` tiers thinner.
+- **`r3.l3_on`** (rival 3's core, which plays F's preflop): facing one open and no caller, at least 25 bb deep, with a
+  hand inside rival 3's top 35%: 3-bet to 3x + 1 bb when the opener's read fold-to-3-bet (prior 0.6 worth 6 3-bets;
+  `o3_scan` counts every opener's reply to any 3-bet) is at least 0.65 and f x (the pot) > (1 - f) x 0.75 x (the
+  raise), f including the folds of the seats behind (rival 3's own fold reads).
+
+Counters only when a dial reads them (`Profiler.track_s12`), so F as shipped pays nothing; tests in
+tests/test_s12_reads.py (each dial reaches decisions; counters count; off counts nothing; a table replays exactly).
+
+## 07:20-07:45: oracle tests (screen seeds 10000-10099 x 8; F's cells shared)
+
+`oracle.py`: the candidate's dials with that read's true answer per opponent identity installed at table start (from
+the survey's simulator truth, every bet with its cards, not just showdowns). "Learned" is the same dial reading as it
+ships. cand - F, paired:
+
+| read | dials | night | top | elite |
+|---|---|---|---|---|
+| bet size against strength, **oracle** | size_read 1.0 | +0.102 ± 0.132 | **+0.228 ± 0.153** | **+0.280 ± 0.168** |
+| bet size, learned (population prior per size + showdowns) | size_read 1.0 | -0.027 ± 0.116 | -0.113 ± 0.206 (50 seeds) | (stopped) |
+| fold to a 3-bet, **oracle** (light 3-bets) | l3_on | +0.058 ± 0.093 | +0.084 ± 0.141 | +0.023 ± 0.121 |
+| check-raise rate, learned (no oracle needed: 0-1% for nearly every seat) | xr_shift 1 | +0.016 ± 0.061 | (running) | |
+
+Read: **the bet-size read is the one worth points**: with the true size-to-strength map per bot it gains beyond noise
+at both strong tables, where the rivals and the elite builds bet two sizes that name their hand. A population map
+per size does not hold online: one-size bots (tag, loose_aggro, the Monte Carlo bots) and two-size bots share no
+histogram, and showdowns come too slowly to tell them apart (a seat shows down a handful of its bets a table). Next:
+learn the map from what is always visible, the seat's own bet-size shares (`size_read_rank`).
+
+## 07:40-07:55: why warm reads lose at the elite table (one store warm at a time, elite, 100 x 8)
+
+| warm store | warm - cold |
+|---|---|
+| all four (above) | **-0.236 ± 0.161** |
+| Hero's profilers only (archetype and call-down / bluff / steal dials; postflop) | +0.022 ± 0.095 |
+| the front exploit layer only (steal by fold reads, bet when checked to) | -0.054 ± 0.119 |
+| rival 3's core reads only (preflop: steal fold equity, opens against 3-bettors, VPIP/PFR ranges) | -0.112 ± 0.169 |
+
+The loss is in the preflop reads: rival 3's core and the layer act on fold and 3-bet rates measured over whole
+tables (where the elite builds have adapted to F) from the first hand, and steal and open into bots that defend.
+Hero's postflop dials are neutral. So "read faster" is not the lever at strong tables; if anything F's preflop
+reads should wait longer there (consistent with F1's `dead_seats` at elite, -0.160).
+
+## 07:45-07:55: learning the size map online
+
+The learned read with the population's map per size did not hold (above). Two learners from bet sizes alone
+(always visible, unlike showdowns), each a slice of a population tier distribution:
+- **A (`size_read_rank`)**: a seat's bet of size b is the slice of the population's *betting* range (weakest first)
+  that its smaller sizes leave below, as wide as its share of bets of size b (shares shrunk toward the population's
+  with 5 bets; pooled over streets, or per street with `size_read_rank_by_street`). A two-size bot's small bets read
+  as its weak bets; a one-size bot reads as the whole betting range.
+- B (offline only): the top r of the street's whole hand distribution, r the seat's bet-when-checked-to rate.
+
+Offline against every bot's true map (`fitrank.py`, the survey's truth; mean |eq - true eq| over tiers 2-4, weighted
+by bets): flop: population map 0.064, A pooled 0.054, A by street 0.048, B 0.076; turn: 0.083 / 0.098 / 0.120 /
+0.108; river: 0.117 / 0.192 / 0.182 / 0.187. A wins on the flop (c-bets: rival 1-3, pushfold, tag, the Monte Carlo
+bots), the population map on later streets (where rivals' small bets are value). B is out.
+
+**Learned, A pooled (`size_read` 1.0, `size_read_rank` 5), screen 10000-10099 x 8:** night +0.025 ± 0.129, top
++0.115 ± 0.155, **elite +0.230 ± 0.146** (beyond noise up). Most of the oracle's gain at the elite table (+0.28),
+half of it at top (+0.23), a quarter on night (+0.10). This is the candidate (C1); the flop-only hybrid (A by street
+on the flop, the population map later: `size_read_rank_streets` 1, `size_read_rank_by_street`) fits the truth
+better offline but was not measured (no compute left for it).
+
+## 08:00: the blend (C2) and the overlap with S11
+
+Offline by opponent group (mean |eq error|; `fitrank.py`): night-type bots (agent builds, Track B, Monte Carlo, the
+decent archetypes) population map 0.076, A pooled (C1) **0.100**, A by street on the flop only 0.074, half A pooled
+and half the population map 0.074; strong bots (rivals, elite builds, hero_tight) 0.074 / 0.064 / 0.056 / **0.052**.
+C1's rank slice is worse than the population map against the agent and Track B builds (their small bets are not
+their weak bets), which is where night's level result comes from. `size_read_rank_mix` 0.5 (4260f66) blends the two
+priors; C2 = C1 + mix 0.5 is measured on night, top and elite after C1's screens.
+
+**Overlap with S11** (climb/s11-exploiter2-fixes, read only): S11's wide-bettor read (probe / c-bet / free-bet rates)
+edits the same facing-a-bet block of `Postflop.act` (eq, margin, a lower raise tier, a probe bluff-raise) and
+PostflopParams. A textual conflict at the raise check is likely; the resolution keeps S11's block first, then the
+size read's block, then F's call rule. With both on, the size read blends against F's decision with S11's eq and
+margin (weight 1 - size_read), so at size_read 1.0 it overrides S11's call margin; the pair must be measured together.
+
+## 07:55-08:45: C1's screens (code 36818ca, screen seeds 10000-10199 x 8)
+
+C1 = `{"hero.postflop.size_read": 1.0, "hero.postflop.size_read_rank": 5.0}`. climb_accept stages confirm, guards,
+elite, exploit (`warm_accept.py` passes dials specs straight to tools/climb_accept.py; F's chunks shared):
+
+| cell | F | C1 | C1 - F | |
+|---|---|---|---|---|
+| night | 5.973 | 5.947 | -0.026 ± 0.089 | level |
+| night_hard | 5.485 | 5.562 | +0.077 ± 0.106 | level |
+| realistic | 6.346 | 6.351 | +0.004 ± 0.087 | level |
+| top | 5.035 | 5.143 | **+0.108 ± 0.107** | UP |
+| night @10/7/5/4/3/2/1/0 | 6.159 | 6.244 | +0.085 ± 0.154 | level |
+| night @50/25/12/6/3/2/1/1 | 24.443 | 24.549 | +0.106 ± 0.949 | level |
+| night, doubling blinds | 5.828 | 5.778 | -0.050 ± 0.085 | level |
+| elite | 4.681 | 4.959 | **+0.277 ± 0.105** | UP |
+| elite_night | 5.329 | 5.556 | **+0.227 ± 0.098** | UP |
+| exploit (8-max, exploiter1) | 4.999 | 4.962 | -0.037 ± 0.146 | level |
+| exploit_hu | 8.005 | 7.720 | **-0.285 ± 0.146** | DOWN |
+| exploit_3 | 7.027 | 6.743 | **-0.283 ± 0.153** | DOWN |
+
+Read: C1 gains at every strong table (top, elite, elite_night) and is level on night and the weak-heavy rooms, but it
+**loses exploit resistance short-handed**: exploiter 1 heads-up and three-handed takes 0.28 more off it. Why
+(`flips.py` on exploit_hu, 20 x 2 tables, the read against F's own rule on the same spots): (1) facing bets under
+0.4 pot the read calls 142 times with tier 0 (no pair, no draw) where F folds: equal tiers split in the tier race,
+and against a range that is two thirds air an unpaired hand "splits" too often; (2) exploiter 1 bets three sizes,
+the two smaller both mostly air (0.4-0.6 pot: 54% air), and the rank slice reads its middle size as medium-strong, so
+the read folds tier 2-3 hands there that F called (57 + 45 spots). Fixes, both dials (c56d1e2): the blend with the
+population map (`size_read_rank_mix` 0.5: the population's 0.4-0.6 bets are 43% air) and a floor (`size_read_call_tier`
+2: the read turns a fold into a call only with a pair or better). C3 = C1 + both.

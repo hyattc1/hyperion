@@ -211,6 +211,8 @@ class PostflopParams:
     size_read_rank_by_street: bool = False  # the seat's size shares on this street only (not pooled over streets)
     size_read_rank_mix: float = 1.0  # the prior is this share of the rank slice plus the rest of SIZE_PRIOR's map
     size_read_call_tier: int = 0  # the read turns a fold into a call only from this tier (2: a pair; not with air)
+    size_read_min_alive: int = 0  # the read plays only with at least this many players alive (short-handed ranges
+    #                               widen, and a bot built against us sizes its bets its own way: S12, exploiter 1)
     # xr_shift: heads-up, nothing to call, the opponent checked to me on this street and its check-raise rate (prior
     # xr_prior worth xr_n0 chances) is at most xr_max: value-bet this many tiers thinner (a checked range with no
     # check-raises holds few strong hands)
@@ -837,7 +839,8 @@ class Postflop:
             self.last = "raise"
             return self._bet(spot, p.raise_size, eq=eq)
         if p.size_read > 0.0 and n_opp == 1 and bettor >= 0 and prof is not None and not cheap and 1 <= street <= 3 \
-                and board2 is None and not must_use and self.wild_rank < 0 and not self.low:
+                and board2 is None and not must_use and self.wild_rank < 0 and not self.low \
+                and (p.size_read_min_alive <= 2 or obs.players_left >= p.size_read_min_alive):
             sr = self._size_eq(spot, prof, bettor, street, tier)
             if sr is not None:
                 eq_r, w = sr
