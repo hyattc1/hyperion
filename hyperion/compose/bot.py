@@ -234,7 +234,9 @@ class PersonaMember(KitMember):
     every table start, as the bestiary's _EliteBot does, so a table replays exactly. Plain hold'em only, like every raw
     rival. Backlog S9: a section of F can be routed to one of them (donors `elite1`, `elite2`; `...x` with the layer)."""
 
-    nolimit_only = True  # built for no-limit: on a pot- or fixed-limit table the composite plays the base instead
+    # built for plain no-limit hold'em and blind to every twist: on a table that is not hold'em by Hero's test
+    # (hero.holdem_table: only payouts, blinds, antes or a straddle may differ) the composite plays the base instead
+    holdem_only = True
 
     def __init__(self, impl, seed):
         super().__init__(impl, history_at_end=True)
@@ -431,9 +433,10 @@ class CompositeCore:
         self._rr_reset()
         self.donors = donors
         self.plain_only = [bool(getattr(m, "plain_only", False)) for m in self.members]
-        # members built for no-limit only (the elite builds: their jams would be clamped to a pot-limit raise)
-        self._nl_only = [bool(getattr(m, "nolimit_only", False)) for m in self.members]
-        self._no_nl = [False] * len(self.members)  # per member: plays the base here (this table is not no-limit)
+        # members built for plain hold'em only (the elite builds: twist-blind, and their jams would be clamped to a
+        # pot-limit raise): on a twist table the base plays their sections
+        self._h_only = [bool(getattr(m, "holdem_only", False)) for m in self.members]
+        self._no_h = [False] * len(self.members)  # per member: plays the base here (this table is not hold'em)
         self.resync = [RESYNC.get(n) for n in names]
         self._rs_idx = [j for j, r in enumerate(self.resync) if r is not None]
         self.light = [LIGHT.get(n) if cfg.light else None for n in names]
@@ -489,8 +492,11 @@ class CompositeCore:
         b = self.base
         self.plain = getattr(b, "_table_why", None) is None and not getattr(b, "_straddle", False) \
             and is_identity_order(rules)
-        nl = getattr(rules, "betting", "nolimit") == "nolimit"
-        self._no_nl = [x and not nl for x in self._nl_only]
+        if any(self._h_only):
+            from ..strategy.hero import holdem_table
+
+            h = holdem_table(rules)
+            self._no_h = [x and not h for x in self._h_only]
         if self.ex is not None:
             self.ex.new_table(n_players, seat)
 
@@ -550,7 +556,7 @@ class CompositeCore:
                 mi, layer = self._force
         if self.panic:  # SafeBot saw repeated overruns: the base alone (Hero's cheap path) for the rest of the table
             mi, layer = 0, True
-        elif mi and self.plain_only[mi] and (not self.plain or self._no_nl[mi]):
+        elif mi and self.plain_only[mi] and (not self.plain or self._no_h[mi]):
             counts["fallback:plain"] += 1
             mi = 0
         members, resync = self.members, self.resync
