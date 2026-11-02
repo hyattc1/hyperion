@@ -7,6 +7,8 @@ the current ship on the frozen protocol's seeds and fields, and prints the verdi
     .venv/bin/python tools/climb_accept.py --cand ... --set judge --stages judges
     .venv/bin/python tools/climb_accept.py --stages window --base dead_seats --cand dead_seats+survival \
         --rules submission/rules_tonight.json [--variant NAME] --workers 4          (a window, prompt 06)
+    .venv/bin/python tools/climb_accept.py --stages window --base '' --cand '' --rules ... (at the freeze: F cached,
+        so the first window plays only its candidate)
 
 Specs are {"bot": NAME} for a registered bot, or {"dials": {...}}: the composite with these dials ON TOP OF the shipped
 SHIP_DIALS, as hyperion.ship builds it, so {"dials": {}} is the shipped F (the default base). Note: tools/swap.py
@@ -198,12 +200,13 @@ def cell_path(out: str, key: str, cell) -> str:
 
 def run_cells(out: str, specs: dict, cells: list, lo: int, hi: int, workers: int) -> None:
     """Run every (spec, cell, chunk) not yet cached."""
-    jobs = []
+    jobs, seen = [], set()
     for name, (key, spec) in specs.items():
         for field, pay, rules_name, variant in cells:
             for off in range(lo, hi, CHUNK):
                 p = cell_path(out, key, (field, pay, rules_name, variant, off))
-                if not os.path.exists(p):
+                if not os.path.exists(p) and p not in seen:  # base == cand (warming the cache) runs once
+                    seen.add(p)
                     jobs.append((key, name, spec, field, pay, rules_name, variant, off, min(CHUNK, hi - off)))
     if not jobs:
         return
