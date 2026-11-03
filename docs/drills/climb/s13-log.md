@@ -614,3 +614,11 @@ exploit2 gain (+0.012 for S6) is given up.
 Latency (latency.py --hand-end --reps 3 --tables 12, per-call minimum, load 15.3-15.8, F / S7, µs): exploit2_hu act
 p99 96.2 / 99.5, max 111.7 / 130.3, hand_end p99 90.8 / 89.4; mirror act p99 114.3 / 122.3, max 143.4 / 191.4,
 hand_end p99 142.2 / 138.1. Nothing near 1 ms.
+
+Full suite at bd79f81 (load 15-18 from other runs): 1,429 passed, 6 skipped, 22 failed. Alone, 14 of the 22 pass. Of the 8
+left, 6 fail the same way on a clean main checkout at the same load (kit D's three-hole-card run and the seeded drill
+pick: wall-clock timeouts; the gate's history-dropping package; the three exploit fields' model-mode replays, where
+Hero's seat diverges between two runs when a clock fires). The other two are wall-clock budgets: test_sim_bestiary's
+under-budget check fails for a different bot on each run on both trees (rob_mc, then elite5, elite3, exploiter2,
+bounty_mc and short_mc; main: two others), and the pack test's import took 1.25 s against its "import 0." check. My
+tests (tests/test_s13_short.py, 16) pass, and F's own play is untouched (the new dials are off by default).
