@@ -271,3 +271,12 @@ Verdict (`--aim night`): **REJECT**. Confirm: night level, not up. Guards none d
 down (three_card_keep, auction; both just past the interval), so not addendum 7's lone-cell
 replication case either. Exploit: two down (exploit, adapt; section 3.2). 23 of 26 variant cells moved by less than
 0.03. The catalog took 108 minutes at host load 16-56 (3 workers, started before the coordinator capped runs at 2).
+
+## 4. Tests at the final code (fcb06d6)
+
+Full suite at host load 11-20: 1,336 passed, 13 failed, all wall-clock ones (per-bot p99 budgets in a mixed field, the
+cheap bot's kit_d round trip, the gate's measure-mode timeouts, a drill checkpoint, the slow-box pairing, and the
+"replay exactly in model mode" tests, whose Hero panics on the wall clock under load). The replay test that still
+failed alone (test_sim_outside, elite and judge fields: Hero's samples differ between two identical runs) fails the
+same way on main 11cc61f in its detached worktree at the same time (3 of 7 cells), so it is the load, not this branch.
+tests/test_s18_horizon.py: 10 tests, all pass.
