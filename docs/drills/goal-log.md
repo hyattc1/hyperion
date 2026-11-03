@@ -846,3 +846,18 @@ and (in judges) `elite_judge`.
   table start inside a decision (Adapter.decide starting the bot lazily: 67 ms CPU for three hole cards). It now runs
   under tables.quick_start(): no disk, no build inside a decision.
 - Identity after the merge: 15 cells identical.
+
+## 00:33: owner's questions: red-team notes, copying rival 2, a new research pass
+- Red-team write-ups: from now on a red-team brief asks for a running lab notebook (each arena run's command, seeds,
+  numbers and the frequencies observed, appended as they happen), written as poker strategy notes, so a final
+  summary is never the only record. Exploiter 3's data survived anyway (its bot, its ablation log, its arena logs).
+- Copying rival 2 wholesale was measured when F's base was chosen: rival 2's core (hybrid_x) was ahead at strong
+  tables (top +0.36, top2 +0.51, strong +0.26 over Hero then) and behind on realistic (-0.18, -0.36 under the brief's
+  points) and on the judge (5.66 vs hybrid3_x 6.21). So its play goes in where it is better, at tables that read
+  strong: batch 5's strong route (elite1, a similar strong build) and S14 (rival 2, elite2, elite4 by section).
+- Research pass (four researchers, notes in docs/research/notes/Edges against strong opponents/): professional
+  SNG and tournament play against strong fields; poker AI literature (Libratus, Pluribus, DeepStack, ReBeL, Slumbot,
+  ACPC, push/fold and ICM endgames, lite strategies); opponent modelling and safe exploitation in short samples;
+  competition winners (MIT pokerbots and others). Each ends with testable ideas; they feed the next rounds.
+- Start-vs-now: the starting F's settings on today's code (start_off.json: every dial added since d3a7ca5 at its
+  default) against batch 5, on H17 (37000-37399), every stage but judges.
