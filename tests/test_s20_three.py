@@ -33,6 +33,7 @@ def _keys(root, mod):
 
 
 def test_the_second_tree_has_the_new_lines():
+    pytest.importorskip("numpy")  # the tree's flop terminals carry numpy matrices (the solver is offline only)
     mod = _solver()
     nodes = _keys(mod.three_tree2([40, 40, 40], 0.4)[0], mod)
     assert nodes[""].acts == ["f", "r", "j"] and nodes[""].sizes == {"r": 2.25}  # the button: no limp
@@ -200,3 +201,23 @@ def test_f_builds_no_specialist_and_the_new_dials_are_off():
     assert SH.ShortParams().three2 is False and CB.ComposeConfig().short_strong is False
     # the gate alone (no route) changes nothing
     assert _digest({"short_strong": True}, 2, THREE, R3)[0] == _digest({}, 2, THREE, R3)[0]
+
+
+@has_table
+def test_keep_the_defence_and_the_roles():
+    m = SH.ShortMember(SH.ShortParams(three2=True, defer_3bet=1.0, three2_keep_defence=True, three2_roles="btn,sb"))
+    m.new_table(R3, 0, 3)
+    m.light_observe(_obs([], bets=(0, 10, 20), stacks=(800, 790, 780), to_call=0, seat=0))
+    first = _obs([], bets=(0, 10, 20), stacks=(800, 790, 780), to_call=20, seat=0)
+    assert m.wants(first, None)  # the button's first decision: the tables'
+    # we opened, the small blind 3-bet: once our raise is re-raised, F's defence plays
+    o = _obs([(0, Action.raise_to(45)), (1, Action.raise_to(110)), (2, Action.fold())], bets=(45, 110, 20),
+             stacks=(755, 690, 780), to_call=65, seat=0, in_hand=(True, True, False))
+    assert m._three_node2(o) is not None and not m.wants(o, None)
+    # the big blind's seat is not in three2_roles: F plays it
+    m2 = SH.ShortMember(SH.ShortParams(three2=True, defer_3bet=1.0, three2_roles="btn,sb"))
+    m2.new_table(R3, 2, 3)
+    m2.light_observe(_obs([], bets=(0, 10, 20), stacks=(800, 790, 780), to_call=0, seat=2))
+    o2 = _obs([(0, Action.raise_to(45)), (1, Action.fold())], bets=(45, 10, 20), stacks=(755, 790, 780),
+              to_call=25, seat=2, in_hand=(True, False, True))
+    assert m2._three_node2(o2) is not None and not m2.wants(o2, None)

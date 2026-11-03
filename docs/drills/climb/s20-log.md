@@ -270,3 +270,9 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
   decisions), with two pool seats +0.410 against +0.388. Small either way on these seeds (the screen's -0.047 ±
   0.030 is near its bound); exploiter 2's 3-bet read (0.08) does not separate it, and its postflop probe read is
   S13c's gate (being changed on climb/s13c-gate), so it is not used here.
+- 17:32 **GK25** (G + keep the defence + `short.defer_3bet` 0.25), seeds 10000-10099, exploit + elite
+  (`q/026_GK25100.out`, code ff07018): **one cell down**. elite +0.027 ± 0.021 UP, elite_b +0.027 ± 0.022 UP, mirror_b
+  +0.034 ± 0.019 UP, mirror +0.002, elite_night +0.003; exploit -0.046 ± 0.054 (GK -0.102), exploit_3 -0.113 ± 0.140,
+  exploit3 +0.043, exploit3_3 +0.117, exploit2_3 +0.045, adapt -0.026, adapt_3 -0.023 (all level); **exploit2 -0.052
+  ± 0.029 DOWN** (exploiter 2 5.048 -> 5.045: the pool seats). W +0.0070 ± 0.0156, W-min -0.0002 ± 0.0205. The 3-bet
+  guard at 0.25 takes exploiter 1 off the tables at 8-max (exploit -0.10 -> -0.05).
