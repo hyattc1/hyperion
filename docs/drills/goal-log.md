@@ -1063,3 +1063,13 @@ and (in judges) `elite_judge`.
 - H6 (goal/wt_h6): a process-kit (JSON lines) entry and gate-seat template; no hand-end work for the base's fallback
   Hero on tables the hero member plays whole (play identical); the must-use path plays the flop in general (Solo as a
   variant file); table generation preset, progress and resume; pack.py's import budget and both size caps.
+
+## 08:23: S15c accepted on H19; batch 6's combined check and judges started
+- H19 (39000-39399), base batch 5, --aim exploit, every stage (12 exploit cells), 293 min at load 17-45:
+  exploit3_hu +0.135 ± 0.073, exploit2_hu +0.105 ± 0.071, exploit2_3 +0.090 ± 0.045, adapt_hu +0.049 ± 0.043 UP;
+  exploit_hu -0.049 ± 0.085 (the screen's watch cell) and every other cell level. ACCEPT. H19 used once.
+- Batch 6 = V-f (H15) + S6 (H16) + V-h (H18) + S15c (H19), 19 dials (goal/b21/b6.json). Combined against batch 5 on
+  H20 (40000-40399), every stage; judges once on the judge set (now with elite_judge_b, adapt_judge*, outside_b) and
+  timing; both detached. The SHIP_DIALS and test change is staged on climb/batch6 (a worker).
+- Load reached 45 (my workers plus the owner's other project's tests): start-vs-now paused with SIGSTOP (resumes
+  exactly), workers asked to cap at 2 processes.
