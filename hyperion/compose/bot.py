@@ -392,6 +392,11 @@ class ComposeConfig:
     short_route: dict = field(default_factory=dict)
     short_alive: int = 3
     short_params: dict = field(default_factory=dict)  # the specialist's dials (strategy.short.ShortParams)
+    # V-f: the hold'em-only members (the elite builds, twist-blind) may also play their sections on tables of these
+    # one-step twist families (hero.TWIST_FAMILIES: "bounty,knockout,buy,swap"), where their play stays as right as the
+    # base's: the base's core plays the table too (two hole cards; the families Hero plays whole, discard and exposed,
+    # stay the base's whatever is listed) and is blind to the same twist. "" = hold'em tables only
+    strong_route_twists: str = ""
     seed: int | None = None
 
 
@@ -406,6 +411,10 @@ def compose_config(route=None, seed=None, **kw) -> ComposeConfig:
                 raise KeyError(f"unknown section {sec!r}")
             if d not in DONORS:
                 raise KeyError(f"unknown donor {d!r} for {sec}; known: {', '.join(DONORS)}")
+    if cfg.strong_route_twists:
+        from ..strategy.hero import twist_families
+
+        twist_families(cfg.strong_route_twists)  # an unknown family fails here, not at a table start
     if cfg.base_donor not in DONORS or DONORS[cfg.base_donor][0] != "base":
         raise KeyError(f"base_donor must be a donor of the base member, got {cfg.base_donor!r}")
     for lv in degrade_levels(cfg.degrade):
@@ -523,9 +532,11 @@ class CompositeCore:
         self.plain = getattr(b, "_table_why", None) is None and not getattr(b, "_straddle", False) \
             and is_identity_order(rules)
         if any(self._h_only):
-            from ..strategy.hero import holdem_table
+            from ..strategy.hero import holdem_table, twist_families, twist_family
 
             h = holdem_table(rules)
+            if not h and self.cfg.strong_route_twists:
+                h = twist_family(rules) in twist_families(self.cfg.strong_route_twists)
             self._no_h = [x and not h for x in self._h_only]
         if self.ex is not None:
             self.ex.new_table(n_players, seat)

@@ -231,6 +231,10 @@ class PostflopParams:
     # S11's probe read and balanced sizes only on hold'em tables (hero.holdem_table): they were built and measured
     # against hold'em exploiters, and the one size cost against short-deck-aware opponents (held-out H7)
     s11_holdem_only: bool = False
+    # ... and on the one-step twist families listed here as well ("discard,bounty,knockout,buy,swap,exposed";
+    # hero.TWIST_FAMILIES, V-f), where the twist's information is respected: the probe read skips a bettor whose bet
+    # the twist explains (_twist_read_off). "" = hold'em only, as s11_holdem_only says
+    s11_twists: str = ""
     # ... only heads-up against a seat that raises my heads-up flop and turn bets at a smoothed rate (prior 0.12 worth
     # 5) above balance_from: the reader of sizes shows itself by raising the small ones. 1.0 = off
     balance_from: float = 1.0
@@ -260,6 +264,8 @@ class PostflopParams:
     size_read_min_alive: int = 0  # the read plays only with at least this many players alive (short-handed ranges
     #                               widen, and a bot built against us sizes its bets its own way: S12, exploiter 1)
     size_read_holdem_only: bool = False  # ... and only on hold'em tables (hero.holdem_table: a twist turns it off)
+    # ... and on the twist families listed here as well (as s11_twists; never for a bettor _twist_read_off names)
+    size_read_twists: str = ""
     # evidence gates (S12b, docs/drills/climb/s12-log.md; thresholds set before screening). Per seat: read a bettor only
     # once it has shown size_read_min_buckets size buckets with size_read_min_bets bets and size_read_min_share of its
     # bets each (0 = off); size_read_skip_weak: never a seat flagged dead, station, maniac or random. Per table: only
@@ -337,6 +343,13 @@ class Postflop:
         self.curve = _Linear()  # Hero installs its ICM curve; chip EV otherwise
         self.low = False
         self._holdem = True  # a hold'em table (Hero sets it per table: hero.holdem_table)
+        from .hero import twist_families
+
+        self._sr_tw = twist_families(params.size_read_twists)  # V-f: the families the size read reaches
+        self._s11_tw = twist_families(params.s11_twists)  # ... and S11's probe read and one size
+        self._family = None  # this table's twist family (hero.twist_family; Hero sets it per table), None = none
+        self._tw = None  # the family whose information the reads respect: set only off hold'em, where a dial reaches
+        self._sr_on = True  # the size read may play here (size_read_holdem_only, size_read_twists)
         self.wild_rank = -1  # canonical rank index of the wild card, -1 = none
         self.flush_over_full = False
         self.short = False  # short deck: A-6-7-8-9 a straight, its straights' outs, five flush outs, outs x SD_OUT_SCALE
@@ -351,8 +364,53 @@ class Postflop:
     @holdem.setter
     def holdem(self, v: bool) -> None:
         self._holdem = bool(v)
+        self._pick()
+
+    @property
+    def family(self):
+        return self._family
+
+    @family.setter
+    def family(self, f) -> None:
+        self._family = f
+        self._pick()
+
+    def _pick(self) -> None:
+        """The table's params and gates from hold'em and the twist family (V-f's dials; empty = hold'em only)."""
+        h, fam = self._holdem, self._family
+        sr = fam is not None and fam in self._sr_tw
+        s11 = fam is not None and fam in self._s11_tw
+        self._sr_on = h or sr
+        self._tw = None if h or not (sr or s11) else fam
         if self.p is self._p_all or self.p is self._p_twist:  # s11_holdem_only: the twist copy off hold'em
-            self.p = self._p_all if self._holdem else self._p_twist
+            self.p = self._p_all if (h or s11) else self._p_twist
+
+    def _twist_read_off(self, spot: Spot, bettor: int) -> bool:
+        """On a twist family's table (V-f), a bettor whose bet the twist itself explains, so a read of its sizes or its
+        stabs built on hold'em does not apply: under `buy` a seat holding a bought card (bonus_card's `bought`, the
+        auction's `auction_winners`: a stronger, three-card range); under `bounty` a seat whose bounty rank shows on
+        the board (any pot it wins pays it more, so it bets for the pot, not for its hand; private bounties: no
+        test); under `knockout` a bet that puts me all-in (the bettor bets for the knockout point too)."""
+        fam = self._tw
+        if fam is None:
+            return False
+        obs = spot.obs
+        ex = obs.extras or {}
+        if fam == "buy":
+            b = ex.get("bought")
+            if b and (b.get(bettor) or b.get(str(bettor))):
+                return True
+            w = ex.get("auction_winners")
+            return bool(w) and (bettor in w or str(bettor) in w)
+        if fam == "bounty":
+            bt = ex.get("bounties")
+            if not bt:
+                return False
+            r = bt.get(bettor, bt.get(str(bettor)))
+            return r is not None and any((c >> 2) == r for c in obs.board)
+        if fam == "knockout":
+            return spot.to_call >= obs.stacks[spot.me]
+        return False
 
     def set_mode(self, low: bool = False, wild_rank: int = -1, flush_over_full: bool = False,
                  short: bool = False) -> None:
@@ -931,7 +989,8 @@ class Postflop:
                     call_down = cd
         raise_tier = p.raise_tier
         wide_w = 0.0
-        if n_opp == 1 and bettor >= 0 and prof is not None and street <= 2 and not cheap:
+        if n_opp == 1 and bettor >= 0 and prof is not None and street <= 2 and not cheap \
+                and (self._tw is None or not self._twist_read_off(spot, bettor)):
             if obs.bets[spot.me] == 0 and (p.probe_from < 1.0 or p.cbet_from < 1.0 or p.wide_from < 1.0):
                 if bettor != prof.prev_aggressor(street):
                     fr, r = p.probe_from, (prof.probe_rate(bettor, p.probe_prior, p.probe_n) if p.probe_from < 1.0
@@ -987,7 +1046,8 @@ class Postflop:
         if p.size_read > 0.0 and n_opp == 1 and bettor >= 0 and prof is not None and not cheap and 1 <= street <= 3 \
                 and board2 is None and not must_use and self.wild_rank < 0 and not self.low \
                 and (p.size_read_min_alive <= 2 or obs.players_left >= p.size_read_min_alive) \
-                and (self.holdem or not p.size_read_holdem_only):
+                and (self._sr_on or not p.size_read_holdem_only) \
+                and (self._tw is None or not self._twist_read_off(spot, bettor)):
             sr = self._size_eq(spot, prof, bettor, street, t_eq if t_eq > 0 else 0)  # call_shift as F's own rule
             if sr is not None:
                 eq_r, w = sr
