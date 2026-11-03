@@ -1,10 +1,109 @@
-# R7: the all-in runout term in climb_accept (running log)
+# R7: the all-in runout term in climb_accept
 
 Branch climb/r7-runout, from main eecf4d8. Brief (coordinator, 2026-11-03): item 6 of docs/research/Edges against strong
 opponents.md (evidence in notes/.../poker_ai_literature.md §11). Implement the term as an option of climb_accept, off by
 default, then validate it before anyone uses it: zero mean on 400 screen-ish seeds (screen 10000-10199 plus our own
 50000+; never H1-H21, 20000-41399, or the judge set), the same verdicts on two known comparisons (batch 5 against batch
 4; S5, rejected), and the interval ratio per cell. Findings go at the top when done.
+
+## Findings (2026-11-03, 11:45)
+
+The checks pass. The term is unbiased as far as any of our measurements can resolve, it leaves both known verdicts
+where they were, and it narrows the climb's intervals by a median 1.30x. That is a variance cut of 1.7x, on top of
+duplicate deals and pairing, against the 1.07x the literature found for a chance-only correction on Pluribus' 6-max
+hands (poker_ai_literature §11). A draft protocol addendum is at the end of this section.
+
+1. **What it is.** `tools/climb_accept.py --runout-term` (off by default). For every hand whose last decision leaves
+   board cards to come with two or more players in, every seat alive at the hand has V(actual runout) - mean V over
+   the runouts the unseen cards allow subtracted from its points. V is the seat's ICM points on the post-hand stacks
+   over the cell's own payouts, with a seat busted in the hand given its place's points as the engine places it. Turn
+   and flop runouts are enumerated (at most 1,100); preflop draws 50 from `Random("runout/<seed>/<rotation>/<hand>")`.
+   The code is `tools/runout_term.py`: a Table subclass with read-only overrides, outside hyperion/. The engine's code
+   is untouched and climb_accept's code version stays c11b90b8ae, so merging invalidates no cache.
+2. **Play unchanged.** 211 term chunks have a plain chunk of the same key (27 of F's screen cells from S16's cache, and
+   the 50k night chunk of all three specs): about 42,000 tables, every raw sample identical. The table's three
+   generators are untouched (tested). climb_accept stops on any mismatch.
+3. **Zero mean.**
+   - Fast field (seven simple bots), 6,000 seeds of hold'em and 3,000 each of hi_lo, short_deck, omaha_four and
+     knockout_bounty: every bot's term is within ±0.01-0.02 points a table seed of zero. A lean for the station on
+     seeds 60000-62999 (the same deals under three deck-keeping rules) did not replicate on 66000-71999, event by event
+     and street by street.
+   - Real fields, each spec's term (per spec per cell): sum z^2 40.1 over 40 cells (batch 4) and 51.6 over 40 (F) in the
+     batch 5 run, 33.6 and 32.4 over 27 in the S5 run, 9.8 / 4.0 / 3.2 over 7 at 400 seeds. Batch 4's night_hard term,
+     z +2.75 at 400 seeds, was re-run on 400 fresh seeds (50200-50599): +0.009 ± 0.037, z +0.48.
+   - The paired term (cand - base, the part that can move a verdict): sum z^2 27.4 over 34 cells and 13.9 over 27
+     (screen), 10.0 and 3.5 over 7 (400 seeds), z +0.69 on the fresh night_hard seeds. No sign of bias.
+4. **Same verdicts.**
+   - Batch 5 against batch 4 (--aim strong, screen, every stage): ACCEPT raw, ACCEPT corrected, every check the same.
+   - S5 against F (--aim exploit, screen, every stage): REJECT raw, REJECT corrected. Raw rejects on realistic and
+     top_heavy down; corrected rejects on realistic and antes_from_level_3 down. H14 rejected S5 on all three of these
+     cells (plus night_hard).
+   - Cell flags changed in 7 of 61 cells, plus top in each of the two 400-seed pools. Every change is between UP and
+     level or between level and DOWN, at the edge of its interval. None is between UP and DOWN.
+   - The largest paired term among the changed cells is batch 5's exploit at 10/7/5, +0.101 ± 0.090 (z 2.2): UP raw,
+     level corrected, i.e. batch 5 ran luckier in that cell's all-ins. The rest are within |z| ≤ 1.6.
+5. **Interval ratio** (raw interval / corrected), by stage:
+
+   | stage | batch 5 - batch 4 (screen) | S5 - F (screen) | 400 seeds pooled |
+   |---|---|---|---|
+   | confirm (night) | 1.21 | 1.22 | 1.23 / 1.30 |
+   | guards | 1.27-1.39 | 1.00-1.40 | 1.25-1.34 / 1.15-1.68 |
+   | elite | 1.21-1.52 | 1.21-1.48 | - |
+   | exploit | 1.15-1.62 | 1.22-1.54 | - |
+   | variants (100 seeds) | 1.05-1.37 | 0.98-1.28 | - |
+   | median | 1.30 (34 cells) | 1.33 (27 cells) | 1.27 / 1.28 |
+
+   Heads-up and three-handed cells gain the most (exploit3_hu 1.62, exploit3_3 1.59, adapt_3 1.54), lowball,
+   top_heavy and realistic for S5 the least (0.98-1.05). A ratio from 100-200 seeds is itself uncertain by roughly
+   ±5-10%. In seeds, the same interval needs about 59% of them (1/1.30^2).
+6. **Cost.** About 5% of a table's time (night, F: 0.55 s of term in 9.9 s profiled). Term chunks are cached apart
+   (`.rt-<version>.json`), so the first run with the term replays its base once per set.
+7. **Limits.**
+   - The term is zero, and the sample raw, on the 10 catalog twists whose hooks act after the last decision:
+     toss_or_holdem, three_card_blind_discard, swap_holdem, swap_one_turn, two_boards, bonus_card, auction,
+     deal5_keep2, bounty, river_of_blood. Covering them needs each runout replayed through the hooks.
+   - Judges and aware stages: the option runs there and the argument holds, but they are not measured here (the judge
+     set is not for workers).
+   - Only the chance part of AIVAT. The decision terms (§11: "the action terms are where the gain is") would need a
+     value per action of our own mixed decisions; not attempted.
+   - Not done for lack of time at load 20-50: the 50k half of elite, exploit and variants (screen only, 200 and 100
+     seeds).
+
+### Draft protocol addendum (for docs/decisions.md; the coordinator's to place and number)
+
+> **Addendum N: the all-in runout term (R7, 2026-11-03).** From the first acceptance run started after this entry,
+> every climb_accept run (screen, held-out, window) adds `--runout-term`. The verdict is read on the corrected paired
+> delta by the unchanged rule: UP / DOWN beyond the 95% interval of the per-seed paired difference. Stages, aims,
+> addenda 6-10, held-out sets and seed counts stay as they are.
+>
+> *The term.* At each hand whose last decision leaves board cards to come with two or more players in, each seat alive
+> at the hand has V(actual runout) - mean V over the runouts the unseen cards allow subtracted from its points. V is
+> the seat's ICM points (Malmuth-Harville) on the post-hand stacks over the cell's own payouts, a seat busted in the
+> hand taking its place's points as the engine places it. Runouts: all combinations when at most 1,100 (turn, flop),
+> else 50 drawn from `Random("runout/<table seed>/<rotation>/<hand>")` (preflop). This is fixed as tools/runout_term.py
+> at version 198453df, the tag in every term chunk's file name. Changing that file is a protocol change: repeat R7's
+> checks before the changed term judges anything.
+>
+> *Why it is allowed.* Given everything before the event, the cards to come are uniform over the unseen cards and no
+> bot sees more than its Observation, so the term has mean zero for any V fixed in advance and the corrected mean is
+> unbiased. R7 (docs/drills/climb/r7-log.md) found:
+> - no bias at 6,000-12,000 fast-field seeds, nor in the paired term on any real cell (61 at 200 seeds, 14 at 400);
+> - the same verdicts on batch 5 against batch 4 (ACCEPT) and S5 against F (REJECT);
+> - a median interval ratio of 1.30 (0.98-1.62 by cell);
+> - identical play on 211 chunks.
+>
+> *Rules.*
+> 1. One estimator per decision, fixed before the run starts. A run started before this entry is read raw; a run
+>    started after it is read corrected. Never run both and keep the one that passes, because that inflates false
+>    accepts. A set already measured is not re-read with the other estimator to change a verdict.
+> 2. The raw delta and flag stay printed beside each cell and in the verdict JSON, for the record. If a cell's raw
+>    and corrected flags ever point opposite ways (UP against DOWN), log it and replicate that cell on the next set as
+>    addendum 7 does. R7 saw none.
+> 3. The gain is taken as narrower intervals, not fewer seeds: held-out sets stay at 400 (the climb's effects sit near
+>    noise).
+> 4. Where the term is zero by construction (twists whose hooks act after the hand's last decision: the ten catalog
+>    entries in tools/runout_term.py's doc, and any file variant with on_street, on_payout, next_card or settle), the
+>    cell is read raw. That is the same number, so nothing changes there.
 
 ## Design (milestone 1)
 
@@ -108,7 +207,7 @@ Note: the per-event run (3 workers) overlapped the last five minutes of the chea
 `ps | grep` check came back empty through the command-rewriting hook and I took the cheap run for dead. Six processes
 for about five minutes; checks since use pgrep.
 
-## The validation runs (milestone 3, running)
+## The validation runs (milestone 3)
 
 Plan (scratch `goal/r7/`): batch 5 against batch 4 (`--base '{"dials": BATCH5_OFF}' --cand '{"dials": {}}'`, --aim
 strong, as H13 judged it) and S5 against F (S13's spec, --aim exploit, as S13 and H14 judged it), each with
@@ -326,3 +425,17 @@ that size is an 8% event, but a same-sign repeat on a second seed set is what a 
 re-measured on fresh seeds (below). Play unchanged: every term chunk with a plain chunk of the same key (211 chunks,
 27 of F's screen cells from S16's cache and the 50k night chunk of all three specs, about 42,000 tables) has identical
 raw samples.
+
+## Batch 4's night_hard term on fresh seeds (milestone 7)
+
+`one_cell.py` (scratch; climb_accept's own run_cells and gather on one cell), night_hard, 50200-50599, batch 4 and F,
+2 workers, 11:39: batch 4's term +0.009 ± 0.037 (z +0.48), F's +0.023 ± 0.039 (z +1.15), paired +0.014 ± 0.038 (z
++0.69). Not replicated: the z +2.75 at 400 seeds was chance. On these seeds batch 5 - batch 4 is +0.093 ± 0.058 raw
+and +0.079 ± 0.045 corrected (both UP), ratio 1.28.
+
+Tests after the runs: tests/test_runout_term.py, test_climb_accept.py, test_generic_aware.py, test_h5_drill9.py,
+test_sim_adapt.py, test_sim_engine.py, test_sim_runner.py: 116 passed.
+
+Scratch, for whoever re-checks (goal/r7/): b4.json and s5.json (the specs); main_run2.sh and main_run3.sh (the runs);
+A_*.md / B_*.md (climb_accept's printouts); pool.py and summary.py (the raw verdict and the pooled 400 from the cached
+chunks, through climb_accept's own rule); cheap.py and events.py (the fast field); one_cell.py; ca/ (every chunk).
