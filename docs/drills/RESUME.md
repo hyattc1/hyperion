@@ -17,7 +17,11 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 ## Workers running (branches in worktrees under /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal; each commits as it goes)
 - S13c (climb/s13c-gate): S6's gate tightened on tuning fields only, so it fires close to never against non-exploiters.
 - S15d (climb/s15d-gate): S15c's stab-read gate, the same.
-- start-vs-now: /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal/b18/start_vs_now.md (the starting F against batch 5 on H17, for the leaderboard).
+- S20 (climb/s20-three, wt_s20): the structural round's first idea, a three-handed preflop solved for strong tables
+  (log docs/drills/climb/s20-log.md on its branch). Diagnostics 11000-11199.
+- Drill 11's organiser: goal/drill11/kit (unseen twist, unusual interface). Then a player on batch 6's ship (pin
+  main, copy drill 10's player_prompt.txt with the paths changed and `timeout` restored in the last rule).
+- start-vs-now (goal/b18/run.sh, detached): confirm, guards, elite, exploit only; output goal/b18/start_vs_now.md.
 
 ## Held-out sets used
 H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); in use or queued H22-H24; next

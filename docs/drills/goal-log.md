@@ -1194,3 +1194,21 @@ and (in judges) `elite_judge`.
   6", leaderboard row, HANDOFF, RESUME.
 - The chain runs C3 on H22, V-i on H23, O3 on H24 (addendum 13 named H21-H23; batch 6 took H21), each against
   batch 5 + V-f + V-h = batch 6. S13c and S15d in their screens.
+
+## 13:47: the structural round starts (S20); drill 11 commissioned; start-vs-now cut to plain hold'em
+- S20 (goal/wt_s20, climb/s20-three): a three-handed preflop solved on the right game, for strong tables. S14 showed
+  the strong builds beat F three-handed and heads-up preflop and win 1st from three-handed 46-57% against F's
+  22-31%; K18 (elite1's play copied) was up on every strong cell but down on exploit_3; S13's own three-handed tables
+  lost to both exploiters (no small-blind flat, no big-blind 4-bet, small 3-bets mapped to 3.5x). S20 diagnoses by
+  line first, refits the solver's flop model from our own postflop's realization, re-solves with the missing lines,
+  and screens ungated and behind the strong-table read, --aim strong, every exploit cell. Diagnostics on 11000-11199
+  (new), screens on 10000-10199.
+- Not started, and why: playing for first when three or fewer remain (under 8..1 points first place is worth what
+  ICM already prices; it matters only under a top-heavy table, which the window recipes cover); a bandit over a
+  portfolio (the research expects a small edge at 150-200 hands); full-ring preflop retrained offline (S20 first:
+  the measured gap is short-handed). The counter-exploitation alarm waits on S15d (the same leak: folding to bets).
+- Drill 11: a fresh organiser (goal/drill11/kit, no repo access) builds a kit with an unseen twist on an axis the
+  last three drills did not move (betting structure, a hand's payoff, or chips to points), and an interface that is
+  neither a process boundary nor a pot-fraction menu. The player then runs the hour on batch 6's ship.
+- Start-vs-now restarted on confirm, guards, elite and exploit only (cached chunks kept): at 13 hours it was a quarter
+  done, and batch 6 changes only twist tables, so the plain-hold'em stages answer "how much better since the start".
