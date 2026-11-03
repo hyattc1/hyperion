@@ -123,3 +123,242 @@ def test_no_held_out_set_overlaps_the_judge_set():
         lo, hi = CA.seed_range(f"H{k}")
         assert hi <= jl or lo >= jh, k
     assert CA.seed_range("H10") == (29000, 29400) and CA.seed_range("H11") == (31000, 31400)
+
+
+# --- addendum 11: the weighted score (tools/accept_weights.json, tools/accept_weighted.py) ---------------------------
+
+import itertools
+import math
+
+import pytest
+
+WS = CA.WS
+WTS = WS.load()
+EVERY_STAGE = "confirm,guards,elite,exploit,variants,aware"
+
+
+def _fake_cells(monkeypatch, effects, calls=None):
+    """Made-up samples with a set mean and interval: `effects` maps a cell's exact label to (delta, ci). The candidate's
+    per-seed difference alternates +-s around delta, so its 95% interval is 1.96 s / sqrt(n - 1)."""
+    monkeypatch.setattr(CA, "run_cells", lambda *a, **k: calls.append(a) if calls is not None else None)
+    monkeypatch.setattr(CA, "code_version", lambda: "test")
+    base_key = CA.spec_key(CA.resolve({"dials": {}}), "test")
+
+    def gather(out, key, c, lo, hi):
+        n = hi - lo
+        base = [5.0 + 0.01 * (i % 3) for i in range(n)]
+        if key == base_key:
+            xs = base
+        else:
+            d, ci = effects.get(CA.label(c), (0.0, 0.0))
+            s = ci * math.sqrt(n - 1) / 1.96
+            xs = [b + d + (s if i % 2 else -s) for i, b in enumerate(base)]
+        return {"samples": xs, "mean": sum(xs) / n, "tmo": 0, "exc": 0, "ill": 0, "safe_err": 0, "p99": 100.0,
+                "opp_mean": None}
+
+    monkeypatch.setattr(CA, "gather", gather)
+
+
+def _run(tmp_path, *args, cand='{"dials": {"x": 1}}'):
+    out = tmp_path / "v.json"
+    CA.main(["--cand", cand, "--json", str(out), "--out", str(tmp_path), *args])
+    return json.loads(out.read_text())
+
+
+def test_the_weights_file_is_the_reviews_section():
+    F = WTS["families"]
+    assert {f: F[f]["weight"] for f in WS.FAMILIES} == {"ordinary": 0.20, "strong": 0.15, "adapters": 0.15,
+                                                        "twist_realistic": 0.20, "twist_aware": 0.30}
+    assert {f: F[f]["range"] for f in WS.FAMILIES} == {"ordinary": [0.10, 0.35], "strong": [0.05, 0.30],
+                                                       "adapters": [0.05, 0.30], "twist_realistic": [0.10, 0.30],
+                                                       "twist_aware": [0.15, 0.45]}
+    assert sum(F[f]["weight"] for f in WS.FAMILIES) == pytest.approx(1.0)
+    for f in ("ordinary", "strong"):
+        assert sum(F[f]["cells"].values()) == pytest.approx(1.0)
+    assert F["strong"]["cells"]["elite_b"] == 0.20 and F["strong"]["cells"]["mirror_b"] == 0.10
+    assert F["adapters"]["bot_share"] * len(F["adapters"]["bots"]) == 1.0
+    from hyperion.drills import variants as V
+
+    assert set(WTS["variant_probability"]["p"]) == set(V.catalog_names())
+    assert sum(WTS["variant_probability"]["p"].values()) == 89  # variants-ranked.md's rows for the 26 entries
+    u = WTS["units"]
+    own = WTS["cap"]["own_points"]  # addendum 11's per-scale caps are 0.03 night points in each scale's own points
+    for scale, factor in (("8..1", u["payouts"]["8..1"]), ("10/7/5/4/3/2/1/0", u["payouts"]["10/7/5/4/3/2/1/0"]),
+                          ("50/25/12/6/3/2/1/1", u["payouts"]["50/25/12/6/3/2/1/1"]),
+                          ("top_heavy", u["variants"]["top_heavy"]), ("heads-up 10/7", u["rules"]["hu"]),
+                          ("three-handed 10/7/5", u["rules"]["three"])):
+        assert own[scale] == pytest.approx(WTS["cap"]["night_points"] / factor, abs=0.0005), scale
+
+
+def test_every_climb_accept_cell_maps_to_a_family():
+    from hyperion.drills import variants as V
+    from hyperion.sim import aware as AW
+
+    fam = lambda stage, c: WS.classify(WTS, stage, CA.label(c if len(c) == 4 else (*c, None)))["family"]
+    assert [fam("confirm", c) for c in CA.CONFIRM] == ["ordinary"]
+    assert [fam("guards", c) for c in CA.GUARDS] == ["ordinary", "ordinary", "strong", "ordinary", "ordinary",
+                                                     "ordinary"]
+    assert {fam("elite", c) for c in CA.ELITE} == {"strong"}
+    assert {fam("exploit", c) for c in CA.EXPLOIT} == {"adapters"}
+    assert {fam("judges", c) for c in CA.JUDGES} == {"judges"}
+    assert {fam("variants", (CA.VARIANT_FIELD, "lin", None, v)) for v in V.catalog_names()} == {"twist_realistic"}
+    assert {fam("aware", (f, "lin", None, AW.AWARE_VARIANT[f])) for f in AW.AWARE_FIELDS} == {"twist_aware"}
+    assert fam("aware", ("generic_aware", "lin", None, "auction")) == "twist_aware"
+    # every hold'em cell has its own share in the section's table, and every adapter cell is one bot in one format
+    for c in CA.CONFIRM + CA.GUARDS + CA.ELITE:
+        f = fam("confirm", c)
+        assert CA.label((*c, None)) in WTS["families"][f]["cells"]
+    seats = {(x["bot"], x["fmt"]) for x in (WS.classify(WTS, "exploit", CA.label((*c, None))) for c in CA.EXPLOIT)}
+    assert seats == {(b, f) for b in ("exploiter1", "exploiter2", "exploiter3", "adapt1") for f in ("8max", "hu",
+                                                                                                    "three")}
+    units = {CA.label((*c, None)): WS.classify(WTS, "exploit", CA.label((*c, None)))["unit"] for c in CA.EXPLOIT}
+    assert units["adapt @10/7/5/4/3/2/1/0"] == 0.7 and units["exploit3_hu +hu"] == pytest.approx(1 / 3)
+    assert units["adapt_3 +three"] == 0.4
+
+
+def test_the_weighted_blocks_arithmetic_on_a_hand_made_case(monkeypatch, tmp_path):
+    _fake_cells(monkeypatch, {"night": (0.02, 0.01), "realistic": (-0.01, 0.01), "elite": (0.03, 0.02),
+                              "exploit2_hu +hu": (0.3, 0.3), "bounty (realistic)": (0.05, 0.05),
+                              "bounty (bounty_aware)": (0.04, 0.02)})
+    v = _run(tmp_path, "--set", "screen", "--stages", EVERY_STAGE, "--aim", "exploit")
+    w = v["weighted"]
+    # by hand, in night points: each family's mean and half-width (cells perfectly correlated inside a family)
+    ordinary = (0.40 * 0.02 + 0.10 * -0.01, 0.40 * 0.01 + 0.10 * 0.01)
+    strong = (0.20 * 0.03, 0.20 * 0.02)
+    adapters = (1 / 3 * 1 / 4 * 1 / 3 * 0.3, 1 / 3 * 1 / 4 * 1 / 3 * 0.3)  # format third, bot quarter, heads-up 1/3
+    twist = (8 / 89 * 0.05, 8 / 89 * 0.05)  # bounty's P over the catalogue's 89
+    aware = (8 / 28.5 * 0.04, 8 / 28.5 * 0.02)  # over the four aware fields' twists (11 + 8 + 7 + 2.5)
+    fams = {"ordinary": ordinary, "strong": strong, "adapters": adapters, "twist_realistic": twist,
+            "twist_aware": aware}
+    wt = {"ordinary": 0.20, "strong": 0.15, "adapters": 0.15, "twist_realistic": 0.20, "twist_aware": 0.30}
+    for f, (m, h) in fams.items():
+        assert w["families"][f]["mean"] == pytest.approx(m) and w["families"][f]["half"] == pytest.approx(h), f
+    mean = sum(wt[f] * fams[f][0] for f in fams)
+    half = math.sqrt(sum((wt[f] * fams[f][1]) ** 2 for f in fams))
+    assert w["mean"] == pytest.approx(mean) and w["half"] == pytest.approx(half)
+    assert w["lb"] == pytest.approx(mean - half) and mean == pytest.approx(0.0078173, abs=1e-7)
+    assert w["dropped"] == [] and w["cap"]["broken"] == [] and w["missing"] == {}
+
+
+def test_the_cap_fires_in_night_points(monkeypatch, tmp_path):
+    # the same -0.08 is beyond the cap three-handed (x 0.4 = -0.032) but not heads-up (x 1/3 = -0.027); top_heavy's
+    # -0.15 is -0.021 night points (cap 0.21 in its own points), and realistic's -0.035 is beyond it
+    _fake_cells(monkeypatch, {"exploit_3 +three": (-0.08, 0.0), "exploit_hu +hu": (-0.08, 0.0),
+                              "top_heavy (realistic)": (-0.15, 0.0), "realistic": (-0.035, 0.004)})
+    w = _run(tmp_path, "--set", "screen", "--stages", EVERY_STAGE, "--aim", "exploit")["weighted"]
+    broken = {b["cell"]: b["upper_night_points"] for b in w["cap"]["broken"]}
+    assert set(broken) == {"exploit_3 +three", "realistic"}
+    assert broken["exploit_3 +three"] == pytest.approx(-0.032) and broken["realistic"] == pytest.approx(-0.031)
+
+
+def test_w_min_takes_the_worst_corner(monkeypatch, tmp_path):
+    # ordinary room and the twist-aware field down, adapters up a lot: the worst weights load the losers to their
+    # range tops and starve the adapters
+    _fake_cells(monkeypatch, {"night": (-0.01, 0.004), "toss_or_holdem (toss_or_holdem_aware)": (-0.03, 0.01),
+                              "exploit_hu +hu": (0.9, 0.2), "elite": (0.01, 0.01)})
+    w = _run(tmp_path, "--set", "screen", "--stages", EVERY_STAGE, "--aim", "exploit")["weighted"]
+    fs = w["families"]
+    corner = w["w_min"]["weights"]
+    assert corner["adapters"] == pytest.approx(0.05) and corner["twist_aware"] == pytest.approx(0.45)
+    assert corner["ordinary"] == pytest.approx(0.35)
+
+    def lb(ws):
+        m = sum(ws[f] * fs[f]["mean"] for f in fs)
+        return m - math.sqrt(sum((ws[f] * fs[f]["half"]) ** 2 for f in fs))
+
+    # brute force over every weighting in the ranges on a 0.05 grid (it holds every corner): none is worse
+    F = WTS["families"]
+    grid = {f: [round(x * 0.05, 2) for x in range(round(F[f]["range"][0] / 0.05), round(F[f]["range"][1] / 0.05) + 1)]
+            for f in WS.FAMILIES}
+    worst = min(lb(dict(zip(WS.FAMILIES, ws))) for ws in itertools.product(*grid.values())
+                if abs(sum(ws) - 1) < 1e-9)
+    assert w["w_min"]["lb"] == pytest.approx(worst) and w["w_min"]["lb"] < w["lb"]
+    assert w["w_min"]["lb"] == pytest.approx(lb(corner))
+
+
+def test_route2_refuses_a_screen_set_or_a_missing_stage_before_playing(monkeypatch, tmp_path):
+    calls = []
+    _fake_cells(monkeypatch, {}, calls)
+    with pytest.raises(SystemExit, match="--route2 refuses: set 'screen' is not a held-out set"):
+        _run(tmp_path, "--set", "screen", "--stages", EVERY_STAGE, "--route2")
+    with pytest.raises(SystemExit, match="stages not run: elite, exploit, aware"):
+        _run(tmp_path, "--set", "H30", "--stages", "confirm,guards,variants", "--route2")
+    with pytest.raises(SystemExit, match="part of the catalogue"):
+        _run(tmp_path, "--set", "H30", "--stages", EVERY_STAGE, "--variants", "bounty", "--route2")
+    with pytest.raises(SystemExit, match="not a held-out set"):
+        _run(tmp_path, "--set", "judge", "--stages", EVERY_STAGE, "--route2")
+    assert calls == []
+    # without --route2 a screen prints the weighted block and nothing refuses
+    assert _run(tmp_path, "--set", "screen", "--stages", "confirm")["weighted"]["dropped"] == [
+        "strong", "adapters", "twist_realistic", "twist_aware"]
+
+
+def test_the_main_verdict_is_unchanged_by_the_weighted_score_and_route2(monkeypatch, tmp_path, capsys):
+    # main rule: realistic down rejects; weighted: the heads-up gain carries W-min above zero, no cap broken
+    effects = {"realistic": (-0.004, 0.003), "exploit2_hu +hu": (0.6, 0.1)}
+    _fake_cells(monkeypatch, effects)
+    judges = _run(tmp_path, "--set", "judge", "--stages", "judges")
+    (tmp_path / "judges.json").write_text(json.dumps(judges))
+    capsys.readouterr()
+    plain = _run(tmp_path, "--set", "H30", "--stages", EVERY_STAGE, "--aim", "exploit")
+    out_plain = capsys.readouterr().out
+    r2 = _run(tmp_path, "--set", "H30", "--stages", EVERY_STAGE, "--aim", "exploit", "--route2", "--judges-json",
+              str(tmp_path / "judges.json"))
+    out_r2 = capsys.readouterr().out
+    monkeypatch.setattr(WS, "score", lambda stages, identical: None)  # no weighted code at all
+    monkeypatch.setattr(WS, "lines", lambda ws: [])
+    bare = _run(tmp_path, "--set", "H30", "--stages", EVERY_STAGE, "--aim", "exploit")
+    out_bare = capsys.readouterr().out
+    main = lambda v: {k: v[k] for k in ("version", "set", "seeds", "base", "cand", "stages", "checks", "accept",
+                                        "replicate")}
+    assert main(plain) == main(r2) == main(bare)
+    assert plain["accept"] is False and ["guards: none beyond noise down (down: realistic)", False] in plain["checks"]
+    head = out_bare.rstrip("\n")
+    assert out_plain.startswith(head) and out_r2.startswith(head) and "\n## weighted" not in head
+    assert out_plain.index("**REJECT**") < out_plain.index("## weighted (addendum 11")
+    # route 2 is its own verdict: here it accepts what the main rule rejects, once the down cell is in the log
+    assert r2["route2"]["applies"] and r2["route2"]["accept"] is True and r2["route2"]["log_down_cells"] == [
+        "realistic"]
+    assert r2["weighted"]["w_min"]["lb"] > 0 and "**ROUTE 2: ACCEPT**" in out_r2 and "route2" not in plain
+    # a judge down, or no judges at all, and route 2 does not accept
+    _fake_cells(monkeypatch, {**effects, "judge2": (-0.05, 0.01)})
+    j = _run(tmp_path, "--set", "judge", "--stages", "judges")
+    assert WS.route2(r2["weighted"], False, j["stages"]["judges"])["accept"] is False
+    assert WS.route2(r2["weighted"], False, None)["accept"] is None
+    # another candidate's judges are refused
+    with pytest.raises(SystemExit, match="another base or candidate"):
+        _run(tmp_path, "--set", "H30", "--stages", EVERY_STAGE, "--route2", "--judges-json",
+             str(tmp_path / "judges.json"), cand='{"dials": {"x": 2}}')
+
+
+# The review's re-scored rows (docs/research/acceptance-rule-review.md, scripts and final_rows.json in the session's
+# acc/ scratchpad), from the saved verdicts it read: goal/b15/s5_h14.json and goal/b16/vf_h15.json, copied verbatim to
+# tests/fixtures/accept_review/. The identity claims are its registry's: S5 changes hold'em tables only (live =
+# the four hold'em-table twists); V-f plays nine twists and plain hold'em identically.
+REVIEW = os.path.join(ROOT, "tests", "fixtures", "accept_review")
+VF_LIVE = ("toss_or_holdem", "three_card_blind_discard", "bounty", "knockout_bounty", "bonus_card", "auction",
+           "swap_holdem", "swap_one_turn", "exposed_card")
+
+
+@pytest.mark.parametrize("name, path, identical, row", [
+    ("S5 on H14", "s5_h14.json", ["twists"],
+     {"W": 0.004719703361898699, "lb": 0.0009120812331385774, "lbmin": -0.002723069485978417,
+      "fx_lb": -0.0005033003923710221, "fx_min": -0.0035156036125737135}),
+    ("V-f on H15", "vf_h15.json", ["holdem"] + [v for v in WTS["variant_probability"]["p"] if v not in VF_LIVE],
+     {"W": 0.002211377704760369, "lb": -0.004057934685576477, "lbmin": -0.006086902028364716,
+      "fx_lb": -0.004057934685576477, "fx_min": -0.006086902028364716}),
+])
+def test_the_reviews_rescored_rows_reproduce_from_their_saved_verdicts(name, path, identical, row):
+    with open(os.path.join(REVIEW, path)) as fh:
+        v = json.load(fh)
+    fixed = WS.score(v["stages"], identical)  # the committed rule: a fixed quarter per adapter bot
+    shared = WS.score(v["stages"], identical, adapters="shared")  # the review's W columns before that change
+    assert shared["mean"] == pytest.approx(row["W"], rel=1e-9, abs=1e-12)
+    assert shared["lb"] == pytest.approx(row["lb"], rel=1e-9, abs=1e-12)
+    assert shared["w_min"]["lb"] == pytest.approx(row["lbmin"], rel=1e-9, abs=1e-12)
+    assert fixed["lb"] == pytest.approx(row["fx_lb"], rel=1e-9, abs=1e-12)
+    assert fixed["w_min"]["lb"] == pytest.approx(row["fx_min"], rel=1e-9, abs=1e-12)
+    assert fixed["cap"]["broken"] == [] and fixed["dropped"] == [] and fixed["contradicted"] == []
+    # both fail route 2's condition (a) on W-min (V-f, accepted by the main rule, never needed route 2)
+    r = WS.route2(fixed, False, None)
+    assert r["accept"] is False and [ok for txt, ok in r["checks"] if txt.startswith("(a)")] == [False]
