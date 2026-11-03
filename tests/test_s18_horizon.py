@@ -142,3 +142,19 @@ def test_the_late_report_counts_tables_with_three_alive():
     assert rb["alive"] == pytest.approx(2 / 3) and rb["bust_after"] == pytest.approx(1 / 2)
     rc = CA.late_rows(cand, base)
     assert rc["late"] == 3 and rc["paired"][0] == pytest.approx((1 + 1 + 0) / 3) and rc["paired"][2] == 3
+
+
+def test_rival3_precomputes_the_next_hands_blinds_at_hand_end():
+    hb = make_hybrid(seed=1, overrides={**NO_PANIC, "r3.icm_horizon": True})
+    hb.new_table(Rules(), 0, 8)
+    core = hb.core.core
+    core.button = 2
+    totals = [2000, 0, 1500, 2500, 2000, 2000, 2000, 2000]
+    core.start_hand(41, totals)  # kit hand 41 = hand 40; its button the next live seat after 2
+    live = [c > 0 for c in totals]
+    assert core._owed_key == (41, 3) and core._owed_v == blinds_owed(live, 3, 40, core.rules)
+    core.hand, core.button = 41, 3  # as predicted: the decision reads the cached list
+    cached = core._owed_v
+    assert core._owed(totals, [0] * 8, live) is cached
+    core.button = 4  # the button was elsewhere: recomputed from the decision's own state
+    assert core._owed(totals, [0] * 8, live) == blinds_owed(live, 4, 40, core.rules)

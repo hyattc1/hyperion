@@ -27,7 +27,7 @@ from time import perf_counter
 from ..core.types import HandResult, Rules
 from ..sim.rivals import rival3 as R3
 from ..sim.rivals.rival3 import CLASSES, PCT, _cls, _eqvs
-from ..strategy.hero import blinds_owed, holdem_table, horizon_stack, icm_me, twist_families, twist_family
+from ..strategy.hero import blinds_owed, holdem_table, horizon_stack, icm_me, next_live, twist_families, twist_family
 from .dials import Rival3Knobs
 from .kit import LeanICM, SoftDeadline
 
@@ -218,7 +218,15 @@ class Rival3Core(R3.Bot):
         self.o3_oracle = None
 
     def start_hand(self, kit_hand_no: int, totals) -> None:
-        """Nothing to precompute: rival 3 prices each all-in from the stacks it sees."""
+        """Rival 3 prices each all-in from the stacks it sees. With r3.icm_horizon, the next hand's blinds owed are
+        computed here (outside the decision), its button the next live seat after the last one seen; `_owed` checks
+        the button at the first all-in price and recomputes only if it was not that seat."""
+        last = getattr(self, "button", None)  # set by rival 3's own act (none before the table's first decision)
+        if self.k.icm_horizon and isinstance(last, int) and len(totals) > 1:
+            live = [c > 0 for c in totals]
+            b = next_live(live, last % len(totals))
+            self._owed_v = blinds_owed(live, b, kit_hand_no - 1, self.rules)
+            self._owed_key = (kit_hand_no, b)
 
     def decide(self, kit, t0: float):
         self._t0 = t0

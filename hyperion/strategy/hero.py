@@ -504,26 +504,23 @@ def blinds_owed(alive, button: int, hand_no: int, rules: Rules) -> list:
     the small blind on its own button hand, so only the other seat owes: the big blind of hand_no + 1."""
     n = len(alive)
     owed = [0.0] * n
-    order = []
-    s = button
-    for _ in range(n):
-        s = (s + 1) % n
-        if alive[s]:
-            order.append(s)
+    order = [s for s in range(button + 1, n) if alive[s]] + [s for s in range(button + 1) if alive[s]]
     k = len(order)
     if k < 2:
         return owed
     cap = rules.max_hands if rules.max_hands > 0 else 1 << 30
+    levels, per = rules.blind_levels, rules.hands_per_level  # rules.blinds_at, inline
+    top = len(levels) - 1
     if k == 2:
-        if hand_no + 1 < cap:
-            owed[order[1]] = float(rules.blinds_at(hand_no + 1)[1])
+        t = hand_no + 1
+        if t < cap:
+            owed[order[1]] = float(levels[min(t // per, top)][1])
         return owed
     for j in range(1, k):
-        o = 0.0
-        if hand_no + j < cap:
-            o += rules.blinds_at(hand_no + j)[0]
-        if j >= 2 and hand_no + j - 1 < cap:
-            o += rules.blinds_at(hand_no + j - 1)[1]
+        t = hand_no + j  # its small blind; its big blind the hand before (j >= 2)
+        o = levels[min(t // per, top)][0] if t < cap else 0
+        if j >= 2 and t - 1 < cap:
+            o += levels[min((t - 1) // per, top)][1]
         owed[order[j]] = float(o)
     return owed
 
@@ -586,14 +583,18 @@ class IcmCurve:
             if x <= 0:
                 v = bust_value
             else:
-                if others > 0:
-                    scale = (total - x) / others
-                    st = [x if s == me else (stacks[s] * scale if stacks[s] > 0 else 0) for s in range(len(stacks))]
-                else:
-                    st = [x if s == me else 0 for s in range(len(stacks))]
                 xe = x
-                if owed is not None:  # horizon_stack, inline (a hand end prices up to 13 points of 8 seats)
-                    st = [((c - o) if c - o > 0.5 * c else 0.5 * c) if c > 0 else c for c, o in zip(st, owed)]
+                if owed is None:
+                    if others > 0:
+                        scale = (total - x) / others
+                        st = [x if s == me else (stacks[s] * scale if stacks[s] > 0 else 0)
+                              for s in range(len(stacks))]
+                    else:
+                        st = [x if s == me else 0 for s in range(len(stacks))]
+                else:  # the same stacks, each as horizon_stack(stack, owed) (inline: up to 13 points of 8 seats)
+                    scale = (total - x) / others if others > 0 else 0.0
+                    st = [((c - o) if c - o > 0.5 * c else 0.5 * c) if c > 0 else 0
+                          for c, o in zip([x if s == me else stacks[s] * scale for s in range(len(stacks))], owed)]
                     xe = st[me]
                 if cap is not None:
                     v = _cap_value(st, me, pays, cap)
