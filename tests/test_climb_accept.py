@@ -179,7 +179,9 @@ def test_the_weights_file_is_the_reviews_section():
     assert F["adapters"]["bot_share"] * len(F["adapters"]["bots"]) == 1.0
     from hyperion.drills import variants as V
 
-    assert set(WTS["variant_probability"]["p"]) == set(V.catalog_names())
+    # tranche_holdem (drill 11's twist, V-j, 2026-11-03) weighs as an unlisted twist ("unlisted": 1), kept out of the
+    # table so the saved reviews' weighted scores reproduce (a new row would reweight every one of them)
+    assert set(WTS["variant_probability"]["p"]) == set(V.catalog_names()) - {"tranche_holdem"}
     assert sum(WTS["variant_probability"]["p"].values()) == 89  # variants-ranked.md's rows for the 26 entries
     u = WTS["units"]
     own = WTS["cap"]["own_points"]  # addendum 11's per-scale caps are 0.03 night points in each scale's own points
@@ -226,8 +228,9 @@ def test_the_weighted_blocks_arithmetic_on_a_hand_made_case(monkeypatch, tmp_pat
     ordinary = (0.40 * 0.02 + 0.10 * -0.01, 0.40 * 0.01 + 0.10 * 0.01)
     strong = (0.20 * 0.03, 0.20 * 0.02)
     adapters = (1 / 3 * 1 / 4 * 1 / 3 * 0.3, 1 / 3 * 1 / 4 * 1 / 3 * 0.3)  # format third, bot quarter, heads-up 1/3
-    twist = (8 / 89 * 0.05, 8 / 89 * 0.05)  # bounty's P over the catalogue's 89
-    aware = (8 / 28.5 * 0.04, 8 / 28.5 * 0.02)  # over the four aware fields' twists (11 + 8 + 7 + 2.5)
+    # bounty's P over the catalogue's 89 plus tranche_holdem's 1 (an unlisted twist's weight: not in the table)
+    twist = (8 / 90 * 0.05, 8 / 90 * 0.05)
+    aware = (8 / 29.5 * 0.04, 8 / 29.5 * 0.02)  # over the five aware fields' twists (11 + 8 + 7 + 2.5 + 1)
     fams = {"ordinary": ordinary, "strong": strong, "adapters": adapters, "twist_realistic": twist,
             "twist_aware": aware}
     wt = {"ordinary": 0.20, "strong": 0.15, "adapters": 0.15, "twist_realistic": 0.20, "twist_aware": 0.30}
@@ -236,7 +239,7 @@ def test_the_weighted_blocks_arithmetic_on_a_hand_made_case(monkeypatch, tmp_pat
     mean = sum(wt[f] * fams[f][0] for f in fams)
     half = math.sqrt(sum((wt[f] * fams[f][1]) ** 2 for f in fams))
     assert w["mean"] == pytest.approx(mean) and w["half"] == pytest.approx(half)
-    assert w["lb"] == pytest.approx(mean - half) and mean == pytest.approx(0.0078173, abs=1e-7)
+    assert w["lb"] == pytest.approx(mean - half) and mean == pytest.approx(0.0076931, abs=1e-7)
     assert w["dropped"] == [] and w["cap"]["broken"] == [] and w["missing"] == {}
 
 

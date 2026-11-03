@@ -36,6 +36,23 @@ that read the rule would add. They sit in the `<variant>_aware` fields (bestiary
     rob_mc         Monte Carlo equity that deals the run (to five, then on while the last card is red), scored with
                    evaluate_many
 
+  tranche_holdem   drill 11 (kit I): each street's chips a pot of their own, won by the hand as it stood on that street
+                   (two cards alone preflop), a fold forfeits every tranche, no runout once the betting is over
+    tranche_tag    ChartTAG's charts on the hand's hold'em twin (the class at its two-card rank's combo percentile, so
+                   any pair opens like a premium and suited connectors fold); postflop the made-hand reads it already
+                   has (top pair or better, two pair or better: no draws), and facing a bet that ends the betting (the
+                   river, an all-in) it also calls when the tranches it holds pay for it: 0.15 x (this street's chips
+                   + the call) + the claim >= the call, the claim the earlier tranches times its chance of holding
+                   them (two-card share against the opponents in for the preflop one, 0.8 with top pair or better on
+                   that street's board, else 0.15). On earlier streets a call keeps the claim only if it also pays
+                   the bets still to come, so there the archetype's own read decides
+    tranche_pushfold  PushFoldBot the same way (twin preflop, its made-hand reads, the same claim call)
+    tranche_mc     the Monte Carlo bot's play on the chance the hand as it is now beats each opponent (no runout:
+                   tranche.now_share, 48 deals against at most three), priced against this street's tranche: call when
+                   that chance beats (call - claim) / (this street's chips + call) plus the margin, the claim from its
+                   own shares on the earlier streets' boards (in full when the call ends the betting, half before);
+                   preflop the Chen score of the hold'em twin
+
 The Monte Carlo bots sample 48 runouts against at most three opponents (rng.sample), so they decide in time; they have
 no cost model and are never folded for time in model mode. All of them are deterministic for a seed.
 """
@@ -48,10 +65,11 @@ from typing import Optional
 from ..core.cards import hole_class
 from ..core.eval import category, evaluate, evaluate_many
 from ..core.types import Action, Observation, Rules
+from ..strategy import tranche as _tr
 from . import bestiary as _B
 from .bestiary import (
     RAISE, ChartTAG, PushFoldBot, RivalBot, _Base, _check_or_fold, _raise_or_call, chen_score, expand_range,
-    facing_shove, players_behind, top_pair_or_better, two_card_class,
+    facing_shove, made_category, players_behind, top_pair_or_better, two_card_class,
 )
 
 _TABLES = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tables")
@@ -772,6 +790,132 @@ class RobMC(AwareMC):
         return acc / self.SAMPLES
 
 
+# ----- tranche_holdem ------------------------------------------------------------------------------------------------
+
+_TR_TWIN: dict = {}
+
+
+def tranche_class(hole: tuple[int, ...]) -> str:
+    """The hold'em class at the two-card rank's combo percentile (tables/preflop_equity.json's heads-up order)."""
+    if not _TR_TWIN:
+        with open(os.path.join(_TABLES, "preflop_equity.json")) as fh:
+            eq = json.load(fh)
+        order = sorted(eq, key=lambda c: (eq[c][0], c))  # weakest first
+        rank, acc = {}, 0
+        for c in order:
+            n = _combos(c)
+            rank[c] = (acc + n / 2.0) / 1326.0
+            acc += n
+        _TR_TWIN.update(_tr.twin_map(rank))
+    return _TR_TWIN[_tr.two_card_key(hole)]
+
+
+def tranche_claim(obs: Observation, q_of) -> float:
+    """The earlier tranches this hand times the chance of holding each: sum over k < street of q_of(k) x T_k, T_k from
+    obs.extras["tranches"] (0 when the observation does not carry them)."""
+    tr = (obs.extras or {}).get("tranches") or ()
+    claim = 0.0
+    for k, t in enumerate(tr[:obs.street]):
+        if t > 0:
+            claim += q_of(k) * t
+    return claim
+
+
+def _tr_board(obs: Observation, k: int) -> tuple:
+    return obs.board[:(0, 3, 4, 5)[k] if k < 4 else len(obs.board)]
+
+
+def closes_betting(obs: Observation) -> bool:
+    """A call here ends the hand's betting: the river, or no one else in the hand would have chips behind after it
+    (the bettor all-in), or the call puts us all-in. The claim is then exact: folding forfeits it, calling keeps it to
+    the showdown with no later bet to pay."""
+    if obs.street >= 3 or obs.to_call >= obs.my_stack:
+        return True
+    return not any(obs.in_hand[s] and obs.stacks[s] > 0 for s in range(obs.n_players) if s != obs.seat)
+
+
+class _TrancheReads:
+    """tranche_tag / tranche_pushfold: the claim call on top of the archetype's made-hand postflop."""
+
+    WEAK_Q = 0.15
+
+    def _q(self, obs: Observation, k: int) -> float:
+        n_opp = max(1, obs.active - 1)
+        if k == 0:
+            return _tr.beat_share(_tr.two_card_key(obs.hole)) ** n_opp
+        return 0.8 if top_pair_or_better(obs.hole, _tr_board(obs, k)) else self.WEAK_Q
+
+    def claim_call(self, obs: Observation) -> bool:
+        if obs.to_call <= 0 or not closes_betting(obs):
+            return False
+        claim = tranche_claim(obs, lambda k: self._q(obs, k))
+        return self.WEAK_Q * (sum(obs.bets) + obs.to_call) + claim >= obs.to_call
+
+
+class TrancheTAG(_TrancheReads, ChartTAG):
+    """tranche_holdem's aware TAG (module doc)."""
+
+    def act(self, obs: Observation) -> Action:
+        if obs.street == 0:
+            return tag_preflop(self, obs, tranche_class(obs.hole))
+        strong = top_pair_or_better(obs.hole, obs.board)
+        if not strong and self.claim_call(obs):
+            return Action.call()
+        return tag_postflop(self, obs, strong, made_category(obs.hole, obs.board) >= 2)
+
+
+class TranchePushFold(_TrancheReads, PushFoldBot):
+    """tranche_holdem's aware push/fold bot (module doc)."""
+
+    def act(self, obs: Observation) -> Action:
+        if obs.street == 0:
+            return pushfold_preflop(self, obs, tranche_class(obs.hole))
+        strong = top_pair_or_better(obs.hole, obs.board)
+        if not strong and obs.stack_bb > self.pushfold_bb and self.claim_call(obs):
+            return Action.call()
+        return pushfold_postflop(self, obs, strong, made_category(obs.hole, obs.board) >= 2)
+
+
+class TrancheMC(AwareMC):
+    """tranche_holdem's aware Monte Carlo bot (module doc)."""
+
+    _qs: dict = {}
+    _qhand = -1
+
+    def pre_score(self, obs: Observation) -> float:
+        return chen_score(_tr.twin_cards(tranche_class(obs.hole)))
+
+    def _q(self, obs: Observation, k: int, n_opp: int) -> float:
+        if obs.hand_no != self._qhand:
+            self._qhand, self._qs = obs.hand_no, {}
+        key = (k, n_opp)
+        q = self._qs.get(key)
+        if q is None:
+            q = self._qs[key] = _tr.now_share(obs.hole, _tr_board(obs, k), n_opp, self.rng, self.SAMPLES)
+        return q
+
+    def act(self, obs: Observation) -> Action:
+        if obs.street == 0 or len(obs.hole) != 2:
+            return super().act(obs)
+        bb = obs.big_blind
+        n_opp = max(1, min(self.MAX_OPP, obs.active - 1))
+        eq = self._q(obs, obs.street, n_opp)
+        pot = obs.total_pot
+        if obs.to_call == 0:
+            if eq >= self.bet_eq and RAISE in obs.legal:
+                return _raise_or_call(obs, obs.bets[obs.seat] + max(bb, (2 * pot) // 3))
+            return Action.check()
+        if eq >= self.raise_eq and RAISE in obs.legal:
+            return _raise_or_call(obs, obs.bets[obs.seat] + obs.to_call + pot)
+        claim = tranche_claim(obs, lambda k: self._q(obs, k, n_opp))
+        if not closes_betting(obs):
+            claim *= 0.5  # kept only by paying the bets still to come as well
+        price = (obs.to_call - claim) / (sum(obs.bets) + obs.to_call)
+        if eq >= price + self.margin + 0.15 * min(1.0, obs.to_call / max(1, pot - obs.to_call)):
+            return Action.call()
+        return Action.fold()
+
+
 _SD_TWIN: dict = {}
 
 
@@ -809,6 +953,7 @@ AWARE = {
     "bounty_tag": BountyTAG, "bounty_pushfold": BountyPushFold, "bounty_mc": BountyMC,
     "short_tag": ShortTAG, "short_pushfold": ShortPushFold, "short_mc": ShortMC,
     "rob_tag": RobTAG, "rob_pushfold": RobPushFold, "rob_mc": RobMC,
+    "tranche_tag": TrancheTAG, "tranche_pushfold": TranchePushFold, "tranche_mc": TrancheMC,
 }
 # the `<variant>_aware` fields: Hero's seat, the entry's three aware bots in the seats of the honest Monte Carlo bot,
 # the push/fold bot and the TAG, and the rest of `realistic` (montecarlo30, loose_aggro, rival1, timeout_then_recover);
@@ -823,10 +968,12 @@ AWARE_FIELDS = {
     # montecarlo30 and rival 1 stay blind: core.eval past 8 cards is played as a timeout for them (the guard)
     "river_of_blood_aware": ("hero", "montecarlo30", "rob_mc", "rob_pushfold", "loose_aggro", "rival1", "rob_tag",
                              "timeout_then_recover"),
+    "tranche_holdem_aware": ("hero", "montecarlo30", "tranche_mc", "tranche_pushfold", "loose_aggro", "rival1",
+                             "tranche_tag", "timeout_then_recover"),
 }
 # the variant each aware field is for (tools/climb_accept.py's `aware` stage, tools/variant_matrix.py --aware)
 AWARE_VARIANT = {"toss_or_holdem_aware": "toss_or_holdem", "bounty_aware": "bounty", "short_deck_aware": "short_deck",
-                 "river_of_blood_aware": "river_of_blood"}
+                 "river_of_blood_aware": "river_of_blood", "tranche_holdem_aware": "tranche_holdem"}
 
 _B.REGISTRY.update(AWARE)
 _B._BY_CLASS.update({cls.__name__.lower(): cls for cls in AWARE.values()})

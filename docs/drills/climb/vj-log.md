@@ -55,3 +55,40 @@ Runs:
   them with no board (a preflop all-in), chips conserved every hand, 0 exceptions; 2.9 s.
 - `pytest tests/test_vj_tranche.py`: 14 passed (14 s). Engine and catalog suites (test_sim_engine, test_variant_catalog,
   test_drills_variants, test_eval, test_runout_term, test_s12_reads, test_vf_twists): 171 passed.
+
+## 2. Twist-aware opponents and the wiring
+
+- `hyperion/strategy/tranche.py` (new, stdlib + core): the two rules, two-card keys and their exact share against one
+  random hand (with card removal; the organiser notes' numbers to 0.005, theirs count a tie as no win), the twin map
+  (two-card rank -> the hold'em class at the same combo percentile: 22 -> ATs, 66 -> 77, AK -> AKo, A2 -> QJo, KQ ->
+  A3s, 72 -> 54o, as the drill's adapter found), and `now_share` (the hand as it is now against n random holdings).
+- `hyperion/sim/aware.py`: `tranche_tag`, `tranche_pushfold`, `tranche_mc` and the field `tranche_holdem_aware`
+  (the other aware fields' shape: hero, montecarlo30, tranche_mc, tranche_pushfold, loose_aggro, rival1, tranche_tag,
+  timeout_then_recover); `AWARE_VARIANT` maps it to the entry, so `climb_accept --stages aware` runs it by default.
+  Built from the handout's rules only (the kit's tranche_bot was never opened).
+- `hyperion/sim/generic.py`: under `settle: "street"` the generic opponents score the showdown on the board as it
+  stands (no runout; two cards alone preflop), so their preflop table is the two-card order and their postflop value
+  share is the street's own tranche; `holdem_cards()` is False there. Gated on the key: every other table is as before.
+  `tables/generic/tranche_holdem-d65b70f5.json` (10.6 KB; 16.5 s to build): AA 0.999, 22 0.939, AKo 0.935, 87s 0.237.
+- The weighted score (addendum 11): tranche_holdem is not added to `tools/accept_weights.json`'s probability table, so
+  every saved review's weighted score reproduces; a run that includes it weighs it as an unlisted twist (1).
+  tests/test_climb_accept.py's hand-made case now counts the 27th entry and fifth aware field at that weight.
+
+Calibration of the aware bots (diagnostic seeds 12000-12099, eight rotations each, model mode; scratch scripts
+`goal/vj_work/aware_parts.py`, `aware_mc.py`; two copies each of four variants of the bot in one field):
+
+| bot | first version (claim on every street, weak 0.25) | final (claim only where a call ends the betting, weak 0.15) |
+|---|---|---|
+| tranche_tag / twin preflop only / claim only / ChartTAG | 4.297 / 4.693 / 4.360 / 4.650 | 4.632 / 4.573 / 4.408 / 4.387 |
+| tranche_pushfold / twin only / claim only / PushFoldBot | 4.233 / 4.879 / 4.053 / 4.835 | 4.539 / 4.539 / 4.460 / 4.462 |
+| tranche_mc vs AwareMC played blind (4 + 4) | | 4.551 vs 4.449 |
+
+The first claim call (keep calling while the earlier tranches times their chance cover the price) cost 0.3 to 0.8:
+on the flop and turn a call keeps the claim only if it also pays every later bet, so the formula overpays there. It
+now applies where a call ends the betting (the river, an all-in); the Monte Carlo bot takes half the claim before.
+Each aware bot now beats its blind archetype (+0.25, +0.08, +0.10), smaller than the organiser's 2.6 points on kit
+I's 19-point scale (about 1 on our 7-point one): our archetypes already play made hands only after the flop.
+
+Tests: `tests/test_vj_aware.py` (8): the shares and twins, now_share, the field's wiring, the claim only where the
+betting ends, both aware fields (tranche_holdem_aware, generic_aware) playing the entry clean, the generic read.
+test_aware, test_generic_aware (every catalog entry has a prepared table and plays clean), test_climb_accept: pass.
