@@ -23,6 +23,9 @@ tree's raise sizes follow the actual bet: the 3-bet is 3.5 times the open, the 4
   leads and stabs into our heads-up pots nearly every chance, bets into them often, raises preflop).
 - Never with antes in the pot (obs.pot > 0 preflop): the trees have none.
 - `three`, `three_max`: three-handed preflop (and its depth cap).
+- `three2` (S20): three-handed preflop from the second tree (tables/extra/short_3b.json: the small blind's flat,
+  two 3-bet sizes, 4-bets, the flop's realization fitted from our own postflop; tools/solve_short.py three2). Its
+  nodes carry their raise sizes, so the history maps onto them generically (`_three_node2`).
 
 **Postflop, heads-up pots** (two in the hand, at most `post_alive` alive): one size per street (flop 0.5 pot, turn
 0.66, river 0.75) for value and bluffs alike, so a size names nothing. The hand's place in its range is read from
@@ -94,7 +97,7 @@ def _load(kind: str):
             solve = {k: {"meta": raw["meta"][k]["meta"], "nodes": v} for k, v in nodes.items()}
         else:
             solve = {k: {"meta": v["meta"], "nodes": v["nodes"]} for k, v in raw["solve"].items()}
-        if kind == "3":
+        if kind in ("3", "3b") or "grid" in raw:
             t = {"q": raw["q"], "grid": raw["grid"], "rho": raw.get("rho", [0.4]), "solve": solve}
         elif kind in ("hu_lock", "hu_t3"):  # keys "depth@w": per locked width (or 3-bet size), a depth table
             t = {"q": raw["q"], "w": sorted(float(x) for x in raw.get("w") or raw.get("mult")), "by_w": {}}
@@ -176,6 +179,10 @@ class ShortParams:
         self.bet_bluff = {"agg_ip": (0.26, 0.20, 0.15), "agg_oop": (0.18, 0.16, 0.13),
                           "stab": (0.22, 0.16, 0.12), "lead": (0.0, 0.0, 0.0)}
         self.mdf_slack = 0.0  # defend this much less than minimum defence (0 = exactly MDF)
+        # S20: three-handed preflop from the second tree (tables/extra/short_3b.json; route pre_3way, pre_allin too).
+        # Off by default; `three2` wins over `three` where both are on
+        self.three2 = False
+        self.three2_file = "3b"  # the table: tables/extra/short_<three2_file>.json
         for k, v in kw.items():
             if not hasattr(self, k):
                 raise KeyError(f"unknown short dial {k!r}")
@@ -201,6 +208,7 @@ class ShortMember:
         self.hul = _load("hu_lock") if self.p.wide_open < 1.0 else None
         self.hut3 = _load("hu_t3") if self.p.t3_sizes else None
         self.t3 = _load("3") if self.p.three else None
+        self.t3b = _load(str(self.p.three2_file)) if self.p.three2 else None
         self.payouts = (1.0, 0.0)
         self.rho = 0.4
         self.n = 0
@@ -312,6 +320,9 @@ class ShortMember:
                     if 0 <= opp < len(self._fo) and (self._ff[opp] + 1.5) / (self._fo[opp] + 6.0) > self.p.sb_ftb_max:
                         return False
                 return True
+            if len(alive) == 3 and self.t3b is not None:
+                got = self._three_node2(obs)
+                return got is not None and got[4] <= self.p.three_max * (obs.blinds[1] or 1)
             if len(alive) == 3 and self.t3 is not None:
                 got = self._three_node(obs)
                 return got is not None and got[4] <= self.p.three_max * (obs.blinds[1] or 1)
@@ -529,6 +540,17 @@ class ShortMember:
             if self._t3:
                 self.counts["t3:%g" % self._t3] = self.counts.get("t3:%g" % self._t3, 0) + 1
             return self._to_action(ch, key, sol["meta"], obs, eff)
+        if alive == 3 and self.t3b is not None:
+            got = self._three_node2(obs)
+            if got is None:
+                return None
+            sol, key, node, role, eff = got
+            cls = CLASS_INDEX.get(hole_class(obs.hole))
+            if cls is None:
+                return None
+            ch = self._pick(node, cls, obs, self.t3b["q"], "p3b" + key)
+            self.counts["3b:" + key + ch] = self.counts.get("3b:" + key + ch, 0) + 1
+            return self._to_action3b(ch, node, obs, eff)
         if alive == 3 and self.t3 is not None:
             got = self._three_node(obs)
             if got is None:
@@ -630,6 +652,99 @@ class ShortMember:
         bb = obs.blinds[1] or 1
         cur = float(max(obs.bets))
         amt = self._raise_to3(key, meta, cur, bb)
+        if amt > 0.4 * eff:
+            return Action(_RAISE, obs.max_raise)
+        amt = int(round(amt))
+        return Action(_RAISE, max(obs.min_raise, min(obs.max_raise, amt)))
+
+    # ------------------------------------------------------------------ preflop: three-handed, the second tree (S20)
+    def _three_node2(self, obs: Observation):
+        """(configuration solve, node key, node, my role, eff chips) for a three-handed preflop decision in the second
+        tree, or None. Every raise in the history maps onto the node's raise actions and the jam by its size: a raise
+        between two of them goes to either on a log scale (a draw fixed per hand), one below the smallest to the
+        smallest, and with only the jam to map onto, a raise under 45% of the stack is not a line of ours."""
+        t = self.t3b
+        if t is None or not self._start:
+            return None
+        n = len(obs.stacks)
+        alive = [j for j in range(n) if self._start[j] > 0]
+        if len(alive) != 3:
+            return None
+        btn = obs.button
+        if btn not in alive:
+            return None
+        i = alive.index(btn)
+        sb, bbs = alive[(i + 1) % 3], alive[(i + 2) % 3]
+        bb = obs.blinds[1] or 1
+        grid = t["grid"]
+        cfg = [self._grid_pick(grid, self._start[x] / bb, obs.hand_no, ("b", k)) for k, x in enumerate((btn, sb, bbs))]
+        sol = t["solve"].get("%g,%g,%g" % tuple(cfg))
+        if sol is None:
+            return None
+        nodes = sol["nodes"]
+        role = {btn: 0, sb: 1, bbs: 2}
+        key = ""
+        cur = float(bb)
+        k = 0
+        for seat, a in obs.history:
+            node = nodes.get(key)
+            kind = a.kind
+            if node is None:  # a line with one legal action (no decision in the tree): a check or call only
+                if kind is _CALLK or kind is _CHECKK:
+                    key += "c"
+                    continue
+                return None
+            if role.get(seat) != node["p"]:
+                return None
+            acts = node["a"]
+            if kind is _FOLDK:
+                ch = "f"
+            elif kind is _CALLK or kind is _CHECKK:
+                ch = "c"
+            else:
+                ch = self._map_raise2(node, float(a.amount), cur, float(self._start[seat]), obs.hand_no, k)
+                cur = max(cur, float(a.amount))
+            if not ch or ch not in acts:
+                return None
+            k += 1
+            key += ch
+        node = nodes.get(key)
+        if node is None or role.get(obs.seat) != node["p"]:
+            return None
+        me = obs.seat
+        eff = min(self._start[me], max(self._start[j] for j in alive if j != me))
+        return sol, key, node, role[me], eff
+
+    def _map_raise2(self, node, amount: float, cur: float, jam_to: float, hand_no: int, k: int) -> str:
+        z = node.get("z") or {}
+        cands = sorted((m * cur, ch) for ch, m in z.items() if m * cur < jam_to - 1e-9)
+        has_j = "j" in node["a"]
+        if amount >= jam_to - 1e-9 or (has_j and not cands and amount >= 0.45 * jam_to):
+            return "j" if has_j else (cands[-1][1] if cands else "")
+        if not cands:
+            return ""  # a small raise where the tree only jams: not a line of ours
+        if amount <= cands[0][0]:
+            return cands[0][1]
+        pts = cands + ([(jam_to, "j")] if has_j else [])
+        for x in range(1, len(pts)):
+            if pts[x][0] >= amount:
+                lo, hi = pts[x - 1], pts[x]
+                w = (math.log(amount) - math.log(lo[0])) / (math.log(hi[0]) - math.log(lo[0]))
+                return hi[1] if _u(self.seed, hand_no, "map2", k) < w else lo[1]
+        return pts[-1][1]
+
+    def _to_action3b(self, ch: str, node, obs: Observation, eff: float) -> Action:
+        legal = obs.legal
+        if ch in ("f", "c"):
+            return self._to_action(ch, "", {}, obs, eff)
+        if _RAISE not in legal:
+            return _CALL if _CALLK in legal else _CHECK
+        if ch == "j":
+            return Action(_RAISE, obs.max_raise)
+        m = (node.get("z") or {}).get(ch)
+        if m is None:
+            return Action(_RAISE, obs.max_raise)
+        amt = m * float(max(obs.bets))
         if amt > 0.4 * eff:
             return Action(_RAISE, obs.max_raise)
         amt = int(round(amt))
