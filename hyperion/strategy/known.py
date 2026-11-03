@@ -146,6 +146,16 @@ def table(shape, tables_dir: str = TABLES_DIR):
     return t
 
 
+SHAPES = ((1, 2, 0, 1), (2, 1, 0, 2), (2, 0, 1, 1))  # the prepared shapes (module doc)
+
+
+def preload(hole_cards: int, tables_dir: str = TABLES_DIR) -> None:
+    """Read the prepared shapes a game with this many hole cards can ask for (at a table start: never in a decision)."""
+    for shape in SHAPES:
+        if shape[0] + shape[1] == hole_cards:
+            table(shape, tables_dir)
+
+
 def equity(mine, shared, exposed, unknown: int, tables_dir: str = TABLES_DIR):
     """Our heads-up preflop equity against an opponent holding `shared` + `exposed` + `unknown` random cards, or None
     when the shape has no prepared table (or the key is missing: a deck the table was not built for)."""

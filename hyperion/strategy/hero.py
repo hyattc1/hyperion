@@ -904,6 +904,8 @@ class HeroCore:
             if "pre" in parts and std and self._cls_map is None:
                 self._known_ladder = known_ladder(t, pre)
                 self._known_pre = self._known_ladder is not None
+                if self._known_pre:
+                    _known.preload(rules.hole_cards)  # the tables' first read is a table start's, not a decision's
 
     def _twins(self, rules: Rules) -> dict | None:
         """The variant's twin map (Config.twin_preflop), read once per variant and rules; None when the variant has
