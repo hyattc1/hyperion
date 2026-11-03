@@ -199,3 +199,11 @@ first two by construction leave the heads-up and three-handed cells and straddle
 at 2 workers, in this order: elite; the four 8-max exploit cells; antes_from_level_3, fast_schedule, top_heavy;
 confirm and guards; then one 25-seed chunk of each cell that should be F's exactly (the eight short-handed exploit
 cells and straddle), compared sample for sample.
+
+## 08:35-08:50: O3's code (cc3a491 the four-alive gate, aafe5b9 straddle off), identity, latency
+
+Identity (idcheck5.py: the branch with the dials off against main 64b466a's 31 cells from 06:06): **all 31
+identical**; F's cells copied to version 9549c8efee (key 9ea319a2ced4). Latency (per-call minimum, aafe5b9): act p99
+109.6 / 111.0 µs (realistic / elite), hand end p99 147.0 / 139.7, first act max 141.5. Tests (s16b including the
+four-alive and straddle tests, API card, ship, compose): 56 passed. (The first launch of O3's screen failed at once:
+the stage wrapper's module was not importable by the pool's workers; fixed, relaunched 08:52 at 2 workers.)
