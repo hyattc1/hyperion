@@ -70,3 +70,39 @@ per table seed touch our seats).
 Tests: tests/test_runout_term.py (play identical on hold'em, hi_lo, knockout_bounty, short_deck, omaha_four and
 swap_holdem; streams untouched; a turn all-in averages V over exactly the 44 rivers; preflop draws 50 from its own seed;
 V's bust places; the 16 / 10 split of the catalog; climb_accept refuses a term chunk whose raw samples differ).
+
+## Zero mean at high power, on a fast field (milestone 2)
+
+A field of seven simple bots (tag twice, nit, station, maniac, naive, random, allin; model mode, 8 rotations a seed,
+SW.SEED 7), our own seeds 60000+, nothing to do with any held-out set. Scratch `goal/r7/cheap.py` (per table seed,
+each bot's raw and corrected sample) and `goal/r7/events.py` (per event, by cards to come). Term = raw - corrected.
+
+Per table seed (95% intervals; sd ratio = raw sd / corrected sd, unpaired):
+
+| rules, seeds | allin | maniac | naive | nit | random | station | tag | sd ratio |
+|---|---|---|---|---|---|---|---|---|
+| hold'em, 60000-65999 | -0.003 ± 0.013 | +0.001 ± 0.012 | -0.005 ± 0.013 | -0.000 ± 0.008 | +0.001 ± 0.012 | +0.011 ± 0.012 | -0.005 ± 0.007 | 1.07-1.31 |
+| hi_lo, 60000-62999 | -0.014 ± 0.022 | +0.002 ± 0.021 | -0.009 ± 0.020 | -0.001 ± 0.013 | -0.003 ± 0.019 | +0.026 ± 0.020 | -0.010 ± 0.013 | 0.99-1.32 |
+| short_deck, 60000-62999 | +0.007 ± 0.018 | -0.015 ± 0.017 | -0.003 ± 0.018 | +0.009 ± 0.013 | +0.011 ± 0.017 | -0.007 ± 0.016 | +0.004 ± 0.012 | 1.10-1.26 |
+| omaha_four, 60000-62999 | -0.002 ± 0.016 | +0.004 ± 0.016 | +0.007 ± 0.017 | +0.001 ± 0.013 | -0.001 ± 0.016 | -0.006 ± 0.015 | +0.007 ± 0.013 | 1.10-1.31 |
+| knockout_bounty, 60000-62999 | -0.013 ± 0.018 | -0.003 ± 0.018 | -0.004 ± 0.018 | -0.004 ± 0.011 | +0.004 ± 0.017 | +0.023 ± 0.017 | -0.009 ± 0.010 | 1.16-1.42 |
+
+34 of 35 within their interval at 95%... except the station: z +1.84 (hold'em), +2.53 (hi_lo), +2.78 (knockout_bounty)
+on the same seeds 60000-62999. Those three rules keep the deck, so they replay the same deals with the same
+deterministic station: one lucky realization seen three times, not three. short_deck and omaha_four, which change the
+deck, give -0.85 and -0.79. Replicated on fresh seeds 66000-71999 (hold'em, per event, split by cards to come):
+
+| bot | turn (1 card, enumerated) | flop (2, enumerated) | preflop (5, 50 sampled) |
+|---|---|---|---|
+| station | +0.0024 ± 0.0062 (7,766 events) | -0.0033 ± 0.0104 (5,448) | -0.0016 ± 0.0157 (63,616) |
+| tag | +0.0003 ± 0.0024 (40,974) | -0.0034 ± 0.0025 (44,194; z -2.64) | +0.0001 ± 0.0014 (245,861) |
+| nit | -0.0010 ± 0.0021 | +0.0018 ± 0.0025 | +0.0004 ± 0.0016 |
+| (all seven) | sum z^2 15.7 over 21 cells (expected about 21; the seat terms sum to zero, so a little less) | | |
+
+The station is clean on fresh seeds; tag's flop z -2.64 is 1 of 21 (16% chance of one that size). No bias is
+detectable: at most about 0.01 points a table seed on hold'em, 0.02 on the twists, which is below what the
+climb's cells resolve (±0.03-0.1). The unpaired sd falls 1.1-1.4x on these fields (variance 1.2-2x).
+
+Note: the per-event run (3 workers) overlapped the last five minutes of the cheap run (3 workers) by mistake: my
+`ps | grep` check came back empty through the command-rewriting hook and I took the cheap run for dead. Six processes
+for about five minutes; checks since use pgrep.
