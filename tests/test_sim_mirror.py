@@ -306,3 +306,28 @@ def test_s14_second_strong_route(monkeypatch):
     assert abs(core.rr_read() - 0.225) < 1e-9  # (3 + 1.5) / 20: in the band
     core._rr_n, core._rr_k = 30, 27
     assert core.rr_read() > 0.6  # an exploiter's table: out of the band
+
+
+def test_s14_strong2_keep_defence(monkeypatch):
+    """strong2_keep_defence: no preflop decision where our own raise this hand was re-raised goes to the second route's
+    donor (F's 3-bet defence keeps them); without it some do."""
+    _model(monkeypatch)
+    orig = CB.CompositeCore.act
+    seen = {"guarded": 0, "routed": 0}
+
+    def act(self, obs):
+        guarded = not obs.street and obs.to_call > 0 and self._raised_hand == obs.hand_no
+        before = self.counts["strong2"]
+        a = orig(self, obs)
+        if guarded:
+            seen["guarded"] += 1
+            seen["routed"] += self.counts["strong2"] - before
+        return a
+
+    monkeypatch.setattr(CB.CompositeCore, "act", act)
+    two = {"strong2_route": "pre_3way=elite1x,pre_hu=elite1x"}
+    _play("s14_kd_off", two, field="mirror")
+    assert seen["guarded"] > 20 and seen["routed"] > 0
+    seen.update(guarded=0, routed=0)
+    _play("s14_kd_on", {**two, "strong2_keep_defence": True}, field="mirror")
+    assert seen["guarded"] > 20 and seen["routed"] == 0
