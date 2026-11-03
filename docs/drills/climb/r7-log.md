@@ -271,3 +271,58 @@ Read:
 - **Interval ratio:** median 1.33, 0.98-1.54; realistic 1.00 and top_heavy 0.98 are the two cells where it did not
   help (why is not measured here; a ratio from 100-200 seeds is itself uncertain by about ±10%), exploit3_hu 1.47,
   adapt_3 1.54.
+
+## 400 seeds pooled: confirm and guards (milestone 6)
+
+Our own 50000-50199 (11:14 batch 5, 11:28 S5; 2 workers) pooled with the screen chunks above, through climb_accept's
+own rule (scratch pool.py --pool). Both verdict lines read REJECT only because these two stages alone cannot meet
+the aims' own conditions (an elite cell up for --aim strong, an exploit cell up for --aim exploit); the checks that
+can be compared agree, raw and corrected.
+
+**B5 - B4, 400 seeds pooled (10000-10199 + 50000-50199), confirm and guards**
+
+| stage | cell | n | raw delta | | corrected | | ratio | term base | term cand | term c - b (z) | events b/c |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| confirm | night | 400 | +0.002 ± 0.054 | level | +0.021 ± 0.044 | level | 1.23 | +0.006 ± 0.034 | -0.012 ± 0.034 | -0.018 ± 0.030 (-1.2) | 69/70 |
+| guards | night_hard | 400 | -0.005 ± 0.058 | level | +0.032 ± 0.046 | level | 1.25 | +0.052 ± 0.037 | +0.015 ± 0.038 | -0.037 ± 0.037 (-2.0) | 66/66 |
+| guards | realistic | 400 | -0.004 ± 0.048 | level | -0.015 ± 0.038 | level | 1.27 | -0.001 ± 0.033 | +0.010 ± 0.032 | +0.011 ± 0.024 (+0.9) | 74/74 |
+| guards | top | 400 | +0.042 ± 0.059 | level | +0.073 ± 0.045 | UP **≠** | 1.29 | +0.029 ± 0.041 | -0.002 ± 0.040 | -0.031 ± 0.039 (-1.6) | 65/66 |
+| guards | night @10/7/5/4/3/2/1/0 | 400 | +0.031 ± 0.097 | level | +0.045 ± 0.075 | level | 1.28 | +0.008 ± 0.057 | -0.006 ± 0.052 | -0.014 ± 0.054 (-0.5) | 69/70 |
+| guards | night @50/25/12/6/3/2/1/1 | 400 | +0.376 ± 0.588 | level | +0.223 ± 0.465 | level | 1.27 | +0.094 ± 0.377 | +0.247 ± 0.348 | +0.153 ± 0.384 (+0.8) | 67/68 |
+| guards | night +double | 400 | -0.002 ± 0.049 | level | +0.011 ± 0.037 | level | 1.34 | -0.002 ± 0.040 | -0.015 ± 0.041 | -0.013 ± 0.034 (-0.7) | 72/72 |
+
+- z of the term (base): 7 cells, sum z^2 9.8, |z| > 1.96 in 1, max |z| 2.72
+- z of the term (cand): 7 cells, sum z^2 4.0, |z| > 1.96 in 0, max |z| 1.39
+- z of the term (cand - base): 7 cells, sum z^2 10.0, |z| > 1.96 in 0, max |z| 1.95
+- verdict raw: REJECT; corrected: REJECT
+  - raw [x] confirm: night not beyond noise down  |  corrected [x] confirm: night not beyond noise down
+  - raw [x] guards: none beyond noise down  |  corrected [x] guards: none beyond noise down
+- interval ratio: median 1.27, range 1.23-1.34 over 7 cells
+
+**S5 - F, 400 seeds pooled (10000-10199 + 50000-50199), confirm and guards**
+
+| stage | cell | n | raw delta | | corrected | | ratio | term base | term cand | term c - b (z) | events b/c |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| confirm | night | 400 | +0.002 ± 0.005 | level | -0.000 ± 0.004 | level | 1.30 | -0.012 ± 0.034 | -0.010 ± 0.033 | +0.002 ± 0.004 (+1.0) | 70/70 |
+| guards | night_hard | 400 | -0.002 ± 0.005 | level | -0.001 ± 0.004 | level | 1.27 | +0.015 ± 0.038 | +0.013 ± 0.038 | -0.002 ± 0.004 (-0.9) | 66/66 |
+| guards | realistic | 400 | -0.007 ± 0.004 | DOWN | -0.008 ± 0.004 | DOWN | 1.15 | +0.010 ± 0.032 | +0.011 ± 0.032 | +0.001 ± 0.004 (+0.6) | 74/74 |
+| guards | top | 400 | +0.003 ± 0.004 | level | +0.003 ± 0.003 | UP **≠** | 1.23 | -0.002 ± 0.040 | -0.002 ± 0.040 | -0.000 ± 0.003 (-0.0) | 66/66 |
+| guards | night @10/7/5/4/3/2/1/0 | 400 | -0.010 ± 0.016 | level | -0.007 ± 0.013 | level | 1.28 | -0.006 ± 0.052 | -0.008 ± 0.052 | -0.002 ± 0.011 (-0.4) | 70/70 |
+| guards | night @50/25/12/6/3/2/1/1 | 400 | -0.107 ± 0.138 | level | -0.071 ± 0.106 | level | 1.30 | +0.247 ± 0.348 | +0.212 ± 0.347 | -0.036 ± 0.093 (-0.8) | 68/68 |
+| guards | night +double | 400 | -0.000 ± 0.005 | level | -0.002 ± 0.003 | level | 1.68 | -0.015 ± 0.041 | -0.013 ± 0.041 | +0.002 ± 0.004 (+0.8) | 72/72 |
+
+- z of the term (base): 7 cells, sum z^2 4.0, |z| > 1.96 in 0, max |z| 1.39
+- z of the term (cand): 7 cells, sum z^2 3.2, |z| > 1.96 in 0, max |z| 1.20
+- z of the term (cand - base): 7 cells, sum z^2 3.5, |z| > 1.96 in 0, max |z| 1.02
+- verdict raw: REJECT; corrected: REJECT
+  - raw [x] confirm: night not beyond noise down  |  corrected [x] confirm: night not beyond noise down
+  - raw [ ] guards: none beyond noise down (down: realistic)  |  corrected [ ] guards: none beyond noise down (down: realistic)
+- interval ratio: median 1.28, range 1.15-1.68 over 7 cells
+
+Read: at 400 seeds the ratios hold (1.23-1.34 for batch 5, 1.15-1.68 for S5), the paired term is within noise
+everywhere (sum z^2 10.0 and 3.5 over 7 cells), and every per-spec term is within noise but one: batch 4's own term on
+night_hard, +0.052 ± 0.037 (z +2.75), positive on both halves (screen +0.056 ± 0.052, 50k +0.048 ± 0.053). One of 14 at
+that size is an 8% event, but a same-sign repeat on a second seed set is what a leak would look like, so it was
+re-measured on fresh seeds (below). Play unchanged: every term chunk with a plain chunk of the same key (211 chunks,
+27 of F's screen cells from S16's cache and the 50k night chunk of all three specs, about 42,000 tables) has identical
+raw samples.
