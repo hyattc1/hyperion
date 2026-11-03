@@ -153,6 +153,15 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.read_trust` | `0.0` | unopened pots (the steal price, the open clauses, a short shove's fold equity): a seat's fold-to-a-raise read is at most prior + (observed - prior) x n / (n + this), n its raises faced, prior 0.6; 0 = off |
 | `r3.read_trust_min_n` | `10.0` | ... and only the prior (0.6) below this many raises faced |
 | `r3.icm_horizon` | `False` | every all-in price (fold, steal, win, lose, and the 3-bet defence's call) values each stack s as max(s - o, s / 2), o the blinds it must still post before its next button or the hand cap (hero.blinds_owed), computed once a hand |
+| `r3.oa_read` | `False` | unopened pot, no limper, deeper than short_bb: the steal price and the open clauses read each seat behind from the answers to my first-in raises this table (not all-in): fold = this table's rate from its position (all seats pooled, shrunk to the position's prior with oa_st answers) + the seat's own excess folds over those rates / (its answers + oa_s); a dead seat still folds; off = fold-to-any-raise |
+| `r3.oa_mu_other` | `0.866` | prior fold of a seat that is not a blind, facing my first-in raise (S16b survey) |
+| `r3.oa_mu_sb` | `0.815` | ... of the small blind |
+| `r3.oa_mu_bb` | `0.668` | ... of the big blind |
+| `r3.oa_st` | `20.0` | weight of a position's prior against this table's answers from that position |
+| `r3.oa_s` | `23.0` | weight of a seat's prior (no excess) against its own answers |
+| `r3.oa_min_n` | `0.0` | answers a seat must have given before its own excess counts (0: from the first) |
+| `r3.oa_min_alive` | `0` | with oa_read: only while at least this many players have chips (0: always); heads-up and three-handed the steal price stays as built |
+| `r3.oa_cap` | `False` | with oa_read: the open-answer read only lowers a seat's fold read (min of the two), as S16's one-sided cap; off = it replaces the read |
 
 The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"exploit": null}` turns the layer off):
 
@@ -183,6 +192,9 @@ The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"
 | `exploit.stab_size` | False |
 | `exploit.stab_alive` | 0 |
 | `exploit.stab_min_fold` | 0.0 |
+| `exploit.open_read` | False |
+| `exploit.open_cap` | False |
+| `exploit.open_min_alive` | 0 |
 | `exploit.isolate` | False |
 | `exploit.iso_min_fold` | 0.85 |
 | `exploit.iso_max_bb` | 6.0 |
@@ -460,6 +472,9 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `exploit.stab_size` | False |
 | `exploit.stab_alive` | 0 |
 | `exploit.stab_min_fold` | 0.0 |
+| `exploit.open_read` | False |
+| `exploit.open_cap` | False |
+| `exploit.open_min_alive` | 0 |
 | `exploit.isolate` | False |
 | `exploit.iso_min_fold` | 0.85 |
 | `exploit.iso_max_bb` | 6.0 |

@@ -87,6 +87,12 @@ clauses, and the layer its steal_min_fold, with each marked seat's fold read at 
 n / (n + read_trust) (n the raises it faced; the prior alone below `read_trust_min_n`). The defensive reads (the 3-bet
 defence, the size and probe reads) are untouched (docs/drills/climb/s16-log.md).
 
+**The open-answer read** (S16b, `r3.oa_read` and `exploit.open_read`, off by default). Rival 3's core counts, at each
+hand end, how every seat answered my first-in raise (not all-in): folds against a prior by position (the small
+blind, the big blind, the rest). With `r3.oa_read` its steal price and open clauses in an unopened pot with no limper
+read each seat behind from that instead of its fold rate facing any raise; with `exploit.open_read` the layer's
+steal_min_fold reads the same (`Exploit.open_fold`, wired here to the base's core). docs/drills/climb/s16b-log.md.
+
 **The short-handed route** (S13, `short_route`, off by default): sections played by another donor (the specialist
 `short`, hyperion/strategy/short.py) while at most `short_alive` players have chips and that member `wants` the decision
 (the hand maps onto its tables, no opponent alive reads as a clear leak); otherwise the section's donor as above. The
@@ -756,6 +762,11 @@ class CompositeCore:
             if self._trust_prof is not None:
                 self._trust_prof.track_s12 = True  # the strong-table counts (the shipped size read turns it on too)
         self._trust_h = False
+        # S16b: the layer's steal read from rival 3's core's open-answer read (exploit.open_read; hold'em tables)
+        self._oa_core = None
+        if self.ex is not None and self.ex.p.open_read and core is not None and hasattr(core, "oa_fold"):
+            core.oa_count = True
+            self._oa_core = core
 
     # ------------------------------------------------------------------ Bot protocol
     def _rr_reset(self) -> None:
@@ -808,6 +819,10 @@ class CompositeCore:
             from ..strategy.hero import holdem_table
 
             self._trust_h = holdem_table(rules)
+        if self._oa_core is not None:
+            from ..strategy.hero import holdem_table
+
+            self.ex.open_fold = self._oa_core.oa_fold if holdem_table(rules) and not rules.straddle else None
 
     def _trust_gate(self, obs: Observation) -> None:
         """S16: mark, before a preflop decision, the seats whose steal reads take the trust weight (module doc)."""

@@ -122,3 +122,20 @@ class Rival3Knobs:
     icm_horizon: bool = _dial(False, "every all-in price (fold, steal, win, lose, and the 3-bet defence's call) values "
                                      "each stack s as max(s - o, s / 2), o the blinds it must still post before its "
                                      "next button or the hand cap (hero.blinds_owed), computed once a hand")
+    # the open-answer read (S16b, docs/drills/climb/s16b-log.md): how each seat answers my own first-in raises (folds
+    # per answer, against a prior by position), in place of its fold-to-any-raise in the steal price. Off: as built
+    oa_read: bool = _dial(False, "unopened pot, no limper, deeper than short_bb: the steal price and the open clauses "
+                                 "read each seat behind from the answers to my first-in raises this table (not "
+                                 "all-in): fold = this table's rate from its position (all seats pooled, shrunk to "
+                                 "the position's prior with oa_st answers) + the seat's own excess folds over those "
+                                 "rates / (its answers + oa_s); a dead seat still folds; off = fold-to-any-raise")
+    oa_mu_other: float = _dial(0.866, "prior fold of a seat that is not a blind, facing my first-in raise (S16b survey)")
+    oa_mu_sb: float = _dial(0.815, "... of the small blind")
+    oa_mu_bb: float = _dial(0.668, "... of the big blind")
+    oa_st: float = _dial(20.0, "weight of a position's prior against this table's answers from that position")
+    oa_s: float = _dial(23.0, "weight of a seat's prior (no excess) against its own answers")
+    oa_min_n: float = _dial(0.0, "answers a seat must have given before its own excess counts (0: from the first)")
+    oa_min_alive: int = _dial(0, "with oa_read: only while at least this many players have chips (0: always); heads-up "
+                                 "and three-handed the steal price stays as built")
+    oa_cap: bool = _dial(False, "with oa_read: the open-answer read only lowers a seat's fold read (min of the two), as "
+                                "S16's one-sided cap; off = it replaces the read")
