@@ -398,3 +398,62 @@ Against the brief's targets:
   whose sizes name its hand (exploiter 2's 0.70 / 0.80), not tried.
 - The gates' values (0.5 bets per chance, 0.65 opens) were set from surveys of the screen fields before measuring,
   not tuned; held-out sets decide.
+
+# S13b: gate the specialist to exploiter-like opponents (branch climb/s13b-gate, from main e5ebfdb)
+
+S5 on held-out H14 against batch 5 (main's F: D3's size read, Z3's S11 fixes with both hold'em gates, the strong route,
+V-e): REJECT. Up exploit2_hu +0.443 ± 0.108, exploit2_3 +0.123 ± 0.059, exploit2 +0.021 ± 0.020; level against
+exploiter 1, night, top, elite, elite_night, mirror; down night_hard -0.005 ± 0.005, realistic -0.005 ± 0.005,
+top_heavy -0.247 ± 0.165, antes_from_level_3 -0.010 ± 0.007 (the last two on the realistic field). The coordinator's
+read: it takes heads-up spots against ordinary bots, where F's exploitative play does better, and under a top-heavy
+table first place is decided there.
+
+## Where it plays on the ordinary fields (diagnostic seeds 3000-3399, never used before)
+
+Paired F / S5 tables on realistic under top_heavy (60 seeds x 8; F as main ships): the per-table differences are far
+too noisy to rank opponents (one heads-up decides 25+ points of 100), but they show who the specialist plays: of the 79
+tables where it acted, LooseAggroStudent (256 postflop decisions in 32 tables), RivalBot (130 postflop, 70 preflop),
+PushFoldBot (79 postflop), ChartTAG and TimeoutThenRecover. All of them pass S5's gates (postflop: bets into us at
+least 0.5 of chances; preflop: opens at least 0.65 of buttons, which RivalBot reaches at its tail).
+
+## The reads that separate the exploiters (survey.py, seeds 3100-3115 x 8 per field)
+
+F's own profiler reads of the heads-up opponent at our decisions with two alive (every third hand), median [p10,
+p90]; probe = its bets per chance in heads-up pots with us where the initiative is not its own (leads into us, stabs
+after our check), (bets + 0.9) / (chances + 2); bet = the same with the aggressor's bets counted too, (bets + 1.6) /
+(chances + 4); pfr from the profiler.
+
+| field | opponent | probe | bet | pfr | open (button) |
+|---|---|---|---|---|---|
+| exploit2_hu | exploiter 2 | 0.86 [0.63, 0.93] | 0.73 [0.58, 0.80] | 0.53 [0.43, 0.60] | 0.86 [0.67, 0.92] |
+| exploit2_3 | exploiter 2 | 0.88 [0.72, 0.93] | 0.69 [0.52, 0.78] | 0.42 [0.26, 0.53] | 0.74 [0.51, 0.88] |
+| exploit2 (8-max) | exploiter 2 | 0.88 [0.63, 0.92] | 0.74 [0.60, 0.84] | 0.23 [0.17, 0.31] | 0.55 [0.41, 0.73] |
+| exploit_hu | exploiter 1 | 0.45 [0.30, 0.63] | 0.68 [0.40, 0.80] | 0.68 [0.46, 0.76] | 0.85 [0.62, 0.92] |
+| realistic | LooseAggroStudent | 0.54 [0.27, 0.72] | 0.58 [0.47, 0.82] | 0.24 [0.22, 0.30] | 0.50 |
+| realistic | RivalBot | 0.31 [0.15, 0.47] | 0.41 [0.26, 0.51] | 0.25 [0.16, 0.30] | 0.56 |
+| realistic | PushFoldBot | 0.45 [0.30, 0.72] | 0.51 [0.32, 0.60] | 0.14 | 0.36 |
+| night_hard | naive | 0.77 [0.72, 0.84] | 0.70 [0.69, 0.76] | 0.07 [0.06, 0.08] | 0.14 |
+| night_hard | rival3 | 0.31 [0.18, 0.47] | 0.36 | 0.37 | 0.79 |
+| exploit2_3 | rival2 | 0.74 [0.54, 0.79] | 0.68 [0.54, 0.74] | 0.27 | 0.70 |
+| mirror | Elite2Bot / ShipCopy | 0.52 / 0.45 (p90 0.70 / 0.78) | 0.61 / 0.52 | 0.21 / 0.25 | 0.53 / 0.72 |
+
+Every other opponent surveyed (night, night_hard, realistic, top, elite, mirror and the exploit fields' pool seats) has
+a probe median of 0.69 or less (timeout_burst three-handed 0.69 with pfr 0.07; the rest 0.63 or less). The
+exploiters share postflop aggression (bet 0.68-0.74), and exploiter 2 alone leads and stabs into us nearly every time
+(0.86-0.88 in all three formats, 8-max endgames included, where its preflop frequencies are diluted by the 8-max hands).
+The one ordinary bot that probes that often (naive) never raises preflop. S5 gained nothing against exploiter 1, so
+nothing is lost by leaving it to F.
+
+**The gate (81afd88), thresholds fixed from this table before any screen:** every specialist decision needs the
+heads-up opponent's probe >= 0.75 (below exploiter 2's medians, above every ordinary median but naive's and at rival2's
+three-handed median), bet >= 0.60 (exploiter 2's p10 heads-up is 0.58, its medians 0.69-0.74), and pfr >= 0.15 (takes
+out naive, 0.07-0.10; exploiter 2's 8-max p10 is 0.17): `short.like_probe` 0.75, `short.like_bet` 0.6,
+`short.like_pfr` 0.15. S5's `post_aggr` 0.5 is implied by `like_bet` and dropped; `pre_open_min` 0.65 stays for the big
+blind's preflop.
+
+Check (gatecount.py, seeds 3300-3305 x 8): the specialist takes 61% of our heads-up decisions against exploiter 2 heads-
+up and 56% three-handed (the rest are F's button preflop and the hands before its probe read crosses 0.75); 6 of 1,417
+against exploiter 1; none of 1,068 on realistic and 3 of 730 on night_hard (rival3).
+
+S6 = `{"short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short", "short.pre_roles": "bb",
+"short.pre_open_min": 0.65, "short.like_probe": 0.75, "short.like_bet": 0.6, "short.like_pfr": 0.15}`.
