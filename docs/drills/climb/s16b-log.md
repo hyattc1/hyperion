@@ -144,3 +144,9 @@ API card, mirror, adapt, climb_accept): 244 passed.
 
 Identity at the new code (idcheck3.py, the same 31 cells): **all 31 identical** to main 64b466a and to 724cc7f; F's
 cells copied to version 409c5ced04 (key 044e841c99e0). O2's screen follows (from 07:18; same stages).
+
+**O3, added at 08:20 after O2's exploit cells (not pre-registered).** O2's exploiter 1 heads-up (-0.165 ± 0.102) and
+three-handed (-0.205 ± 0.131) cells came in beyond noise down while its strong cells were up (below). O3 = O2 +
+`{"r3.oa_min_alive": 4, "exploit.open_min_alive": 4}`: the read only while four or more players have chips, so the
+heads-up and three-handed steal prices stay F's (S12's C6 did the same for the size read). Code 7959538, cherry-picked
+after O2's run. Exploit stage first, then elite, confirm and guards, variants (host at load 45: 2 workers from here).
