@@ -478,8 +478,11 @@ def main(argv=None) -> int:
                    "p99": (gb["p99"], gc_["p99"]), "opp": (gb["opp_mean"], gc_["opp_mean"])}
             if rt:
                 mr, hr = paired(gb["samples_raw"], gc_["samples_raw"])
+                tb = [x - y for x, y in zip(gb["samples_raw"], gb["samples"])]
+                tc = [x - y for x, y in zip(gc_["samples_raw"], gc_["samples"])]
                 row.update({"raw_base": gb["mean_raw"], "raw_cand": gc_["mean_raw"], "raw_delta": mr, "raw_ci": hr,
                             "raw_flag": flag(mr, hr), "term_base": term_mean(gb), "term_cand": term_mean(gc_),
+                            "term_delta": paired(tb, tc),
                             "ratio": hr / h if h > 0 else None,
                             "events": (gb["rt_events"], gc_["rt_events"])})
             out.append(row)
@@ -548,17 +551,18 @@ def main(argv=None) -> int:
                   f"{r['p99'][0]:.0f}/{r['p99'][1]:.0f} |")
     if rt:
         print("\n## runout term (the tables above are corrected)\n\n| cell | raw cand - base | | corrected | | ratio "
-              "| term base | term cand | events b/c |")
-        print("|---|---|---|---|---|---|---|---|---|")
+              "| term base | term cand | term c - b | events b/c |")
+        print("|---|---|---|---|---|---|---|---|---|---|")
         for s in ("window", "confirm", "guards", "elite", "judges", "exploit", "variants", "aware"):
             for r in st.get(s, []):
-                (tb, hb), (tc, hc) = r["term_base"], r["term_cand"]
+                (tb, hb), (tc, hc), (td, hd) = r["term_base"], r["term_cand"], r["term_delta"]
                 ratio = "-" if r["ratio"] is None else f"{r['ratio']:.2f}"
                 print(f"| {r['cell']} | {r['raw_delta']:+.3f} ± {r['raw_ci']:.3f} | {r['raw_flag']} | "
                       f"{r['delta']:+.3f} ± {r['ci']:.3f} | {r['flag']} | {ratio} | {tb:+.3f} ± {hb:.3f} | "
-                      f"{tc:+.3f} ± {hc:.3f} | {r['events'][0]:.1f}/{r['events'][1]:.1f} |")
-        print("\nterm = raw - corrected per table seed (zero within noise if unbiased); ratio = raw interval / "
-              "corrected interval; events = term events touching our seats per table seed (8 rotations).")
+                      f"{tc:+.3f} ± {hc:.3f} | {td:+.3f} ± {hd:.3f} | {r['events'][0]:.1f}/{r['events'][1]:.1f} |")
+        print("\nterm = raw - corrected per table seed, each spec's and paired (term c - b = raw delta - corrected "
+              "delta): zero within noise if unbiased; ratio = raw interval / corrected interval; events = term events "
+              "touching our seats per table seed (8 rotations).")
     if "timing" in st:
         print(f"\n## timing\n- base: {st['timing']['base']['raw']}\n- cand: {st['timing']['cand']['raw']}")
     print("\n## verdict" + (" (on the corrected deltas)" if rt else ""))

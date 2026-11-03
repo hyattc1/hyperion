@@ -121,3 +121,29 @@ def test_climb_accept_refuses_a_term_cell_whose_raw_samples_differ_from_the_plai
     CA._check_rt_raw(term, {"samples": [6.0, 5.5]})
     with pytest.raises(RuntimeError):
         CA._check_rt_raw(term, {"samples": [6.0, 5.25]})
+
+
+def test_climb_accept_reads_the_verdict_on_the_corrected_delta_and_prints_the_raw_one(monkeypatch, tmp_path, capsys):
+    CA = _load("climb_accept")
+    monkeypatch.setattr(CA, "run_cells", lambda *a, **k: None)
+    monkeypatch.setattr(CA, "code_version", lambda: "test")
+    base_key = CA.spec_key(CA.resolve({"dials": {}}), "test")
+
+    def gather(out, key, c, lo, hi, rt=False):  # runout luck of +-1 a seed, different per spec; +0.05 under it
+        assert rt
+        base = key == base_key
+        cor = [5.0 + (0.0 if base else 0.05) + 0.01 * ((i + (0 if base else 1)) % 2) for i in range(hi - lo)]
+        raw = [x + (1.0 if (i % 2 if base else (i // 2) % 2) else -1.0) for i, x in enumerate(cor)]
+        return {"samples": cor, "samples_raw": raw, "mean": sum(cor) / len(cor), "mean_raw": sum(raw) / len(raw),
+                "rt_events": 50.0, "tmo": 0, "exc": 0, "ill": 0, "safe_err": 0, "p99": 100.0, "opp_mean": None}
+
+    monkeypatch.setattr(CA, "gather", gather)
+    out = tmp_path / "v.json"
+    CA.main(["--cand", '{"dials": {"x": 1}}', "--set", "screen", "--stages", "confirm", "--runout-term",
+             "--json", str(out), "--out", str(tmp_path)])
+    v = json.loads(out.read_text())
+    row = v["stages"]["confirm"][0]
+    assert v["accept"] is True and v["runout_term"] == RT.version()
+    assert row["flag"] == "UP" and row["raw_flag"] == "level" and row["ratio"] > 10
+    assert row["term_delta"][0] == pytest.approx(row["raw_delta"] - row["delta"])
+    assert "## runout term" in capsys.readouterr().out
