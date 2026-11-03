@@ -276,3 +276,14 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
   exploit3 +0.043, exploit3_3 +0.117, exploit2_3 +0.045, adapt -0.026, adapt_3 -0.023 (all level); **exploit2 -0.052
   ± 0.029 DOWN** (exploiter 2 5.048 -> 5.045: the pool seats). W +0.0070 ± 0.0156, W-min -0.0002 ± 0.0205. The 3-bet
   guard at 0.25 takes exploiter 1 off the tables at 8-max (exploit -0.10 -> -0.05).
+- 17:43 **GXK25** (GK25 with table 3c), seeds 10000-10099 (`q/027_GXK100.out`): **two cells down**. elite +0.022 ±
+  0.019 UP, elite_b +0.043 ± 0.021 UP, mirror_b +0.036 ± 0.021 UP, mirror +0.016, elite_night -0.003; exploit3 +0.059
+  ± 0.046 UP; exploit -0.072 ± 0.061 DOWN, exploit2 -0.052 ± 0.038 DOWN; the rest level. W +0.0079 ± 0.0164, W-min
+  -0.0005 ± 0.0224. No better than GK25 on the exploit cells.
+- 17:44 Where exploit2's 8-max endgames differ (diagnostic seeds, exploiter 2 alive): the big blind against the
+  button's open, GK -0.13 bb a hand (calls 38%, -0.6 each) against F +0.42 (calls 22%, +0.6 each; jams 31%). The big
+  blind's wide flats are also the tables' weakest spot at elite (U: calls 79%) and the spot where the realization model
+  is least supported (the 100% defence rests on weak hands realizing nearly their equity out of position, a range F
+  itself never plays, so the fit has no data there), while F's own big blind was its strongest three-handed spot at
+  strong tables (+0.69 bb a hand, step 1). Candidate **GK25R** = GK25 with `short.three2_roles` btn,sb (F plays the
+  big blind). Running; F's base confirm + guards (030) moved behind it.
