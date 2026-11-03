@@ -204,3 +204,69 @@ Read:
 - **Interval ratio** (raw interval / corrected): median 1.30 (variance 1.69x: the same interval from 59% of the seeds),
   1.21-1.39 on confirm and guards, 1.21-1.52 on elite, 1.15-1.62 on exploit (heads-up and three-handed highest:
   exploit3_hu 1.62, exploit3_3 1.59, adapt_3 1.47), 1.05-1.37 on the variants (lowball 1.05, omaha_four 1.37).
+
+## S5 against F with the term (milestone 5)
+
+`climb_accept --base F --cand S5 --set screen --stages confirm,guards,elite,exploit,variants --variants
+top_heavy,antes_from_level_3,fast_schedule --variant-seeds 100 --aim exploit --runout-term` (10:41, 2 workers), F's chunks
+shared with the batch 5 run; the raw verdict from the same chunks as before (pool.py's corrected output is identical to
+climb_accept's own, checked).
+
+
+
+| stage | cell | n | raw delta | | corrected | | ratio | term base | term cand | term c - b (z) | events b/c |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| confirm | night | 200 | +0.003 ± 0.007 | level | +0.003 ± 0.006 | level | 1.22 | -0.034 ± 0.049 | -0.034 ± 0.048 | +0.000 ± 0.005 (+0.0) | 69/69 |
+| guards | night_hard | 200 | -0.004 ± 0.007 | level | -0.004 ± 0.005 | level | 1.24 | +0.029 ± 0.054 | +0.029 ± 0.054 | -0.000 ± 0.005 (-0.1) | 66/66 |
+| guards | realistic | 200 | -0.009 ± 0.006 | DOWN | -0.008 ± 0.006 | DOWN | 1.00 | +0.019 ± 0.045 | +0.018 ± 0.045 | -0.001 ± 0.005 (-0.4) | 75/75 |
+| guards | top | 200 | +0.003 ± 0.006 | level | +0.005 ± 0.004 | UP **≠** | 1.35 | +0.003 ± 0.057 | +0.002 ± 0.057 | -0.002 ± 0.004 (-0.8) | 64/64 |
+| guards | night @10/7/5/4/3/2/1/0 | 200 | -0.010 ± 0.023 | level | -0.007 ± 0.018 | level | 1.28 | -0.043 ± 0.069 | -0.046 ± 0.070 | -0.002 ± 0.015 (-0.3) | 69/69 |
+| guards | night @50/25/12/6/3/2/1/1 | 200 | -0.081 ± 0.189 | level | -0.069 ± 0.156 | level | 1.21 | -0.020 ± 0.475 | -0.033 ± 0.483 | -0.013 ± 0.124 (-0.2) | 67/67 |
+| guards | night +double | 200 | -0.001 ± 0.005 | level | -0.002 ± 0.003 | level | 1.40 | -0.024 ± 0.057 | -0.023 ± 0.057 | +0.001 ± 0.004 (+0.3) | 71/71 |
+| elite | elite | 200 | -0.004 ± 0.008 | level | -0.001 ± 0.005 | level | 1.40 | +0.010 ± 0.056 | +0.006 ± 0.056 | -0.003 ± 0.005 (-1.2) | 60/60 |
+| elite | elite_night | 200 | +0.003 ± 0.008 | level | +0.001 ± 0.006 | level | 1.21 | -0.018 ± 0.056 | -0.016 ± 0.055 | +0.002 ± 0.006 (+0.7) | 67/67 |
+| elite | mirror | 200 | -0.001 ± 0.008 | level | +0.000 ± 0.006 | level | 1.38 | -0.009 ± 0.058 | -0.010 ± 0.058 | -0.001 ± 0.006 (-0.5) | 59/60 |
+| elite | elite_b | 200 | +0.011 ± 0.008 | UP | +0.010 ± 0.005 | UP | 1.45 | +0.029 ± 0.062 | +0.029 ± 0.062 | +0.001 ± 0.006 (+0.3) | 60/60 |
+| elite | mirror_b | 200 | -0.003 ± 0.008 | level | +0.001 ± 0.005 | level | 1.48 | -0.035 ± 0.061 | -0.039 ± 0.060 | -0.004 ± 0.006 (-1.5) | 60/60 |
+| exploit | exploit @10/7/5/4/3/2/1/0 | 200 | +0.024 ± 0.024 | UP | +0.024 ± 0.017 | UP | 1.37 | +0.074 ± 0.082 | +0.074 ± 0.083 | +0.001 ± 0.017 (+0.1) | 67/67 |
+| exploit | exploit_hu +hu | 200 | +0.158 ± 0.129 | UP | +0.161 ± 0.098 | UP | 1.32 | -0.020 ± 0.098 | -0.023 ± 0.094 | -0.003 ± 0.119 (-0.1) | 4/4 |
+| exploit | exploit_3 +three | 200 | +0.040 ± 0.077 | level | +0.036 ± 0.058 | level | 1.33 | -0.033 ± 0.100 | -0.029 ± 0.102 | +0.004 ± 0.064 (+0.1) | 10/10 |
+| exploit | exploit2 @10/7/5/4/3/2/1/0 | 200 | +0.011 ± 0.027 | level | +0.016 ± 0.020 | level | 1.36 | -0.005 ± 0.079 | -0.010 ± 0.080 | -0.005 ± 0.022 (-0.4) | 68/68 |
+| exploit | exploit2_hu +hu | 200 | +0.600 ± 0.167 | UP | +0.496 ± 0.128 | UP | 1.30 | -0.056 ± 0.089 | +0.048 ± 0.096 | +0.104 ± 0.106 (+1.9) | 4/3 |
+| exploit | exploit2_3 +three | 200 | +0.120 ± 0.077 | UP | +0.134 ± 0.058 | UP | 1.32 | +0.058 ± 0.099 | +0.043 ± 0.095 | -0.014 ± 0.066 (-0.4) | 9/9 |
+| exploit | exploit3 @10/7/5/4/3/2/1/0 | 200 | -0.001 ± 0.019 | level | -0.001 ± 0.014 | level | 1.39 | +0.024 ± 0.088 | +0.024 ± 0.088 | -0.000 ± 0.016 (-0.0) | 70/70 |
+| exploit | exploit3_hu +hu | 200 | +0.045 ± 0.156 | level | +0.010 ± 0.106 | level | 1.47 | -0.071 ± 0.106 | -0.037 ± 0.102 | +0.035 ± 0.126 (+0.5) | 4/4 |
+| exploit | exploit3_3 +three | 200 | +0.025 ± 0.061 | level | +0.013 ± 0.045 | level | 1.35 | +0.008 ± 0.110 | +0.021 ± 0.109 | +0.012 ± 0.053 (+0.5) | 9/9 |
+| exploit | adapt @10/7/5/4/3/2/1/0 | 200 | +0.001 ± 0.028 | level | -0.006 ± 0.023 | level | 1.22 | +0.067 ± 0.077 | +0.074 ± 0.079 | +0.007 ± 0.020 (+0.7) | 70/70 |
+| exploit | adapt_hu +hu | 200 | +0.030 ± 0.155 | level | -0.029 ± 0.107 | level | 1.44 | -0.061 ± 0.102 | -0.002 ± 0.089 | +0.059 ± 0.116 (+1.0) | 4/3 |
+| exploit | adapt_3 +three | 200 | +0.045 ± 0.091 | level | +0.013 ± 0.059 | level | 1.54 | +0.072 ± 0.096 | +0.104 ± 0.103 | +0.032 ± 0.074 (+0.8) | 10/10 |
+| variants | top_heavy (realistic) | 100 | -0.239 ± 0.191 | DOWN | -0.180 ± 0.194 | level **≠** | 0.98 | -0.134 ± 0.580 | -0.193 ± 0.596 | -0.059 ± 0.153 (-0.8) | 74/74 |
+| variants | antes_from_level_3 (realistic) | 100 | -0.006 ± 0.008 | level | -0.009 ± 0.007 | DOWN **≠** | 1.12 | -0.049 ± 0.062 | -0.046 ± 0.062 | +0.003 ± 0.005 (+1.0) | 78/79 |
+| variants | fast_schedule (realistic) | 100 | +0.002 ± 0.007 | level | +0.001 ± 0.006 | level | 1.28 | -0.099 ± 0.071 | -0.097 ± 0.071 | +0.002 ± 0.006 (+0.5) | 75/75 |
+
+- z of the term (base): 27 cells, sum z^2 33.6, |z| > 1.96 in 1, max |z| 2.72
+- z of the term (cand): 27 cells, sum z^2 32.4, |z| > 1.96 in 2, max |z| 2.68
+- z of the term (cand - base): 27 cells, sum z^2 13.9, |z| > 1.96 in 0, max |z| 1.92
+- verdict raw: REJECT; corrected: REJECT
+  - raw [x] confirm: night not beyond noise down  |  corrected [x] confirm: night not beyond noise down
+  - raw [x] exploit (addendum 6): an exploit field beyond noise up (exploit @10/7/5/4/3/2/1/0, exploit_hu +hu, exploit2_hu +hu, exploit2_3 +three)  |  corrected [x] exploit (addendum 6): an exploit field beyond noise up (exploit @10/7/5/4/3/2/1/0, exploit_hu +hu, exploit2_hu +hu, exploit2_3 +three)
+  - raw [x] exploit: none beyond noise down  |  corrected [x] exploit: none beyond noise down
+  - raw [ ] guards: none beyond noise down (down: realistic)  |  corrected [ ] guards: none beyond noise down (down: realistic)
+  - raw [x] elite: none beyond noise down  |  corrected [x] elite: none beyond noise down
+  - raw [ ] variants: none beyond noise down (down: top_heavy (realistic))  |  corrected [ ] variants: none beyond noise down (down: antes_from_level_3 (realistic))
+- interval ratio: median 1.33, range 0.98-1.54 over 27 cells
+
+Read:
+- **Same verdict.** REJECT raw and REJECT corrected, and for the same kind of reason H14 gave (realistic, night_hard,
+  top_heavy and antes_from_level_3 down there): raw rejects on realistic (-0.009 ± 0.006) and top_heavy (-0.239 ±
+  0.191), corrected on realistic (-0.008 ± 0.006) and antes_from_level_3 (-0.009 ± 0.007). Three cells change flag, all
+  at the edge of their intervals and none by more than its noise: top level -> UP (+0.003 ± 0.006 -> +0.005 ± 0.004;
+  paired term z -0.8), top_heavy DOWN -> level (-0.239 ± 0.191 -> -0.180 ± 0.194; z -0.8, ratio 0.98: the term bought
+  nothing in that cell), antes_from_level_3 level -> DOWN (-0.006 ± 0.008 -> -0.009 ± 0.007; z +1.0). None goes
+  between UP and DOWN. (S13's screen ACCEPT was against batch 4's F at code b0b7dbc; batch 5's F is the base here, as on
+  H14.)
+- **Zero mean.** Paired term sum z^2 13.9 over 27 cells, none beyond 1.96 (S5 and F diverge in few hands, so most
+  seeds' paired term is exactly zero). Per spec: F 33.6 over 27 (1 beyond: fast_schedule, the same realization as in
+  the batch 5 run), S5 32.4 over 27 (2 beyond).
+- **Interval ratio:** median 1.33, 0.98-1.54; realistic 1.00 and top_heavy 0.98 are the two cells where it did not
+  help (S5's divergences there are not decided by a runout), exploit3_hu 1.47, adapt_3 1.54.
