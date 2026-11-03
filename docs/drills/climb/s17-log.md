@@ -194,3 +194,78 @@ true}'` (realistic, 20 tables, seed 2026, load 10.5). Per-call minimum of 3:
 | C1 | 56.2 / 137.2 / 182.2 µs | 52.2 / 100.8 / 146.7 µs | 133.2 µs |
 
 Both under 200 µs (OK, exit 0). The dial costs one attribute read per stab and one at each table start.
+
+### 7. The screen of C1 (03:17-05:26)
+
+From wt_s17_meas (8fbead6, code cc3e60d954): `climb_accept --cand '{"dials": {"exploit.stab_size": true}}' --base
+'{"dials": {}}' --aim exploit --set screen --stages exploit,confirm,guards,elite,variants --workers 3 --out s17/ca
+--json s17/res/screen_c1.json` (133.9 min, load 9-14). No timeouts or errors in any cell.
+
+| stage | cell | F | C1 | C1 - F | |
+|---|---|---|---|---|---|
+| exploit | exploit @10/7/5/4/3/2/1/0 | 5.839 | 5.829 | -0.010 ± 0.156 | level (exploiter1 4.608 -> 4.748) |
+| | exploit_hu | 9.227 | 9.273 | +0.045 ± 0.106 | level (7.772 -> 7.728) |
+| | exploit_3 | 8.458 | 8.475 | +0.017 ± 0.128 | level (6.900 -> 6.898) |
+| | exploit2 @10/7/5/4/3/2/1/0 | 5.844 | 5.972 | +0.127 ± 0.129 | level (exploiter2 5.086 -> 4.827) |
+| | exploit2_hu | 7.848 | 8.095 | **+0.247 ± 0.125** | **UP** (9.152 -> 8.905) |
+| | exploit2_3 | 7.378 | 7.495 | **+0.117 ± 0.107** | **UP** (8.165 -> 7.990) |
+| | exploit3 @10/7/5/4/3/2/1/0 | 5.471 | 5.481 | +0.010 ± 0.105 | level |
+| | exploit3_hu | 8.268 | 8.335 | +0.068 ± 0.129 | level |
+| | exploit3_3 | 7.528 | 7.538 | +0.010 ± 0.114 | level |
+| | adapt @10/7/5/4/3/2/1/0 | 5.889 | 5.778 | -0.111 ± 0.114 | level (adapt1 5.106 -> 5.138) |
+| | adapt_hu | 8.605 | 8.807 | **+0.203 ± 0.126** | **UP** (8.395 -> 8.193) |
+| | adapt_3 | 8.007 | 8.037 | +0.030 ± 0.123 | level (7.657 -> 7.577) |
+| confirm | night | 5.972 | 6.015 | +0.043 ± 0.064 | level |
+| guards | night_hard | 5.499 | 5.481 | -0.017 ± 0.075 | level |
+| | realistic | 6.370 | 6.292 | **-0.078 ± 0.059** | **DOWN** |
+| | top | 5.058 | 5.074 | +0.016 ± 0.079 | level |
+| | night @10/7/5/4/3/2/1/0 | 6.199 | 6.177 | -0.023 ± 0.114 | level |
+| | night @50/25/12/6/3/2/1/1 | 24.699 | 25.168 | +0.468 ± 0.758 | level |
+| | night +double | 5.848 | 5.862 | +0.014 ± 0.061 | level |
+| elite | elite | 4.865 | 4.829 | -0.036 ± 0.074 | level |
+| | elite_night | 5.422 | 5.384 | -0.038 ± 0.070 | level |
+| | mirror | 4.498 | 4.558 | +0.061 ± 0.081 | level |
+| | elite_b | 4.638 | 4.683 | +0.045 ± 0.076 | level |
+| | mirror_b | 4.466 | 4.548 | +0.082 ± 0.090 | level |
+| variants | 22 twist entries | | | +0.000 ± 0.000 | identical (the one size is hold'em only) |
+| | top_heavy | 28.654 | 28.292 | -0.362 ± 0.755 | level |
+| | antes_from_level_3 | 6.496 | 6.462 | -0.034 ± 0.053 | level |
+| | fast_schedule | 6.122 | 6.072 | -0.050 ± 0.057 | level |
+| | straddle | 6.412 | 6.410 | -0.002 ± 0.056 | level |
+
+Verdict: **REJECT** on one guard. The exploit rule is met (exploit2_hu, exploit2_3, adapt_hu up; none down;
+exploiter 1 not down; night level, +0.043), elite and variants none down, but realistic is down (-0.078 ± 0.059),
+and the four hold'em-shaped variants, all played on realistic, lean the same way (level each).
+
+### 8. Why realistic loses (05:27-05:35)
+
+`survey.py` (now also counting who answers each stab) on realistic, adapt and night, seeds 8200-8279, main
+(wt_s17_main) and C1 (wt_s17_meas). Answers to the stab per answering bot, fold / call / raise, 0.33 -> 0.5:
+
+| bot (realistic) | answers | at 0.33 | at 0.5 |
+|---|---|---|---|
+| rival1 | 1412 / 1258 | 0.47 / 0.50 / 0.03 | 0.57 / 0.39 / 0.03 |
+| montecarlo | 823 / 764 | 0.64 / 0.29 / 0.08 | 0.64 / 0.27 / 0.09 |
+| montecarlo30 | 496 / 464 | 0.38 / 0.51 / 0.11 | 0.39 / 0.50 / 0.11 |
+| loose_aggro | 760 / 769 | 0.86 / 0.07 / 0.07 | 0.85 / 0.08 / 0.07 |
+| pushfold | 309 / 296 | 0.77 / 0.10 / 0.13 | 0.77 / 0.12 / 0.11 |
+| tag | 135 / 148 | 0.73 / 0.15 / 0.12 | 0.76 / 0.12 / 0.12 |
+| night pool seats (night) | 4293 / 4080 | 0.54 / 0.41 / 0.04 | 0.62 / 0.34 / 0.04 |
+| adapt1 (adapt, 8-max) | 535 / 535 | 0.58 / 0.35 / 0.07 | 0.64 / 0.32 / 0.04 |
+
+F's points on these 80 seeds: realistic 6.292 -> 6.231, adapt 5.595 -> 5.708, night 5.890 -> 6.008.
+
+Read: night's pool, the strong bots, rival 1 and adapt1 call by price, so a larger stab is folded to more and pays.
+realistic's Monte Carlo seats, the loose student and the push/fold bot fold exactly as often to 0.5 as to 0.33: against
+them the larger stab only costs more when it is called or raised (against montecarlo30, roughly 0.17 of the pot per
+stab at 0.33 and 0.09 at 0.5). The research note's risk ("a few stabs that were thin at 0.33 lose at 0.5") is this.
+
+### 9. Two narrower forms (4bd9a3c), both off by default
+
+- `exploit.stab_alive` N: the one size only while at most N players have chips (or are all in this hand); above that,
+  bet_frac. The tell is played in short-handed pots against the same seat (exploiter 2 and adapt1 gained heads-up
+  and three-handed; the 8-max exploit cells were level), while a full table holds the equity callers.
+- `exploit.stab_min_fold` x: the one-size stab needs the fold product to be at least x (0 = bet_min_fold). 0.48 keeps
+  bet_min_fold's margin (0.4 against a 0.25 break-even at 0.33) over the 0.5 bet's 0.33 break-even.
+
+Tests: tests/test_s17_stab_size.py (both gates; neither touches the stab without the one size).
