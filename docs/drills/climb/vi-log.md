@@ -33,8 +33,9 @@ bit, 14/14 chunks of confirm and guards). Two independent dials; either can ship
    found by name), so an untold Ghost plays F.
 6. **Denial was already counted**, in the auction's d = e_win - e_lose: half the card's worth heads-up, a fifth to a
    third multiway, most of it for made hands; no other decision has any (a thrown card is dead whatever I keep). The
-   multiplier's gain is in that part: at 1.0 a set bids under the unaware seats' quarter-pot default and loses the
-   card to them.
+   multiplier's likely gain is in that part (a mechanism, not measured): heads-up, two pair and trips (d 0.149) bid
+   0.18-0.21 of the pot at 1.0, under the unaware seats' quarter-pot default bid, so the card goes to a rival; at 1.5
+   they bid 0.26-0.31 and keep it from him.
 7. **Latency in budget**: per-call minimum p99, F then candidate: swap_one_turn hand end 142.6 / 143.1 us, act 112.0 /
    103.1, variant decisions 33.6 / 181.8 (the swap: about 57 reads, once a hand); deal5_keep2 134.6 / 136.4, 92.9 /
    92.9 (93.3 F), 53.5 / 61.8. Load 56-60.
