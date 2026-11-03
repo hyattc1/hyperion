@@ -449,7 +449,9 @@ def main(argv=None) -> int:
     if a.aim == "strong":  # addendum 8
         ups = [r["cell"] for r in st.get("elite", []) if r["flag"] == "UP"]
         checks.append((f"elite (addendum 8): a strong field beyond noise up ({', '.join(ups) or 'none'})", bool(ups)))
-    for s in ("guards", "elite", "variants", "judges", "aware"):
+    # the exploit stage counts under every aim when it runs: a loss to a bot built to beat F is a loss (S14 found
+    # --aim strong printing ACCEPT with exploit cells down; no accepted batch had one)
+    for s in ("guards", "elite", "variants", "judges", "aware") + (() if a.aim == "exploit" else ("exploit",)):
         if s in st:
             downs = [r["cell"] for r in st[s] if r["flag"] == "DOWN"]
             checks.append((f"{s}: none beyond noise down" + (f" (down: {', '.join(downs)})" if downs else ""),
@@ -470,7 +472,7 @@ def main(argv=None) -> int:
     print(f"base {json.dumps(base_raw, sort_keys=True)} -> {json.dumps(base, sort_keys=True)}")
     print(f"cand {json.dumps(cand_raw, sort_keys=True)} -> {json.dumps(cand, sort_keys=True)}")
     if "exploit" in st:
-        print("\n## exploit (diagnostic)\n\n| cell | base | cand | cand - base | | n | exploiter b/c | p99 b/c |")
+        print("\n## exploit\n\n| cell | base | cand | cand - base | | n | exploiter b/c | p99 b/c |")
         print("|---|---|---|---|---|---|---|---|")
         for r in st["exploit"]:
             ob, oc = r["opp"]

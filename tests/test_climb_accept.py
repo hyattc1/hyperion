@@ -84,6 +84,16 @@ def test_aim_exploit_needs_an_exploit_field_up_not_night_up_and_a_lone_variant_d
     assert v["accept"] is False and v["replicate"] is None
 
 
+def test_an_exploit_cell_down_rejects_under_every_aim(monkeypatch, tmp_path):
+    _fake_run(monkeypatch, {"elite": 0.5, "exploit_3": -0.5})
+    out = tmp_path / "v.json"
+    CA.main(["--cand", '{"dials": {"x": 1}}', "--set", "screen", "--stages", "confirm,elite,exploit",
+             "--aim", "strong", "--json", str(out), "--out", str(tmp_path)])
+    v = json.loads(out.read_text())
+    assert v["accept"] is False
+    assert any(txt.startswith("exploit: none beyond noise down (down: exploit_3") and not ok for txt, ok in v["checks"])
+
+
 def test_aim_exploit_without_an_exploit_gain_rejects(monkeypatch, tmp_path):
     _fake_run(monkeypatch, {})
     out = tmp_path / "v.json"
