@@ -767,3 +767,11 @@ and (in judges) `elite_judge`.
 - In the repo as hyperion/sim/field/elite4.py (archive docs/drills/field/elite4_bot.py, log elite4.md), registry
   `elite4`. New tuning fields `elite_b` (elite's room with elite4 for agent_default) and `mirror_b` (three copies
   of F, rival 2, elite4, elite1, elite2), added to climb_accept's elite stage (dacf009). Ranking F there now.
+
+## 22:21: elite 5 wired in (held-out judge, as fixed in advance)
+- Elite 5 (reads-minded): every decision in finish points, ranges per seat from rates that move from a sound default
+  toward what the seat does, push/fold at 14 bb, resteals at 25, a postflop equity search stopped at 280 us of wall
+  time; frozen at minute 80 (md5 3465ff11). Mean 165-180 us a decision, p99 335-420 us on this box.
+- Registry `elite5`, judge field `elite_judge_b` (elite5, elite4, elite1, elite2, rival4, rival5, out_quants), in
+  climb_accept's judges stage. Model mode: a fixed clock (18 us a read; 21 us measured at load 5.6) and draws from a
+  generator seeded per table, so it replays exactly. Never tuned on (test: elite3 and elite5 only in elite_judge*).
