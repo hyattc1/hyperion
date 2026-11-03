@@ -116,3 +116,12 @@ def test_the_cap_only_lowers_the_fold_read():
     assert ex.override(obs, Action.fold()) is None
     ex.p.open_cap = False
     assert ex.override(obs, Action.fold()) is not None  # uncapped: 0.95 x 0.95 >= 0.7
+
+
+def test_min_alive_keeps_short_handed_steals_as_built():
+    d = {**ON, "r3.oa_cap": True, "exploit.open_cap": True}
+    gated = {**d, "r3.oa_min_alive": 4, "exploit.open_min_alive": 4}
+    r = Rules(n_players=3, payouts=(10, 7, 5))
+    names = ["hero", "rival1", "rival2"]
+    assert _digest(gated, 1, names, r)[0] == _digest({}, 1, names, r)[0]  # never four alive: F's own play
+    assert any(_digest(gated, t)[0] != _digest({}, t)[0] for t in range(3))  # eight-handed it still reads

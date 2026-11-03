@@ -401,7 +401,7 @@ class Rival3Core(R3.Bot):
                     return self._raise(legal, o, o.max_raise)
                 return self._fold(legal) if to_call > 0 else self._call_or_check(legal)
             # deeper: raise-first-in / isolate
-            if kn.oa_read and self._oa_h and not limpers:  # S16b: the open-answer read, not fold-to-any-raise
+            if kn.oa_read and self._oa_h and not limpers and n_alive >= kn.oa_min_alive:  # S16b: the open-answer read
                 pf = 1.0
                 cap = kn.oa_cap
                 for s in behind:
