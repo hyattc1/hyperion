@@ -207,3 +207,15 @@ identical**; F's cells copied to version 9549c8efee (key 9ea319a2ced4). Latency 
 109.6 / 111.0 µs (realistic / elite), hand end p99 147.0 / 139.7, first act max 141.5. Tests (s16b including the
 four-alive and straddle tests, API card, ship, compose): 56 passed. (The first launch of O3's screen failed at once:
 the stage wrapper's module was not importable by the pool's workers; fixed, relaunched 08:52 at 2 workers.)
+
+## 08:52-09:23: O3's elite stage (version 9549c8efee, screen 10000-10199 x 8, 2 workers)
+
+| cell | F | O3 | O3 - F | | O2 |
+|---|---|---|---|---|---|
+| elite | 4.865 | 4.896 | +0.030 ± 0.087 | level | +0.052 |
+| elite_night | 5.422 | 5.447 | +0.026 ± 0.073 | level | +0.034 |
+| **mirror** | 4.498 | 4.602 | **+0.105 ± 0.083** | UP | +0.137 |
+| elite_b | 4.638 | 4.713 | +0.075 ± 0.082 | level | +0.071 |
+| **mirror_b** | 4.466 | 4.663 | **+0.197 ± 0.092** | UP | +0.202 |
+
+The four-alive gate keeps nearly all of O2's strong-table gain: it was made at four or more alive.
