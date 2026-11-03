@@ -107,3 +107,20 @@ climb's cells resolve (±0.03-0.1). The unpaired sd falls 1.1-1.4x on these fiel
 Note: the per-event run (3 workers) overlapped the last five minutes of the cheap run (3 workers) by mistake: my
 `ps | grep` check came back empty through the command-rewriting hook and I took the cheap run for dead. Six processes
 for about five minutes; checks since use pgrep.
+
+## The validation runs (milestone 3, running)
+
+Plan (scratch `goal/r7/`): batch 5 against batch 4 (`--base '{"dials": BATCH5_OFF}' --cand '{"dials": {}}'`, --aim
+strong, as H13 judged it) and S5 against F (S13's spec, --aim exploit, as S13 and H14 judged it), each with
+`--runout-term`, stages confirm, guards, elite, exploit, variants. Variants: the 16 catalog entries the term applies to
+for batch 5 (on the other 10 the corrected sample is the raw one, so raw and corrected verdicts agree by construction),
+and top_heavy, antes_from_level_3, fast_schedule for S5 (S13: the only entries it plays; elsewhere it is F). Screen
+10000-10199 every stage (variants on the first 100); our own 50000-50199 confirm and guards only, for 400 seeds pooled.
+The full plan (both sets, every stage) was about 13 hours at load 19, so the 50k set was cut to confirm and guards and
+the run restarted from the cache at 07:30 (no chunk lost but the three in flight). F's term chunks on the screen set are
+checked against the plain chunks of the same key copied from S16's cache (code c11b90b8ae, the same as this branch):
+the raw samples must be identical or the run stops; none has stopped. 08:24: the coordinator capped workers at 2 (load
+45); the running A screen run finishes at 3, everything after it runs at 2 (`main_run3.sh`).
+
+Interim (B5 - B4, screen, 200 seeds), paired sd raw / corrected: night 1.21, night_hard 1.31, realistic 1.27, top
+1.39, night at 10/7/5 1.30, at 50/25/12 1.30, under double blinds 1.34: 1.5-1.9x fewer seeds for the same interval.
