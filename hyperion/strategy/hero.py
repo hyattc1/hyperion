@@ -796,6 +796,7 @@ class HeroCore:
         self.last_stacks = [rules.starting_stack] * n_players
         self.panic = False
         self._pre_aggr = False  # (the first act of the table resets it too: hand_no -1 above)
+        self._last_obs = None  # (V-i: another table's hand numbers would match this one's)
         self._cap_var = None
         if self.cfg.cap_vol_bb > 0.0 and rules.max_hands > 0:
             # suffix sums of big blind^2 over the hands still to play: var[h] = sum_{t >= h} bb_t^2

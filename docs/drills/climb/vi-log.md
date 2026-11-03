@@ -116,3 +116,48 @@ twist, kit F's points 16/11/8/6/4/2/1/0):
 
 Both up, inside noise; V-g's hand-made tighter calls (c2) measured +0.30 ± 0.22 and +0.13 ± 0.22 on the same two
 fields. Every catalog entry keeps the gate shut (tests/test_vi_voi.py), so the tax read plays F everywhere else.
+
+## 4. The variants stage (realistic, screen set), the candidate `{"hero.voi": 1.5, "hero.sd_tax": true}`
+
+`climb_accept --stages variants --set screen --cand '{"dials": {"hero.voi": 1.5, "hero.sd_tax": true}}'`, code b1f8ab9;
+base F's cells played on main eecf4d8 where they were cached, on this branch otherwise (the same play).
+
+The six entries where the candidate can act, 200 seeds:
+
+| entry | F | candidate | |
+|---|---|---|---|
+| auction | 6.531 | +0.064 ± 0.045 | UP |
+| bonus_card | 5.980 | -0.006 ± 0.048 | level |
+| swap_one_turn | 6.440 | +0.080 ± 0.072 | UP |
+| toss_or_holdem | 6.497 | -0.006 ± 0.017 | level |
+| three_card_blind_discard | 6.434 | -0.003 ± 0.011 | level |
+| deal5_keep2 | 6.884 | +0.001 ± 0.009 | level |
+
+The other twenty, 40 seeds (10000-10039): the candidate cannot act there (no variant decision is asked, and the tax
+gate is shut on every catalog entry), and every one has the identical sample list, +0.000 ± 0.000: permuted_ranks,
+short_deck, lowball, wild_deuces, flush_over_full_house, three_card_keep, omaha_four, swap_holdem, exposed_card,
+two_boards, bounty, knockout_bounty, top_heavy, hi_lo, pot_limit, antes_from_level_3, fixed_raise, fast_schedule,
+straddle, river_of_blood. (Where the printed base mean differs, its cached chunk 10025 held 25 seeds; the pairing
+takes the 40.) Nothing beyond noise down; no timeouts, errors or illegal actions in any cell.
+
+The auction gains on both fields (aware +0.115, realistic +0.064). The swap gains on realistic (+0.080 ± 0.072) and is
+level against the generic aware field (-0.004 ± 0.082), whose own swap prices options by runouts.
+
+## 5. Identity and latency
+
+- **Dials off, F plays main's F bit for bit**: `climb_accept --cand '{"dials": {}}' --set 10000:10040 --stages
+  confirm,guards` on b1f8ab9, all 14 chunk sample lists (night and the six guards) equal to main eecf4d8's
+  (`goal/idchk21`, main's own run). The added code reads nothing with the dials off (the composite's and the hybrid's
+  `last_obs` key in the prompt is read only by the VOI options). So base F's cached cells from main were reused above.
+- **The final spec is the cells assembled from two runs**: `{"hero.voi": 1.5, "hero.sd_tax": true}` on the aware
+  cells' first chunk (10000-10024): auction and bonus_card equal voi 1.5's sample lists, the other five voi 1.0's.
+- **Latency** (`tools/latency.py --hand-end --reps 3`, per-call minimum, 20 realistic tables; `variant` is new in the
+  replay: each variant decision timed alone; load 50-60):
+
+  | variant | F hand end p99 | cand | F act p99 | cand | F variant p99 | cand |
+  |---|---|---|---|---|---|---|
+  | swap_one_turn | 142.6 us | 143.1 | 112.0 | 103.1 | 33.6 (mean 25.0) | 181.8 (mean 119.7) |
+  | deal5_keep2 | 134.6 | 136.4 | 93.3 | 92.9 | 53.5 (mean 41.8) | 61.8 (mean 45.3) |
+
+  All under 200 us. The swap is the one decision that costs: about 57 reads a turn per player still in, once a hand
+  (F's variant times include the base Hero's pending ICM curve, which a lazy Hero computes in its first call of a hand).
