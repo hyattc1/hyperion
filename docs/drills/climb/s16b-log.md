@@ -305,3 +305,7 @@ prints the whole table from the cache.
 
 O4's elite stage (O4 - F; O3 beside it): elite +0.030 ± 0.086 (O3 +0.030), elite_night +0.062 ± 0.072 (+0.026),
 **mirror +0.095 ± 0.080 UP** (+0.105), elite_b +0.075 ± 0.080 (+0.075), **mirror_b +0.177 ± 0.089 UP** (+0.197).
+
+O4's variants (realistic, 200 seeds): **antes_from_level_3 -0.056 ± 0.050 DOWN** (O3 -0.060), **fast_schedule -0.060
+± 0.047 DOWN** (O3 -0.045, level), top_heavy -0.040 ± 0.668 of 100 (O3 -0.380), straddle +0.000 ± 0.000 (identical
+by construction). The faster table rate does not remove the realistic lean.
