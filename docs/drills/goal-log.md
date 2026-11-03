@@ -1046,3 +1046,10 @@ and (in judges) `elite_judge`.
 - Addendum 11: route 2 on fresh held-out sets only (W-min lower bound above zero, a cap on any one cell's loss, judges
   not down, each down cell explained); the weighted score printed on every run, deciding nothing yet; screens run
   every stage at full seeds. R8 (goal/wt_r8) builds tools/accept_weights.json and the print, with tests.
+
+## 07:34: R8 merged: the weighted score prints on every climb_accept run
+- tools/accept_weights.json encodes the review's rule (units, family weights and ranges, in-family shares, variant
+  probabilities, fixed adapter shares, the cap per scale); tools/accept_weighted.py scores a verdict; climb_accept
+  prints a "weighted (addendum 11)" block and writes it to --json. `--route2` refuses off held-out sets or with a
+  stage missing; `--identical` declares cells identical by construction; `--judges-json` feeds the judge condition.
+  The review's S5-on-H14 and V-f-on-H15 rows reproduce exactly. The main verdict is untouched (tests).
