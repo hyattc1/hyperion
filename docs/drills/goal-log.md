@@ -973,4 +973,18 @@ and (in judges) `elite_judge`.
   UP, the rest level (adapt -0.085 ± 0.086 the closest). Narrow: parked as a fallback, not sent to a held-out set yet.
 - S16b (goal/wt_s16b): read each seat's answer to F's own first-in raises in place of the pooled fold-to-a-raise in
   the steal price, with a surveyed prior and the trust floor; gated as the survey supports.
-- Identity after the merge: running.
+- Identity after the merge: 15 cells identical.
+
+## 05:01: owner's question: are we overfitting to our own field? (recorded)
+- Guards in place: held-out seeds for every decision (retired after three uses); judges never tuned on, built by
+  fresh agents with no repo access (rival 4, rival 5, the four outside builds, elite 3, elite 5, adapt2), each batch
+  must not lose on any; "up somewhere, down nowhere" across about 60 cells (rejected S5, Z2, S14's K18, S16's T3
+  among others for small losses); opponent-specific fixes gated on observed tendencies, never on identity; the blind
+  adapt2 found the same heads-up folding leak as our exploiters (a general leak, not one bot's quirk); our sim ranks
+  changes as kit F's engine does on the same field.
+- Remaining risk, stated: every opponent is our own agents' code, so real teams' styles may differ; spread across
+  many builds (student personas, solver-minded, reads-minded, aggressive, exploiters, adaptive), not removed.
+- Twist: every candidate runs all 26 catalog variants and twist-aware fields; hold'em gains stay gated off twist
+  tables unless shown to carry (V-f); the general path (twist files, generic aware opponents, known cards, settle
+  pricing) for unseen twists; three rehearsals on organiser-invented twists. Plan: one more fresh-twist rehearsal on
+  the final ship (an end deliverable).
