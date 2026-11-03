@@ -655,3 +655,16 @@ and (in judges) `elite_judge`.
   rival 2 too. New test: a strong_route to elite1 packs field/__init__.py and elite1.py, no judge or other field bot,
   no kit import, and the bot builds from the package.
 - Batch 5's SHIP_DIALS and test updates staged on climb/batch5 (goal/wt_b5); full suite running there.
+
+## 19:14: S13 merged (the short-handed specialist, off by default); S5 queued for H14 on batch 5
+- S13 (climb/s13-shorthanded): `hyperion/strategy/short.py`, member `short`, routed by `short_route` (off). Preflop
+  heads-up from tables solved offline by our own CFR+ (`tools/solve_short.py`; 26 depths 5-100 bb, small-3-bet
+  re-solve); postflop one size per street and minimum defence in heads-up pots against a seat that bets into them;
+  back to F against dead seats and stations, on twist tables and with antes. Screen (--aim exploit) for S5 =
+  {short_route pre_hu,post_hu_bet,post_hu_chk; pre_roles bb; post_aggr 0.5; pre_open_min 0.65}: exploit2_hu +0.848,
+  exploit2_3 +0.250, exploit2 +0.061 UP; exploit_hu +0.105; night, guards, elite level; latency level. ACCEPT on
+  screen (decides nothing). The three-handed ICM tables lose to both exploiters: off, moved to tables/extra/ (not
+  packed).
+- Identity after the merge: 15 cells identical (10000-10039, confirm and guards). The pull flattened the merge into
+  S13's commits on main (same tree).
+- S5 goes to H14 (34000-34399), --aim exploit, against batch 5's ship once H13 decides batch 5.
