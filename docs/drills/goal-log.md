@@ -929,4 +929,4 @@ and (in judges) `elite_judge`.
 - Screen (S15c, base batch 5): exploit3_hu +0.128 ± 0.110, exploit3_3 +0.080 ± 0.058 UP; every other cell level
   (exploit_hu -0.060 ± 0.108 to watch). A long-board counter bug fixed along the way (river_of_blood played differently
   with the dials off).
-- S15c on H19 (39000-39399), --aim exploit, every stage (now 12 exploit cells with adapt) after the identity check.
+- Identity after the merge: 15 cells identical. S15c on H19 (39000-39399), --aim exploit, every stage (12 exploit cells).
