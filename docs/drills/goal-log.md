@@ -869,3 +869,18 @@ and (in judges) `elite_judge`.
   flagged risk did not show), elite, elite_night, elite_b, mirror_b level; variants and aware level. ACCEPT (addendum
   6). H16 used once. (Its tree predates exploiter 3's cells; batch 6's combined check covers them.)
 - Batch 6 so far: V-f (H15), S6 (H16).
+
+## 01:31: research synthesis committed; round 1 of its plan started
+- docs/research/Edges against strong opponents.md ranks 18 techniques against what F already does. The notes' top pick
+  (exact two-stack ICM on all-ins) is already in rival 3's core, which plays F's preflop; one suggestion (sweep
+  cap_vol_bb) conflicts with the official ICM split at the cap and stays off.
+- S15's answer: exploiter 3's edge is not the layer's 0.33 stab; it is F folding heads-up after checking, facing its
+  0.6-0.66-pot bets (F folds 71% flop, 85% turn, 67% river; break-even about 40%), mostly turn and river. S15's fix is
+  a stab read (call wider on turns and rivers against a seat that bets most times F checks).
+- Decisions addendum 9 fixes the roles of the second elite wave, exploiter 3 and the adaptive opponents before any
+  result.
+- Started: S16 (goal/wt_s16: a trust weight on risk-taking preflop reads at strong tables, diagnostic first), R6
+  (goal/wt_r6: an online adaptive test opponent, the tuning copy; the held-out copy follows once R6 shows it adapts).
+  S14 told to cover pre_3way and pre_hu. Queued: S17 (one size for the layer's stab, aimed at exploiter 2's raises),
+  S18 (blinds owed before the cap in ICM), R7 (an all-in runout term to cut seeds per test), V-i (twist decisions as
+  value of information).
