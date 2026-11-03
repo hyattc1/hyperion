@@ -187,3 +187,13 @@ keeps its own rules file, so it is s1's.
 With the cap at 150, 94-99% of tables are still three-or-more-handed at hand 100, so nearly every table ends at the
 cap and the horizon is in play for its whole last stretch; still nothing moves. F at hand 100: alive 73-81%, busting
 18-34% of those seats in the last 50 hands.
+
+### 3.4 s4: the three named variants (`--stages variants --variants fast_schedule,antes_from_level_3,top_heavy`)
+
+| cell (realistic) | F | horizon | horizon - F | |
+|---|---|---|---|---|
+| fast_schedule | 6.122 | 6.087 | -0.036 ± 0.048 | level |
+| antes_from_level_3 | 6.496 | 6.478 | -0.018 ± 0.036 | level |
+| top_heavy | 28.654 | 28.669 | +0.015 ± 0.461 | level |
+
+None of the three the report expected to gain most (faster blinds, antes, top-heavy payouts) moves.
