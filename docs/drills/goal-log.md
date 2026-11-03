@@ -1026,3 +1026,13 @@ and (in judges) `elite_judge`.
   place when three or fewer remain; preflop retrained offline for this format with ICM.
 - A second terminal was not advised: the box is the bottleneck (load 17 on 8 cores) and a second session would edit
   the same repo uncoordinated.
+
+## 06:46: drill 10: kit H (Solo Hold'em) built; the player started
+- Kit H (a fresh organiser, no repo access; 36 tests, 400 tables clean): **Solo Hold'em**, a hand uses exactly one hole
+  card and exactly four board cards. Preflop values turn over: AA 55th of 169, TT 149th, 22 last, AKo and A9o first;
+  suited slightly worse than offsuit. Twist-aware sample bots 8.6-9.5 a table against unadapted hold'em bots 4.6-4.8.
+  Interface: each bot its own process speaking JSON lines over stdin/stdout (engine-side timing, one message in
+  flight; a late bot is auto-played until its reply lands), one process per session (hello 2 s, table start 50 ms,
+  end-of-hand 1 ms), players as stable handles, cards 0-51, actions "f", "c", "r<N>" (raise-by), legal actions
+  implied, a compact history string. Points 13/8/5/3/2/1/0/-2 (last place loses points).
+- Player: a fresh agent on main at 077b95f (batch 5's ship), the handout without the organiser's notes.
