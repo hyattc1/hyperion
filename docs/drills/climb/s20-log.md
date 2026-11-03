@@ -161,3 +161,38 @@ realizes more than the 22% it needs: the measured shares for weak hands are the 
 3-bet the opener folds 7-19%, calls 60-77%, jams 16-22%. At 90, 90, 90 the small blind 3-bets 70% of hands against the
 button's open (polarized: 72o and T4o 3-bet, K9o folds 60%), never flats it (deep out-of-position flops cost -0.18 of
 the pot in the fit).
+
+## Step 4: screens (screen seeds, runout term, --aim strong; deltas corrected, candidate - F)
+
+Candidates (on top of SHIP_DIALS; `goal/s20/cand_*.json`), route `pre_3way=short,pre_allin=short`, `short.three2`:
+- **U** (ungated): table 3b (the mix fit), `short.defer_3bet` 1.0 (off);
+- **G** (gated): table 3b, `short_strong` true (the strong route's read: our first-in raises re-raised, smoothed,
+  at least `strong_rr` 0.2) and `short.defer_3bet` 0.4 (S13's guard: preflop back to F against a seat 3-betting our
+  opens at 0.4 or more).
+
+- 16:14 **U, seeds 10000-10099**, stages exploit, elite (`q/010_U100.out`, `r_U100.json`): **REJECT**.
+
+| cell | F | U | U - F | |
+|---|---|---|---|---|
+| elite | 4.876 | 4.921 | +0.045 ± 0.024 | UP |
+| elite_night | 5.389 | 5.387 | -0.002 ± 0.029 | level |
+| mirror | 4.534 | 4.549 | +0.015 ± 0.023 | level |
+| elite_b | 4.507 | 4.557 | +0.050 ± 0.025 | UP |
+| mirror_b | 4.496 | 4.557 | +0.061 ± 0.026 | UP |
+| exploit (8-max) | 5.675 | 5.496 | -0.179 ± 0.082 | DOWN (exploiter 1 4.687 -> 4.788) |
+| exploit_3 | 8.356 | 7.848 | -0.508 ± 0.237 | DOWN (exploiter 1 7.007 -> 7.407) |
+| exploit2 (8-max) | 5.931 | 5.802 | -0.129 ± 0.082 | DOWN (exploiter 2 5.048 -> 5.034: to the pool seats) |
+| exploit2_3 | 7.322 | 7.323 | +0.002 ± 0.212 | level |
+| exploit3 / exploit3_3 | | | +0.024 ± 0.070 / +0.066 ± 0.234 | level |
+| adapt (8-max) | 5.945 | 5.758 | -0.187 ± 0.086 | DOWN (adapt1 5.167 -> 5.191: to the pool seats) |
+| adapt_3 | | | +0.036 ± 0.204 | level |
+| every heads-up cell | | | 0 | identical (heads-up is not routed) |
+
+Weighted score: W -0.0051 ± 0.0273, W-min -0.0290 ± 0.0404. Read: the equilibrium tables win at strong tables (three
+of five cells up, like K18's +0.04) but lose to exploiter 1 (its any-two min-3-bets, which F's 4-bets beat) and, in
+the 8-max exploit cells, to the night-pool seats left in the endgame (the points move to them, not to the exploiter:
+F's reads take more from weak seats than an equilibrium does, as S13 found heads-up). Ungated is not shippable.
+- 16:16 Pessimistic fit for a second table (3c): our seat's flops only against exploiters 1-3 and adapt1 (OPP filter in
+  `fit3.py`; 7,979 flops each way). At E = 0.5 our share - E in position -0.008 / -0.108 / +0.146 at SPR 2 / 6 / 15
+  (mix +0.069 / +0.028 / +0.243), out of position -0.144 / -0.238 / -0.203 (mix -0.040 / -0.044 / -0.180). Solving
+  (`real_ex.json`, same grid and iterations) for a candidate GX = G with table 3c.
