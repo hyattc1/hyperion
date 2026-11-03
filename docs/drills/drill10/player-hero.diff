@@ -1,0 +1,72 @@
+diff --git a/hyperion/strategy/hero.py b/hyperion/strategy/hero.py
+index cf28c19..e502714 100644
+--- a/hyperion/strategy/hero.py
++++ b/hyperion/strategy/hero.py
+@@ -412,6 +412,9 @@ class Config:
+     # ... and the bet / raise side there: value, big-value and raise thresholds this many tiers up. 0 = off
+     multi_value_shift: int = 0
+     mu_value_shift: int = 0
++    # Solo Hold'em (must_use_hole 1: one hole card and four board cards): the flop has no five-card hand, so the
++    # must-use path checked or folded every flop. On: a one-card flop read (_solo_flop). False = as before
++    solo_flop: bool = False
+     # ... and by the table's rule (variant_preflop_ex's gates: "must_use", "fixedlimit", "lowball", "deck", "boards",
+     # "wild"), added to the above, e.g. {"deck": 1}. {} = off
+     call_shift_ex: dict = field(default_factory=dict)
+@@ -1111,6 +1114,9 @@ class HeroCore:
+             return safe_action(obs)
+         mu = self._must_use
+         if mu:
++            if mu == 1 and nh == 2 and len(board) == 3 and cfg.solo_flop:
++                self.last_path = "solo_flop"
++                return _solo_flop(obs, hole, board)
+             if nh < mu or len(board) < 5 - mu:
+                 self.last_path = "safe"
+                 return safe_action(obs)
+@@ -1652,3 +1658,47 @@ refreeze()  # whatever was built at import (evaluator tables, straight-draw tabl
+ 
+ __all__ = ["Config", "Exploit", "ExploitParams", "Hero", "HeroCore", "IcmCurve", "config_from_dict", "icm_value", "make_bot", "mirror_map",
+            "replace", "wild_map"]
++
++
++def _solo_flop(obs: Observation, hole, board) -> Action:
++    """Solo Hold'em flop (one hole card plays with four board cards; three are out): what one hole card makes with
++    the flop. Trips (our card on a board pair) or better raise and bet; two pair (our card pairs a paired board's
++    other rank) and top pair bet and call; second pair calls up to half the pot; a four-flush draw (our card's suit
++    on a monotone flop) calls up to a third of the pot. Everything else checks or folds. No bluffs. Lookups only."""
++    br = [c >> 2 for c in board]
++    top = max(br)
++    paired = len(set(br)) < 3
++    best = 0  # 0 nothing, 1 draw, 2 second pair, 3 top pair / two pair, 4 trips+
++    for h in hole:
++        r = h >> 2
++        m = br.count(r)
++        if m >= 2:
++            best = max(best, 4)
++        elif m == 1:
++            best = max(best, 3 if (r == top or paired) else 2)
++        elif sum(1 for c in board if (c & 3) == (h & 3)) == 3:
++            best = max(best, 1)
++    if paired and best == 0 and max(br.count(x) for x in br) == 3:
++        best = 0  # board trips: everyone has them; the hole card is a kicker
++    to_call = obs.to_call
++    pot = obs.total_pot
++    stack = obs.my_stack
++    legal = obs.legal
++    can_raise = ActionKind.RAISE in legal
++    mine = obs.bets[obs.seat]
++    if to_call <= 0:
++        if best >= 3 and can_raise:
++            return Action.raise_to(mine + max(obs.blinds[1], pot // 2)).clamp(obs)
++        return Action(ActionKind.CHECK).clamp(obs)
++    if best >= 4:
++        if can_raise:
++            return Action.raise_to(mine + to_call + max(to_call * 2, pot)).clamp(obs)
++        return Action(ActionKind.CALL).clamp(obs)
++    deep = to_call > stack // 3
++    if best == 3 and not deep:
++        return Action(ActionKind.CALL).clamp(obs)
++    if best == 2 and to_call * 2 <= pot - to_call and not deep:
++        return Action(ActionKind.CALL).clamp(obs)
++    if best == 1 and to_call * 3 <= pot - to_call and not deep:
++        return Action(ActionKind.CALL).clamp(obs)
++    return Action(ActionKind.FOLD).clamp(obs)
