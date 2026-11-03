@@ -1161,7 +1161,12 @@ SHIP_DIALS: dict = {"route": SHIP_ROUTE, "exploit.bet_min_fold": 0.4, "hero.post
                     "hero.postflop.probe_raise_tier": 5, "hero.postflop.probe_bluff": 0.4,
                     "hero.postflop.balance_sizes": True, "hero.postflop.s11_holdem_only": True,
                     "hero.twin_preflop": 0.05, "hero.twin_multi": 0.07, "hero.multi_call_shift": 2,
-                    "hero.mu_call_shift": 1, "hero.mu_value_shift": 1, "hero.call_shift_ex": {"wild": 2, "deck": 1}}
+                    "hero.mu_call_shift": 1, "hero.mu_value_shift": 1, "hero.call_shift_ex": {"wild": 2, "deck": 1},
+                    # batch 6: twist tables only, plain hold'em identical (docs/decisions.md): V-f's per-family twist
+                    # dials (H15) and V-h's known opponent cards (H18)
+                    "hero.postflop.size_read_twists": "discard,bounty,knockout,swap,exposed",
+                    "hero.postflop.s11_twists": "knockout,buy,swap,exposed", "strong_route_twists": "bounty,knockout,buy",
+                    "hero.known_cards": "pre"}
 
 
 # Batch 5's dials at their off values: on top of SHIP_DIALS they play batch 4's ship from this tree (the tests written
@@ -1178,6 +1183,12 @@ BATCH5_OFF: dict = {"strong_route": "", "strong_rr": 0.0,
                     "hero.postflop.balance_sizes": False, "hero.postflop.s11_holdem_only": False,
                     "hero.twin_preflop": 0.0, "hero.twin_multi": 0.0, "hero.multi_call_shift": 0,
                     "hero.mu_call_shift": 0, "hero.mu_value_shift": 0, "hero.call_shift_ex": {}}
+
+# Batch 6's dials at their off values: on top of SHIP_DIALS they play batch 5's ship from this tree (tests written
+# against batch 5's F; --base '{"dials": BATCH6_OFF}' for a paired check against the previous batch). With BATCH5_OFF
+# as well, batch 4's.
+BATCH6_OFF: dict = {"hero.postflop.size_read_twists": "", "hero.postflop.s11_twists": "", "strong_route_twists": "",
+                    "hero.known_cards": ""}
 
 def parse_dials(dials: dict | None) -> tuple:
     """One flat dials dict -> (route, make_bot keywords). The keys:

@@ -1,8 +1,10 @@
 """V-f (docs/drills/climb/vf-log.md): the hold'em-gated gains carried to the one-step twist families by dials that list
-them (postflop.size_read_twists, postflop.s11_twists, r3.v3_bvb_twists, the composite's strong_route_twists). Off by
-default: every gate stays as it was (hold'em only), so F plays as before."""
+them (postflop.size_read_twists, postflop.s11_twists, r3.v3_bvb_twists, the composite's strong_route_twists). Batch 6
+(docs/decisions.md) ships the families H15 accepted; with BATCH6_OFF every gate stays as it was (hold'em only), so F plays
+as batch 5."""
 import pytest
 
+from hyperion.compose.bot import BATCH6_OFF
 from hyperion.core.types import ActionKind, Observation, Rules
 from hyperion.drills import variants as V
 from hyperion.strategy.hero import TWIST_FAMILIES, twist_families, twist_family
@@ -56,7 +58,7 @@ def _hero(bot):
 def test_the_dials_off_keep_every_gain_on_hold_em_only():
     from hyperion import ship
 
-    bot = ship.make_bot("composite", {**D3, **Z3})
+    bot = ship.make_bot("composite", {**BATCH6_OFF, **D3, **Z3})
     hero = _hero(bot)
     for name in FAMILY:
         hero.new_table(V.get(name).rules, 0, 8)
@@ -103,7 +105,7 @@ def test_the_bvb_prior_dial_reaches_rival_3s_core_on_its_families():
 def test_the_strong_route_dial_lets_elite1_play_only_where_the_core_plays_the_table():
     from hyperion import ship
 
-    off = ship.make_bot("composite", SR)
+    off = ship.make_bot("composite", {**BATCH6_OFF, **SR})
     on = ship.make_bot("composite", {**SR, "strong_route_twists": ALL})
     e = on.core.names.index("elite1")
     for name, fam in FAMILY.items():
