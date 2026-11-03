@@ -123,8 +123,8 @@ S15 on the other two short cells: exploit_hu -0.060 ± 0.108, exploit2_3 -0.015 
 What the diagnostics showed between batches (scratch `spots.py`, `reads.py`, `linediff.py`, `rdiff.py`):
 - **Always defending is worse than reading.** Exploiter 3 bluffs only while F's fold rate stays high. The weighted
   read lets F fold again against seats that stop stabbing, so F's calls stay mostly against air.
-- **The read moves F's frequencies a lot.** F's fold to the turn and river stab after checking goes from 85% / 67%
-  to 33% / 24% heads-up, and from 92% / 89% to 51% / 46% three-handed. Most of the chips come back in one line:
+- **The read moves F's frequencies a lot.** With pool 7, from 0.5, prior 0.5, F's fold to the turn and river stab
+  after checking goes from 85% / 67% to 33% / 24% heads-up, and from 92% / 89% to 51% / 46% three-handed. Most of the chips come back in one line:
   F checks and calls the flop, checks the turn and faces the barrel, which went from -2.74 to +2.74 bb a hand
   (307 hands; +1,650 bb in 400 tables). Heads-up postflop, F went from -3,640 bb to -1,995 bb.
 - **`stab_aggr_only` did not pay.** It skips bets made after the seat called my bet, which hold its calling range
