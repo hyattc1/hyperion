@@ -1152,3 +1152,15 @@ and (in judges) `elite_judge`.
 - Addendum 11's weighted score (now printed): O3 +0.000 ± 0.032 (W-min lower bound -0.042), O4 +0.003 ± 0.032: the
   strong-table gains are cancelled at the night level by the realistic room's small losses. O3 (goal/b21/o3.json)
   goes to a held-out set after S17's C3 (H21) and V-i (H22), whose screens were clean.
+
+## 11:55: R7 merged; addendum 13 (the all-in runout term) decides runs started from now
+- R7: climb_accept --runout-term subtracts, at every hand whose last decision leaves cards to come with two or more
+  in, each alive seat's V(actual runout) - mean V over the possible runouts (V = ICM points on the post-hand stacks).
+  Unbiased by construction; no bias found on 6,000-12,000 fast-field seeds or in any real cell's paired term; the
+  same verdicts on batch 5 vs 4 and S5 vs F; intervals a median 1.30x narrower (0.98-1.62; short-handed cells most):
+  the same certainty from about 59% of the seeds. Play unchanged on 211 chunks. Zero on the ten twists whose hooks act
+  after the last decision.
+- Addendum 13 (from R7's draft): every run started after it adds --runout-term; one estimator per run, fixed before it
+  starts; raw printed beside it; seed counts stay at 400 (the gain is narrower intervals). Merge conflicts with R8,
+  S18 and H6 combined (a term run keeps no late-table records).
+- First runs under it: S17's C3 (H21), V-i (H22), O3 (H23), after batch 6's H20 and the judge replicate.
