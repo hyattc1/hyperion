@@ -304,3 +304,34 @@ From wt_s17_meas (4bd9a3c, code bf168db5ac): `climb_accept --cand '{"dials": {"e
 exploit,confirm,guards,elite,variants --workers 3 --out s17/ca --json s17/res/screen_c3.json`, launched detached.
 F's 400 screen chunks are pinned: copied from run 7's cache (code cc3e60d954) under F's key at bf168db5ac, since F
 plays bit-identically at both codes (runs 5 and 10) and the code between them only adds branches behind `stab_size`.
+
+Partial at 07:23 (exploit, confirm, guards, elite done; variants running; load 23-28):
+
+| stage | cell | F | C3 | C3 - F | |
+|---|---|---|---|---|---|
+| exploit | exploit @10/7/5/4/3/2/1/0 | 5.839 | 5.843 | +0.004 ± 0.031 | level (exploiter1 4.608 -> 4.612) |
+| | exploit_hu | 9.227 | 9.273 | +0.045 ± 0.106 | level (7.772 -> 7.728) |
+| | exploit_3 | 8.458 | 8.475 | +0.017 ± 0.128 | level (6.900 -> 6.898) |
+| | exploit2 @10/7/5/4/3/2/1/0 | 5.844 | 5.871 | +0.026 ± 0.039 | level (5.086 -> 5.057) |
+| | exploit2_hu | 7.848 | 8.095 | **+0.247 ± 0.125** | **UP** (9.152 -> 8.905) |
+| | exploit2_3 | 7.378 | 7.495 | **+0.117 ± 0.107** | **UP** (8.165 -> 7.990) |
+| | exploit3 @10/7/5/4/3/2/1/0 | 5.471 | 5.476 | +0.005 ± 0.032 | level |
+| | exploit3_hu | 8.268 | 8.335 | +0.068 ± 0.129 | level |
+| | exploit3_3 | 7.528 | 7.538 | +0.010 ± 0.114 | level |
+| | adapt @10/7/5/4/3/2/1/0 | 5.889 | 5.901 | +0.013 ± 0.035 | level (adapt1 5.106 -> 5.111) |
+| | adapt_hu | 8.605 | 8.807 | **+0.203 ± 0.126** | **UP** (8.395 -> 8.193) |
+| | adapt_3 | 8.007 | 8.037 | +0.030 ± 0.123 | level (7.657 -> 7.577) |
+| confirm | night | 5.972 | 5.969 | -0.003 ± 0.014 | level |
+| guards | night_hard | 5.499 | 5.495 | -0.004 ± 0.013 | level |
+| | realistic | 6.370 | 6.375 | +0.006 ± 0.011 | level |
+| | top | 5.058 | 5.059 | +0.001 ± 0.010 | level |
+| | night @10/7/5/4/3/2/1/0 | 6.199 | 6.191 | -0.008 ± 0.034 | level |
+| | night @50/25/12/6/3/2/1/1 | 24.699 | 24.844 | +0.144 ± 0.274 | level |
+| | night +double | 5.848 | 5.856 | +0.008 ± 0.011 | level |
+| elite | elite | 4.865 | 4.870 | +0.004 ± 0.011 | level |
+| | elite_night | 5.422 | 5.430 | +0.009 ± 0.015 | level |
+| | mirror | 4.498 | 4.498 | +0.000 ± 0.008 | level |
+| | elite_b | 4.638 | 4.637 | -0.001 ± 0.013 | level |
+| | mirror_b | 4.466 | 4.475 | +0.009 ± 0.010 | level |
+
+The heads-up and three-handed exploit cells are C1's to the last seed (at most three players have chips there).
