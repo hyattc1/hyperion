@@ -861,3 +861,11 @@ and (in judges) `elite_judge`.
   competition winners (MIT pokerbots and others). Each ends with testable ideas; they feed the next rounds.
 - Start-vs-now: the starting F's settings on today's code (start_off.json: every dial added since d3a7ca5 at its
   default) against batch 5, on H17 (37000-37399), every stage but judges.
+
+## 01:19: S6 (the gated short-handed specialist) accepted on H16
+- H16 (36000-36399), base batch 5, --aim exploit, every stage incl. elite_b and mirror_b (155 min): exploit2_hu
+  +0.405 ± 0.109 (F 8.26 vs exploiter 2's 8.74; was 7.85 vs 9.15), exploit2_3 +0.143 ± 0.052, exploit2 8-max +0.019 ±
+  0.012 UP; exploiter 1 cells level; night -0.000 ± 0.001, every guard identical or level, mirror -0.000 ± 0.002 (the
+  flagged risk did not show), elite, elite_night, elite_b, mirror_b level; variants and aware level. ACCEPT (addendum
+  6). H16 used once. (Its tree predates exploiter 3's cells; batch 6's combined check covers them.)
+- Batch 6 so far: V-f (H15), S6 (H16).
