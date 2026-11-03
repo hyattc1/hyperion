@@ -412,6 +412,11 @@ class Config:
     # ... and the bet / raise side there: value, big-value and raise thresholds this many tiers up. 0 = off
     multi_value_shift: int = 0
     mu_value_shift: int = 0
+    # must-use-k on a board shorter than the 5 - k cards it must take (Solo Hold'em, drill 10: one hole card and four
+    # board cards, so the flop's three are one short): True = Postflop.read_short, the hand by what the river can
+    # still make of it (H6); False = check or fold there (before H6: every Solo flop). No catalog entry has such a
+    # board (Omaha's flop is the three it needs), so the catalog plays the same either way
+    mu_short_board: bool = True
     # ... and by the table's rule (variant_preflop_ex's gates: "must_use", "fixedlimit", "lowball", "deck", "boards",
     # "wild"), added to the above, e.g. {"deck": 1}. {} = off
     call_shift_ex: dict = field(default_factory=dict)
@@ -1111,7 +1116,7 @@ class HeroCore:
             return safe_action(obs)
         mu = self._must_use
         if mu:
-            if nh < mu or len(board) < 5 - mu:
+            if nh < mu or (len(board) < 5 - mu and not cfg.mu_short_board):
                 self.last_path = "safe"
                 return safe_action(obs)
         elif nh + len(board) > 8 and not (cfg.long_board and nh == 2):
