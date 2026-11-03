@@ -103,3 +103,26 @@ def test_stab_pfr_min_reaches_the_decisions():
     assert any(_digest(d, t, HU, R2)[0] != _digest({}, t, HU, R2)[0] for t in range(10))
     shut = {**S, "hero.postflop.stab_pfr_min": 1.01}
     assert all(_digest(shut, t, HU, R2)[0] == _digest({}, t, HU, R2)[0] for t in range(3))
+
+
+def test_the_lead_rate_leaves_out_the_stabs_after_my_check():
+    """S15d: a seat's free bets apart from the ones right after my check in a heads-up pot."""
+    prof = Profiler(2)
+    prof.reset(2, 1)  # me seat 1, out of position after the flop
+    # flop: I check, it bets (a stab); turn: I check, it checks; river: I check, it bets (a stab)
+    _hand(prof, 1, [(1, Action.check()), (0, Action.raise_to(60)), (1, Action.call()),
+                    (1, Action.check()), (0, Action.check()), (1, Action.check()), (0, Action.raise_to(80)),
+                    (1, Action.fold())])
+    assert prof.post_free[0] == 3 and prof.post_free_bets[0] == 2 and sum(prof.st_opp[0]) == 3
+    assert prof.lead_rate(0, 0.3, 2.0) == pytest.approx((0 + 0.6) / (0 + 2.0))
+    prof2 = Profiler(2)
+    prof2.reset(2, 0)  # me seat 0 on the button: seat 1 acts first after the flop, its bets are leads
+    _hand(prof2, 0, [(1, Action.raise_to(40)), (0, Action.call()), (1, Action.raise_to(80)), (0, Action.fold())])
+    assert prof2.lead_rate(1, 0.3, 2.0) == pytest.approx((2 + 0.6) / (2 + 2.0))
+
+
+def test_stab_lead_max_reaches_the_decisions_and_shut_plays_as_f():
+    d = {**S, "hero.postflop.stab_pfr_min": 0.35, "hero.postflop.stab_lead_max": 0.4}
+    assert any(_digest(d, t, HU, R2)[0] != _digest({}, t, HU, R2)[0] for t in range(10))
+    shut = {**S, "hero.postflop.stab_lead_max": -0.01}
+    assert all(_digest(shut, t, HU, R2)[0] == _digest({}, t, HU, R2)[0] for t in range(3))
