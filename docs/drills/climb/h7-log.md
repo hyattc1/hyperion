@@ -180,3 +180,14 @@ two-card twin preflop (the hold'em class at the same combo percentile as the two
 flop; `twin_hole` in docs/drills/drill11/adapter.py), kept by the keep rule (+0.35 over 1,000 kit-sim tables; the
 20 bb version level). Seven lines; V-j may extend it. Tested: the bullet names --variant, twin_hole, the keep rule and
 the kit's simulator, and the drill's adapter has twin_hole.
+
+## Checks before the end
+
+- Kit I's own simulator, two copies of the template zip in one process (`engine.sim zip tight tranche_bot station -t
+  6 --clock cpu`, HYPERION_CHECK=1: each seat its own module, so two vendored hyperion copies loaded and purged in
+  turn): each copy's line `entry: swallowed errors 0`, conformance 1,101 and 981 observations, 0 violations; act
+  timeouts 61 of 2,082 on the CPU clock with the full suite running beside it (load 18).
+- Identity (F's play), `tools/climb_accept.py --cand '{"dials": {}}' --set 10000:10040 --stages confirm,guards
+  --workers 2`, this branch against a detached worktree of main (f5c49bb, which differs from the base 8310cc0 by a
+  RESUME edit only): 14 chunks, 280 samples, 374,461 decisions; every chunk's sample list and its decision, timeout,
+  exception, illegal and SafeBot-error counts identical.
