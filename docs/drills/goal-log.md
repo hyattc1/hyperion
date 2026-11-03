@@ -1235,3 +1235,16 @@ and (in judges) `elite_judge`.
 - Fixes: H7 (tooling and prompts: a module-function template, the checker's pass rule under load, a night test
   subset, one keep rule, and the rest of the list) and V-j (street-settled pots in our engine and catalog, so F's
   play there can be measured and improved outside the kit).
+
+## 15:25: S13c's S7 (S6 with a looseness gate) passes the screen; merged (off); queued on H25
+- Audit on tuning fields (fresh seeds 3400-3419): S6's gate opened on 76 of 21,056 heads-up decisions against seats
+  other than the exploiters and adapt1 (elite2, elite4, hero_tight, F copies), changing 35. A preflop looseness read
+  separates them: the ordinary openers show VPIP 0.28-0.44, PFR 0.20-0.33; exploiter 2 0.76/0.54 heads-up, 0.51/0.38
+  three-handed. S7 adds VPIP 0.50-0.88 and PFR 0.30 or more (fixed before the screen) to S6's probe and bet gates:
+  ordinary opens 0 in the audit; 99% of exploiter 2's heads-up opens kept, 58% three-handed.
+- Screen (10000-10199, --aim exploit, runout term): exploit2_hu +0.298 ± 0.120 and exploit2_3 +0.084 ± 0.041 UP; the
+  other exploit cells level (8-max identical); confirm, all guards, elite, elite_night, elite_b, mirror_b and aware
+  identical; mirror +0.0008 ± 0.0015; weighted +0.0016 ± 0.0010. It gives up S6's 8-max exploit2 gain and about 40%
+  of its three-handed one. ACCEPT on the screen.
+- climb/s13c-gate merged (3295488; the dials off). S7 queued on H25 (45000-45399) against batch 6, --aim exploit,
+  every stage, after the b23 chain (goal/b24/chain2.sh). If accepted it needs the next batch's judges (30800-31199).

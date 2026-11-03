@@ -15,7 +15,8 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 - Each accepted part joins the next batch, which needs judges on fresh judge seeds 30800-31199 (addendum 12).
 
 ## Workers running (branches in worktrees under /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal; each commits as it goes)
-- S13c (climb/s13c-gate): S6's gate tightened on tuning fields only, so it fires close to never against non-exploiters.
+- S13c done: S7 (S6 + a looseness gate) merged off; queued on H25 after the b23 chain: goal/b24/chain2.sh, output
+  goal/b24/s7_h25.md (ends "done"); goal/b24/CHAIN2_DONE when finished.
 - S15d (climb/s15d-gate): S15c's stab-read gate, the same.
 - S20 (climb/s20-three, wt_s20): the structural round's first idea, a three-handed preflop solved for strong tables
   (log docs/drills/climb/s20-log.md on its branch). Diagnostics 11000-11199.
@@ -30,8 +31,8 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
   entry the same day. Our regional is Pittsburgh, Nov 12; the climb stops by Nov 11 18:00 ET.
 
 ## Held-out sets used
-H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); in use or queued H22-H24; next
-fresh H25 = 45000-45399. Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 30800-31199.
+H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); in use or queued H22-H24; H25 queued for S7;
+next fresh H26 = 46000-46399. Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 30800-31199.
 
 ## End deliverables (goal.md)
 Final SHIP and zip, a decisions entry, PLAYBOOK and HANDOFF, the last rehearsal on the final ship (drills 7-10 were
