@@ -291,8 +291,14 @@ seeds, from a fresh worktree of main, 2 workers. The question: does the realisti
 -0.060 down; realistic, fast_schedule and top_heavy negative) go while the strong-table gains stay? The layer has no
 table rate of its own: `exploit.open_read` reads rival 3's core's `oa_fold`, so `r3.oa_st` sets both. With the big
 blind's prior worth 10 answers instead of 20, realistic's big blind (0.80 against the prior's 0.668) is read at about
-0.74 after 10 answers instead of 0.71.
+0.73 after 10 answers instead of 0.71.
 
 Spec: `{"r3.oa_read": true, "exploit.open_read": true, "r3.oa_cap": true, "exploit.open_cap": true,
 "r3.oa_min_alive": 4, "exploit.open_min_alive": 4, "r3.oa_st": 10.0}`. No code change (main 0ed102a6ef carries O3's
 code and other merges since: S18's tooling, H6, V-i); F's identity at main against the cached F checked first.
+
+Identity (10:05-10:25; idcheck6.py, main 0ed102a6ef against the cells of 64b466a): **all 31 identical** sample for
+sample. (Main's climb_accept now names a short last chunk `*.n15.json`; the script first flagged the seven 15-seed
+chunks as missing and they were compared by hand: identical.) F's cells copied to main's key 2ff4eef35075. O4's
+screen from 10:27, 2 workers: elite, the four variants, confirm and guards, the 12 exploit cells, then one call that
+prints the whole table from the cache.
