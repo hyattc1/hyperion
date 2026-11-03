@@ -287,3 +287,26 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
   itself never plays, so the fit has no data there), while F's own big blind was its strongest three-handed spot at
   strong tables (+0.69 bb a hand, step 1). Candidate **GK25R** = GK25 with `short.three2_roles` btn,sb (F plays the
   big blind). Running; F's base confirm + guards (030) moved behind it.
+- 17:56 **GK25R** (GK25, the tables on the button and small blind only), seeds 10000-10099, exploit + elite
+  (`q/028_GK25R100.out`, code ff07018): **no cell down**.
+
+| cell | F | GK25R | GK25R - F | |
+|---|---|---|---|---|
+| elite | 4.876 | 4.908 | +0.033 ± 0.020 | UP |
+| elite_night | 5.389 | 5.396 | +0.007 ± 0.017 | level |
+| mirror | 4.534 | 4.545 | +0.011 ± 0.019 | level |
+| elite_b | 4.507 | 4.540 | +0.032 ± 0.021 | UP |
+| mirror_b | 4.496 | 4.532 | +0.036 ± 0.018 | UP |
+| exploit (8-max) | 5.675 | 5.662 | -0.013 ± 0.053 | level |
+| exploit_3 | 8.356 | 8.260 | -0.095 ± 0.135 | level |
+| exploit2 (8-max) | 5.931 | 5.903 | -0.029 ± 0.031 | level |
+| exploit2_3 | 7.322 | 7.329 | +0.007 ± 0.079 | level |
+| exploit3 (8-max) | 5.341 | 5.404 | +0.063 ± 0.049 | UP |
+| exploit3_3 | 7.495 | 7.571 | +0.077 ± 0.100 | level |
+| adapt (8-max) / adapt_3 | | | +0.009 ± 0.039 / +0.010 ± 0.080 | level |
+| every heads-up cell | | | 0 | identical |
+
+  W +0.0123 ± 0.0149, W-min +0.0052 ± 0.0195 (the best of the candidates; G +0.0008, GK25 +0.0070). Chosen as the
+  final candidate: the full screen (200 seeds; exploit, elite, confirm, guards, all 26 variants) is next.
+- 17:56 Full suite on the branch (`pytest -q -m "not timing"`, wt_s20 at 3c6c... with the 3b table present, load
+  ~15): **1,355 passed, 5 skipped**, 106 deselected, 9:42.
