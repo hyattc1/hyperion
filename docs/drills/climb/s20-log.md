@@ -322,3 +322,30 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
   and 48-57% at mirror_b. Our seat's three-handed bb a hand: elite +0.020 against F's -0.035 on the same seeds (the
   button +0.16 against +0.05: it folds 44% / raises 48% / jams 8% where F raised 65%; our opens faced a jam 440
   times, folding 85%), mirror_b -0.008 against -0.091 (the button +0.12 against -0.13).
+- 18:35 **GK25R, screen seeds 10000-10199**: exploit, elite, confirm and guards complete (`q/040_FULL.sh`, cache key
+  984b3878e26c; deltas read from the cached chunks' corrected samples, `goal/s20/peek.py`); the run was stopped at the
+  variants stage to screen R3 first (below), and its verdict is re-printed from the cache with the variants later.
+
+| stage | cell | GK25R - F (200 seeds) | |
+|---|---|---|---|
+| elite | elite | +0.026 ± 0.014 | UP |
+| | elite_night | +0.011 ± 0.011 | level |
+| | mirror | +0.028 ± 0.013 | UP |
+| | elite_b | +0.021 ± 0.015 | UP |
+| | mirror_b | +0.032 ± 0.013 | UP |
+| exploit | exploit / exploit_3 | -0.029 ± 0.034 / -0.073 ± 0.101 | level |
+| | exploit2 / exploit2_3 | -0.004 ± 0.022 / +0.011 ± 0.067 | level |
+| | exploit3 / exploit3_3 | +0.039 ± 0.030 / +0.068 ± 0.070 | UP / level |
+| | adapt / adapt_3 | -0.006 ± 0.027 / -0.030 ± 0.061 | level |
+| | every heads-up cell | 0 | identical |
+| confirm | night | +0.009 ± 0.011 | level |
+| guards | night_hard | -0.003 ± 0.010 | level |
+| | realistic | **-0.007 ± 0.005** | **DOWN** |
+| | top | +0.002 ± 0.011 | level |
+| | night @10/7/5/... / @50/25/12/... / doubling | -0.001 ± 0.022 / +0.094 ± 0.185 / -0.006 ± 0.010 | level |
+
+  Every strong cell but elite_night up, every exploit cell level or up; one guard down by 0.007 (realistic: F's
+  reads take more from the realistic field's bots at the tables whose read opens the route). Suspect: the route's
+  `pre_allin` (the tables call jams at equilibrium; F's call-off reads shove rates, and the realistic field has
+  PushFoldBot-style jammers). **R3** = GK25R with the route `pre_3way=short` only (F answers every all-in): confirm,
+  guards at 200 seeds and exploit, elite at 100, running.
