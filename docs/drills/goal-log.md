@@ -994,3 +994,13 @@ and (in judges) `elite_judge`.
   o5 trains its strategy offline by self-play (ML students), o6 is hyper-aggressive (pressure, light 3-bets, overbets,
   ICM-aware), o7 plays memorised solver charts (push/fold Nash, ICM calls, standard charts, minimum defence). All
   three held out as the judge field outside_b, fixed in addendum 10 before any measurement.
+
+## 06:00: owner: usage is fine (31% of the week, resets Nov 6 19:00); full pace again; R7, V-i, drill 10 started
+- Protections kept: workers commit work in progress at milestones and launch long runs detached; docs/drills/RESUME.md
+  lists what runs, what is accepted and how to freeze batch 6 and finish.
+- R7 (goal/wt_r7): the all-in runout term in climb_accept, validated (zero mean, same verdicts on batch 5 vs 4 and on
+  S5, interval ratios) before any protocol addendum. V-i (goal/wt_vi): twist decisions priced as value of
+  information, three multipliers fixed in advance, plus the showdown-tax read for payoff twists. Drill 10
+  (goal/drill10/kit): a fresh organiser, a kit whose bot is its own process speaking JSON lines over stdin/stdout,
+  Ghost and Chain added to the excluded twists.
+- Outside judges o6 (aggressive, md5 1d724a69) and o7 (solver charts, md5 7ada9e81) built; o5 still building.
