@@ -833,3 +833,16 @@ and (in judges) `elite_judge`.
   exploit3_hu, exploit3_3 in the exploit stage (2a17295).
 - S15 (goal/wt_s15, climb/s15-exploiter3): read the postflop counter, name F's tendency it uses, fix it (gated as
   needed), screen against all three exploiters and the guards.
+
+## 00:06: H5 merged (drill 9's fixes)
+- Entry template for kits that build a bot object (hyperion/drills/entry_template.py): builds, starts and warms the
+  bot at import, then pins the package and keeps its folder on sys.path (kit G unloads before Agent(), kit F after).
+- Timed hand end: `defer` by default (the callback runs the light part, 22 us; the ICM curve waits for the next
+  decision): forced check/folds on kit G from 30-234 per 150-200 tables to 1-33; "store" removed them but doubled late
+  decisions.
+- Gate seat history rows tagged by street with the blind posts; conformance cleared after warm-up; a `timing`
+  pytest marker (90 tests; the night runs `-m "not timing"`); PLAYBOOK and prompt 05 `--cand '{"dials": ...}'`.
+- Drill 9's 491 ms was host load, not a build (re-run: max 8.7 ms, act CPU never over 1.3 ms). The real path found: a
+  table start inside a decision (Adapter.decide starting the bot lazily: 67 ms CPU for three hole cards). It now runs
+  under tables.quick_start(): no disk, no build inside a decision.
+- Identity after the merge: running.
