@@ -1275,3 +1275,14 @@ and (in judges) `elite_judge`.
 - Coordinator's edit on merge: under the new checker rule both our zip and the drill player's failed the timeout half
   on today's box (1.2-2.0% against the kit bot's 0.4-0.5%), so the cheap bot uploads on layout, caps, loading and 0
   errors alone (insurance; the next upload replaces it) and the timeout gap goes to prompt 04 step 4.
+
+## 17:02: C3 (one stab size with three or fewer alive) on H22: every check passes but one variant cell; replicate on H27
+- H22 (42000-42399), batch 6 + C3 against batch 6, --aim exploit, every stage, runout term (233 min): exploit2_hu
+  +0.284 ± 0.063, exploit2_3 +0.161 ± 0.061, exploit3_hu +0.078 ± 0.049, exploit3_3 +0.073 ± 0.064, adapt_hu +0.075
+  ± 0.054, adapt_3 +0.114 ± 0.056 UP; night @10/7/5 +0.022 ± 0.018 and @50/25/12 +0.183 ± 0.145 UP; confirm, the
+  other guards, every elite and aware cell and 25 variants level; bonus_card (realistic) -0.015 ± 0.011 DOWN.
+  Weighted +0.0049 ± 0.0035 (lower bound +0.0015), W-min +0.0019 ± 0.0024, cap holds. H22 used once.
+- Addendum 7: one variant cell down with every other check passing replicates: bonus_card (realistic) on H27
+  (47000-47399) at 400 seeds (goal/b23/c3_rep_h27.md). C3 fails if the re-run or the two pooled is beyond noise down.
+- Raw and corrected flags never point opposite ways (exploit_hu raw UP, corrected level; adapt @10/7/5 raw DOWN,
+  corrected level: the term narrows, it does not flip).
