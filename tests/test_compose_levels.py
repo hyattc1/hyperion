@@ -62,7 +62,8 @@ def test_noshadow_skips_exactly_the_full_shadows():
         _table(b, seed, level=1)
     c = b.core.counts
     assert c["pre_raised_short:hero"] > 0
-    assert c["shadow:skip"] == c["pre_raised_short:hero"]  # the base's full preflop shadow; the light ones stay
+    # the base's full preflop shadow where Hero or (batch 5's strong-table route) elite1 decides; light ones stay
+    assert c["shadow:skip"] == c["pre_raised_short:hero"] + c["strong"]
 
 
 def test_base_and_hero_levels_force_one_member():

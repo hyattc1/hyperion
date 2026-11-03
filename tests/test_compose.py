@@ -221,7 +221,7 @@ def test_ship_builder_reads_one_flat_dials_dict():
     b = CBm.ship({"route": "pre_hu=hero", "exploit.bet_frac": 0.4, "r3.bluff_scale": 1.2,
                   "hero.preflop.three_bet_frac": 0.05})
     c = b.core
-    assert c.names == ["base", "hero"] and c.donors[SECTIONS.index("pre_hu")] == "hero"
+    assert c.names == ["base", "hero", "elite1"] and c.donors[SECTIONS.index("pre_hu")] == "hero"  # elite1: batch 5
     assert c.ex.p.bet_frac == 0.4 and c.ex.p.bet_checked  # on top of Hero's shipped layer
     assert c.members[0].cfg.r3.bluff_scale == 1.2
     assert c.members[1].cfg.preflop.three_bet_frac == 0.05
@@ -270,7 +270,7 @@ def test_the_composite_ships_as_measured():
     from hyperion import ship
 
     c = ship.make_bot("composite", {}).core
-    assert c.names == ["base", "hero"]
+    assert c.names == ["base", "hero", "elite1"]  # elite1 plays opened pots at strong tables (batch 5's strong_route)
     assert [c.donors[SECTIONS.index(s)] for s in ("pre_raised_short", "post_hu_bet", "post_hu_chk", "post_mw")] == \
         ["hero"] * 4
     assert all(c.donors[i] == "base" for i, s in enumerate(SECTIONS) if s not in
@@ -278,7 +278,8 @@ def test_the_composite_ships_as_measured():
     assert c.ex.p.bet_min_fold == 0.4 and c.ex.p.bet_checked and c.ex.p.steal
     assert c.members[1].cfg.postflop.call_margin == 0.2
     assert c.light[0] is not None  # light shadows as shipped
-    assert ship.make_bot("composite", {"route": ""}).core.names == ["base"]  # dials on top of the defaults
+    assert ship.make_bot("composite", {"route": ""}).core.names == ["base", "elite1"]  # dials on top of the defaults
+    assert ship.make_bot("composite", {"route": "", "strong_route": ""}).core.names == ["base"]
 
 
 def test_the_shipped_composite_takes_the_nights_cheap_dial_and_seats_in_the_simulator(sim):
@@ -296,6 +297,6 @@ def test_the_shipped_composite_takes_the_nights_cheap_dial_and_seats_in_the_simu
     try:
         assert ship.register_sim({"r3.open_scale": 1.1}) == "composite dials {'r3.open_scale': 1.1}"
         seat = B.make_bot("ship", seed=1)
-        assert seat.impl.core.members[0].cfg.r3.open_scale == 1.1 and seat.impl.core.names == ["base", "hero"]
+        assert seat.impl.core.members[0].cfg.r3.open_scale == 1.1 and seat.impl.core.names == ["base", "hero", "elite1"]
     finally:
         B.REGISTRY.pop("ship", None)

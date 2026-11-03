@@ -6,13 +6,15 @@ import pytest
 from hyperion.core.types import Action, ActionKind, Observation, Rules
 from hyperion.strategy.exploit import Exploit, ExploitParams
 from hyperion.strategy.profiler import Profiler
+from hyperion.compose.bot import BATCH5_OFF
 
 from .test_s2_dials import _digest
 
 HU = ["hero", "exploiter2"]
 THREE = ["hero", "exploiter2", "loose_aggro"]
 R2, R3 = Rules(n_players=2, payouts=(10, 7)), Rules(n_players=3, payouts=(10, 7, 5))
-FIN = {"r3.v3_defend": True}  # F once batch 4 lands (S11 began on FIN = this + cbet_size_dry 0.5)
+FIN = {**BATCH5_OFF, "r3.v3_defend": True}  # batch 4's F (S11 began on FIN = this + cbet_size_dry 0.5); batch 5
+# ships Z below with both gates, so these tests start from batch 4 to show each dial still moves play
 
 
 def _obs(street, seat, hist, bets=(0, 0), stacks=(1000, 1000), to_call=0, button=0, pot=100):
@@ -97,14 +99,14 @@ def test_s11_holdem_only_turns_the_probe_and_one_size_off_on_a_twist_table():
     from hyperion import ship
     from hyperion.drills import variants as V
 
-    bot = ship.make_bot("composite", {**Z, "hero.postflop.s11_holdem_only": True})
+    bot = ship.make_bot("composite", {**BATCH5_OFF, **Z, "hero.postflop.s11_holdem_only": True})
     hero = bot.core.members[1].core if hasattr(bot.core.members[1], "core") else bot.core.members[1]
     pf = hero.postflop
     hero.new_table(V.get("short_deck").rules, 0, 8)
     assert pf.p.balance_sizes is False and pf.p.probe_from == 1.0
     hero.new_table(Rules(), 0, 8)
     assert pf.p.balance_sizes is True and pf.p.probe_from == 0.75
-    plain = ship.make_bot("composite", Z)  # the gate off: the dials reach a twist table as before
+    plain = ship.make_bot("composite", {**BATCH5_OFF, **Z})  # the gate off: the dials reach a twist table as before
     h2 = plain.core.members[1].core if hasattr(plain.core.members[1], "core") else plain.core.members[1]
     h2.new_table(V.get("short_deck").rules, 0, 8)
     assert h2.postflop.p.balance_sizes is True

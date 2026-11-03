@@ -3,6 +3,7 @@ the decisions it names, its counters count what they say, and with every dial of
 import pytest
 
 from hyperion import ship
+from hyperion.compose.bot import BATCH5_OFF
 from hyperion.core.types import parse_cards as parse
 from hyperion.core.types import Action, ActionKind, HandResult, Observation, Rules
 from hyperion.hybrid.core3 import o3_scan
@@ -75,7 +76,8 @@ def _digest(dials, table, names=ROOM, rules=None):
     for b in bots:
         if hasattr(b, "use_cost_model"):
             b.use_cost_model(True)
-    bot = ship.make_bot("composite", {**QUIET, "late_us": 1e9, **dials}, seed=seed * 64)
+    # from batch 4's F (these tests were written against it; batch 5 ships D3's size read and S11's dials)
+    bot = ship.make_bot("composite", {**QUIET, "late_us": 1e9, **BATCH5_OFF, **dials}, seed=seed * 64)
     rec = bots[0] = _Recorder(bot)
     play_table(bots, rules or Rules(), seed=seed, mode="model")
     return rec.h.hexdigest(), bot

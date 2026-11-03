@@ -66,10 +66,11 @@ def test_ship_names_one_bot_and_make_bot_builds_it():
     assert ship.SHIP in ship.BUILDERS and ship.DIALS == {}
     bot = ship.make_bot()  # the composite as measured (decisions entry "Composite bot")
     assert isinstance(bot, Composite) and ship.SHIP == "composite"
-    assert bot.core.names == ["base", "hero"]
+    assert bot.core.names == ["base", "hero", "elite1"]  # elite1: batch 5's strong-table route (opened pots)
     cfg = bot.core.members[0].cfg  # its base: rival 3's core at its defaults (plus the 3-bet defence SHIP_DIALS turn
-    # on since the climb's batch 4), the layer in front of the composite
-    assert cfg.core == "rival3" and cfg.exploit is None and cfg.r3 == Rival3Knobs(v3_defend=True)
+    # on since the climb's batch 4, and batch 5's blind-vs-blind read, hold'em tables only), the layer in front
+    assert cfg.core == "rival3" and cfg.exploit is None
+    assert cfg.r3 == Rival3Knobs(v3_defend=True, v3_bvb_prior=0.15, v3_bvb_holdem_only=True)
     assert bot.core.ex is not None
     bot = ship.make_bot("hybrid3_x")
     assert isinstance(bot, Hybrid)
@@ -307,7 +308,7 @@ def _settings(bot) -> dict:
     core = bot.core
     s = {"route": tuple(core.donors), "layer": flat(core.ex.p) if core.ex is not None else None}
     for nm, m in zip(core.names, core.members):
-        s[nm] = flat(m.cfg)
+        s[nm] = flat(m.cfg) if hasattr(m, "cfg") else type(m).__name__  # elite1 (a persona member) has no config
     s["compose"] = {k: v for k, v in flat(core.cfg).items() if not k.startswith(("hero_", "base_", "hybrid_", "route"))}
     return s
 

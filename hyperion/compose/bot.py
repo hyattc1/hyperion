@@ -807,8 +807,37 @@ SHIP_DIALS: dict = {"route": SHIP_ROUTE, "exploit.bet_min_fold": 0.4, "hero.post
                     "hero.toss_value_shift": 2, "hero.toss_dead": True, "base.hero_on_bounty": False,
                     # batch 4: the 3-bet defence (exploit resistance, addendum 6) and V-c's variant dials
                     "r3.v3_defend": True,
-                    "hero.long_board": True, "hero.keep_call_shift": 2, "hero.toss_call_shift": 1}
+                    "hero.long_board": True, "hero.keep_call_shift": 2, "hero.toss_call_shift": 1,
+                    # batch 5: strong tables (S9's route, S12c's size read), the second exploiter's fixes (S11, both
+                    # gated to hold'em) and V-e's twist play (docs/decisions.md)
+                    "strong_route": "pre_open_10=elite1x", "strong_rr": 0.2,
+                    "hero.postflop.size_read": 1.0, "hero.postflop.size_read_rank": 5.0,
+                    "hero.postflop.size_read_min_alive": 4, "hero.postflop.size_read_holdem_only": True,
+                    "hero.postflop.size_read_min_bets": 2, "hero.postflop.size_read_min_share": 0.15,
+                    "hero.postflop.size_read_min_buckets": 2, "hero.postflop.size_read_skip_weak": True,
+                    "hero.postflop.size_read_streets": 3, "hero.postflop.size_read_min_cbet": 0.55,
+                    "r3.v3_bvb_prior": 0.15, "r3.v3_bvb_holdem_only": True,
+                    "hero.postflop.probe_from": 0.75, "hero.postflop.probe_n": 2, "hero.postflop.probe_margin": 0.03,
+                    "hero.postflop.probe_raise_tier": 5, "hero.postflop.probe_bluff": 0.4,
+                    "hero.postflop.balance_sizes": True, "hero.postflop.s11_holdem_only": True,
+                    "hero.twin_preflop": 0.05, "hero.twin_multi": 0.07, "hero.multi_call_shift": 2,
+                    "hero.mu_call_shift": 1, "hero.mu_value_shift": 1, "hero.call_shift_ex": {"wild": 2, "deck": 1}}
 
+
+# Batch 5's dials at their off values: on top of SHIP_DIALS they play batch 4's ship from this tree (the tests written
+# against batch 4's F, and a paired check against the previous batch: --base '{"dials": BATCH5_OFF}').
+BATCH5_OFF: dict = {"strong_route": "", "strong_rr": 0.0,
+                    "hero.postflop.size_read": 0.0, "hero.postflop.size_read_rank": 0.0,
+                    "hero.postflop.size_read_min_alive": 0, "hero.postflop.size_read_holdem_only": False,
+                    "hero.postflop.size_read_min_bets": 0, "hero.postflop.size_read_min_share": 0.15,
+                    "hero.postflop.size_read_min_buckets": 2, "hero.postflop.size_read_skip_weak": False,
+                    "hero.postflop.size_read_streets": 7, "hero.postflop.size_read_min_cbet": 0.0,
+                    "r3.v3_bvb_prior": -1.0, "r3.v3_bvb_holdem_only": False,
+                    "hero.postflop.probe_from": 1.0, "hero.postflop.probe_n": 6.0, "hero.postflop.probe_margin": -1.0,
+                    "hero.postflop.probe_raise_tier": 9, "hero.postflop.probe_bluff": 0.0,
+                    "hero.postflop.balance_sizes": False, "hero.postflop.s11_holdem_only": False,
+                    "hero.twin_preflop": 0.0, "hero.twin_multi": 0.0, "hero.multi_call_shift": 0,
+                    "hero.mu_call_shift": 0, "hero.mu_value_shift": 0, "hero.call_shift_ex": {}}
 
 def parse_dials(dials: dict | None) -> tuple:
     """One flat dials dict -> (route, make_bot keywords). The keys:
@@ -849,6 +878,7 @@ def parse_dials(dials: dict | None) -> tuple:
     if d.pop("cheap", False):  # as on hybrid3_x: every decision Hero's cheap path, no reads, no layer
         base["cheap"] = True
         route = ""
+        d.pop("strong_route", None)  # no other member: batch 5's strong-table route (elite1) goes too
         exploit, layer = None, {}
     if layer:
         if exploit is None:
