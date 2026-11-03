@@ -19,8 +19,9 @@ tree's raise sizes follow the actual bet: the 3-bet is 3.5 times the open, the 4
 - `steal_ftb`: the button's limp becomes a min-raise against a big blind that folds to raises that often.
 - `defer_3bet`: preflop goes back to F against a seat that 3-bets our opens far above equilibrium (rival 3's read).
 - `pre_open_min`: the big blind's preflop only against a seat that opens at least that share of its buttons.
-- `like_probe`, `like_bet`, `like_pfr` (S13b): every decision only against a seat that plays like exploiter 2 (it
-  leads and stabs into our heads-up pots nearly every chance, bets into them often, raises preflop).
+- `like_probe`, `like_bet`, `like_pfr` (S13b), `like_vpip_min`, `like_vpip_max` (S13c): every decision only against
+  a seat that plays like exploiter 2 (it leads and stabs into our heads-up pots nearly every chance, bets into them
+  often, raises preflop, and has played loose over the table without being a maniac).
 - Never with antes in the pot (obs.pot > 0 preflop): the trees have none.
 - `three`, `three_max`: three-handed preflop (and its depth cap).
 
@@ -156,6 +157,11 @@ class ShortParams:
         self.like_probe = 0.0
         self.like_bet = 0.0
         self.like_pfr = 0.0
+        # S13c: ... and has played loose over this table (F's profiler, vpip) without being a maniac, whose leaks F's
+        # reads take: like_vpip_min <= vpip <= like_vpip_max (0 = that bound off). The ordinary seats that passed S6's
+        # gate (elite builds, F's own copies, a tight Hero) are 8-max seats at 0.28-0.44; exploiter 2 at 0.5-0.8
+        self.like_vpip_min = 0.0
+        self.like_vpip_max = 0.0
         # a deviation on a clear read: as the big blind facing an open from a seat that opens at least this share of
         # its small blinds (F's profiler, open_rate late, smoothed toward 0.5 with 6), the nodes after the open come
         # from the counter solved against a small blind locked to open the top w of hands (tables/short_hu_lock.json,
@@ -264,7 +270,8 @@ class ShortMember:
         self._prof = prof
         stacks, bets, in_hand = obs.stacks, obs.bets, obs.in_hand
         alive = [j for j in range(len(stacks)) if stacks[j] + bets[j] > 0 or in_hand[j]]
-        if prof is not None and (self.p.like_probe > 0 or self.p.like_bet > 0 or self.p.like_pfr > 0):
+        if prof is not None and (self.p.like_probe > 0 or self.p.like_bet > 0 or self.p.like_pfr > 0
+                                 or self.p.like_vpip_min > 0 or self.p.like_vpip_max > 0):
             p = self.p
             for j in alive:
                 if j == obs.seat:
@@ -273,9 +280,12 @@ class ShortMember:
                     probe = (prof.pb_bet[j] + 0.9) / (prof.pb_opp[j] + 2.0)
                     bet = (prof.pb_bet[j] + prof.ab_bet[j] + 1.6) / (prof.pb_opp[j] + prof.ab_opp[j] + 4.0)
                     pfr = prof.pfr_rate(j)
+                    vpip = prof.vpip_rate(j) if (p.like_vpip_min > 0 or p.like_vpip_max > 0) else 0.5
                 except Exception:  # noqa: BLE001
                     return False
                 if probe < p.like_probe or bet < p.like_bet or pfr < p.like_pfr:
+                    return False
+                if vpip < p.like_vpip_min or (p.like_vpip_max > 0 and vpip > p.like_vpip_max):
                     return False
         if obs.street == 0 and base is not None and self.p.defer_3bet < 1.0:
             core = getattr(base, "core", None)
