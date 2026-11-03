@@ -417,6 +417,11 @@ class TableResult:
 class Table:
     """One sit-and-go. Call play_hand() until done, or use play_table()."""
 
+    # the payoff-by-street rules (module doc), set per table in __init__ from Rules.extras; off here for a Table built
+    # without __init__ (hyperion/sim/generic.py's settle probe)
+    by_street = False
+    no_runout = False
+
     def __init__(
         self,
         bots: Sequence[Bot],

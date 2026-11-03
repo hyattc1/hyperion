@@ -170,3 +170,59 @@ on later streets are mostly made hands: about a quarter of the claim is what a f
 c6** = `{"tranche_twin": "all", "hero.tranche": "now,sunk", "hero.tranche_claim_early": 0.25}`
 (`goal/vj_work/cand_vj_tranche.json`). It was picked among five claim weights on the screen set, so its screen numbers
 carry that selection; the held-out run is the test.
+
+## 5. Identity (at the merged head, code 4f5304a615)
+
+`climb_accept --set 10000:10040 --stages confirm,guards,variants --variants <the 26 entries other than tranche_holdem>
+--variant-seeds 25` (model mode, eight rotations), sample lists compared cell by cell (`goal/vj_work/idcmp.py`):
+
+| comparison | where | cells (chunks) | identical |
+|---|---|---|---|
+| main d9e26d2 F (code 962fc40f42, detached worktree) vs branch F, dials off | 7 hold'em cells x 40 seeds, 26 entries x 25 seeds | 40 | **40 of 40** |
+| branch F vs branch F + every tranche dial on at non-default values (`{"tranche_twin": "all", "hero.tranche": "now,sunk,allin", "hero.tranche_claim_early": 0.25, "hero.tranche_value_shift": -1, "hero.tranche_call_shift": 1}`) | the same | 40 | **40 of 40** |
+
+So plain hold'em (night, night_hard, realistic, top, night under 10/7/5/4/3/2/1/0 and 50/25/12/6/3/2/1/1, night under
+the doubling schedule) and every other catalog entry play bit for bit as on main, with the dials off and with them on;
+SHIP_DIALS is unchanged. The engine's new paths need a Rules key no earlier table sets, and every dial checks the rule
+before it acts.
+
+## 6. Kit I's own simulator (confirmation)
+
+The drill's entry (goal/drill11/night/hyperion/submission/bot.py) and adapter with two changes: `TWIN_BB = 0` (the
+composite's dial does the twin now) and `extras={"tranches": v.tranches[:street]}` in the observation; rules_tonight.json
+with the extras `variant: tranche_holdem`, `settle: street`, `no_runout: true` so the dials see the rule. Packed from the
+merged head: A = F (`--dials {}`), sha256 6dccd5c4..., B = F + c6, sha256 f39adfaa...; 2.1 MB zipped, 8.6 MB
+unzipped, import 0.3 s. Verified inside B: the twin is on, 2c2d opens (act 50), 7s6s folds. The kit run (CPU clock,
+two seats each with two `tight` and two `tranche_bot`, the kit's own sample bots, which I only ran):
+
+| run | tables | A (F) | B (F + c6) | B - A | tight | tranche_bot | timeouts A / B |
+|---|---|---|---|---|---|---|---|
+| `python -m engine.sim A A B B tight tight tranche_bot tranche_bot -t 400 --seed 12001 --clock cpu --workers 1` | 400 | +5.521 ± 0.474 | +5.924 ± 0.467 | +0.40 | +1.30 | +3.25 | 1.46% / 1.56% (load 11-13) |
+| the same, `--seed 12002` | 400 | +5.562 ± 0.461 | +5.714 ± 0.483 | +0.15 | +1.54 | +3.18 | 0.24% / 0.24% |
+| the same, `--seed 12003` | 400 | +5.554 ± 0.468 | +5.844 ± 0.485 | +0.29 | +1.73 | +2.88 | 0.27% / 0.23% |
+| pooled | 1,200 | +5.546 | +5.827 | **+0.28**, every run up | | | |
+
+The postflop parts on top of the twin, in the kit: C = F + `{"tranche_twin": "all"}` (sha256 fb74cdcc...) against B in
+the same tables (`engine.sim C C B B tight tight tranche_bot tranche_bot -t 400 --clock cpu`):
+
+| seed | C (twin) | B (twin + now,sunk 0.25) | B - C |
+|---|---|---|---|
+| 12004 | +5.857 ± 0.468 | +5.769 ± 0.471 | -0.09 |
+| 12005 | +5.406 ± 0.466 | +5.899 ± 0.474 | +0.49 |
+| pooled, 800 tables | +5.632 | +5.834 | +0.20 (one run each way) |
+
+Kit timeouts 0.2-1.6% of decisions for both zips alike (load 11-17; the kit's own tranche_bot 0.03-0.25%); 0 errors
+in every run. The kit runs are unpaired by table (the kit prints per-file points only), so each B - A carries an
+interval of about ± 0.67; the pooled +0.28 over 1,200 tables, every run up, meets prompt 05's keep rule on its own
+terms (the drill's twin alone was +0.35 over 1,000).
+
+## 7. Latency and sizes
+
+`tools/latency.py --bot composite --dials <spec> --variant tranche_holdem --n 5000`, two passes in alternating order
+(load 9-17): F mean 74.2 / 79.1 us, p50 59.0 / 59.1, p99 345 / 313, over 1 ms 0.18% / 0.32%; F + c6 mean 86.5 / 87.7,
+p50 64.1 / 61.6, p99 411 / 323, over 1 ms 0.36% / 0.36%. About 8 us more per decision on average (the observation
+copy for the twin, the reads without draws); the random states carry no tranches, so the claim's reads (one tier read
+per earlier street, a dict lookup for the preflop one) are not in these numbers. Tables: the twin map is built at a
+table start from Hero's own tables (91 entries, no file); the two-card shares are 91 numbers built on first use;
+`tables/generic/tranche_holdem-d65b70f5.json` (10.6 KB) is for the simulator's generic opponents only. Package 2.1 MB
+zipped, 8.6 MB unzipped (caps 5 / 25).

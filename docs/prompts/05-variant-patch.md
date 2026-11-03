@@ -106,9 +106,10 @@ caption every line "on hold'em tables" and expect the patch to do nothing. Patch
   call against this street's pot, (call - claim) / (this street's chips + call), where the claim is the earlier pots
   times our chance of holding each. It counts in full where the call ends the betting and a quarter before (all of it
   before measured -0.18). Our sim, 200 seeds x 8 (realistic / tranche aware / generic aware): the twin alone +0.03 /
-  -0.02 / +0.01, all three dials +0.09 / +0.05 / +0.04, each level (docs/drills/climb/vj-log.md). Kit sim: the twin
-  (in the adapter, `twin_hole` in docs/drills/drill11/adapter.py) +0.35 over 1,000 tables, every run up; that is the
-  fallback for a twist of this family the two keys cannot express.
+  -0.02 / +0.01, all three dials +0.09 / +0.05 / +0.04, each level (docs/drills/climb/vj-log.md); kit I's simulator,
+  the three dials +0.28 over 1,200 tables, every run up. Keep or revert by the keep rule above. For a twist of this
+  family the two keys cannot express, the twin goes in the adapter (`twin_hole` in docs/drills/drill11/adapter.py,
+  kept in drill 11 at +0.35 over 1,000 tables of the kit's simulator) and the kit's simulator measures.
 - Point tables: `Rules.payouts` in `rules_tonight.json` is the whole patch; Hero's ICM curve and the core's
   all-in prices are both built from it (print the payouts of the `Rules` passed to `new_table` to confirm).
   No ICM-premium key exists; `preflop.shove_call_margin` (Hero) and `r3.push_margin` / `r3.call_margin` (the
