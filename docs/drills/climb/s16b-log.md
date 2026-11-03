@@ -349,7 +349,7 @@ them with its callers, and the cap only ever lowers a read, so a faster table ra
 above F's own read; what costs there is the cap dropping steals into seats that read lower at the table level than
 they are. A seat's own excess (weight 23) is what would fix it, and it is slow by design.
 
-**O3 at main, completed (q_o3w.sh, 12:xx).** O3 played on main's code matches its aafe5b9 run on one 25-seed chunk of
+**O3 at main, completed (q_o3w.sh, 11:19).** O3 played on main's code matches its aafe5b9 run on one 25-seed chunk of
 every confirm, guard and elite cell (12 cells, identical sample for sample), so its cells were copied to main's key
 and the table completed there: the eight short-handed exploit cells and straddle now at 200 seeds, all +0.000 ±
 0.000 (identical). climb_accept on main: REJECT (antes_from_level_3 down; listed variants, so no REPLICATE line).
