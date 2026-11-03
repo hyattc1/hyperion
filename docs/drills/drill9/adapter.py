@@ -69,12 +69,20 @@ class TonightAdapter(Adapter):
             hi = my_total
             lo = min(max(bets) + int(s.min_raise_by), hi)
         board = tuple(card(c) for c in s.board)
+        # the links are in the neighbours' hands too (heads-up both are the one opponent's): known cards (V-h)
+        known: dict = {}
+        try:
+            for nb, link in ((int(s.left_nb), card(s.left)), (int(s.right_nb), card(s.right))):
+                if 0 < nb < len(stacks):
+                    known[nb] = known.get(nb, ()) + (link,)
+        except Exception:  # noqa: BLE001 - no neighbours: nothing known
+            known = {}
         return make_observation(
             hole=(card(s.card), card(s.left), card(s.right)), board=board,
             street=int(s.street), seat=0, button=int(s.button),
             stacks=stacks, bets=bets, in_hand=in_hand, pot=int(s.pot) - sum(bets), to_call=to_call,
             min_raise=lo, max_raise=hi, legal=legal, hand_no=int(s.hand), blinds=(int(s.sb), int(s.bb)),
-            history=history(s.log),
+            history=history(s.log), extras={"known": known} if known else None,
         )
 
     def from_action(self, a: Action, obs: Observation, s: Any) -> str:

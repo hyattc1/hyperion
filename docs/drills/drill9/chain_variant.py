@@ -1,6 +1,11 @@
 """Tonight's twist as a hooks file: Chain Hold'em. Each dealt-in seat keeps one private card; between every two
 ring neighbours one link card both hold. Hole = (private, left link, right link); best five of eight, standard
-ranks (the default score). Ring order = seat order over the dealt-in seats (left = next seat that acts after)."""
+ranks (the default score). Ring order = seat order over the dealt-in seats (left = next seat that acts after).
+
+V-h (2026-11-02): `extras` reports what each seat knows of the others, `{"known": {viewer: {seat: (cards,)}}}`: a
+seat's two links are in its neighbours' hands (heads-up both are the one opponent's). Keyed by the viewer because the
+engine's extras are one dict for every seat; a bot reads its own entry (Hero's Config.known_cards,
+hyperion/strategy/known.py; the generic aware bots' public_cards)."""
 from __future__ import annotations
 
 from hyperion.core.types import Rules
@@ -8,9 +13,13 @@ from hyperion.drills.variants import Variant, VariantHooks
 
 
 class ChainHooks(VariantHooks):
+    def __init__(self) -> None:
+        self.known: dict = {}
+
     def on_deal(self, holes, deck, rng):
         ring = [i for i, h in enumerate(holes) if h]
         n = len(ring)
+        self.known = {}
         if n < 2:
             return holes
         priv = {s: holes[s][0] for s in ring}
@@ -22,7 +31,16 @@ class ChainHooks(VariantHooks):
         for k, s in enumerate(ring):
             prev = ring[k - 1]
             out[s] = (priv[s], link[s], link[prev])
+        known: dict = {s: {} for s in ring}
+        for k, s in enumerate(ring):  # link[s] sits between s and the next seat: each knows the other holds it
+            nxt = ring[(k + 1) % n]
+            known[s][nxt] = known[s].get(nxt, ()) + (link[s],)
+            known[nxt][s] = known[nxt].get(s, ()) + (link[s],)
+        self.known = known
         return out
+
+    def extras(self, hand) -> dict:
+        return {"known": self.known}
 
 
 def variant() -> Variant:
