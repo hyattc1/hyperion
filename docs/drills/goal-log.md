@@ -1212,3 +1212,17 @@ and (in judges) `elite_judge`.
   neither a process boundary nor a pot-fraction menu. The player then runs the hour on batch 6's ship.
 - Start-vs-now restarted on confirm, guards, elite and exploit only (cached chunks kept): at 13 hours it was a quarter
   done, and batch 6 changes only twist tables, so the plain-hold'em stages answer "how much better since the start".
+
+## 14:22: drill 11: kit I (Tranche Hold'em) built; the player started on batch 6
+- Kit I (goal/drill11/kit, a fresh organiser with no repo access; 35 tests, 500 tables clean). The twist moves a
+  hand's payoff: each betting round's chips are their own pot (a tranche), won at showdown by the best hand as it
+  stood on that street (two cards preflop, any pair over AK, suits never count; hole cards plus the flop; and so on to
+  the river); folding gives up every tranche paid into; an all-in settles on the cards already out (a preflop all-in
+  has no board). Points 16/10/6/3/1/0/-1/-3; 86-92% of the organiser's tables reach hand 200 with two or three left.
+- Interface: module functions (start 3 s, table 50 ms, act 1 ms, done 1 ms; one module for the session), act returns
+  the chips to put in now as one int (0 = check or fold), no legal list, seats relative to us and reshuffled every
+  table, cards 0-51, a compact history string, an Overtime BaseException raised inside the bot at the limit.
+- The organiser wrote a few run logs to its parent scratch folder and read them back, then deleted them; it read
+  nothing else outside its folder.
+- Player: a fresh agent with R = a clone of main at c8d64fa (batch 6; push disabled), the handout without the
+  organiser's notes, prompts 00-05 and the playbook.
