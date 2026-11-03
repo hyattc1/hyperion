@@ -19,8 +19,9 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 - S15d (climb/s15d-gate): S15c's stab-read gate, the same.
 - S20 (climb/s20-three, wt_s20): the structural round's first idea, a three-handed preflop solved for strong tables
   (log docs/drills/climb/s20-log.md on its branch). Diagnostics 11000-11199.
-- Drill 11's organiser: goal/drill11/kit (unseen twist, unusual interface). Then a player on batch 6's ship (pin
-  main, copy drill 10's player_prompt.txt with the paths changed and `timeout` restored in the last rule).
+- Drill 11 done (docs/drills/prompt-drill-11.md). Its fixes: H7 (climb/h7-drill11-fixes, wt_h7: night tooling and
+  prompts) and V-j (climb/vj-tranche, wt_vj: street-settled pots in our engine and catalog, F's play there;
+  diagnostics 12000-12199). H7 and V-j both touch prompt 05: merge H7 first.
 - start-vs-now (goal/b18/run.sh, detached): confirm, guards, elite, exploit only; output goal/b18/start_vs_now.md.
 
 ## Dated items
