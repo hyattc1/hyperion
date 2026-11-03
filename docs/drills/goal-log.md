@@ -783,3 +783,15 @@ and (in judges) `elite_judge`.
 - S14 (goal/wt_s14, climb/s14-strong-sections): profile by section where rival 2, elite2 and elite4 beat F at strong
   tables and route those sections, gated to strong tables, to the best donor (r2x, elite2x, a new elite4x; a light
   shadow for rival 2's core if needed). Screen only; then a held-out set.
+
+## 22:30: drill 9: kit G (Chain Hold'em) built; the player started on batch 5
+- Kit G (a fresh organiser, no repo access; 38 tests, 500 tables clean): **Chain Hold'em**. Each player has one
+  private card, and one shared "link" card sits between every two neighbours (both hold it and see it): three cards a
+  player, best five of eight with the board; you know one card of each neighbour, and heads-up both links are shared
+  (nearly open-card). Interface: raises only from a menu of pot fractions as string tokens ("R33" .. "R250", "A",
+  "C", "F"); no legal list; cards 0-51; seats as offsets from us; a compact history string; one Agent per session (3
+  s setup, begin_table 20 ms); hand_over 1 ms (late: next decision check/fold). Points 50/32/21/14/9/5/2/0, chips at
+  the cap. Its Chain-aware sample bot 29.4 a table against tight 23.7.
+- Player: a fresh agent, repo pinned at 512b31f (batch 5) in goal/drill9/night/hyperion, the handout without the
+  organiser's notes, prompts 00-05 and the playbook; `timeout` on long commands (drill 8 lost its last 40 minutes to
+  a stuck call).
