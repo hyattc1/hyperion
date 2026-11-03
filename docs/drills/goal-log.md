@@ -822,3 +822,14 @@ and (in judges) `elite_judge`.
   opponent's own card. Chain's links are both ours and a neighbour's. V-h (goal/wt_vh, climb/vh-known-cards): make
   the path correct for known opponent cards that overlap our hole, map Chain's links into it, measure on Chain (our
   sim with drill 9's deal file, then kit G's sim) and exposed_card; off by default; held-out twists never run.
+
+## 23:20: exploiter 3 (of batch 5) wired in; S15 started on its postflop edge
+- Exploiter 3 (a fresh black-box red team, about 2 hours against batch 5 pinned at 3aac34d), its arena with seed 9001:
+  heads-up it wins 56% of matches (1.558 vs 1.442 of 2), three-handed 2.211 vs 2.117 (1st place 49% vs 39%), 8-max it
+  trails, 5.41 vs 5.61. Its FINDINGS.md was never written (the write was blocked); its own ablation
+  (docs/drills/exploiter3/ablate.txt) shows the edge is its postflop counter (EXPLOIT_POST): off, F wins heads-up
+  1.512 vs 1.488 and three-handed 2.202 vs 2.136. Its 3-bet, shove and multiway counters matter little.
+- In the repo: hyperion/sim/field/exploiter3.py (md5 3de3a30d), registry `exploiter3`, fields exploit3,
+  exploit3_hu, exploit3_3 in the exploit stage (2a17295).
+- S15 (goal/wt_s15, climb/s15-exploiter3): read the postflop counter, name F's tendency it uses, fix it (gated as
+  needed), screen against all three exploiters and the guards.
