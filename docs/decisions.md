@@ -3335,3 +3335,15 @@ Fixed now, before it scores any new candidate:
   W-min) beside the main verdict, so the two rules can be compared going forward.
 - **Screens run every stage at full seeds on the current base** (four of the main rule's six screen-to-held-out misses
   were cells a screen never ran properly).
+
+## The climb: addendum 12 (a lone judge cell down replicates) (2026-11-03, builder: the climb's coordinator)
+
+Written before the replicate below is run. The judges stage has grown to 12 cells (judge, judge2, judge2_night,
+judge_top, outside, outside_strong, elite_judge, elite_judge_b, adapt_judge in three formats, outside_b). With no
+true effect, at least one of 12 cells comes out beyond its 95% interval about a quarter of the time. Addendum 7 handles
+the same problem for the variants stage. From now on, the judges stage follows the same rule: when exactly one judge
+cell is beyond noise down and every other check passes, that cell is re-run once on a fresh judge seed set of 400
+(30400-30799 next, then 30800-31199 if ever needed; never the climb's held-out sets). The batch is rejected if the
+re-run, or both runs pooled, is beyond noise down. Two or more judge cells down reject as before. The judges stay
+never tuned on: the replicate decides the batch as a whole, and no component is chosen by a judge's numbers.
+First use: batch 6's `outside` cell (-0.003 ± 0.003 on 30000-30399; elite_judge_b +0.006 UP, the other ten level).
