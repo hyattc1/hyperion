@@ -583,6 +583,9 @@ class ComposeConfig:
     strong2_route: dict = field(default_factory=dict)
     strong2_rr: float = 0.0
     strong2_rr_max: float = 1.01
+    # ... and a preflop decision where our own raise this hand has been re-raised stays the section's own donor's (F's
+    # 3-bet defence, batch 4): the second route's donor opens and answers others' raises only
+    strong2_keep_defence: bool = False
     # the short-handed route (S13, module doc of hyperion/strategy/short.py): these sections go to these donors while at
     # most `short_alive` players have chips and the donor's member wants the decision (the hand maps onto its tables,
     # no opponent alive reads as a clear leak). Empty (the default): every section as `route` / `strong_route` say
@@ -716,6 +719,7 @@ class CompositeCore:
 
     # ------------------------------------------------------------------ Bot protocol
     def _rr_reset(self) -> None:
+        self._raised_hand = -1  # the hand in which we last raised preflop (strong2_keep_defence)
         self._rr_n = 0  # our first-in preflop raises (not all-in) this table
         self._rr_k = 0  # ... that faced a re-raise before the flop
         self._rr_hand = -1
@@ -808,7 +812,9 @@ class CompositeCore:
             strong2 = self.strong2
             if strong2 is not None:
                 s2 = strong2[sec]
-                if s2 is not None and (self._sbvb[sec] or obs.street or not _bvb(obs)):
+                if s2 is not None and (self._sbvb[sec] or obs.street or not _bvb(obs)) and not (
+                        self.cfg.strong2_keep_defence and not obs.street and obs.to_call > 0
+                        and self._raised_hand == obs.hand_no):
                     c2 = self.cfg
                     r = self.rr_read()
                     if (c2.strong2_rr <= 0.0 or r >= c2.strong2_rr) and r < c2.strong2_rr_max:
@@ -926,6 +932,8 @@ class CompositeCore:
                 tap(self, obs, sec, mi, own, a, props, ex)
         for j in range(nm):
             props[j] = None
+        if rr_on and not obs.street and a.kind is _RAISE:
+            self._raised_hand = obs.hand_no
         if rr_on and not obs.street and a.kind is _RAISE and max(obs.bets) <= obs.blinds[1] \
                 and a.amount < obs.max_raise:
             self._rr_n += 1  # a first-in raise that is not all-in: will it be re-raised?
