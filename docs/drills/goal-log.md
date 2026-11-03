@@ -956,3 +956,8 @@ and (in judges) `elite_judge`.
   exploit cells down. Now an exploit cell down rejects under every aim. Checked: no accepted run had one (G2 on H4 and
   H6, C7, D1, D3, batch 5 on H13: all exploit cells level or up). S16 told.
 - Identity after the merge: 15 cells identical.
+
+## 04:23: S18 started (horizon-aware ICM)
+- S18 (goal/wt_s18, climb/s18-horizon-icm): one fixed form (blinds each stack still owes before the cap or its next
+  button, taken off before ICM) in Hero's curve and rival 3's icm_points, off by default; a late-table report and a
+  150-hand-cap guard file; cap_vol_bb stays off (kit F's rule). Screen, then held out.
