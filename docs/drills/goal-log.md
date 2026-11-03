@@ -845,4 +845,4 @@ and (in judges) `elite_judge`.
 - Drill 9's 491 ms was host load, not a build (re-run: max 8.7 ms, act CPU never over 1.3 ms). The real path found: a
   table start inside a decision (Adapter.decide starting the bot lazily: 67 ms CPU for three hole cards). It now runs
   under tables.quick_start(): no disk, no build inside a decision.
-- Identity after the merge: running.
+- Identity after the merge: 15 cells identical.
