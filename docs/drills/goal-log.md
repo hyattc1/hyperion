@@ -775,3 +775,11 @@ and (in judges) `elite_judge`.
 - Registry `elite5`, judge field `elite_judge_b` (elite5, elite4, elite1, elite2, rival4, rival5, out_quants), in
   climb_accept's judges stage. Model mode: a fixed clock (18 us a read; 21 us measured at load 5.6) and draws from a
   generator seeded per table, so it replays exactly. Never tuned on (test: elite3 and elite5 only in elite_judge*).
+
+## 22:22: F on elite 4's tables; S14 started (adopt the strong bots' play where they beat F)
+- Diagnostic, batch 5, 150 x 8, seed 41: elite_b rival 2 4.75, F 4.64 (2nd), rival 3 4.55, elite4 4.50; mirror_b
+  rival 2 4.77, F 4.58 (copies 4.49), elite2 4.44, elite4 4.43. Rival 2 tops every strong table except elite (F 4.84,
+  rival 2 4.80); the elite builds take 1st 16-20% against F's 10-13%.
+- S14 (goal/wt_s14, climb/s14-strong-sections): profile by section where rival 2, elite2 and elite4 beat F at strong
+  tables and route those sections, gated to strong tables, to the best donor (r2x, elite2x, a new elite4x; a light
+  shadow for rival 2's core if needed). Screen only; then a held-out set.
