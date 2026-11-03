@@ -111,3 +111,8 @@ from the fit above, and the gated variant hands preflop back to F against a 3-be
 - 15:15 base exploit + elite finished (`goal/s20/base1.log`): exploit 5.765, exploit_hu 9.247, exploit_3 8.491,
   exploit2 5.849, exploit2_hu 7.903, exploit2_3 7.321, exploit3 5.447, exploit3_hu 8.339, exploit3_3 7.520, adapt
   5.822, adapt_hu 8.666, adapt_3 7.934; elite 4.856, elite_night 5.440, mirror 4.506, elite_b 4.609, mirror_b 4.501.
+- 15:25 Identity check (S14's): `tools/climb_accept.py --cand '{"dials": {}}' --set 10000:10040 --stages
+  confirm,guards --workers 2` on the branch at 9e3af86 (detached worktree `wt_s20_d`, out `goal/s20/idchk`) against
+  the coordinator's run of the same command on main b1c9e89 (`goal/idchk27/post`): all 14 chunks' sample lists
+  identical (night, night_hard, realistic, top, night at both payout tables, night with doubling blinds). Repeated at
+  the end on the final code.
