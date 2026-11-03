@@ -349,3 +349,10 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
   `pre_allin` (the tables call jams at equilibrium; F's call-off reads shove rates, and the realistic field has
   PushFoldBot-style jammers). **R3** = GK25R with the route `pre_3way=short` only (F answers every all-in): confirm,
   guards at 200 seeds and exploit, elite at 100, running.
+- 18:44 **R3** confirm + guards at 200 seeds: night +0.009 ± 0.010, night_hard -0.002, top +0.003, night @10/7/5
+  -0.000, @50/25/12 +0.087, **realistic -0.006 ± 0.005 DOWN** (as GK25R). So the all-in answers are not the cause.
+- 18:47 The realistic field on diagnostic seeds 11000-11099 (`d3.py`, F and R3): the tables play 2-5% of our
+  three-handed preflop decisions there (the strong read rarely opens), 19 of 800 table-rotations play differently,
+  and R3 is +0.0022 points on these seeds. The screen's -0.006 comes from the few tables where the read opens. R4 =
+  R3 with `short.defer` widened to F's leak archetypes (dead, station, maniac, random, nit): the equilibrium only
+  against opponents F has no read on; queued.
