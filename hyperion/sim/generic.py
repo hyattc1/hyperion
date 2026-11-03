@@ -10,7 +10,9 @@ variant the engine can play, because they decide through the same code the engin
                 (after the call) the hand gets back, averaged over runouts dealt and scored by the variant's hooks:
                 on_street (discards, swaps, bought cards, a second board), next_card (boards of any length), the
                 showdown (score_hand or score_splits: rank orders, short decks, wild cards, lowball, must-use, split
-                pots) and on_payout (bounties: winning can pay more than the pot). Against min(opponents, 3) random
+                pots), on_payout (bounties: winning can pay more than the pot) and settle (a payoff the engine applies
+                after its award, priced on a probe hand through the engine's own award and the hook: a showdown pot
+                that goes to nobody, as in Ghost Hold'em). Against min(opponents, 3) random
                 holdings, a bounded number of runouts (the variant's measured cost, below). Preflop: AwareMC's Chen
                 thresholds on the Chen score of the hold'em class at the same percentile of the variant's own preflop
                 table, two points looser when winning the pot now pays more than the pot, one when antes make the
@@ -206,10 +208,15 @@ class Sim:
         self.splits = sp if callable(sp) else None
         self.payout = h.on_payout if _overrides(h, "on_payout") else None
         self.view = bool(getattr(h, "wants_view", False))
+        st = getattr(h, "settle", None)
+        self.settle = st if callable(st) else None  # a payoff the engine applies after its award: priced by _probe
         self.fast = (not _overrides(h, "score_hand")) and not rules.must_use_hole and is_identity_order(rules)
         sh = h.score_hand
         self._score = None if self.fast else (lambda hole, board, _sh=sh, _r=rules: _sh(hole, board, _r))
-        self.dynamic = self.on_street is not None or self.next_card is not None
+        # settle keeps state (and may deal from the unseen cards), so it runs on the dynamic path: hooks reset and
+        # spare cards per runout
+        self.dynamic = self.on_street is not None or self.next_card is not None or self.settle is not None
+        self._stub = None  # (Table, HooksVariant) for _probe, built on first use
         self._fresh = {k: _copy(v) for k, v in vars(h).items()}
         self._snap: Optional[dict] = None
         self._restore = getattr(h, "restore", None)
@@ -222,7 +229,8 @@ class Sim:
         return ((r.hole_cards, tuple(r.board_sizes), tuple(r.rank_order), r.n_suits, r.must_use_hole)
                 == (d.hole_cards, tuple(d.board_sizes), tuple(d.rank_order), d.n_suits, d.must_use_hole)
                 and not ex.get("removed_ranks") and not ex.get("keep") and self.fast
-                and self.on_deal is None and self.dynamic is False and self.splits is None and self.payout is None)
+                and self.on_deal is None and self.dynamic is False and self.splits is None and self.payout is None
+                and self.settle is None)
 
     # -- scores
     def score(self, hole, board):
@@ -345,7 +353,11 @@ class Sim:
                 except Exception:  # noqa: BLE001 - a hook that cannot play this sample: skip it
                     continue
             # showdown
-            if splits is None:
+            if self.settle is not None:
+                share = self._probe(holes, b, seat, opps, pot, contrib, spare)
+                if share is None:
+                    continue
+            elif splits is None:
                 mine = score(holes[seat], b)
                 best, ties = mine, 1
                 lost = False
@@ -387,6 +399,55 @@ class Sim:
             acc += share
             got += 1
         return acc / got if got else None
+
+    PROBE_STACK = 1_000_000  # chips behind every contender in a probe: no stack ever binds
+
+    def _probe(self, holes, board, seat: int, opps, pot: int, contrib: int, spare) -> Optional[float]:
+        """The share of `pot` that `seat` takes at this showdown through the engine's own award and the hooks' settle
+        (hyperion.sim.engine.Table._award, then HooksVariant settle): a payoff that moves chips after the award (a pot
+        that goes to nobody, a side game) is priced as the table would pay it. The contenders are `seat` and `opps`; I
+        put in `contrib`, each opponent as much (capped by what the pot leaves them), and the rest of `pot` is dead
+        money every contender is eligible for (folded players' chips, money carried in). `spare`: unseen cards a hook
+        may deal from. None when the hooks cannot settle this spot."""
+        from .engine import HandState, HooksVariant, Table
+
+        if self._stub is None:
+            t = Table.__new__(Table)
+            t.rules = self.rules
+            t.variant = HooksVariant(self.hooks, t)
+            self._stub = t
+        t = self._stub
+        n = len(holes)
+        t.n = n
+        k = len(opps)
+        if pot <= 0:
+            pot, contrib = 100 * (1 + k), 100
+        mine = max(0, min(contrib, pot))
+        each = min(mine, (pot - mine) // k) if k else 0
+        dead = pot - mine - each * k
+        big = self.PROBE_STACK
+        hs = HandState()
+        hs.hand_no, hs.button, hs.history, hs.showdown, hs.extras = 0, n - 1, [], {}, {}
+        hs.holes = list(holes)
+        hs.board = tuple(board)
+        hs.runout = list(board)
+        hs.in_hand = [False] * n
+        hs.contrib = [0] * n
+        for s in [seat] + list(opps):
+            hs.in_hand[s] = True
+            hs.contrib[s] = mine if s == seat else each
+        hs.n_in_hand = k + 1
+        hs.stacks_start = [big + c if hs.in_hand[s] else 0 for s, c in enumerate(hs.contrib)]
+        hs.pot = pot
+        hs.dead = [(frozenset(s for s in range(n) if hs.in_hand[s]), dead)] if dead > 0 else None
+        hs.spare = spare if spare is not None else []
+        t.stacks = [big if hs.in_hand[s] else 0 for s in range(n)]
+        try:
+            t._award(hs)
+            t.variant.settle(hs)
+        except Exception:  # noqa: BLE001 - a hook that cannot settle this sample: skip it
+            return None
+        return (t.stacks[seat] - big) / pot
 
     def made_share(self, hole, board, n: int, rng: random.Random, dead=(), opp_k: Optional[int] = None):
         """The share of random holdings (opp_k cards) the hand beats on this board as it stands, under the variant's
@@ -468,10 +529,22 @@ def _chen_class(cls: str) -> float:
     return chen_score((a * 4, b * 4 + (0 if cls[2] == "s" else 1)))
 
 
+def _hooks_id(hooks) -> str:
+    """The hooks class by module and name. A variant file (variants.get("path.py:factory")) is loaded under a module
+    name made from its absolute path, so it is named by its path inside the repo instead (else its file name): the
+    same file keys the same table wherever the repo is checked out."""
+    mod = type(hooks).__module__
+    if mod.startswith("hyperion_variant_"):
+        f = os.path.abspath(getattr(sys.modules.get(mod), "__file__", "") or "")
+        rel = os.path.relpath(f, _ROOT) if f.startswith(_ROOT + os.sep) else os.path.basename(f)
+        mod = "file:" + rel.replace(os.sep, "/")
+    return mod + "." + type(hooks).__qualname__
+
+
 def table_key(name: str, rules: Rules, hooks) -> str:
     from ..tablegen import rules_to_dict
 
-    blob = json.dumps({"rules": rules_to_dict(rules), "hooks": type(hooks).__module__ + "." + type(hooks).__qualname__,
+    blob = json.dumps({"rules": rules_to_dict(rules), "hooks": _hooks_id(hooks),
                        "hook_state": sorted((k, repr(v)) for k, v in vars(hooks).items()
                                             if isinstance(v, (int, float, str, bool)))}, sort_keys=True, default=str)
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in str(name or "holdem"))[:40]

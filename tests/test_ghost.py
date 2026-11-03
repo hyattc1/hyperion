@@ -137,3 +137,42 @@ def test_cap_places_by_chips_share_ties():
     t = Table([Scripted([]) for _ in range(4)], rules, seed=0, stacks=[500, 300, 300, 100])
     t._place_by_chips([0, 1, 2, 3])
     assert t.points == [16.0, 9.5, 9.5, 6.0] and t.places == [0, 1, 1, 3]
+
+
+def test_generic_rollouts_price_settle_through_the_engine():
+    # hyperion/sim/generic.py: a hook's settle is priced on a probe hand (the engine's award, then settle), so the
+    # prepared table and gen_mc's runouts see a pot the Ghost takes. Kit F's organiser numbers (heads-up from the deal,
+    # a haunted pot 0): AA 73.8%, 22 31.0%; plain hold'em AA 85.1%.
+    import random
+
+    from hyperion.sim import generic as G
+
+    v = V.get("hyperion/drills/ghost_example.py:variant")
+    sim = G.Sim(v.rules, v)
+    assert sim.settle is not None and not sim.holdem_cards()  # no longer the hold'em reference table
+    rng = random.Random(4)
+    aa = G._deal_value(sim, tuple(parse_cards("AsAd")), rng, 2000)
+    deuces = G._deal_value(sim, tuple(parse_cards("2s2d")), rng, 2000)
+    plain = G._deal_value(G.Sim(v.rules, None), tuple(parse_cards("AsAd")), rng, 2000)
+    assert abs(aa - 0.738) < 0.035 and abs(deuces - 0.310) < 0.035 and abs(plain - 0.851) < 0.03
+    assert G._hooks_id(sim.hooks) == "file:hyperion/drills/ghost_example.py.GhostHooks"  # keyed by repo path
+
+
+def test_the_adapter_puts_the_package_back_after_a_kit_loader_unloads_it():
+    # kit F's loader deletes a bot's own modules from sys.modules after Agent(); an import inside a function then fails
+    import sys
+
+    from hyperion.drills import adapter as A
+
+    A.pin_package()
+    saved = {k: m for k, m in sys.modules.items() if k == "hyperion" or k.startswith("hyperion.")}
+    try:
+        for k in saved:
+            del sys.modules[k]
+        A.repin_package()
+        assert sys.modules["hyperion"] is saved["hyperion"]
+        from hyperion.core import types  # noqa: PLC0415 - the import a function would make
+
+        assert types is saved["hyperion.core.types"]
+    finally:
+        sys.modules.update(saved)
