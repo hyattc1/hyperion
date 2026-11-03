@@ -70,6 +70,15 @@ decision, like any routed member's.
 it is in [`strong2_rr`, `strong2_rr_max`): a table where nearly every open of ours is re-raised holds an exploiter, and
 F's own play (its 3-bet defence) is kept there. Blind-vs-blind as `strong_bvb` says.
 
+**The steal reads' trust weight** (S16, `r3.read_trust` and `exploit.read_trust`, off by default). Before each preflop
+decision on a hold'em table (hero.holdem_table) the composite marks the seats whose fold reads in an unopened pot take a
+trust weight: every seat while the hero member's profiler reads the table strong (Profiler.strong_table at
+`strong_rr` / `strong_prior` / `strong_prior_n`, the strong route's threshold), and with `trust_seat_rr` k > 0 also a
+seat that re-raised at least k of my first-in raises this table. Rival 3's core then prices its steal and its open
+clauses, and the layer its steal_min_fold, with each marked seat's fold read at most prior + (observed - prior) x
+n / (n + read_trust) (n the raises it faced; the prior alone below `read_trust_min_n`). The defensive reads (the 3-bet
+defence, the size and probe reads) are untouched (docs/drills/climb/s16-log.md).
+
 **The short-handed route** (S13, `short_route`, off by default): sections played by another donor (the specialist
 `short`, hyperion/strategy/short.py) while at most `short_alive` players have chips and that member `wants` the decision
 (the hand maps onto its tables, no opponent alive reads as a clear leak); otherwise the section's donor as above. The
@@ -597,6 +606,10 @@ class ComposeConfig:
     # base's: the base's core plays the table too (two hole cards; the families Hero plays whole, discard and exposed,
     # stay the base's whatever is listed) and is blind to the same twist. "" = hold'em tables only
     strong_route_twists: str = ""
+    # S16 (module doc): the trust weight on the steal reads (r3.read_trust, exploit.read_trust) applies to every seat
+    # while the hero member's profiler reads the table strong (strong_rr / strong_prior / strong_prior_n), and with
+    # this > 0 also to a seat that re-raised at least this many of my first-in raises this table (the per-seat gate)
+    trust_seat_rr: int = 0
     seed: int | None = None
 
 
@@ -716,6 +729,17 @@ class CompositeCore:
         self._shadows = True
         self._force = None  # (member index, layer) every section goes to at a base / hero level
         self._hero_idx = names.index("hero") if "hero" in names else -1
+        # S16: the steal reads' trust weight (module doc); off unless a read_trust dial is on
+        core = getattr(self.base, "core", None)
+        r3k = getattr(getattr(self.base, "cfg", None), "r3", None)
+        self._trust_core = core if r3k is not None and getattr(r3k, "read_trust", 0.0) > 0.0 else None
+        self._trust_ex = self.ex if self.ex is not None and self.ex.p.read_trust > 0.0 else None
+        self._trust_prof = None
+        if (self._trust_core is not None or self._trust_ex is not None) and self._hero_idx >= 0:
+            self._trust_prof = getattr(self.members[self._hero_idx], "prof", None)
+            if self._trust_prof is not None:
+                self._trust_prof.track_s12 = True  # the strong-table counts (the shipped size read turns it on too)
+        self._trust_h = False
 
     # ------------------------------------------------------------------ Bot protocol
     def _rr_reset(self) -> None:
@@ -756,6 +780,29 @@ class CompositeCore:
             self._no_h = [x and not h for x in self._h_only]
         if self.ex is not None:
             self.ex.new_table(n_players, seat)
+        if self._trust_prof is not None:
+            from ..strategy.hero import holdem_table
+
+            self._trust_h = holdem_table(rules)
+
+    def _trust_gate(self, obs: Observation) -> None:
+        """S16: mark, before a preflop decision, the seats whose steal reads take the trust weight (module doc)."""
+        g = None
+        if not obs.street and self._trust_h:
+            prof, c = self._trust_prof, self.cfg
+            n = len(obs.stacks)
+            if prof.strong_table(c.strong_rr, c.strong_prior, c.strong_prior_n):
+                g = [True] * n
+            elif c.trust_seat_rr > 0:
+                k = c.trust_seat_rr
+                rb = prof.rr_by
+                g = [s < len(rb) and rb[s] >= k for s in range(n)]
+                if not any(g):
+                    g = None
+        if self._trust_core is not None:
+            self._trust_core.trust = g
+        if self._trust_ex is not None:
+            self._trust_ex.trust = g
 
     def set_panic(self, on: bool) -> None:
         self.panic = on
@@ -791,6 +838,11 @@ class CompositeCore:
                 ex.observe(obs)
             except Exception:  # noqa: BLE001 - a slip in the layer keeps the members' decision
                 ex = None
+        if self._trust_prof is not None:
+            try:
+                self._trust_gate(obs)
+            except Exception:  # noqa: BLE001 - a slip in the gate leaves the reads as they are
+                pass
         sec = section(obs)
         self.last_section = sec
         mi, layer = self.route[sec]

@@ -140,6 +140,7 @@ class Profiler:
         self.xr = z()
         self.rr_n = 0  # my first-in preflop raises (not all-in) this table (track_s12) ...
         self.rr_k = 0  # ... that another seat re-raised before the flop (the strong-table read, S9's strong_rr)
+        self.rr_by = z()  # ... per seat: the ones it re-raised (S16's per-seat gate)
         self._dials = [dict(NEUTRAL_DIALS) for _ in range(n)]
         self._stale = False
         self._fresh = 0
@@ -456,6 +457,7 @@ class Profiler:
                                 self.rr_open = True
                         elif self.rr_open:
                             self.rr_k += 1
+                            self.rr_by[seat] += 1
                             self.rr_open = False
                     self.pre_raiser = seat
                     if self.pre_raises == 0:
