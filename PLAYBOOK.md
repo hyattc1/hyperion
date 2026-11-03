@@ -199,7 +199,8 @@ and without the dials; keep only if points did not drop beyond the confidence in
 zero. The realistic field plays the twist only where we wrote aware bots (toss, bounty, short deck, river of blood,
 auction, keep-two), so on any other twist it flatters both lines: measure the same dials against opponents that play
 the twist, one command, `python tools/climb_accept.py --stages aware --aware generic:<variant> --base '' --cand
-'<the dict>' --set 10000:10100 --workers 2`. `<variant>` is the catalog name, or tonight's hooks file when the twist
+'{"dials": <the dict>}' --set 10000:10100 --workers 2` (a spec is `{"dials": {...}}` or recipe names, never the bare
+dict). `<variant>` is the catalog name, or tonight's hooks file when the twist
 is new (`submission/tonight.py:variant`, in the shape of `hyperion/drills/variant_file_example.py`: Rules naming the
 variant plus hooks). It builds the variant's generic table first when missing (a catalog entry's is committed: 0 s; a
 new twist 15-45 s at two workers, by load) and seats F and the candidate, paired, in `generic_aware` (gen_mc, gen_tag,
@@ -487,6 +488,7 @@ The track is decided in Stage 0, never on the night.
 
 | 2026-11-02 | The windows on F (backlog F1): the composite's own recipes (`COMPOSITE_RECIPES`: no dead keys, the layer's `exploit.*` keys, `latency` = no shadow decisions instead of the layer off), checked on F on night and on a field showing each signal; section 5 rewritten with F's column and the stale tables removed; Stage 6 and prompt 06 use `tools/climb_accept.py --stages window` (paired, tonight's rules) with rehearsed step times; warm its cache at the freeze; the gate finds the entry | F1 worker |
 | 2026-11-02 | Opponents that read any twist: `gen_mc`, `gen_tag`, `gen_pushfold` (hyperion/sim/generic.py) deal, score and pay through the variant's own hooks, no per-twist code; field `generic_aware`. Stage 5 (and prompt 05) measures a patch against them in one command, `tools/climb_accept.py --stages aware --aware generic:<variant or file>`; a new twist is a file in the shape of `hyperion/drills/variant_file_example.py`; the freeze warms its table. Section 4b: F against them on all 26 entries (`tools/aware_board.py`) | V-d worker, docs/drills/climb/vd-log.md |
+| 2026-11-02 | Drill 9's fixes (H5, docs/drills/prompt-drill-9.md): `hyperion/drills/entry_template.py` for a kit that builds a bot object (built, warmed and `pin_package`d at import: kit G unloaded our modules before `Agent()`; a timed hand end `"defer"`s its curve to the next decision); the gate seat's rows carry street and chips, plus the posts (`gate_seat_template.by_street`); conformance forgets the warm-up; a `timing` pytest marker the night deselects; a table start inside a decision reads and builds nothing (`tables.quick_start`); `--cand '{"dials": ...}'` | H5 |
 ---
 
 ## 10. The email (send before the event)

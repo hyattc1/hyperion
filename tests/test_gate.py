@@ -105,6 +105,7 @@ def build(tmp_path, name, source):
     return dest
 
 
+@pytest.mark.timing  # the verdict counts timeouts: 0.44% > 0.3% at load 12 (H5)
 def test_history_dropping_package_fails_and_the_fixed_one_passes(tmp_path):
     """32 tables, measure mode, the baseline seeded like the packages' Hero and played once for both. Measured
     at 48 tables: dropping history -1.71 +- 0.66, the fixed adapter +0.16 +- 0.43. Deterministic per tree."""

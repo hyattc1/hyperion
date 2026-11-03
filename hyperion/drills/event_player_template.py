@@ -9,6 +9,10 @@ kit: hyperion/drills/event_example.py (run it: `python -m hyperion.drills.fakeki
 
 Checks, in order: the kit's simulator with `HYPERION_CHECK=1` (0 violations, 0 exceptions, 0 illegal); the gate with
 hyperion/drills/gate_seat_template.py copied to submission/gate_seat.py; tools/pack.py --max-mb <the kit's cap>.
+
+The bot is built and started at module import and the package pinned there (`pin_package`): a kit loader may unload
+our modules before it builds the player (drill 9's kit G) or after (drill 8's kit F), and every method that runs bot
+code starts with `repin_package()` (hyperion/drills/entry_template.py has the same for a state kit).
 """
 from __future__ import annotations
 
@@ -17,16 +21,15 @@ import os
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-if os.path.isdir(os.path.join(_HERE, "hyperion")):  # inside the package tools/pack.py builds
-    if _HERE not in sys.path:
-        sys.path.insert(0, _HERE)
-else:  # run from the repo's submission/ folder: hyperion lives one level up
-    for _p in (os.path.dirname(_HERE), _HERE):
-        if _p not in sys.path:
-            sys.path.insert(0, _p)
+# inside the package tools/pack.py builds, hyperion/ sits beside this file; run from the repo's submission/, one up
+_ROOTS = (_HERE,) if os.path.isdir(os.path.join(_HERE, "hyperion")) else (os.path.dirname(_HERE), _HERE)
+for _p in _ROOTS:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from hyperion import ship  # noqa: E402
 from hyperion.core.types import Action, Observation, Rules, parse_card  # noqa: E402,F401
+from hyperion.drills.adapter import pin_package, repin_package  # noqa: E402
 from hyperion.drills.conformance import maybe_checked  # noqa: E402
 from hyperion.drills.events import EventAdapter  # noqa: E402
 
@@ -81,19 +84,33 @@ class TonightAdapter(EventAdapter):
         raise NotImplementedError("TODO 5")
 
 
+def build() -> TonightAdapter:
+    """The ship bot behind the adapter, started for a table: its tables and modules load now, at import."""
+    a = maybe_checked(TonightAdapter(ship.make_bot(), RULES))
+    if HAND_END_TIMED:
+        a.defer_hand_end(True)
+    a.start(0, RULES.n_players, RULES)
+    return a
+
+
+_SPARE = [build()]  # the first Player takes this one
+pin_package(*_ROOTS)  # here, at import: a loader may unload our modules before it builds the Player
+
+
 class Player:  # TODO 6  the kit's class name and method names; every method wrapped: nothing raises into the kit
     def __init__(self):
-        self.a = maybe_checked(TonightAdapter(ship.make_bot(), RULES))
-        if HAND_END_TIMED:
-            self.a.defer_hand_end(True)
+        repin_package()
+        self.a = _SPARE.pop() if _SPARE else build()
 
     def table_start(self, info):  # table start: our seat and the seat count
+        repin_package()
         try:
             self.a.start(int(info["seat"]), int(info["players"]), RULES)
         except Exception:  # noqa: BLE001
             pass
 
     def start_hand(self, info):
+        repin_package()
         # TODO 7  hand number in ours (a kit counting from 1: minus 1), button, (sb, bb), every seat's chips BEFORE
         #   the posts ({seat: chips}), our cards; then one post() per ante (ante=True: dead money) and blind. A kit that
         #   gives the chips after posting: pass chips + posts back, or the pot misses the blinds.

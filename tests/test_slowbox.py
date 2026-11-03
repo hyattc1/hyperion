@@ -18,6 +18,7 @@ def _load(name):
 
 
 SB = _load("slowbox")
+pytestmark = pytest.mark.timing  # dilated and real clocks against fixed budgets: a loaded host moves them
 
 
 @pytest.fixture(autouse=True)

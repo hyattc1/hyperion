@@ -9,6 +9,8 @@ import copy
 import random
 import time
 
+import pytest
+
 from hyperion.core.icm import icm_equity
 from hyperion.core.types import Rules
 from hyperion.sim.engine import play_table
@@ -71,6 +73,7 @@ def _measure(rules, seed):
     return he, nt
 
 
+@pytest.mark.timing
 def test_hand_end_and_new_table_p99_under_one_ms():
     for rules, label in ((Rules(), "default 8..1"), (Rules(payouts=(20, 10, 6, 4, 3, 2, 1, 0)), "top-heavy")):
         he, nt = _measure(rules, 11)

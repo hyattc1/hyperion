@@ -273,6 +273,7 @@ def _host_p99_overhead(us: int = 200, n: int = 2000) -> float:
     return xs[int(0.99 * n)]
 
 
+@pytest.mark.timing
 def test_hybrid_decision_p99_is_under_300_us_and_strict_timeouts_under_one_percent():
     # Preflop is rival 2's lookups (~25 us p50; its ICM curve moved to hand_end); postflop is its sampler at
     # mc_max samples inside a 200 us budget. On a loaded host both numbers follow the host: then a fixed busy loop

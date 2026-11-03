@@ -4,8 +4,13 @@ rules_tonight.json` (tools/gate_host.py loads class Seat; only `call` is timed).
 
 The gate sends the simulator's state at each of our decisions (a dealer dict: hole, board, street, seat, button,
 stacks, bets, in_hand, pot of the previous streets, to_call, min_raise / max_raise as raise-to totals, legal,
-hand_no, blinds, history rows [seat, kind, total]) and at each hand end the result (every seat's deltas, the board,
-the showdown, the history). An event kit never sends a state, so this seat writes the state into the entry's
+hand_no, blinds, history rows [seat, kind, total, street, put], posts [[seat, "ante" | "sb" | "bb" | "straddle",
+chips]]) and at each hand end the result (every seat's deltas, the board, the showdown, the history, the posts).
+A STATE kit's seat (class Seat from tools/gate_host.KitA) builds the kit's own log from those: `by_street` below groups
+them by street, the posts first, with the chips each action put in and the seat's street total after it, so the log
+can be per street, in chips added or in totals, blinds included, as the kit writes it (drills 8 and 9 sent one
+street's log, and the gate never tested the adapter's per-street parsing; `kit_g_log` is drill 9's kit's shape, worked
+and tested in tests/test_h5_drill9.py). An event kit never sends a state, so this seat writes the state into the entry's
 EventTracker as the kit's events would have left it (`native`), and the kit's own simulator, not the gate, is what
 exercises the entry's event bookkeeping. The rest goes through the entry's real methods: the table start, the
 decision (timed), and the hand end with what the kit's hand end carries, OUTSIDE the timed call, as the kit runs it.
@@ -113,8 +118,50 @@ class Seat:
         return {"hand": hand_no + self.KIT_HAND_BASE, "net": {str(s): int(d) for s, d in enumerate(deltas)}}
 
 
+def by_street(rows, posts=(), upto: int | None = None) -> list[list[tuple]]:
+    """The gate's tagged history rows [seat, kind, total, street, put] and the hand's posts [seat, kind, chips] -> one
+    list per street (at least `upto` + 1 of them: pass the state's street, as a kit's log has a segment for the street
+    in play before anyone acts on it), street 0 opening with the posts. Each entry is (seat, kind, to, put): `put` the
+    chips it added, `to` the seat's chips in on that street after it (a raise's raise-to total; an ante's 0, antes are
+    dead money). Seats are the gate's (absolute); a kit that numbers from us takes (seat - me) % n."""
+    streets: list[list[tuple]] = [[]]
+    have: dict = {}
+    for seat, kind, chips in posts or ():
+        seat, chips = int(seat), int(chips)
+        if kind != "ante":
+            have[seat] = have.get(seat, 0) + chips
+        streets[0].append((seat, str(kind), have.get(seat, 0) if kind != "ante" else 0, chips))
+    for row in rows or ():
+        seat, kind, street, put = int(row[0]), str(row[1]), int(row[3]), int(row[4])
+        while len(streets) <= street:
+            streets.append([])
+            have = {}
+        have[seat] = have.get(seat, 0) + put
+        streets[street].append((seat, kind, have[seat], put))
+    while upto is not None and len(streets) <= upto:
+        streets.append([])
+    return streets
+
+
+KIT_G_CODE = {"sb": "s", "bb": "b", "fold": "f", "check": "k", "call": "c", "raise": "r"}
+
+
+def kit_g_log(rows, posts, me: int, n: int, upto: int | None = None) -> str:
+    """Drill 9's kit G log, the worked example: seats as offsets from us, one segment per street joined by "/", each
+    action "<offset><code><chips added>" (s, b, c, r carry chips; f, k none), the blinds posted first."""
+    out = []
+    for street in by_street(rows, posts, upto):
+        toks = []
+        for seat, kind, _to, put in street:
+            code = KIT_G_CODE.get(kind)
+            if code is not None:
+                toks.append(f"{(seat - me) % n}{code}{put if code in 'sbcr' else ''}")
+        out.append(",".join(toks))
+    return "/".join(out)
+
+
 def _history(rows) -> list:
-    """The gate's history rows [seat, kind, total] -> [(seat, Action)] (raise totals; discards and posts skipped)."""
+    """The gate's history rows [seat, kind, total, ...] -> [(seat, Action)] (raise totals; discards skipped)."""
     out = []
     for row in rows:
         seat, kind, total = row[0], row[1], row[2]

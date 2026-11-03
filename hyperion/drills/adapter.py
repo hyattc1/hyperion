@@ -11,6 +11,7 @@ import sys
 from typing import Any, Callable, Iterable
 
 from hyperion.core.types import Action, ActionKind, Bot, HandResult, Observation, Rules, parse_card
+from hyperion.strategy.tables import quick_start
 
 KIND_BY_NAME = {"fold": ActionKind.FOLD, "check": ActionKind.CHECK, "call": ActionKind.CALL, "raise": ActionKind.RAISE}
 # the other words kits use for the four (legal_kinds); "all in" is a raise unless the call already takes every chip
@@ -22,29 +23,49 @@ ALL_IN_WORDS = {"allin", "all_in", "all-in", "all in", "shove", "jam", "push"}
 CHECK_OR_CALL_WORDS = {"check/call", "check_call", "checkcall", "call/check", "check_or_call", "checkorcall", "c"}
 _NAME_KEYS = ("type", "action", "kind", "name", "move", "act", "id")
 
-# Kit F's loader (drill 8) deletes every module a bot imported from its own folder from sys.modules once Agent()
-# returns (so two bots can each ship a utils.py), and takes the folder off sys.path. Each import inside a function then
-# fails with "No module named 'hyperion'" (Hero's twin tables at table start, the latency governor, ...), and the
-# callers that swallow errors play on misconfigured. The Adapter remembers this copy's modules when it is built (inside
-# Agent(), before the loader unloads them) and puts them back at each call when they are gone.
+# Kit loaders unload a bot's own modules so two bots can each ship a utils.py: kit F's (drill 8) deletes every module a
+# bot imported from its folder from sys.modules once Agent() returns and takes the folder off sys.path; kit G's (drill 9)
+# does it as soon as the entry module has run, BEFORE Agent() is built. Each import inside a function then fails with
+# "No module named 'hyperion'" (Hero's twin tables at table start, the latency governor, ...), and the callers that
+# swallow errors play on misconfigured. So the entry builds and warms its bot at module import and calls
+# pin_package(<its folder>) there (hyperion/drills/entry_template.py); the Adapter pins again when it is built, and every
+# call (start, decide, hand_end) puts this copy's modules back, and the pinned folders back on sys.path, when a loader
+# took them away. A submodule not imported yet still loads through the pinned package's __path__; the folders on
+# sys.path are for the entry's own top-level modules (adapter.py, a variant file).
 _PKG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # this copy's hyperion/
 _PINNED: dict = {}
+_KEEP: list = []  # folders pin_package was asked to keep on sys.path
 
 
-def pin_package() -> None:
-    """Remember the modules of this copy of the package imported so far."""
+def pin_package(*keep: str) -> None:
+    """Remember the modules of this copy of the package imported so far, and keep the folders `keep` on sys.path
+    (the entry's own folder and the package root: pin_package(_HERE, ...) at the entry's import)."""
     pre = _PKG_DIR + os.sep
     for k, m in list(sys.modules.items()):
         if (k == "hyperion" or k.startswith("hyperion.")) and m is not None:
             f = getattr(m, "__file__", None)
             if f and os.path.abspath(f).startswith(pre):
                 _PINNED.setdefault(k, m)
+    for d in keep:
+        d = os.path.abspath(d)
+        if d not in _KEEP:
+            _KEEP.append(d)
+    _keep_on_path()
+
+
+def _keep_on_path() -> None:
+    for d in _KEEP:
+        if d not in sys.path:
+            sys.path.append(d)  # last: it never shadows another bot's or the kit's modules
 
 
 def repin_package() -> None:
-    """Put this copy's modules back into sys.modules when a loader took them out (or another copy took the name)."""
+    """Put this copy's modules back into sys.modules when a loader took them out (or another copy took the name), and
+    the kept folders back on sys.path."""
     if _PINNED and sys.modules.get("hyperion") is not _PINNED.get("hyperion"):
         sys.modules.update(_PINNED)
+    if _KEEP:
+        _keep_on_path()
 
 
 class Adapter:
@@ -131,18 +152,23 @@ class Adapter:
         repin_package()
         try:
             obs = self.to_observation(native)
+            # A table start here runs inside the kit's timed decision: quick_start() lets it read and build nothing
+            # (hyperion/strategy/tables.py), so what the import-time warm-up loaded is used and the rest is plain.
             if not self.started:
-                self.start(obs.seat, obs.n_players)
+                with quick_start():
+                    self.start(obs.seat, obs.n_players)
             elif self._hand_seen is not None and obs.hand_no < self._hand_seen:
                 # the hand number went back: a new table, and the kit called no table-start hook (one bot object for
                 # the tournament or the night, kit D's handle_new_round only). The bot's new_table, as a fresh one
                 # would get (Adapter.start itself: a subclass's start may reset kit state this decision just read).
-                Adapter.start(self, obs.seat, obs.n_players)
+                with quick_start():
+                    Adapter.start(self, obs.seat, obs.n_players)
                 self.tables_seen += 1
             elif self._seat_check and obs.seat != self.seat:
                 # the hook named our seat differently from the observations (numbered from 1, or by id): the bot's
                 # table state follows the seat it is asked to act in
-                Adapter.start(self, obs.seat, obs.n_players)
+                with quick_start():
+                    Adapter.start(self, obs.seat, obs.n_players)
                 self.seat_fixes += 1
             self._seat_check = False
             self._hand_seen = obs.hand_no
@@ -279,31 +305,43 @@ class NoLogSeat:
         return self.bot.variant_decide(prompt)
 
 
-def history_rows(history, discards: dict | None = None, at: int | None = None) -> list[list]:
+def history_rows(history, discards: dict | None = None, at: int | None = None, tags=None) -> list[list]:
     """obs.history -> the fake dealer's rows [seat, kind, total] (total only for a raise). `discards`
     {seat: card}, in toss order, go in as [seat, "discard", card] at history index `at` (the flop's first
-    action), as the dealer logs them; without `at` they go last."""
-    rows = [[int(s), a.kind.value, int(a.amount) if a.kind is ActionKind.RAISE else 0] for s, a in history]
+    action), as the dealer logs them; without `at` they go last. `tags` [(street, put)], one per history entry (the
+    gate's seat files get them: tools/gate.py GateTable.history_tags), makes each row [seat, kind, total, street, put]:
+    the street the action was on and the chips it put in; a discard row is on the flop and puts in 0."""
+    if tags is None:
+        rows = [[int(s), a.kind.value, int(a.amount) if a.kind is ActionKind.RAISE else 0] for s, a in history]
+    else:
+        rows = [[int(s), a.kind.value, int(a.amount) if a.kind is ActionKind.RAISE else 0, int(st), int(put)]
+                for (s, a), (st, put) in zip(history, tags)]
     if discards:
         pos = len(rows) if at is None else min(at, len(rows))
-        rows[pos:pos] = [[int(s), "discard", int(c)] for s, c in discards.items()]
+        extra = [] if tags is None else [1, 0]
+        rows[pos:pos] = [[int(s), "discard", int(c), *extra] for s, c in discards.items()]
     return rows
 
 
-def dealer_state(obs: Observation, discards_at: int | None = None) -> dict:
+def dealer_state(obs: Observation, discards_at: int | None = None, tags=None, posts=None) -> dict:
     """The fake kits' dealer state (hyperion/drills/fakekits/_table.py) for an Observation: the inverse of
     make_observation, history and face-up discards included. Lists and ints only, so
     tools/gate.py can send it to another process (json turns the int keys of `discards` into strings;
-    tools/gate_host.py turns them back). `kit.to_state(...)` and its peers accept it as it is."""
+    tools/gate_host.py turns them back). `kit.to_state(...)` and its peers accept it as it is. A seat file's state
+    (tools/gate.py, kind seat) also has each history row's street and chips (`tags`, history_rows) and the hand's
+    forced bets, `posts` [[seat, "ante" | "sb" | "bb" | "straddle", chips]], so it can build a kit's own log."""
     discards = (obs.extras or {}).get("discards") or {}
-    return {
+    st = {
         "hole": list(obs.hole), "board": list(obs.board), "street": obs.street, "seat": obs.seat,
         "button": obs.button, "stacks": list(obs.stacks), "bets": list(obs.bets), "in_hand": list(obs.in_hand),
         "pot": obs.pot, "to_call": obs.to_call, "min_raise": obs.min_raise, "max_raise": obs.max_raise,
         "legal": sorted(k.value for k in obs.legal), "hand_no": obs.hand_no, "blinds": list(obs.blinds),
-        "history": history_rows(obs.history, discards, discards_at),
+        "history": history_rows(obs.history, discards, discards_at, tags),
         "discards": {int(s): int(c) for s, c in discards.items()},
     }
+    if posts is not None:
+        st["posts"] = [list(p) for p in posts]
+    return st
 
 
 def _legal_word(item) -> str:

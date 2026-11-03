@@ -106,7 +106,7 @@ def to_native(st: dict, shape: str) -> dict:
         rows = [r for r in rows if r[0] == me]
     elif log_kind == "last3":
         rows = rows[-3:]
-    log = [{"seat": _label(s, st, shape), "act": k, **({"to": int(t)} if k == "raise" else {})} for s, k, t in rows]
+    log = [{"seat": _label(s, st, shape), "act": k, **({"to": int(t)} if k == "raise" else {})} for s, k, t, *_ in rows]
     if shape == "posts":  # the hand's log starts with the forced bets, on every street
         sb_seat, bb_seat = _blind_seats(st)
         if sb_seat is not None:

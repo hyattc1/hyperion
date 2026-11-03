@@ -27,6 +27,7 @@ def test_make_bot_is_a_safe_hero():
     assert bot.act(make_obs(seat=0, bets=[10, 20, 0, 0, 0, 0, 0, 0], hole="Ah Ad")).kind is ActionKind.RAISE
 
 
+@pytest.mark.timing
 def test_latency_two_thousand_random_decisions(hero):
     """Mean < 0.15 ms and p99 < 0.5 ms over 2,000 self-consistent random decision points.
 

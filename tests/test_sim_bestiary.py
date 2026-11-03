@@ -32,6 +32,7 @@ def test_each_bot_plays_200_hands_without_error(name):
     assert sum(len(b.decisions) for b in bots) > 0
 
 
+@pytest.mark.timing
 @pytest.mark.parametrize("name", FAST)
 def test_each_bot_in_a_mixed_field_stays_under_budget(name):
     names = [name] + [n for n in FAST if n != name][:7]

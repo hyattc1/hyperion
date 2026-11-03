@@ -1,5 +1,7 @@
 import time
 
+import pytest
+
 from hyperion.core.types import Action, ActionKind, Rules
 from hyperion.sim.bestiary import CallingStation, Crasher, TimeoutBot
 from hyperion.sim.engine import BUDGET_NS, BotStats, Table, play_table
@@ -145,6 +147,7 @@ def test_first_call_is_reported_separately_and_stats_merge():
     assert 0 <= merged.percentile_us(0.5) <= merged.percentile_us(0.99) <= max(merged.max_ns / 1000, 1)
 
 
+@pytest.mark.timing
 def test_latency_percentiles_track_a_known_sleep():
     class Sleepy(Recorder):
         def act(self, obs):
