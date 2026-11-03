@@ -3313,3 +3313,25 @@ strategy offline by self-play, a hyper-aggressive team that maximises pressure, 
 solver charts. Fixed before any of them is measured: all three are held out. They form the judge field
 `outside_b` (the three with rival 4, rival 5, elite 5 and one night seat), measured once per batch in the judges
 stage, never tuned on, never in a night pool.
+
+## The climb: addendum 11 (a weighted second route) (2026-11-03, builder: the climb's coordinator)
+
+The owner asked whether "down nowhere" rejects changes that are much better where it matters. The review
+(docs/research/acceptance-rule-review.md, commit 24e106b) re-scored every past verdict. 13 of the 14 small-loss rejections
+were real side effects, and 10 were followed by a gated version that kept the gain without the loss (9 accepted); the
+weighted score's screen verdict predicted the held-out verdict better (12 of 15 pairs, against 9 of 15).
+
+Fixed now, before it scores any new candidate:
+- **The main rule is unchanged** (beyond noise up somewhere that matters, beyond noise down nowhere, addenda 2 and 6-10).
+- **Route 2.** A candidate the main rule rejects is accepted if, on a fresh held-out set with every stage run: the
+  worst-case weighted lower bound (W-min, the family-block interval) is above zero; no cell breaks the cap (no cell's
+  upper bound below -0.03 night points, i.e. 0.03 on 8..1, 0.043 on 10/7/5/4/3/2/1/0, 0.21 on 50/25/12/6/3/2/1/1 and
+  top_heavy, 0.09 heads-up, 0.075 three-handed); no judge beyond noise down; and each down cell is written up in the
+  log with its cause. The units, the weights (ordinary room 0.20, strong tables 0.15, adapters 0.15, twist on
+  realistic 0.20, twist against aware fields 0.30, with the plausible ranges and the in-family shares), the interval
+  and the missing-cell rules are the review's section "The proposed rule" as committed in 24e106b; the weights file
+  tools/accept_weights.json encodes it and changes only by an addendum.
+- **Printed on every run from now on, deciding nothing yet:** climb_accept prints the weighted score (base weights and
+  W-min) beside the main verdict, so the two rules can be compared going forward.
+- **Screens run every stage at full seeds on the current base** (four of the main rule's six screen-to-held-out misses
+  were cells a screen never ran properly).
