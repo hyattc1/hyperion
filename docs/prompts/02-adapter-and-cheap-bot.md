@@ -84,7 +84,9 @@ Track A (repo present):
    17): use its CPU clock if it has one. It passes when the layout, the size caps and the load are fine, 0 errors, and
    our timeouts per decision are no worse than the worst of the kit's sample bots in the same run; write the box's
    load beside it. A checker with no CPU clock: the same rule on its wall clock, run while nothing else heavy runs; ours
-   worse than the kit's bots there is ours (prompt 04 step 4). Tell me to upload.
+   worse than the kit's bots there is ours (prompt 04 step 4). Tell me to upload. The cheap bot is the exception: it
+   uploads on layout, caps, loading and 0 errors alone (it is insurance, and the next upload replaces it); a timeout
+   gap goes to prompt 04 step 4.
 7. After the upload, gate that zip once: `python tools/gate.py dist/submission.zip --kit <a|b|c|d>
    --tables 30 --rules rules_tonight.json` (plus `--variant <name>` if the catalog has it). It imports
    the zip as the organisers would and plays it in our sim, paired against the bot the package records,

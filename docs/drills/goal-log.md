@@ -1263,3 +1263,15 @@ and (in judges) `elite_judge`.
   the screen. Three-handed it keeps about a third of S15c's gain (a heads-up-only rate is untested).
 - climb/s15d-gate merged (be9d8bf; dials off; identity after the merge: 14 cells identical). S15e queued on H26 (46000-46399) after S7's H25 (goal/b25/chain3.sh).
   S7 and S15e each need their own held-out acceptance, then a combined check and the judges (30800-31199) as batch 7.
+
+## 16:34: H7 merged (drill 11's tooling and prompt fixes)
+- A module-function entry template and gate seat for kit I's shape (purge after import, Overtime raised inside the
+  bot and never swallowed); "won: collected or net?" in all eight templates with a deltas_sum check; the organisers'
+  checker's pass rule on a loaded box (prompt 02 step 6, PLAYBOOK Stage 2); a night test subset (pytest -m night,
+  153 tests, 16-52 s); extras.full_bb_call for kit I's blind rule; a latency recipe kept only on the kit's own sim;
+  one keep rule for a variant patch (prompt 05; floor 600 paired tables, pooled above zero, no paired check down
+  beyond its interval); the Stage 0 clause skipped on a solo night; ship --set keeps the line's comment. Identity:
+  14 chunks identical. Full suite: 7 wall-clock failures, the same on main.
+- Coordinator's edit on merge: under the new checker rule both our zip and the drill player's failed the timeout half
+  on today's box (1.2-2.0% against the kit bot's 0.4-0.5%), so the cheap bot uploads on layout, caps, loading and 0
+  errors alone (insurance; the next upload replaces it) and the timeout gap goes to prompt 04 step 4.
