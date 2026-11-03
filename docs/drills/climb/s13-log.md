@@ -488,7 +488,7 @@ Stages exploit, confirm, guards, elite, variants (top_heavy, antes_from_level_3,
 | | straddle | 6.412 | 6.412 | +0.000 ± 0.000 | level | |
 
 0 timeouts, 0 errors. The ordinary fields play almost exactly as F (realistic, night, antes and the doubling schedule
-identical sample for sample); the exploiter 2 gains stay: heads-up 8.268 to 8.732 (41% of matches; F 28%), against
+identical sample for sample); the exploiter 2 gains stay: heads-up 8.268 to 8.732 (42% of matches; F 28%), against
 S5's +0.443 on H14 (S5 vs this F was not screened here), three-handed +0.100.
 
 Who the gate still admits (gatecount.py, seeds 3300-3311 x 8): on mirror, Hybrid3X (102 of 186 heads-up decisions)
