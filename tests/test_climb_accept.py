@@ -287,6 +287,8 @@ def test_route2_refuses_a_screen_set_or_a_missing_stage_before_playing(monkeypat
         _run(tmp_path, "--set", "H30", "--stages", EVERY_STAGE, "--variants", "bounty", "--route2")
     with pytest.raises(SystemExit, match="not a held-out set"):
         _run(tmp_path, "--set", "judge", "--stages", EVERY_STAGE, "--route2")
+    with pytest.raises(SystemExit, match="--identical: unknown holdm"):
+        _run(tmp_path, "--set", "screen", "--stages", "confirm", "--identical", "holdm")
     assert calls == []
     # without --route2 a screen prints the weighted block and nothing refuses
     assert _run(tmp_path, "--set", "screen", "--stages", "confirm")["weighted"]["dropped"] == [

@@ -93,6 +93,11 @@ def _zero(W, stage, label):
     return c
 
 
+def unknown_identical(W: dict, identical) -> list[str]:
+    """--identical tokens that name nothing: holdem, twists, or a variant in the probability table."""
+    return [t for t in identical or () if t not in ("holdem", "twists") and t not in W["variant_probability"]["p"]]
+
+
 def identical_twists(W: dict, identical) -> set:
     names = set()
     for t in identical or ():
@@ -152,7 +157,7 @@ def shares(W: dict, cells: list[dict], adapters: str = "fixed") -> dict:
             keys.setdefault(cells[i]["key"], []).append(i)
         if fam in ("ordinary", "strong"):
             sh = F[fam]["cells"]
-            unnamed = 0.05  # the review script's default for a cell its table does not name (accept_weights notes)
+            unnamed = W["unnamed_cell_share"]  # a cell the section's table does not name (accept_weights notes)
             tot = sum(sh.get(k, unnamed) for k in keys)
             for k, ii in keys.items():
                 for i in ii:

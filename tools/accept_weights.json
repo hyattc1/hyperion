@@ -67,6 +67,8 @@
   "unlisted": 1
  },
 
+ "unnamed_cell_share": 0.05,
+
  "holdem_tables": ["top_heavy", "antes_from_level_3", "fast_schedule", "straddle"],
 
  "judges": ["judge", "judge2", "judge2_night", "judge_top", "outside", "outside_strong", "elite_judge", "elite_judge_b",

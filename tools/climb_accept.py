@@ -382,6 +382,9 @@ def main(argv=None) -> int:
     a.set = a.set or ("screen" if stages == ["window"] else "H1")
     lo, hi = seed_range(a.set)
     identical = [t.strip() for t in a.identical.split(",") if t.strip()]
+    if WS.unknown_identical(WS.load(), identical):
+        raise SystemExit(f"--identical: unknown {', '.join(WS.unknown_identical(WS.load(), identical))} (holdem, "
+                         f"twists or a catalogue variant)")
     judges_rows = None
     if a.route2:  # addendum 11: route 2 only on a fresh held-out set with every stage run; refuse before any play
         why = WS.route2_refusal(a.set, stages, a.variants, a.variant_seeds, a.rules, a.variant)
