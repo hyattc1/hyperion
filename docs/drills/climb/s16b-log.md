@@ -348,3 +348,11 @@ folders are a handful of seats (tag 0.94, pushfold 0.91, timeout_then_recover 0.
 them with its callers, and the cap only ever lowers a read, so a faster table rate cannot raise a tight seat's fold
 above F's own read; what costs there is the cap dropping steals into seats that read lower at the table level than
 they are. A seat's own excess (weight 23) is what would fix it, and it is slow by design.
+
+**O3 at main, completed (q_o3w.sh, 12:xx).** O3 played on main's code matches its aafe5b9 run on one 25-seed chunk of
+every confirm, guard and elite cell (12 cells, identical sample for sample), so its cells were copied to main's key
+and the table completed there: the eight short-handed exploit cells and straddle now at 200 seeds, all +0.000 ±
+0.000 (identical). climb_accept on main: REJECT (antes_from_level_3 down; listed variants, so no REPLICATE line).
+Addendum 11's weighted score: W +0.0002 ± 0.0321 (lower bound -0.0319), W-min -0.0091 ± 0.0325 (lower bound
+-0.0416); the cap holds. O4's: W +0.0030 ± 0.0315 (-0.0286), W-min -0.0086 ± 0.0318 (-0.0404). Level with each other;
+neither weighted lower bound is above 0.
