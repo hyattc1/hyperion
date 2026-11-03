@@ -1549,6 +1549,44 @@ class Elite3Bot(_FixedSpeedInModel, _EliteBot):
         return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
 
 
+class Elite5Bot(_FixedSpeedInModel, _EliteBot):
+    """Elite `elite5` (second wave, a reads-minded team): every call, bet, raise and shove in finish points, opens and
+    3-bets from equity against each seat's estimated range, push/fold at 14 bb or less and resteals at 25, per-seat
+    rates by street and table size that move from a sound default toward what the seat does, a postflop equity search
+    stopped at 280 us of wall time (module-level `_perf`, read every 8 or 16 samples; skipped when the decision is
+    already 450 us in) that draws cards from the process-wide `random.random` (module-level `_rand`). Freezes the
+    collector at import. Frozen at minute 80 (md5 3465ff11). The second held-out elite judge (`elite_judge_b`): never
+    tuned on. In mode "model" it plays at a fixed speed (its clock advances STEP_S per read) and draws from a generator
+    seeded per table, so it replays exactly; in strict and measure modes it plays as built."""
+
+    MODULE = "elite5"
+    STEP_S = 18e-6  # wall time between clock reads in its search: 21 us median at load 5.6 (2026-11-02), less the load
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self.mod = sys.modules[type(self.impl).__module__]
+        self._now = 0.0
+        self._draw = random.Random(self._seed * 1_000_003 + 0xE55)
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self._draw.seed(self._seed * 1_000_003 + 0xE55)
+
+    def _clock(self) -> float:
+        self._now += self.STEP_S
+        return self._now
+
+    def _set_speed(self, fixed: bool) -> None:
+        pass  # read at every act()
+
+    def act(self, obs: Observation) -> Action:
+        if self.fixed_speed:
+            self.mod._perf, self.mod._rand = self._clock, self._draw.random
+        else:
+            self.mod._perf, self.mod._rand = time.perf_counter, random.random
+        return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
+
+
 # ----- the exploiter: a black-box attacker of the ship bot (S2), a test opponent, never in a night pool -------------
 
 
@@ -1736,6 +1774,7 @@ REGISTRY: dict[str, type] = {
     "elite1": Elite1Bot,  # elite field (prepared top-team build): tuning fields elite, elite_night
     "elite2": Elite2Bot,  # elite field: tuning fields elite, elite_night
     "elite4": Elite4Bot,  # elite field, second wave: tuning fields elite_b, mirror_b
+    "elite5": Elite5Bot,  # elite field, second wave: the held-out judge elite_judge_b, never tuned on
     "elite3": Elite3Bot,  # elite field: the held-out elite judge (elite_judge), never tuned on
     "exploiter1": Exploiter1Bot,  # the S2 exploiter of F (black-box attacker): a test opponent, never in a night pool
     "exploiter2": Exploiter2Bot,  # the second exploiter (S11), of F with FIN: a test opponent, never in a night pool
@@ -1864,6 +1903,8 @@ FIELDS["mirror"] = ("hero", "f_copy", "f_copy", "f_copy", "rival2", "elite1", "e
 # `mirror_b`: three copies of F with rival 2 and three elite builds (elite4 in hybrid3_x's seat)
 FIELDS["elite_b"] = ("hero", "elite4", "elite1", "elite2", "rival1", "rival2", "rival3", "agent_pushfold")
 FIELDS["mirror_b"] = ("hero", "f_copy", "f_copy", "f_copy", "rival2", "elite4", "elite1", "elite2")
+# elite5 (a reads-minded build, second wave) is held out like elite3: one judge field, never tuned on
+FIELDS["elite_judge_b"] = ("hero", "elite5", "elite4", "elite1", "elite2", "rival4", "rival5", "out_quants")
 FIELDS["mirror_night"] = ("hero", "f_copy", "f_copy", "elite1", "elite2") + _night.seat_names("elite_rest")[:3]
 # the exploiter's fields (S2, docs/drills/exploiter/): as its arena seated it, the hero seat and exploiter1 with six
 # night-pool seats at 8-max, alone heads-up, and with the first night-pool seat three-handed (play them with Rules of

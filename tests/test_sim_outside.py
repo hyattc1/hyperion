@@ -23,8 +23,9 @@ FROZEN = {  # registry name -> (archived original, copy in the package, header l
     "elite2": ("docs/drills/field/elite2_bot.py", "hyperion/sim/field/elite2.py", 6, "70c29e1754bbe6a555cea331468756f3"),
     "elite3": ("docs/drills/field/elite3_bot.py", "hyperion/sim/field/elite3.py", 6, "c5e956bd211896e22bafe0f2acfeeed4"),
     "elite4": ("docs/drills/field/elite4_bot.py", "hyperion/sim/field/elite4.py", 6, "063caf8cddf45881e1f125ea822943cc"),
+    "elite5": ("docs/drills/field/elite5_bot.py", "hyperion/sim/field/elite5.py", 6, "3465ff11f8f85ab20d7856af86e5b97a"),
 }
-ELITE = {"elite1", "elite2", "elite3", "elite4"}
+ELITE = {"elite1", "elite2", "elite3", "elite4", "elite5"}
 
 
 @pytest.mark.parametrize("name", sorted(FROZEN))
@@ -49,11 +50,12 @@ def test_outside_bots_are_registered_and_in_no_pool():
 
 def test_elite3_is_held_out_of_every_tuning_field():
     for name, members in B.FIELDS.items():
-        if "elite3" in members:
+        if "elite3" in members or "elite5" in members:
             assert name.startswith("elite_judge"), name
 
 
-@pytest.mark.parametrize("field", ["outside", "outside_strong", "elite", "elite_night", "elite_judge", "elite_b"])
+@pytest.mark.parametrize("field", ["outside", "outside_strong", "elite", "elite_night", "elite_judge", "elite_b",
+                                   "elite_judge_b"])
 def test_outside_fields_play_legally_and_replay_exactly_in_model_mode(field):
     a = run_tournament(B.field_names(field), 2, seed=1, rotate=True, mode="model", table_offset=30000)
     b = run_tournament(B.field_names(field), 2, seed=1, rotate=True, mode="model", table_offset=30000)

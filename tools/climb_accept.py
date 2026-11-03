@@ -28,7 +28,8 @@ Stages (comma-separated; default confirm,guards,variants):
   mirror (three copies of F, `f_copy`, with rival 2, elite1, elite2 and hybrid3_x: a table of near-equals, backlog S9);
   since the second wave also elite_b (elite's room with elite4 in agent_default's seat) and mirror_b (three copies of
   F with rival 2, elite4, elite1 and elite2);
-- judges: judge, judge2, judge2_night, judge_top, outside, outside_strong, elite_judge (run these on `--set judge`).
+- judges: judge, judge2, judge2_night, judge_top, outside, outside_strong, elite_judge, elite_judge_b (elite5, the
+  second wave's held-out build; run these on `--set judge`).
 - aware: the likeliest twists against variant-aware opponents, each field under its variant (toss_or_holdem_aware,
   bounty_aware, short_deck_aware, river_of_blood_aware; hyperion/sim/aware.py); `--aware NAME,...` for some, and
   `--aware FIELD:VARIANT` for any field under any entry (realistic_keep2:deal5_keep2). `--aware generic:VARIANT` is
@@ -80,7 +81,8 @@ CONFIRM = [("night", "lin", None)]
 GUARDS = [("night_hard", "lin", None), ("realistic", "lin", None), ("top", "lin", None), ("night", "brief", None),
           ("night", "th", None), ("night", "lin", "double")]
 JUDGES = [("judge", "lin", None), ("judge2", "lin", None), ("judge2_night", "lin", None), ("judge_top", "lin", None),
-          ("outside", "lin", None), ("outside_strong", "lin", None), ("elite_judge", "lin", None)]
+          ("outside", "lin", None), ("outside_strong", "lin", None), ("elite_judge", "lin", None),
+          ("elite_judge_b", "lin", None)]  # elite5 held out (second wave, 2026-11-02)
 ELITE = [("elite", "lin", None), ("elite_night", "lin", None), ("mirror", "lin", None),
          ("elite_b", "lin", None), ("mirror_b", "lin", None)]  # elite4 joined 2026-11-02 (second wave)
 EXPLOIT = [("exploit", "brief", None), ("exploit_hu", "lin", "hu"), ("exploit_3", "lin", "three"),
