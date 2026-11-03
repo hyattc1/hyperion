@@ -691,3 +691,15 @@ and (in judges) `elite_judge`.
 - Candidate {size_read_twists discard,bounty,knockout,swap,exposed; s11_twists knockout,buy,swap,exposed;
   strong_route_twists bounty,knockout,buy} on H15 (35000-35399), base batch 5's dials, stages aware (9 generic + 2
   hand-built) and variants.
+
+## 20:57: batch 5 accepted on H13 and frozen (3aac34d)
+- H13 (33000-33399), batch 5 against batch 4, every stage: night +0.096 ± 0.053 UP, top +0.086 UP, night at 10/7/5
+  +0.232 and at 50/25/12 +1.011 UP, mirror +0.241 ± 0.065 UP; all six exploit cells UP (exploit2_hu +0.300,
+  exploit2_3 +0.198, exploit 8-max +0.161); short_deck +0.154, wild_deuces +0.391, three_card_keep +0.190, omaha_four
+  +0.160, straddle +0.068, short_deck_aware +0.215 UP; elite and elite_night +0.036 level; none down. ACCEPT. H13
+  used once. (The p99 column's 4 ms entries are the slowest single table's p99 at load 11-14, base and candidate
+  both; latency.py's per-call minimum is clean.)
+- climb/batch5 fast-forwarded into main (3aac34d). Frozen frozen/B5-3aac34d, kit B zip cbf2ccb3 (963 KB, elite1
+  kept, no kit import); gate pass, 0 exceptions, 0 illegal, -0.317 ± 0.559, 0.33% timeouts at load 9-10.
+- Decisions entry "The climb: batch 5", leaderboard ship row. Re-ranking every seat at elite, elite_night and mirror
+  (150 x 8, seed 41) for batch 4 and batch 5. S5 (H14) and V-f (H15) now measure against batch 5 = main's F.
