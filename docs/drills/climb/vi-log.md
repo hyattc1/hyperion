@@ -7,6 +7,41 @@ Wizard's MIT 2024 auction entry bid the 3v2 - 2v3 equity difference x 1.8, the b
 held-out variant was run, read or tuned on. Host shared (load 14-18 of 8 cores): `nice -n 5`, at most three worker
 processes. Scratch scripts: the session scratchpad, `goal/vi_work/scripts/`.
 
+## Findings
+
+**Candidate: `{"hero.voi": 1.5, "hero.sd_tax": true}`** (both off by default; with them off F plays main's F bit for
+bit, 14/14 chunks of confirm and guards). Two independent dials; either can ship alone.
+
+1. **The change.** `hero.voi` prices Hero's twist decisions as value of information: one multiplier on an option's
+   worth in chips where a price stands against it (the auction's bid: voi x the indifference price, whose d already
+   holds the denial value; the bonus card: buy when voi x (e3 - e2) x pot_eff covers (1 - e3) x price), and the option
+   worth most where none does (keep, discard, swap), from precomputed tables (tools/gen_voi.py -> tables/voi.json).
+   `hero.sd_tax` is V-g's showdown-tax read: a twist whose prepared table pays a showdown f of hold'em's (mean share
+   off 0.5004 by more than 0.05) reads calls x f and moves the thin value thresholds up (Ghost: f 0.683, two tiers).
+2. **The multiplier: 1.5 of 0.67 / 1.0 / 1.5 (fixed in advance).** Aware stage, auction: -0.039, 0.000, **+0.115 ±
+   0.051 UP**; bonus_card: -0.045, +0.057, -0.008, all level. Best of three on the screen seeds: the held-out set
+   decides. In GTO Wizard's units 1.5 is about 2.4x the raw equity difference (their best 1.8 is about our 1.1).
+3. **Aware stage (generic:<entry>, 200 seeds): nothing down.** auction +0.115 ± 0.051 UP, bonus_card -0.008 ± 0.039,
+   swap_holdem +0.000 (no decision), swap_one_turn -0.004 ± 0.082, toss_or_holdem +0.004 ± 0.021,
+   three_card_blind_discard +0.009 ± 0.017, deal5_keep2 -0.008 ± 0.029.
+4. **Variants stage (realistic): two up, nothing down.** auction +0.064 ± 0.045 UP, swap_one_turn +0.080 ± 0.072 UP,
+   bonus_card -0.006, toss -0.006, blind discard -0.003, deal5_keep2 +0.001 (200 seeds each); the other twenty entries,
+   where the candidate cannot act, have identical sample lists on 40 seeds. No timeouts, errors or illegal actions.
+5. **The showdown tax on the Ghost (told): up.** Screen set +0.189 ± 0.302 (generic) and +0.183 ± 0.285 (realistic);
+   with my own 200 seeds, pooled over 400: **+0.267 ± 0.218 and +0.264 ± 0.202, both beyond noise up**, about V-g's
+   hand-made c2. The gate is shut on all 26 catalog entries; it needs the twist named in the rules (the table is
+   found by name), so an untold Ghost plays F.
+6. **Denial was already counted**, in the auction's d = e_win - e_lose: half the card's worth heads-up, a fifth to a
+   third multiway, most of it for made hands; no other decision has any (a thrown card is dead whatever I keep). The
+   multiplier's gain is in that part: at 1.0 a set bids under the unaware seats' quarter-pot default and loses the
+   card to them.
+7. **Latency in budget**: per-call minimum p99, F then candidate: swap_one_turn hand end 142.6 / 143.1 us, act 112.0 /
+   103.1, variant decisions 33.6 / 181.8 (the swap: about 57 reads, once a hand); deal5_keep2 134.6 / 136.4, 92.9 /
+   92.9 (93.3 F), 53.5 / 61.8. Load 56-60.
+8. **What did not move**: keep, discard and the bonus card. The keep and toss were already priced by value share
+   (against a long simulation VOI's picks agree with the best 81-82%, F's 78-83%); the bonus card's rule changes 3% of
+   buys. The swap gains on realistic and is level against the generic field.
+
 ## Plan, fixed before measuring
 
 - The multiplier `hero.voi` takes three values, fixed now: **0.67, 1.0, 1.5**. At 1.0 the auction bids the
@@ -161,3 +196,46 @@ level against the generic aware field (-0.004 ± 0.082), whose own swap prices o
 
   All under 200 us. The swap is the one decision that costs: about 57 reads a turn per player still in, once a hand
   (F's variant times include the base Hero's pending ICM curve, which a lazy Hero computes in its first call of a hand).
+
+## 6. The Ghost on more seeds, and the tests
+
+- **The tax read on my own seeds** (50000-50199 x 8, outside every held-out and judge range; base F played on this
+  branch): generic_aware +0.346 ± 0.314 UP (F 11.516), realistic +0.346 ± 0.287 UP (F 11.370). **Pooled with the
+  screen set, 400 seeds: generic_aware +0.267 ± 0.218 UP, realistic +0.264 ± 0.202 UP.** Hero told the twist both times.
+- **Tests**: tests/test_vi_voi.py (12: the option tables, the parts, dials off as before, the bid's multiplier and
+  caps, the bonus buy rule and its pot, the swap equal to the full enumeration, keep and discard, the composite handing
+  over its observation, the mean shares and tax tiers, the gate open on the Ghost only and shut on all 26 catalog
+  entries, the tax's call and thin-value moves, F playing the decision twists and the Ghost with both dials on).
+  Full suite at load 50-60: 31 failed, 1319 passed, 13 skipped. Three were mine and are fixed (3b031f5: Hero kept its
+  last observation across tables, which tests/test_lifetime.py catches twice; CONTRACTS.md lacked the four Config
+  keys). The other 28 are wall-clock and budget tests at this load (14 bestiary budgets, rival 1's strict-mode
+  timeouts, kit D's round trip, a cold setup, eight model-mode replay tests of the exploit and outside fields, two
+  drill and gate runs that pass on a rerun): the replay, rival 1 and drill ones checked on main's worktree fail there too.
+- **Identity again at the final code** (3b031f5): the same 14 chunks equal main's.
+
+## What I would still try
+
+- **The swap with a finer value.** The turn table keys by Hero's tier, which puts two pair on a paired board with
+  top pair good kicker; a 32-sample quick simulation was no more accurate at twice the cost. A turn table keyed by the
+  made category with both hole cards (or the kicker's rank) would stop the few bad kicker swaps.
+- **The bid against the field's bids.** Bids are public after the auction (`extras["bids"]`): the second price is
+  what we pay, so a read of the seats' bids (abh-win's marginal-EV bid against the opponent's empirical bids) could
+  bid just over the field rather than a multiple of the value.
+- **The tax beyond the mean.** One number prices every hand alike; the Ghost taxes a pair 56% and a straight 7%. A
+  prepared table of the tax by made category (the hooks can score it as the value shares are scored) would tax one-pair
+  calls harder and leave the strong hands' raises alone; and bluffs, which a haunt never touches, could go up.
+- **Untold twists.** The tax read needs the twist's name to find its table; on the night we write the variant file and
+  name it, but a kit that does not tell Hero gets F.
+
+## Runs (screen set unless named; no held-out set, judge or held-out variant)
+
+| run | seeds | result |
+|---|---|---|
+| base F, main eecf4d8: aware (7 + Ghost x2), variants (26, partly) | 10000-10199 | sections 3-4 (reused) |
+| identity, b1f8ab9 and 3b031f5 | 10000-10039 | 14/14 chunks equal to main, twice |
+| aware, voi 1.0 (7 cells), sd_tax (Ghost x2), voi 0.67 and 1.5 (auction, bonus_card) | 10000-10199 | section 3 |
+| variants, the candidate: 6 entries at 200, 20 at 40 | 10000-10199 / -10039 | section 4 |
+| the final spec on the aware cells' first chunk | 10000-10024 | equal to the assembled cells |
+| latency, swap_one_turn and deal5_keep2, F and the candidate | latency.py's seed | section 5 |
+| Ghost tax, my seeds | 50000-50199 | section 6 |
+| full test suite | - | section 6 |
