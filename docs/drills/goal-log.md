@@ -668,3 +668,13 @@ and (in judges) `elite_judge`.
 - Identity after the merge: 15 cells identical (10000-10039, confirm and guards). The pull flattened the merge into
   S13's commits on main (same tree).
 - S5 goes to H14 (34000-34399), --aim exploit, against batch 5's ship once H13 decides batch 5.
+
+## 19:30: batch 5's judges and timing
+- Judges once on the judge set (30000-30399) against batch 4's ship: judge_top +0.106 ± 0.063 and outside +0.087 ±
+  0.056 UP; elite_judge +0.061, outside_strong +0.024, judge -0.026, judge2 -0.000, judge2_night -0.012 level. None
+  down.
+- Timing (latency.py --hand-end --reps 3, per-call minimum, act p99 / hand_end p99, us, batch 4 -> batch 5): plain
+  87 -> 100 / 98 -> 137; deal5_keep2 71 -> 86 / 100 -> 131; toss 69 -> 85 / 98 -> 133; river_of_blood 86 -> 97 /
+  99 -> 136; omaha_four 101 -> 110 / 100 -> 112; wild_deuces 113 -> 128 / 93 -> 131. Load 9. The cost is elite1's
+  light shadow and the size read: about 15 us at p99.
+- Waiting on H13 (the combined check).
