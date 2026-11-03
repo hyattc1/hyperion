@@ -1299,3 +1299,20 @@ and (in judges) `elite_judge`.
   exploit cells) and where it lost (a twist), as Z3's hold'em gates were after H9; it needs a fresh held-out set:
   C3h on H28 (48000-48399) against batch 6, --aim exploit, every stage, twists identical (goal/b26/chain4.sh, after
   S15e's H26).
+
+## 18:02: start-vs-now in (plain hold'em); V-j merged; V-j's c6 on H29
+- The starting F's settings (start_off.json) against batch 6 on H17 (37000-37399), confirm, guards, elite, exploit,
+  raw (started before addendum 13): elite +0.151 ± 0.061, mirror +0.213 ± 0.072, elite_b +0.075 ± 0.066, mirror_b
+  +0.171 ± 0.066, top +0.104 ± 0.059 UP; exploiter 1 +0.740 / +1.211 / +1.366 (8-max, heads-up, three-handed),
+  exploiter 2 heads-up +0.371 and three-handed +0.169, exploiter 3 8-max +0.131, adapt1 8-max +0.097 and heads-up
+  +0.116 UP; night -0.014 ± 0.053, night_hard +0.033, realistic +0.006, the payout guards and doubling blinds level;
+  none down. Weighted +0.084 ± 0.033 (lower bound +0.051). The leaderboard has a "Since the start" table. H17 used.
+- V-j merged (9d871f2; dials off): the engine's extras `settle: "street"` and `no_runout`, the catalog entry
+  tranche_holdem (our 8..1 points; kit I's in docs/drills/drill11/rules_tonight.json), aware opponents (tranche_tag,
+  tranche_pushfold, tranche_mc), F's dials `tranche_twin` and `hero.tranche` (now, sunk, allin). Plain hold'em and
+  every other entry identical on V-j's branch (40 of 40 chunks). Screen: no candidate beyond noise; c6 (twin, now,
+  sunk, early claim 0.25, chosen among five weights on the screen) +0.094 / +0.051 / +0.044 (realistic, aware,
+  generic aware), kit sim +0.28 over 1,200 unpaired tables. c6 on H29 (49000-49399): tranche cells at 400 seeds,
+  hold'em identical (goal/b27/c6_h29.md).
+- Future organiser briefs add to the exclusion list: tranche_holdem (each betting round's chips a pot of their own,
+  won by the hand as it stood on that street; no cards once the betting is over).
