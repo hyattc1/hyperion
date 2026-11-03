@@ -1073,3 +1073,14 @@ and (in judges) `elite_judge`.
   timing; both detached. The SHIP_DIALS and test change is staged on climb/batch6 (a worker).
 - Load reached 45 (my workers plus the owner's other project's tests): start-vs-now paused with SIGSTOP (resumes
   exactly), workers asked to cap at 2 processes.
+
+## 08:33: S17 merged (one stab size short-handed); C3 to a held-out set after batch 6
+- Survey: the layer's stab is 32-54% of F's heads-up bets, always 0.33 pot, tier 1.1-1.4 with 48-64% air and never
+  two pair or better; Hero's 0.5 bets are tier 3.0-4.6. Exploiter 2 raises 93% of stabs heads-up and F folds 71-99%
+  to those raises. The 2.0 bb steal is not read (re-raise rates equal at 2.4 bb), left alone.
+- C1 (one size everywhere) closed the tell but failed realistic (-0.078 ± 0.059: full-table callers call by equity,
+  whatever the size). C3 = {"exploit.stab_size": true, "exploit.stab_alive": 3} (one size only with three or fewer
+  alive; chosen on dev seeds and fixed before its screen, a disclosed deviation): screen exploit2_hu +0.247 ± 0.125,
+  exploit2_3 +0.117 ± 0.107, adapt_hu +0.203 ± 0.126 UP; every other cell level (realistic +0.006).
+- Merge conflicts with S16 kept both sides. Identity after the merge: running. C3 goes to H21 (41000-41399) against
+  batch 6 once batch 6 is decided.
