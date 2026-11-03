@@ -87,3 +87,21 @@ fields: at SPR 2 our in-position offset is +0.17 against the exploiters' fields 
 about two intervals); deep, the strong group has too few flops to say (± 0.4). Three-way flops (1,033, all seats): each
 postflop seat's share - its three-way equity is -0.09 / -0.02 / +0.11 (first / middle / last), taken as log weights
 -0.29 / -0.07 / +0.28 on the bucket model's odds.
+
+**S13's three-handed tables (C3: tables/extra/short_3.json on pre_3way and pre_allin, no 3-bet deferral), same seeds**
+(recorded from the branch at 8061d2a, which plays C3 as S13 left it). Our seat's three-handed bb a hand, C3 against F:
+exploit_3 +0.293 against +0.404 (**-0.11**); exploit2_3 +0.242 against +0.136 (+0.11); elite +0.151 against -0.035
+(+0.19: as good as elite1's +0.18 and elite2's +0.15 in the same rooms). Where:
+- *Against exploiter 1* the loss is the opener facing its tiny 3-bets (1,711 times): C3 folds 34%, calls 44% (-0.5 bb
+  each) and 4-bets 10%, so the spot is worth +0.06 a hand; F 4-bets 65% there for +2.07. C3's button also opens 85%
+  (+0.41 a hand, F's 52% +0.73) and its small blind limps 35% first in (+0.06, F +1.05). Its blinds are better than
+  F's (the SB 3-bets the button's open 41%: +0.77 against +0.06; the BB against the SB's open +0.33 against -0.24).
+- *Against exploiter 2* C3's big blind calls the button's open 66% (-1.4 bb each: -0.87 a hand, F -0.56): our
+  out-of-position flops lose to it, which the old flop model did not know. Its small blind 3-bets the open 41% (+0.79).
+- *At elite* C3 jams first in more (button 19%, SB 40%) and min-raises less (30% / 10%): the button +0.39 a hand (F
+  +0.05). Its weak spots there: the SB limps 26% first in (-0.5 bb a limp, no better than folding) and the BB flats
+  79% of the button's opens (+0.30 a hand; F's BB re-shoves 39% for +0.69).
+So the old tables already fix most of F's strong-table leak; what loses is calling 3-bets and flatting out of position
+against the exploiters (realization the old model got wrong) and the equilibrium's answer to exploiter 1's any-two
+min-3-bets, which F's own defence beats by 4-betting. The second tree adds 4-bets over small 3-bets, prices our flops
+from the fit above, and the gated variant hands preflop back to F against a 3-bettor far above equilibrium.
