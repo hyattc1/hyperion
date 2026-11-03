@@ -403,8 +403,16 @@ class Rival3Core(R3.Bot):
             # deeper: raise-first-in / isolate
             if kn.oa_read and self._oa_h and not limpers:  # S16b: the open-answer read, not fold-to-any-raise
                 pf = 1.0
+                cap = kn.oa_cap
                 for s in behind:
-                    pf *= 1.0 if self._rates(s)[7] else self.oa_fold(s, 1 if s == sbs else 2 if s == bbs else 0)
+                    if self._rates(s)[7]:
+                        continue  # a dead seat folds
+                    f = self.oa_fold(s, 1 if s == sbs else 2 if s == bbs else 0)
+                    if cap:
+                        g = self._fold_prob(s, False)
+                        if g < f:
+                            f = g
+                    pf *= f
             base = {0: 1.0, 1: 0.48, 2: 0.36, 3: 0.27, 4: 0.21, 5: 0.17, 6: 0.14, 7: 0.12}.get(len(behind), 0.11)
             if limpers:
                 base = 0.14 + 0.03 * sum(1 for s in limpers if self._rates(s)[0] > 0.5)

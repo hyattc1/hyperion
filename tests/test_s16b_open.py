@@ -95,3 +95,24 @@ def test_twist_tables_play_as_f():
         h, bot = _digest(ON, t, rules=bounty)
         assert h == _digest({}, t, rules=bounty)[0]
         assert bot.core.ex.open_fold is None
+
+
+def test_the_cap_only_lowers_the_fold_read():
+    c = Rival3Core()
+    c.k = replace(c.k, oa_read=True, oa_cap=True)
+    c._v3_reset()
+    S = c.st[3]
+    S.hands, S.vpip, S.fr, S.fr_f = 40, 2, 30, 29  # folds 29 of 30 raises: the read (0.92) is above the prior
+    assert c._fold_prob(3, False) > c.oa_fold(3, 0)
+    ex = Exploit(ExploitParams(steal_min_fold=0.7, open_read=True, open_cap=True))
+    ex.new_table(8, 7)
+    obs = Observation(hole=parse("7c 2d"), board=(), street=0, seat=7, button=7, stacks=[2000] * 8,
+                      bets=[10, 20, 0, 0, 0, 0, 0, 0], in_hand=[True] * 8, pot=0, to_call=20, min_raise=40,
+                      max_raise=2000, legal=frozenset({F, C, R}), hand_no=0, blinds=(10, 20), history=[])
+    ex.observe(obs)
+    for s in (0, 1):
+        ex.fold[s][0], ex.faced[s][0] = 0.80 * 6.0, 6.0  # fold rate (4.8 + 1.95) / 9 = 0.75
+    ex.open_fold = lambda s, pos: 0.95  # higher than the seat's own rate: the cap keeps 0.75 (0.56 < 0.7)
+    assert ex.override(obs, Action.fold()) is None
+    ex.p.open_cap = False
+    assert ex.override(obs, Action.fold()) is not None  # uncapped: 0.95 x 0.95 >= 0.7

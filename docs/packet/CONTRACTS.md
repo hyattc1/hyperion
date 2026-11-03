@@ -159,6 +159,7 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.oa_st` | `20.0` | weight of a position's prior against this table's answers from that position |
 | `r3.oa_s` | `23.0` | weight of a seat's prior (no excess) against its own answers |
 | `r3.oa_min_n` | `0.0` | answers a seat must have given before its own excess counts (0: from the first) |
+| `r3.oa_cap` | `False` | with oa_read: the open-answer read only lowers a seat's fold read (min of the two), as S16's one-sided cap; off = it replaces the read |
 
 The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"exploit": null}` turns the layer off):
 
@@ -187,6 +188,7 @@ The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"
 | `exploit.read_trust` | 0.0 |
 | `exploit.read_trust_min_n` | 10.0 |
 | `exploit.open_read` | False |
+| `exploit.open_cap` | False |
 | `exploit.isolate` | False |
 | `exploit.iso_min_fold` | 0.85 |
 | `exploit.iso_max_bb` | 6.0 |
@@ -462,6 +464,7 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `exploit.read_trust` | 0.0 |
 | `exploit.read_trust_min_n` | 10.0 |
 | `exploit.open_read` | False |
+| `exploit.open_cap` | False |
 | `exploit.isolate` | False |
 | `exploit.iso_min_fold` | 0.85 |
 | `exploit.iso_max_bb` | 6.0 |

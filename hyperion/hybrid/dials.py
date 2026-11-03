@@ -131,3 +131,5 @@ class Rival3Knobs:
     oa_st: float = _dial(20.0, "weight of a position's prior against this table's answers from that position")
     oa_s: float = _dial(23.0, "weight of a seat's prior (no excess) against its own answers")
     oa_min_n: float = _dial(0.0, "answers a seat must have given before its own excess counts (0: from the first)")
+    oa_cap: bool = _dial(False, "with oa_read: the open-answer read only lowers a seat's fold read (min of the two), as "
+                                "S16's one-sided cap; off = it replaces the read")
