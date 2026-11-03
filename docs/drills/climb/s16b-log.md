@@ -283,3 +283,76 @@ down is a REPLICATE on the next held-out set at 400 seeds, not a reject. The rea
 every cell that uses it (realistic -0.034, fast_schedule -0.045, antes -0.060, top_heavy -0.38 of 100), so a
 replication may well confirm the loss: F's steals against realistic's folders pay, and the big blind's prior (0.668,
 pooled) sits far under realistic's 0.80 until 20 or so answers move the table rate.
+
+# S16c: O4, a faster table rate (branch climb/s16c-o4 from main cbaaab6)
+
+The coordinator (10:00): screen O4 = O3 + `"r3.oa_st": 10` (the one value, fixed in advance), every stage at full
+seeds, from a fresh worktree of main, 2 workers. The question: does the realistic room's lean (antes_from_level_3
+-0.060 down; realistic, fast_schedule and top_heavy negative) go while the strong-table gains stay? The layer has no
+table rate of its own: `exploit.open_read` reads rival 3's core's `oa_fold`, so `r3.oa_st` sets both. With the big
+blind's prior worth 10 answers instead of 20, realistic's big blind (0.80 against the prior's 0.668) is read at about
+0.73 after 10 answers instead of 0.71.
+
+Spec: `{"r3.oa_read": true, "exploit.open_read": true, "r3.oa_cap": true, "exploit.open_cap": true,
+"r3.oa_min_alive": 4, "exploit.open_min_alive": 4, "r3.oa_st": 10.0}`. No code change (main 0ed102a6ef carries O3's
+code and other merges since: S18's tooling, H6, V-i); F's identity at main against the cached F checked first.
+
+Identity (10:05-10:25; idcheck6.py, main 0ed102a6ef against the cells of 64b466a): **all 31 identical** sample for
+sample. (Main's climb_accept now names a short last chunk `*.n15.json`; the script first flagged the seven 15-seed
+chunks as missing and they were compared by hand: identical.) F's cells copied to main's key 2ff4eef35075. O4's
+screen from 10:27, 2 workers: elite, the four variants, confirm and guards, the 12 exploit cells, then one call that
+prints the whole table from the cache.
+
+O4's elite stage (O4 - F; O3 beside it): elite +0.030 ± 0.086 (O3 +0.030), elite_night +0.062 ± 0.072 (+0.026),
+**mirror +0.095 ± 0.080 UP** (+0.105), elite_b +0.075 ± 0.080 (+0.075), **mirror_b +0.177 ± 0.089 UP** (+0.197).
+
+O4's variants (realistic, 200 seeds): **antes_from_level_3 -0.056 ± 0.050 DOWN** (O3 -0.060), **fast_schedule -0.060
+± 0.047 DOWN** (O3 -0.045, level), top_heavy -0.040 ± 0.668 of 100 (O3 -0.380), straddle +0.000 ± 0.000 (identical
+by construction). The faster table rate does not remove the realistic lean.
+
+O4's confirm and guards: night -0.032 ± 0.068 (O3 -0.031), night_hard +0.064 ± 0.081 (O3 +0.085 UP), realistic
+-0.026 ± 0.051 (-0.034), top +0.004 ± 0.076 (-0.021), night @10/7/5... -0.000 ± 0.121, @50/25/12... -0.560 ± 0.822 (of
+100), doubling +0.002 ± 0.074: all level.
+
+O4's exploit stage: exploit -0.103 ± 0.129, exploit2 +0.022 ± 0.131, exploit3 +0.091 ± 0.125, adapt +0.008 ± 0.123,
+all level; the eight heads-up and three-handed cells +0.000 ± 0.000 (identical by construction, at full seeds).
+
+**O4's verdict (climb_accept on main, --aim strong): REJECT**, antes_from_level_3 and fast_schedule down. Addendum
+11's weighted score, printed beside it: W +0.0030 ± 0.0315 (lower bound -0.0286); W-min -0.0086 ± 0.0318 (lower
+bound -0.0404); the cap holds; the twist-aware family and the 22 twist variants not run (identical by construction).
+Latency (per-call minimum): act p99 115.1 / 125.7 µs (realistic / elite), hand end p99 146.9 / 146.3.
+
+| cell | O3 - F | O4 - F |
+|---|---|---|
+| elite | +0.030 ± 0.087 | +0.030 ± 0.086 |
+| elite_night | +0.026 ± 0.073 | +0.062 ± 0.072 |
+| mirror | **+0.105 ± 0.083 UP** | **+0.095 ± 0.080 UP** |
+| elite_b | +0.075 ± 0.082 | +0.075 ± 0.080 |
+| mirror_b | **+0.197 ± 0.092 UP** | **+0.177 ± 0.089 UP** |
+| night | -0.031 ± 0.070 | -0.032 ± 0.068 |
+| night_hard | **+0.085 ± 0.084 UP** | +0.064 ± 0.081 |
+| realistic | -0.034 ± 0.048 | -0.026 ± 0.051 |
+| top | -0.021 ± 0.074 | +0.004 ± 0.076 |
+| night @10/7/5... / @50/25/12... / doubling | -0.011 / -0.229 / +0.001 | -0.000 / -0.560 / +0.002 |
+| exploit / exploit2 / exploit3 / adapt | -0.082 / +0.047 / **+0.131 UP** / -0.024 | -0.103 / +0.022 / +0.091 / +0.008 |
+| the eight short-handed exploit cells | identical (one 25-seed chunk each) | identical (200 seeds) |
+| **antes_from_level_3** | **-0.060 ± 0.051 DOWN** | **-0.056 ± 0.050 DOWN** |
+| fast_schedule | -0.045 ± 0.052 | **-0.060 ± 0.047 DOWN** |
+| top_heavy (of 100) | -0.380 ± 0.634 | -0.040 ± 0.668 |
+| straddle | identical (chunk) | identical (200 seeds) |
+
+The faster table rate answers no: the realistic room's lean stays (realistic -0.026, antes -0.056, fast_schedule now
+down), and the strong-table gain is a little smaller on the mirrors. O3 is the better of the two (one cell down, not
+two), so it is the one for a held-out set under addendum 7. Why the faster rate does not help, likely: realistic's
+folders are a handful of seats (tag 0.94, pushfold 0.91, timeout_then_recover 0.90), the table rate by position mixes
+them with its callers, and the cap only ever lowers a read, so a faster table rate cannot raise a tight seat's fold
+above F's own read; what costs there is the cap dropping steals into seats that read lower at the table level than
+they are. A seat's own excess (weight 23) is what would fix it, and it is slow by design.
+
+**O3 at main, completed (q_o3w.sh, 11:19).** O3 played on main's code matches its aafe5b9 run on one 25-seed chunk of
+every confirm, guard and elite cell (12 cells, identical sample for sample), so its cells were copied to main's key
+and the table completed there: the eight short-handed exploit cells and straddle now at 200 seeds, all +0.000 ±
+0.000 (identical). climb_accept on main: REJECT (antes_from_level_3 down; listed variants, so no REPLICATE line).
+Addendum 11's weighted score: W +0.0002 ± 0.0321 (lower bound -0.0319), W-min -0.0091 ± 0.0325 (lower bound
+-0.0416); the cap holds. O4's: W +0.0030 ± 0.0315 (-0.0286), W-min -0.0086 ± 0.0318 (-0.0404). Level with each other;
+neither weighted lower bound is above 0.
