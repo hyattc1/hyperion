@@ -126,3 +126,11 @@ def test_stab_lead_max_reaches_the_decisions_and_shut_plays_as_f():
     assert any(_digest(d, t, HU, R2)[0] != _digest({}, t, HU, R2)[0] for t in range(10))
     shut = {**S, "hero.postflop.stab_lead_max": -0.01}
     assert all(_digest(shut, t, HU, R2)[0] == _digest({}, t, HU, R2)[0] for t in range(3))
+
+
+def test_stab_free_max_reaches_the_decisions_and_shut_plays_as_f():
+    d = {**S, "hero.postflop.stab_pfr_min": 0.35, "hero.postflop.stab_lead_max": 0.4,
+         "hero.postflop.stab_free_max": 0.5}
+    assert any(_digest(d, t, HU, R2)[0] != _digest({}, t, HU, R2)[0] for t in range(10))
+    shut = {**S, "hero.postflop.stab_free_max": -0.01}
+    assert all(_digest(shut, t, HU, R2)[0] == _digest({}, t, HU, R2)[0] for t in range(3))

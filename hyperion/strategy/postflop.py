@@ -268,7 +268,10 @@ class PostflopParams:
     # a tight seat's are value. stab_lead_max (S15d, docs/drills/climb/s15d-log.md): only against a seat whose other
     # free bets are rare (Profiler.lead_rate at most this, prior stab_lead_prior worth stab_lead_n): it bets when I
     # check, not whenever it may (an aggressive seat that bets everywhere, a loose-aggressive student or an elite
-    # build, has hands behind its stabs). stab_holdem_only: hold'em tables only (hero.holdem_table). 1.0 / -1 / 0 = off
+    # build, has hands behind its stabs). stab_free_max: ... and whose bets when nothing is to call, its stabs included
+    # (Profiler.free_bet_rate, prior stab_free_prior worth stab_free_n), are at most this share: a seat that bets most
+    # of its free chances is betting a range (exploiter 1's Monte Carlo bets: 0.75), not attacking my checks.
+    # stab_holdem_only: hold'em tables only (hero.holdem_table). 1.0 / -1 / 0 = off
     stab_from: float = 1.0
     stab_full: float = 1.0
     stab_prior: float = 0.5
@@ -285,6 +288,9 @@ class PostflopParams:
     stab_lead_max: float = 1.0
     stab_lead_prior: float = 0.3
     stab_lead_n: float = 2.0
+    stab_free_max: float = 1.0
+    stab_free_prior: float = 0.4
+    stab_free_n: float = 2.0
     stab_holdem_only: bool = False
     # S12 reads (docs/drills/climb/s12-log.md); every one off by default.
     # size_read: facing a single bet heads-up (or a raise of my bet), the bettor's range for a bet of that size (bucket
@@ -1241,6 +1247,8 @@ class Postflop:
                 and (p.stab_pfr_min <= 0.0 or prof.pfr_rate(bettor) >= p.stab_pfr_min) \
                 and (p.stab_lead_max >= 1.0
                      or prof.lead_rate(bettor, p.stab_lead_prior, p.stab_lead_n) <= p.stab_lead_max) \
+                and (p.stab_free_max >= 1.0
+                     or prof.free_bet_rate(bettor, p.stab_free_prior, p.stab_free_n) <= p.stab_free_max) \
                 and (self._tw is None or not self._twist_read_off(spot, bettor)):
             r = prof.stab_rate(bettor, street, p.stab_prior, p.stab_n, p.stab_pool, p.stab_min)
             if r > p.stab_from:
