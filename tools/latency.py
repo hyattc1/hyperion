@@ -288,9 +288,10 @@ def replay(make, logs: list[list], seed: int, defer: bool = False) -> dict:
     the bot's defer_hand_end(True), and its idle() timed alone right after each hand end, as the kit's next event."""
     n_he = sum(1 for log in logs for ev in log if ev[0] == "he")
     n_act = sum(1 for log in logs for ev in log if ev[0] == "act")
-    he, acts, first, idle = [0.0] * n_he, [0.0] * n_act, [], [0.0] * n_he
+    n_vd = sum(1 for log in logs for ev in log if ev[0] == "vd")
+    he, acts, first, idle, vds = [0.0] * n_he, [0.0] * n_act, [], [0.0] * n_he, [0.0] * n_vd
     pc = time.perf_counter
-    i = j = 0
+    i = j = v = 0
     for t, log in enumerate(logs):
         _cold_caches()  # each table as in a fresh process: the recording (and the last pass) warmed the ICM memos
         bot = make(seed * 64 + t)
@@ -321,8 +322,12 @@ def replay(make, logs: list[list], seed: int, defer: bool = False) -> dict:
             elif op == "nt":
                 bot.new_table(ev[1], ev[2], ev[3])
             else:
-                bot.variant_decide(ev[1])
-    return {"he": he, "act": acts, "first": first, "idle": idle}
+                x = ev[1]
+                t0 = pc()
+                bot.variant_decide(x)
+                vds[v] = pc() - t0
+                v += 1
+    return {"he": he, "act": acts, "first": first, "idle": idle, "vd": vds}
 
 
 def hand_end_main(a, rules: Rules, dials) -> int:
@@ -342,7 +347,8 @@ def hand_end_main(a, rules: Rules, dials) -> int:
 
     logs = record_tables(make, rules, a.field, a.tables, a.seed, variant)
     passes = [replay(make, logs, a.seed, a.defer) for _ in range(max(1, a.reps))]
-    best = {k: [min(p[k][i] for p in passes) for i in range(len(passes[0][k]))] for k in ("he", "act", "first", "idle")}
+    best = {k: [min(p[k][i] for p in passes) for i in range(len(passes[0][k]))]
+            for k in ("he", "act", "first", "idle", "vd")}
     label = ship.describe(None, dials) if a.bot == "ship" else a.bot
     print(f"bot {label}  rules {a.rules or (a.variant and 'variant ' + a.variant) or 'default'}  payouts {rules.payouts}  "
           f"field {a.field}  tables {a.tables}  seed {a.seed}  reps {len(passes)}{'  defer' if a.defer else ''}  "
@@ -354,6 +360,8 @@ def hand_end_main(a, rules: Rules, dials) -> int:
         print(line("idle min", {**nul, "times": best["idle"]}) + "   (defer_hand_end: the pending work, after each hand end)")
     print(line("act min", {**nul, "times": best["act"]}))
     print(line("first act min", {**nul, "times": best["first"]}) + "   (each table's first decision)")
+    if best["vd"]:
+        print(line("variant min", {**nul, "times": best["vd"]}) + "   (variant_decide: discard, keep, swap, buy, bid)")
     p99 = stats(best["he"])["p99"]
     if p99 * 1e6 > a.p99_us:
         print(f"FAIL hand_end p99 {p99 * 1e6:.1f} µs > {a.p99_us:g} µs")

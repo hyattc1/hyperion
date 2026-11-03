@@ -928,7 +928,8 @@ class Postflop:
     def act(self, spot: Spot, hole, prof: Profiler | None, i_was_aggressor: bool, cheap: bool = False,
             board=None, board2=None, must_use: int = 0, dead=(), value_shift: int = 0, call_shift: int = 0,
             street: int | None = None, to_come: int | None = None, long: bool = False, more: bool = False,
-            shared: tuple = (), shared_call_shift: int | None = None, shared_all: bool = False) -> Action:
+            shared: tuple = (), shared_call_shift: int | None = None, shared_all: bool = False,
+            call_scale: float = 1.0, thin_shift: int = 0) -> Action:
         """`hole` and `board` are canonical cards (Hero remaps under a permuted rank order); the
         displayed obs.board is only the fallback when no board is passed. `board2` is the second board of
         a two-board game, `must_use` the Omaha rule, `dead` the exposed cards, `value_shift` raises the
@@ -938,7 +939,9 @@ class Postflop:
         tuple of our cards per opponent in the hand who holds them too (Hero's known cards); against each, the hand is
         read with them on the board (`read_shared`) and the lowest read is the hand's (`shared_all`: every opponent
         in the hand is one of them, so the plain read, which prices our shared cards as ours alone, is left out);
-        facing a bet a shared read is shifted by `shared_call_shift` (None: call_shift)."""
+        facing a bet a shared read is shifted by `shared_call_shift` (None: call_shift). `call_scale` / `thin_shift`: a
+        showdown tax (Hero's Config.sd_tax): facing a bet the equity is read x call_scale (a won showdown pays that share
+        of the pot), and the thin value thresholds (value_tier, the station tiers) move up thin_shift tiers."""
         p = self.p
         obs = spot.obs
         if board is None:
@@ -1008,7 +1011,7 @@ class Postflop:
                 bluff_mult = 3.0
         else:
             all_dead = False
-        value_tier = p.value_tier + int(shift) + value_shift
+        value_tier = p.value_tier + int(shift) + value_shift + thin_shift
         big_value_tier = p.big_value_tier + value_shift
         if p.xr_shift and spot.to_call == 0 and n_opp == 1 and prof is not None and not cheap \
                 and 1 <= street <= 3 and p.xr_streets >> (street - 1) & 1:
@@ -1027,11 +1030,11 @@ class Postflop:
                 return self._bet(spot, p.dead_bet_size)
             if any_station:
                 if street == 3:
-                    if tier >= p.station_river_tier + value_shift:
+                    if tier >= p.station_river_tier + value_shift + thin_shift:
                         self.last = "station_river"
                         return self._bet(spot, p.station_river_size, eq=eq)
                     return _CHECK
-                if tier >= p.station_early_tier + value_shift:
+                if tier >= p.station_early_tier + value_shift + thin_shift:
                     self.last = "station_value"
                     return self._bet(spot, p.value_size_wet, eq=eq)
                 return _CHECK
@@ -1161,6 +1164,8 @@ class Postflop:
             if tier < p.river_min_tier and tier < p.raise_tier:
                 return _FOLD
         eq += (call_down - 1.0) * p.call_down_equity_bonus
+        if call_scale != 1.0:
+            eq *= call_scale  # the showdown tax: what a call wins at showdown pays call_scale of the pot
         if any_station and bettor >= 0 and prof is not None and prof.station(bettor):
             margin += p.passive_bettor_extra_margin
         if tier >= raise_tier + value_shift:
@@ -1185,6 +1190,8 @@ class Postflop:
             sr = self._size_eq(spot, prof, bettor, street, t_eq if t_eq > 0 else 0)  # call_shift as F's own rule
             if sr is not None:
                 eq_r, w = sr
+                if call_scale != 1.0:
+                    eq_r *= call_scale
                 if eq_r >= p.size_read_raise and tier >= 2:
                     self.last = "size_raise"
                     return self._bet(spot, p.raise_size, eq=eq_r)

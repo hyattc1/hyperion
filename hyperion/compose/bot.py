@@ -664,6 +664,7 @@ class CompositeCore:
     """Routes each decision to its section's member (module doc). Not guarded: Composite wraps it in SafeBot."""
 
     def __init__(self, config: ComposeConfig | None = None):
+        self._obs = None  # the last decision's observation (variant_decide passes it to the base's Hero)
         self.cfg = cfg = config or ComposeConfig()
         donors = [cfg.route.get(s, cfg.base_donor) for s in SECTIONS]
         names = ["base"]  # index 0 is always the base
@@ -763,6 +764,7 @@ class CompositeCore:
 
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
         self.panic = False
+        self._obs = None
         self._rr_reset()
         for m in self.members:
             m.new_table(rules, seat, n_players)
@@ -832,6 +834,7 @@ class CompositeCore:
 
     def act(self, obs: Observation) -> Action:
         t0 = perf_counter()
+        self._obs = obs  # the last decision's observation, for the variant decisions (variant_decide)
         ex = self.ex
         if ex is not None:
             try:
@@ -1011,6 +1014,11 @@ class CompositeCore:
             raise err
 
     def variant_decide(self, prompt: dict):
+        # the base's Hero makes it, and sees few of the hand's observations (the members decide): it gets ours, the
+        # last decision's, for what the prompt does not carry (V-i's option prices: the pot, the opponents in)
+        o = self._obs
+        if o is not None and "last_obs" not in prompt:
+            prompt = {**prompt, "last_obs": o}
         return self.base.variant_decide(prompt)
 
     def defer_hand_end(self, on: bool = True) -> None:
