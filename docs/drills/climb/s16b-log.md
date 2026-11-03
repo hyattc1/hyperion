@@ -309,3 +309,7 @@ O4's elite stage (O4 - F; O3 beside it): elite +0.030 ± 0.086 (O3 +0.030), elit
 O4's variants (realistic, 200 seeds): **antes_from_level_3 -0.056 ± 0.050 DOWN** (O3 -0.060), **fast_schedule -0.060
 ± 0.047 DOWN** (O3 -0.045, level), top_heavy -0.040 ± 0.668 of 100 (O3 -0.380), straddle +0.000 ± 0.000 (identical
 by construction). The faster table rate does not remove the realistic lean.
+
+O4's confirm and guards: night -0.032 ± 0.068 (O3 -0.031), night_hard +0.064 ± 0.081 (O3 +0.085 UP), realistic
+-0.026 ± 0.051 (-0.034), top +0.004 ± 0.076 (-0.021), night @10/7/5... -0.000 ± 0.121, @50/25/12... -0.560 ± 0.822 (of
+100), doubling +0.002 ± 0.074: all level.
