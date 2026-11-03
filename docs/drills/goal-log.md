@@ -1107,3 +1107,15 @@ and (in judges) `elite_judge`.
   wild_deuces, exposed_card, swap_holdem; 10 cells) identical against 9acc160 (H6 renames the short chunk: .n15).
 - climb/batch6 (SHIP_DIALS + BATCH6_OFF + tests) rebased and green (166 tests); BATCH6_OFF's digests equal batch 5's
   on plain and 13 variants, exploit2_hu and adapt_hu. Merges when H20 and the judges report.
+
+## 09:59: S18 (horizon-aware ICM) rejected on the screen; its tooling merged
+- One form fixed in advance (each stack priced as max(s - blinds owed before its next button or the cap, s/2)) in
+  Hero's curve and rival 3's prices. It changes 0.30% of F's decisions. Screen: night +0.010 ± 0.044, no payout
+  table up; down: exploit (exploiter 1, 8-max) -0.107 ± 0.104, adapt (8-max) -0.081 ± 0.077, three_card_keep
+  -0.020 ± 0.018, auction -0.025 ± 0.024 (each just past its interval); two_boards +0.060 UP. Rejected (exploit cells
+  down). Expected +0.01 to +0.03 was below the screen's noise anyway.
+- Kept (off): the dial, and the late-table report (climb_accept --late; run_tournament late_at) and
+  docs/drills/climb/rules/cap150.json. Finding for the structural round: about half of all tables are still running
+  at hand 150 with three or more alive; F scores 5.87 on night's late tables (5.97 overall), is out of 36% of them by
+  hand 150, and a third of its remaining seats bust in the last 50 hands (realistic 19%, top 55%, elite 56-73%).
+- Merge conflicts with S16 and V-i kept both. Identity after the merge: 14 cells identical.
