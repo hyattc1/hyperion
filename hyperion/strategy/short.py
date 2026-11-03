@@ -19,6 +19,8 @@ tree's raise sizes follow the actual bet: the 3-bet is 3.5 times the open, the 4
 - `steal_ftb`: the button's limp becomes a min-raise against a big blind that folds to raises that often.
 - `defer_3bet`: preflop goes back to F against a seat that 3-bets our opens far above equilibrium (rival 3's read).
 - `pre_open_min`: the big blind's preflop only against a seat that opens at least that share of its buttons.
+- `like_probe`, `like_bet`, `like_pfr` (S13b): every decision only against a seat that plays like exploiter 2 (it
+  leads and stabs into our heads-up pots nearly every chance, bets into them often, raises preflop).
 - Never with antes in the pot (obs.pot > 0 preflop): the trees have none.
 - `three`, `three_max`: three-handed preflop (and its depth cap).
 
@@ -147,6 +149,13 @@ class ShortParams:
         # profiler, open_rate late, smoothed toward 0.5 with 6): the equilibrium defends against a wide opener (both
         # exploiters open 85-95%); against the rest F's big blind and its reads play (0 = always)
         self.pre_open_min = 0.0
+        # S13b: every decision is ours only against a seat that plays like exploiter 2 (F's profiler): it leads or
+        # stabs into our heads-up pots nearly every time it has no initiative (probe rate, (bets + 0.9) / (chances +
+        # 2)), bets into them often overall (the post_aggr rate) and raises preflop at least sometimes (pfr). Ordinary
+        # bots, which F's reads beat, fail it (docs/drills/climb/s13-log.md, S13b); 0 = that part off
+        self.like_probe = 0.0
+        self.like_bet = 0.0
+        self.like_pfr = 0.0
         # a deviation on a clear read: as the big blind facing an open from a seat that opens at least this share of
         # its small blinds (F's profiler, open_rate late, smoothed toward 0.5 with 6), the nodes after the open come
         # from the counter solved against a small blind locked to open the top w of hands (tables/short_hu_lock.json,
@@ -255,6 +264,19 @@ class ShortMember:
         self._prof = prof
         stacks, bets, in_hand = obs.stacks, obs.bets, obs.in_hand
         alive = [j for j in range(len(stacks)) if stacks[j] + bets[j] > 0 or in_hand[j]]
+        if prof is not None and (self.p.like_probe > 0 or self.p.like_bet > 0 or self.p.like_pfr > 0):
+            p = self.p
+            for j in alive:
+                if j == obs.seat:
+                    continue
+                try:
+                    probe = (prof.pb_bet[j] + 0.9) / (prof.pb_opp[j] + 2.0)
+                    bet = (prof.pb_bet[j] + prof.ab_bet[j] + 1.6) / (prof.pb_opp[j] + prof.ab_opp[j] + 4.0)
+                    pfr = prof.pfr_rate(j)
+                except Exception:  # noqa: BLE001
+                    return False
+                if probe < p.like_probe or bet < p.like_bet or pfr < p.like_pfr:
+                    return False
         if obs.street == 0 and base is not None and self.p.defer_3bet < 1.0:
             core = getattr(base, "core", None)
             v3o, v3n = getattr(core, "v3o", None), getattr(core, "v3n", None)

@@ -204,3 +204,23 @@ def test_no_preflop_with_antes_and_the_big_blind_only_against_a_wide_opener():
     assert m.wants(o, _Prof(0.9)) and not m.wants(o, _Prof(0.4))
     o.pot = 10  # antes in the pot
     assert not m.wants(o, _Prof(0.9))
+
+
+def test_the_exploiter_gate_needs_every_read():
+    class P(_Prof):
+        def __init__(self, probe, bet, pfr):
+            super().__init__(0.9)
+            self.pb_bet, self.pb_opp = [probe * 100] * 2, [100] * 2
+            self.ab_bet, self.ab_opp = [bet * 100 * 2 - probe * 100] * 2, [100] * 2
+            self._pfr = pfr
+
+        def pfr_rate(self, s):
+            return self._pfr
+
+    m = SH.ShortMember(SH.ShortParams(like_probe=0.75, like_bet=0.6, like_pfr=0.15))
+    m.new_table(R2, 1, 2)
+    o = _obs([(0, Action.raise_to(50))], bets=(50, 20), stacks=(1950, 1980), to_call=30)
+    assert m.wants(o, P(0.9, 0.75, 0.5))  # exploiter 2's shape
+    assert not m.wants(o, P(0.45, 0.7, 0.6))  # exploiter 1 / an ordinary bettor: probes rarely
+    assert not m.wants(o, P(0.8, 0.7, 0.07))  # leads a lot but never raises preflop (naive)
+    assert not m.wants(o, P(0.9, 0.4, 0.5))  # probes, but bets little overall
