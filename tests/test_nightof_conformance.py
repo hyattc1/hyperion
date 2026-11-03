@@ -17,6 +17,8 @@ from hyperion.drills.fakekits.kit_c import runner as run_c
 
 from .strategy_helpers import make_obs, random_obs
 
+pytestmark = pytest.mark.night  # the night's one-minute subset (pyproject.toml markers)
+
 CHECK, CALL, FOLD, RAISE = ActionKind.CHECK, ActionKind.CALL, ActionKind.FOLD, ActionKind.RAISE
 
 
@@ -166,7 +168,8 @@ def test_kit_c_reference_adapter_is_clean_via_env_var(tmp_path, monkeypatch):
         "maybe_checked(KitCAdapter(CheapBot())).serve(sys.stdin, sys.stdout)\n"
     )
     monkeypatch.setenv("HYPERION_CHECK", "1")
-    r = run_c.run([sys.executable, str(sub)], hands=30, seed=3)
+    # the pooled clock at 50 ms a decision: the check is the report, and at load 17 kit C's 1 ms clock ran out first
+    r = run_c.run([sys.executable, str(sub)], hands=30, seed=3, budget_ms=50.0)
     assert r.exceptions == 0 and r.illegal == 0, r.summary() + " " + "; ".join(r.notes)
     stderr = [n for n in r.notes if n.startswith("stderr:")]
     assert stderr and f"{r.decisions} observations checked, 0 violations" in stderr[0], r.notes

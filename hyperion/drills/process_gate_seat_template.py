@@ -208,7 +208,9 @@ class Seat:
     # ---------------------------------------------------------------- the hand end
     def end(self, hand_no: int, delta: int, result: dict | None) -> None:
         """TODO 6  the kit's hand end from the gate's result (kit H's end: the board, the whole log, the hands shown,
-        everyone's chips after the hand, who went out), sent and its reply read."""
+        everyone's chips after the hand, who went out), sent and its reply read. A kit whose end carries `won`:
+        won: chips collected or net change? Collected (kit I): delta + what the seat paid this hand; net change (kit
+        G): the delta. As its README says."""
         r = result or {}
         hand = hand_no + self.HAND_BASE
         before = dict(self.start_stacks)

@@ -11,21 +11,33 @@ bounties and exposed cards, and the straddle preflop (`hero:table:<why>` in the 
 Hero patch below reaches such a bot only on Hero's tables, written `hero.<key>`; the core's dials are
 `r3.<name>`. With `--bot hero` (Hero is the ship bot) the Hero keys are written bare.
 
-Measure before and after with prompt 04's 300-table sim in `--mode model` on the same seed:
-`python -m hyperion.sim --tables 300 --seed 11 --mode model --field realistic@ship --rules rules_tonight.json`,
-then the same with `--dials '<the dict>'`. Keep the patch only if the ship line's points rise by more than half
-their CI, else revert it and say so. Kept: `python -m hyperion.ship --set '<the dict>'` writes it into `DIALS` in
-`hyperion/ship.py` (the kit simulator, latency, pack and the sim all read it), then one strict run: errors zero.
+**The keep rule** (the one rule for this patch; PLAYBOOK Stage 5, hard rule 6 and prompt 00 point here). Measure it
+paired, the same tables with and without it: in our simulator with `--variant` when it can play tonight's twist (a
+catalog entry, or its hooks as a file), else in the kit's own simulator (the patched and the unpatched zip in the same
+tables, two seats each, the same seeds; its CPU clock if it has one). Use the most tables the box allows in the box's
+time, never fewer than 600 paired tables in all (pool runs on different seeds). Keep it when the pooled point estimate
+is above zero and no paired check is down beyond its 95% interval (each run, and the aware check below). Otherwise
+revert it and say so. Drill 11's twin: +0.35 over 1,000 kit-sim tables, every run up: kept.
 
-The realistic field ignores most twists (only toss, bounty, short deck, river of blood, auction and keep-two have
-opponents that play them), so check the patch against opponents that read tonight's rules too, in one command:
+Dials, in our simulator: `python tools/climb_accept.py --stages window --base '' --cand '{"dials": <the dict>}' --rules
+rules_tonight.json --variant <name> --workers 2` (F with and without them on the night field under tonight's rules, 200
+seeds x 8 = 1,600 paired tables, about 3 minutes cold; the spec wraps the dials: `{"dials": {"hero.multi_call_shift":
+1}}`). A fallback ship bot climb_accept cannot build (hybrid3_x, Hero): `python -m hyperion.sim --tables 600 --seed 11
+--mode model --field realistic@ship --rules rules_tonight.json` once as it is and once with `--dials '<the dict>'` (the
+same seed is the same tables). A patch that is a function in the adapter, not dials: the kit's simulator, as above.
+Kept: `python -m hyperion.ship --set '<the dict>'` writes it into `DIALS` in `hyperion/ship.py` (the kit simulator,
+latency, pack and the sim all read it), then one strict run: errors zero.
+
+The night field ignores most twists (only toss, bounty, short deck, river of blood, auction and keep-two have opponents
+that play them), so the second check is against opponents that read tonight's rules too, in one command:
 `python tools/climb_accept.py --stages aware --aware generic:<variant> --base '' --cand '{"dials": <the dict>}'
---set 10000:10100 --workers 2` (the spec wraps the dials: `{"dials": {"hero.multi_call_shift": 1}}`). `<variant>` is the catalog name; for a twist the catalog lacks, first write its Rules and
+--set 10000:10100 --workers 2` (800 paired tables). `<variant>` is the catalog name; for a twist the catalog lacks, first write its Rules and
 hooks as a file (copy `hyperion/drills/variant_file_example.py`: name the variant in `Rules.extras["variant"]`, give
 the hooks `restore()` if their public state is published under another name) and pass `generic:path/to/file.py:variant`.
 The command builds the twist's table if missing (catalog: committed; a new twist 15-45 s) and pairs F and the
 candidate in `generic_aware`, whose Monte Carlo, TAG and push/fold seats deal, score and pay through the variant's own
-hooks. Rehearsed on a twist the catalog lacks: 2.4 minutes end to end (table 14 s) at two workers. A patch beyond noise down there is reverted even if realistic liked it.
+hooks. Rehearsed on a twist the catalog lacks: 2.4 minutes end to end (table 14 s) at two workers. Down beyond noise
+there, the keep rule reverts the patch whatever the night field said.
 
 ## Strength ordering moved (permuted ranks, short deck, new categories)
 The evaluator remaps ranks through `Rules.rank_order`. If prompt 03 ended on its restore branch,
@@ -80,6 +92,14 @@ caption every line "on hold'em tables" and expect the patch to do nothing. Patch
   bid request there, and `charges_dead`-style accounting in the sim if the price goes to the pot. Bidding nothing
   measured -0.56 ± 0.34 a table (Hero, realistic_auction, 200 seeds). A first-price auction (pay your own bid)
   wants the bid shaded, by (n - 1) / n for n bidders on the textbook uniform-value rule: not measured here.
+- Pots settled by street (each betting round's chips a pot of their own, won by the best hand as it stood on that
+  street; drill 11's Tranche Hold'em: two cards preflop, a preflop all-in has no board). If the catalog has a
+  street-settled entry (`python -m hyperion.drills.variants --list`), name it with `--variant` and measure there; its
+  Rules fields say how the pots settle. Without one, our sim cannot play it: the kit's simulator measures, and the
+  first move is drill 11's kept patch, in the adapter: on every preflop decision show the bot the hold'em class at the
+  same combo percentile as our hand's two-card rank (a pair over any non-pair, then the higher card, then the lower;
+  22 as ATs, KQ as A3s), the real cards from the flop on (`twin_hole` in docs/drills/drill11/adapter.py). Kept there
+  by the keep rule: +0.35 over 1,000 kit-sim tables, every run up (the same twin only at 20 bb or less: level).
 - Point tables: `Rules.payouts` in `rules_tonight.json` is the whole patch; Hero's ICM curve and the core's
   all-in prices are both built from it (print the payouts of the `Rules` passed to `new_table` to confirm).
   No ICM-premium key exists; `preflop.shove_call_margin` (Hero) and `r3.push_margin` / `r3.call_margin` (the

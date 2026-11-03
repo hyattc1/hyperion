@@ -113,15 +113,28 @@ def warm_up(ad) -> None:
     except Exception:  # noqa: BLE001
         ERRORS["warm_up"] += 1
     warmed(ad)  # the conformance report forgets the made-up hand
+    ERRORS.pop("deltas_sum", None)  # a made-up hand end need not add up
 
 
 def hand_end(ad, r) -> None:
     """TODO 3  the kit's hand-end result -> Adapter.hand_end, with everything it carries (adapter_template TODO 8): the
     hand's actions (history), every seat's chip change (deltas, or final_stacks), the hands shown (showdown, {} when
-    none; leave it None when the kit does not say), the board. The names below are kit G's (offsets from us)."""
+    none; leave it None when the kit does not say), the board. The names below are kit G's (offsets from us).
+
+    TODO 3a  `won`: chips collected or net change? The README says which; read it, then one of:
+      net change (drill 9's kit G: each seat's chip change for the hand):
+          deltas = [int(w) for w in r.won]
+      collected (drill 11's kit I: what each seat took from the pots, sum(paid[s]) its cost):
+          deltas = [int(w) - int(sum(p)) for w, p in zip(r.won, r.paid)]
+    The wrong one feeds the bot wrong stacks for the rest of the table and nothing raises (drill 11 pasted kit G's line
+    onto kit I's collected chips). Right, the deltas sum to 0 (no rake): a hand end that does not is counted
+    (`deltas_sum` on the error line)."""
+    deltas = [int(x) for x in r.won]  # net change (kit G)
+    if sum(deltas) != 0:
+        ERRORS["deltas_sum"] += 1
     shown = {i: tuple(x) for i, x in enumerate(r.shown or ()) if x}
-    ad.hand_end(int(r.hand), int(r.won[0]), SEATS, history=history(r.log), deltas=[int(x) for x in r.won],
-                showdown=shown, board=tuple(r.board))
+    ad.hand_end(int(r.hand), deltas[0], SEATS, history=history(r.log), deltas=deltas, showdown=shown,
+                board=tuple(r.board))
 
 
 def table_over(r) -> bool:
