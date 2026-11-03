@@ -40,6 +40,8 @@ from ..core.eval import max_cards, warm
 from ..core.types import RANKS, Action, ActionKind, HandResult, Observation, Rules
 from ..tablegen import hole_label
 from .exploit import Exploit, ExploitParams, ShippedExploitParams
+from . import known as _known
+from .known import ladder as known_ladder
 from .postflop import TIER_EQUITY, Postflop, PostflopParams
 from .preflop import Preflop, PreflopParams
 from .profiler import Profiler
@@ -428,6 +430,16 @@ class Config:
     # used when the re-cut moves labels by at least this mean percentile (Omaha's catalog set, 300 samples a label,
     # 0.17; the three-card sets 0.06-0.08). 0 = off
     twin_multi: float = 0.0
+    # known cards (V-h, hyperion/strategy/known.py): cards an opponent is known to hold, from obs.extras["known"]
+    # ({seat: cards}; a card may be ours too, as Chain Hold'em's shared links are) and obs.extras["exposed"]. A comma
+    # list of the parts on, "" = off (the play before 2026-11-02: exposed cards only, as dead cards and range reads):
+    #   pre   heads-up before the flop (one opponent left in the hand, known to hold cards): the hand is read as the
+    #         class whose heads-up equity is ours against him (known.equity: a shared card counts for both hands, his
+    #         exposed cards are his), and the exposed-card range reads stand down for that decision
+    #   post  after the flop: against each opponent in the hand who shares cards with us, the hand is read with the
+    #         shared cards on the board (they make his hand as much as ours); the lowest read is the hand's
+    # With it on, every known card that is not ours comes off the draw outs (as exposed cards always did)
+    known_cards: str = ""
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5
@@ -738,6 +750,11 @@ class HeroCore:
         self._run = False  # rules.extras["run_until_black"] (river_of_blood): a red last card deals another street
         self._pre_aggr = False  # my last preflop action this hand was a raise nobody re-raised (when history is absent)
         self.inferred = 0  # decisions whose betting state came from the bets because the history could not explain it
+        # known cards (Config.known_cards): which parts are on, and the class ladder the heads-up equity is read
+        # through (equities ascending, their classes), built per table set in _configure
+        self._known_pre = self._known_post = False
+        self._known_ladder = None
+        self.known_pre_n = self.known_post_n = 0  # decisions the known cards reached (diagnostics)
 
     # ------------------------------------------------------------------ Bot protocol
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
@@ -870,6 +887,22 @@ class HeroCore:
         pre.pf = pf
         if cfg.use_icm:
             pre.curve = pf.curve = self.curve
+        self._known_pre = self._known_post = False
+        self._known_ladder = None
+        if cfg.known_cards:
+            parts = {x.strip() for x in str(cfg.known_cards).split(",") if x.strip()}
+            bad = parts - {"pre", "post"}
+            if bad:
+                raise KeyError(f"unknown known_cards part {sorted(bad)[0]!r}; known: pre, post")
+            # the prepared equities are hold'em's showdown (52 cards, five on the board, best five of all, no must-use):
+            # any other showdown keeps the dealt class and the plain read
+            std = (tuple(rules.board_sizes)[-1:] == (5,) and rules.n_suits == 4 and not rules.must_use_hole
+                   and not ex.get("removed_ranks") and not low and wild_c < 0 and not fof
+                   and int(ex.get("n_boards", 1) or 1) == 1)
+            self._known_post = "post" in parts and std
+            if "pre" in parts and std and self._cls_map is None:
+                self._known_ladder = known_ladder(t, pre)
+                self._known_pre = self._known_ladder is not None
 
     def _twins(self, rules: Rules) -> dict | None:
         """The variant's twin map (Config.twin_preflop), read once per variant and rules; None when the variant has
@@ -990,15 +1023,26 @@ class HeroCore:
         exposed = None
         board2 = None
         bounty_k = 0.0
+        shared = None
         if extras:
             if self._bounty is not None:
                 if self.cfg.bounty_exact:
                     bounty, bounty_k = self._bounty_exact(obs, extras)
                 else:
                     bounty = self._bounty_bonus(obs, extras)
-            ex = extras.get("exposed")
-            if ex:
-                exposed, dead = self._exposed(ex, obs.seat)
+            if self._known_pre or self._known_post:
+                known = _known.parse(extras, obs.seat, rm.rank_order if rm is not None else None)
+                if known:
+                    exposed, dead, shared = self._known(known, hole)
+                    if obs.street == 0 and self._known_pre and nh == self.rules.hole_cards:
+                        k = self._known_class(known, hole, obs)
+                        if k is not None:
+                            cls = k
+                            exposed = None  # the class prices his cards: no exposed-card range reads on top
+            else:
+                ex = extras.get("exposed")
+                if ex:
+                    exposed, dead = self._exposed(ex, obs.seat)
             if self._revealed_dead:
                 rv = extras.get("revealed")
                 if rv:  # deal5_keep2: every face-up discard, our own included, is out of the deck
@@ -1096,8 +1140,20 @@ class HeroCore:
             if nh + nb > 8:
                 self.last_path = "safe"
                 return safe_action(obs)
-        a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
-                              value_shift=value_shift, call_shift=call_shift)
+        sh = ()
+        if shared and self._known_post:
+            sh = self._shared_sets(shared, spot)
+        if sh:
+            # the shared reads are pairwise (his hand on the same board as ours): the multi-card call shift, there
+            # because every three-card hand is stronger, does not apply to them
+            cs2 = call_shift - (cfg.multi_call_shift if (nh >= 3 and self.rules.hole_cards >= 3 and not mu
+                                                         and not self._revealed_dead and not self._toss) else 0)
+            a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
+                                  value_shift=value_shift, call_shift=call_shift, shared=sh, shared_call_shift=cs2)
+            self.known_post_n += 1
+        else:
+            a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
+                                  value_shift=value_shift, call_shift=call_shift)
         if cfg.bounty_bet_frac > 0.0 and bounty and a.kind is ActionKind.CHECK and spot.to_call == 0 \
                 and spot.n_opps <= 2 and not cheap and ActionKind.RAISE in obs.legal and self._bounty_hit(obs):
             a = self.postflop._bet(spot, cfg.bounty_bet_frac, bluff=True)
@@ -1280,6 +1336,63 @@ class HeroCore:
             for c in cards:
                 c = int(c)
                 out.append(rm.rank_order[c >> 2] * 4 + (c & 3) if rm is not None else c)
+        return tuple(out)
+
+    def _known(self, known: dict, hole):
+        """Known cards ({seat: canonical cards}, known.parse) as (exposed {seat: his highest card that is not ours},
+        dead cards for the draw outs (every known card that is not ours, once), shared {seat: our cards he holds too})."""
+        mine = set(hole)
+        exposed = {}
+        dead = set()
+        shared = {}
+        for s, cards in known.items():
+            sh = []
+            top = -1
+            for c in cards:
+                if c in mine:
+                    sh.append(c)
+                else:
+                    dead.add(c)
+                    if c > top:
+                        top = c
+            if top >= 0:
+                exposed[s] = top
+            if sh:
+                shared[s] = tuple(sh)
+        return exposed or None, tuple(sorted(dead)), shared
+
+    def _known_class(self, known: dict, hole, obs: Observation):
+        """Heads-up before the flop against a seat known to hold cards: the class whose heads-up equity is ours
+        against him (Config.known_cards "pre"), or None (more than one opponent, nothing known, or no table)."""
+        in_hand = obs.in_hand
+        me = obs.seat
+        opp = -1
+        for s in range(len(in_hand)):
+            if s != me and in_hand[s]:
+                if opp >= 0:
+                    return None
+                opp = s
+        cards = known.get(opp) if opp >= 0 else None
+        if not cards:
+            return None
+        mine, sh, xp = _known.split(hole, cards)
+        u = self.rules.hole_cards - len(sh) - len(xp)
+        if u < 0 or not mine:
+            return None
+        e = _known.equity(mine, sh, xp, u)
+        if e is None:
+            return None
+        self.known_pre_n += 1
+        return _known.class_at(self._known_ladder, e)
+
+    @staticmethod
+    def _shared_sets(shared: dict, spot: Spot) -> tuple:
+        """Our cards each opponent still in the hand holds too, one tuple per distinct set."""
+        out = []
+        for s in spot.opps:
+            cs = shared.get(s)
+            if cs and cs not in out:
+                out.append(cs)
         return tuple(out)
 
     def _exposed(self, ex: dict, me: int):
