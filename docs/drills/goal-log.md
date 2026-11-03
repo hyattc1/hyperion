@@ -916,3 +916,17 @@ and (in judges) `elite_judge`.
 - S17 (goal/wt_s17, climb/s17-stab-size): one size for the exploit layer's stab (exploit.stab_size), aimed at
   exploiter 2's raises of small bets and adapt1's finding that F's small bets show weak; survey first; screen against
   all 12 exploit cells.
+
+## 03:21: S15 merged (a stab read against exploiter 3's edge); S15c to H19
+- The leak: heads-up, F folds 71/85/67% (flop/turn/river) to a bet after checking, against a break-even of 38-40%;
+  its check never holds a strong hand and it folds every tier-2 hand to a turn or river bet. Exploiter 3 estimates
+  that rate and bets air where it beats break-even by 0.05; its turn and river counters carry +0.19 of its +0.20
+  heads-up edge. Not the layer's 0.33 stab (exploiter 3 folds 53% to it, raises 4%).
+- The fix (hero.postflop.stab_*, off): per seat, how often it bets right after F checks in a heads-up pot; on the turn
+  and river a high rate moves F's equity toward its equity against the whole range and lowers the call margin. Gated
+  to three or fewer alive, seats raising 30%+ preflop, hold'em tables (without the preflop gate it fired against
+  night's tight seats and night fell). F's turn/river folds after checking: 85/67% -> 53/34%.
+- Screen (S15c, base batch 5): exploit3_hu +0.128 ± 0.110, exploit3_3 +0.080 ± 0.058 UP; every other cell level
+  (exploit_hu -0.060 ± 0.108 to watch). A long-board counter bug fixed along the way (river_of_blood played differently
+  with the dials off).
+- S15c on H19 (39000-39399), --aim exploit, every stage (now 12 exploit cells with adapt) after the identity check.
