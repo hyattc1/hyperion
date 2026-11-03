@@ -116,3 +116,48 @@ from the fit above, and the gated variant hands preflop back to F against a 3-be
   the coordinator's run of the same command on main b1c9e89 (`goal/idchk27/post`): all 14 chunks' sample lists
   identical (night, night_hard, realistic, top, night at both payout tables, night with doubling blinds). Repeated at
   the end on the final code.
+
+## Step 2: the second tree and its solve
+
+`tools/solve_short.py three2` (block "three-handed, v2 (S20)"): one generic betting-round walk builds the tree, so
+every line follows the same rules:
+- button: fold / open (2.0 bb to 25 bb effective, 2.25 to 60, 2.5 deeper) / jam (no limp: `limp_btn` off);
+- facing an open with nobody in between: fold / flat / 3-bet 2.3x / 3-bet 3.3x / jam (both blinds; the small blind's
+  flat makes three-way and heads-up flops);
+- behind a flat: fold / call / squeeze 4x / jam;
+- the opener facing a 3-bet: fold / call / 4-bet 2.2x / jam; a cold player facing a 3-bet: fold / 4-bet / jam (no
+  cold call; the big blind's cold 4-bet over the small blind's 3-bet); facing a 4-bet: the 3-bettor folds / calls /
+  jams, anyone else folds / jams;
+- the small blind first in: fold / limp / open / jam; the big blind over its limp: check / raise 2.5 or 3 bb / jam;
+- a raise to more than 40% of the effective stack (45% for 4-bets) is the jam; once anyone is all in, fold / call.
+- Terminals: folds; all-in showdowns (two-way on the 169 x 169 matrix, three-way on 20 buckets as before, side pots
+  layered); heads-up flops at the fitted realization; three-way flops by the bucket model's odds tilted by postflop
+  seat (the log weights above). ICM at prizes 1 / 0.4 / 0 (10/7/5) as S13.
+- *Asymmetric realization*: each configuration is solved three times, once per hero seat (button, small blind, big
+  blind). In the solve for hero h, h's flops use our seat's fitted share (in or out of position) and the other two's
+  flops the symmetric fit; the table keeps each seat's nodes from its own solve. Every node stores its raise sizes as
+  multiples of the bet it faces ("z"), so the bot maps any history generically.
+- Size at 40 bb: 76 decision nodes (S13's tree 30); at 12 bb and under, 22.
+
+Solve (14:20-15:40, system python3 with numpy, 2 workers, nice 10): grid 5, 8, 12, 18, 27, 40, 60, 90 bb for each of
+the three stacks (512 configurations x 3 hero seats), 400 iterations each, `--real goal/s20/real_mix.json` (the mix
+fit, w3 -0.29 / -0.07 / +0.28, shares clipped to [-0.3, 1.3]). Exploitability in the abstract game, milli-prizes a hand
+(1st - 3rd = 1000), per hero seat's solve: median 0.038 / 0.041 / 0.038 (button / SB / BB), 90th percentile 0.29 /
+0.30 / 0.29, worst 1.59 / 1.63 / 2.37 (90, 90, 27-40: the deepest, least converged; S13's tree: median 0.026, worst
+1.65 at 300 iterations). At 60, 60, 60 the exploitability falls 1.35 / 0.58 / 0.43 / 0.33 / 0.25 / 0.19 at 100-600
+iterations (S13's is CFR+ with linear averaging, unchanged). Table: tables/extra/short_3b.json, 3.19 MB (compact
+form; S13's short_3.json is 1.5 MB), decoded in 0.27 s once per process when `short.three2` is on.
+
+Checks (tests/test_s20_three.py, run with system python3 for the numpy parts): the tree has the new lines; a small
+solve converges and every class's probabilities sum to 1; **push/fold sanity**: both trees cut to fold / jam at the
+button's and the small blind's first decisions at 8, 8, 8 bb give the same jams and calls within 0.02 (button jam,
+SB jam, SB / BB calls of the jams); the default realization coefficients reproduce S13's fixed model exactly.
+
+What the solution plays (combo-weighted frequencies): at 18, 18, 18 the button folds 66% / opens 34% / jams 1%, the
+small blind against the open folds 76% / flats 9% / jams 15%, first in folds 32% / limps 16% / opens 38% / jams 14%;
+the big blind defends 100% against the button's min-raise (calls 82%, jams 18%: with the small blind's dead half big
+blind it gets 3.5 to 1, and the fitted out-of-position share loses only ~0.04 of the pot at SPR 3-4, so even 72o
+realizes more than the 22% it needs: the measured shares for weak hands are the open question here); facing a 2.3x
+3-bet the opener folds 7-19%, calls 60-77%, jams 16-22%. At 90, 90, 90 the small blind 3-bets 70% of hands against the
+button's open (polarized: 72o and T4o 3-bet, K9o folds 60%), never flats it (deep out-of-position flops cost -0.18 of
+the pot in the fit).
