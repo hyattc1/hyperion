@@ -25,9 +25,9 @@ hands (poker_ai_literature §11). A draft protocol addendum is at the end of thi
    generators are untouched (tested). climb_accept stops on any mismatch.
 3. **Zero mean.**
    - Fast field (seven simple bots), 6,000 seeds of hold'em and 3,000 each of hi_lo, short_deck, omaha_four and
-     knockout_bounty: every bot's term is within ±0.01-0.02 points a table seed of zero. A lean for the station on
-     seeds 60000-62999 (the same deals under three deck-keeping rules) did not replicate on 66000-71999, event by event
-     and street by street.
+     knockout_bounty: intervals of ±0.01-0.02 points a table seed, and 33 of 35 contain zero. The two that do not are
+     the station on hi_lo and knockout_bounty, seeds 60000-62999, the same deals as its hold'em lean (three rules that
+     keep the deck). It did not replicate on 66000-71999, event by event and street by street.
    - Real fields, each spec's term (per spec per cell): sum z^2 40.1 over 40 cells (batch 4) and 51.6 over 40 (F) in the
      batch 5 run, 33.6 and 32.4 over 27 in the S5 run, 9.8 / 4.0 / 3.2 over 7 at 400 seeds. Batch 4's night_hard term,
      z +2.75 at 400 seeds, was re-run on 400 fresh seeds (50200-50599): +0.009 ± 0.037, z +0.48.
@@ -53,8 +53,8 @@ hands (poker_ai_literature §11). A draft protocol addendum is at the end of thi
    | variants (100 seeds) | 1.05-1.37 | 0.98-1.28 | - |
    | median | 1.30 (34 cells) | 1.33 (27 cells) | 1.27 / 1.28 |
 
-   Heads-up and three-handed cells gain the most (exploit3_hu 1.62, exploit3_3 1.59, adapt_3 1.54), lowball,
-   top_heavy and realistic for S5 the least (0.98-1.05). A ratio from 100-200 seeds is itself uncertain by roughly
+   Heads-up and three-handed cells gain the most (exploit3_hu 1.62, exploit3_3 1.59, adapt_3 1.54). The least: lowball
+   for batch 5 (1.05), and realistic (1.00) and top_heavy (0.98) for S5. A ratio from 100-200 seeds is itself uncertain by roughly
    ±5-10%. In seeds, the same interval needs about 59% of them (1/1.30^2).
 6. **Cost.** About 5% of a table's time (night, F: 0.55 s of term in 9.9 s profiled). Term chunks are cached apart
    (`.rt-<version>.json`), so the first run with the term replays its base once per set.
