@@ -22,6 +22,7 @@ from hyperion.sim import bestiary as B
 from hyperion.sim.engine import play_table
 
 ROOT = Path(__file__).resolve().parents[1]
+pytestmark = pytest.mark.timing  # CPU-time budgets for setup and first decisions (drill 8: failed at load 11)
 
 CHILD = r'''
 import json, pickle, sys, time

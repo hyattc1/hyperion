@@ -16,6 +16,9 @@ from hyperion.sim import bestiary as B
 from hyperion.sim.engine import play_table
 
 
+pytestmark = pytest.mark.timing  # SafeBot's governor reads the wall clock: under load the two replays part (drill 8)
+
+
 class Interrupt(BaseException):
     """What kit E raises in a callback past its budget (a BaseException: `except Exception` does not stop it)."""
 

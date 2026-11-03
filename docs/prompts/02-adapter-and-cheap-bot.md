@@ -19,7 +19,14 @@ Track A (repo present):
    the stacks exactly right. Drill 6's empty history cost 2.5 points a table.
    An event-driven kit (no state snapshot, one call per event): copy `hyperion/drills/event_player_template.py` as the entry instead (EventTracker keeps pot, stacks, bets and the log; worked example `hyperion/drills/event_example.py` on `fakekits/kit_e_style`), and for step 7 `hyperion/drills/gate_seat_template.py` as `submission/gate_seat.py` (hand end untimed).
 2. The zip flattens `submission/`: the entry imports its adapter as a sibling (`from adapter import ...`), never
-   `submission.adapter` (drill 8's first package failed the kit's import check on it).
+   `submission.adapter` (drill 8's first package failed the kit's import check on it). A kit that builds a bot object
+   (class Agent and callbacks): copy `hyperion/drills/entry_template.py` as the entry and fill its TODOs.
+   The entry pins the package at import (`pin_package()` after the bot is built and warmed, `repin_package()` at the
+   top of every method): kit G's loader unloaded our modules before `Agent()` was built (drill 9), kit F's after it.
+   The rule sheet's timed hand-end callback (prompt 01) sets the template's `HAND_END`: timed (kits E, F, G: 1 ms, a
+   late one check/folds the next decision), `"defer"`: `bot.defer_hand_end(True)`, the callback runs only the light
+   part and the ICM curve waits for the next decision (`"store"` moves all of it there: on kit G, twice the late
+   decisions); untimed, `"eager"`.
    The kit's entry point builds `bot = hyperion.ship.make_bot()` behind `make_adapter(bot, rules)`, with
    everything imported and warmed at module import, not on the first decision; if the kit has no
    per-table hook, `start()` a throwaway adapter at import so every cache is hot before the first
@@ -41,8 +48,10 @@ Track A (repo present):
    many hands the rebuilt log stopped at a gap: near 0. Over 5% is a `history_gap` violation: the pot,
    bets, stacks or in-hand flags disagree with the betting (pot with this street's bets in it, a folded
    seat still in hand); fix TODO 3 or 6, not the rebuild.
-5. `python -m pytest -q` from the repo root; it must stay green. It takes 3 to 5 minutes and never
-   imports `submission/`: run it while step 6 packs.
+5. `python -m pytest -q -m "not timing"` from the repo root; it must stay green. It takes 3 to 5 minutes and
+   never imports `submission/`: run it while step 6 packs. On the night it always runs with `-m "not timing"`: the
+   wall-clock tests (budgets, slow-box, hand-end timing) fail on a loaded box and say nothing about the adapter
+   (drills 8 and 9 lost minutes reading them); the default `python -m pytest` still runs everything.
 6. `python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py
    submission/rules_tonight.json --bot cheap --note "cheap bot"`: it vendors `hyperion/`, `tables/` and
    the variant set `rules_tonight.json` names (read its `tables` line), records the bot (`bot cheap`
@@ -55,7 +64,10 @@ Track A (repo present):
    in-sim (`baseline bot cheap` line: `Hero.cheap()`). A kit with no action log (the rule sheet says so):
    add `--kit-log no`, so the in-sim bot sees only what the kit gives, through the same rebuild
    (automatic for fake kits b, c, d); an adapter that loses the rebuild then fails the gate. A kit that is none of the fake kits: first write `submission/gate_seat.py`, class
-   `Seat` copied from `KitA` in `tools/gate_host.py` with `native` and `parse` changed for this kit, and
+   `Seat` copied from `KitA` in `tools/gate_host.py` with `native` and `parse` changed for this kit (its log in the
+   kit's own shape, per street and with the blinds posted: the state's rows carry each action's street and chips and
+   `posts` the forced bets; `hyperion/drills/gate_seat_template.py`'s `by_street` groups them, `kit_g_log` is drill
+   9's kit worked through), and
    pass `--kit submission/gate_seat.py --kit-module <their kit.py>` (a subprocess kit unlike c or d:
    say the gate cannot run). Required: `GATE PASS`. It proves the reverse adapter now, so Stage 4's gate
    is one command; a FAIL on the delta means the adapter loses something the sim's Hero has.

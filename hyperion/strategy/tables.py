@@ -21,6 +21,13 @@ degraded without anything saying so).
 `tables_for(rules)` is the strategy's resolution rule: `tables/variants/<extras["variant"]>/` when a
 catalog set with matching card rules exists and the card rules differ from hold'em in a way a rank
 remap cannot fix (hole-card count, removed ranks, must-use), else `tables/`.
+
+A table start inside a timed decision (`quick_start()`: Adapter.decide starting the bot lazily, on a kit with no
+table-start hook or when the hand number goes back) reads nothing from disk and builds nothing: `tables_for` resolves
+only a set this process already loaded, else the plain tables (`tables/`, or the label view of them for 3+ hole
+cards), and `generic_doc` has no twin. Drill 9's report of a 491 ms table build inside act() did not reproduce (a
+host stall: the same run's base had as many SafeBot overruns); this is the one path where a decision could pay a
+table load or build (65-72 ms cold for three hole cards: the 8-card evaluator and the set), and it now cannot.
 """
 from __future__ import annotations
 
@@ -47,6 +54,29 @@ TOTAL_COMBOS = 1326
 
 class TablesError(RuntimeError):
     """A table set that was explicitly asked for is missing or invalid (strict loads only)."""
+
+
+_QUICK = [0]  # > 0 while a table starts inside a timed decision: caches only, no disk, no builds
+
+
+class quick_start:
+    """`with quick_start(): bot.new_table(...)` when the table start runs inside a timed decision. Everything it
+    resolves comes from what this process already loaded or falls back to the plain tables; a later table start
+    outside a decision (a table-start hook, the entry's warm-up at import) loads and builds as usual."""
+
+    __slots__ = ()
+
+    def __enter__(self):
+        _QUICK[0] += 1
+        return self
+
+    def __exit__(self, *exc) -> None:
+        _QUICK[0] -= 1
+
+
+def quick() -> bool:
+    """True inside quick_start(): a table start that must not read or build a table."""
+    return _QUICK[0] > 0
 
 
 def combos_of(cls: str) -> int:
@@ -356,6 +386,8 @@ def tables_for(rules: Rules, base: Tables | None = None, root: str = VARIANTS_DI
     base = base if base is not None else load(need_hu=True)
     if not needs_variant_tables(rules):
         return base
+    if _QUICK[0]:
+        return _quick_tables(rules, base, root, name)
     d = variant_dir_for(rules, root, name) if name else None
     if d is None:
         d = variant_dir_for(rules, root)
@@ -368,6 +400,18 @@ def tables_for(rules: Rules, base: Tables | None = None, root: str = VARIANTS_DI
         heads = head_tables(rules, base, root)
         return heads if heads is not None else fallback_label_tables(base)
     return base
+
+
+def _quick_tables(rules: Rules, base: Tables, root: str, name: str | None) -> Tables:
+    """tables_for inside quick_start(): a variant set only when this process loaded it already (a full table start for
+    these rules matched its card rules then), else the plain tables: `base`, or its label view for 3+ hole cards."""
+    for nm in (name, (rules.extras or {}).get("variant")):
+        if nm:
+            d = os.path.join(root, str(nm))
+            t = _CACHE.get(d + ("+hu" if rules.hole_cards == 2 else "")) or _CACHE.get(d)
+            if t is not None and t.hole_cards == rules.hole_cards and (rules.hole_cards != 2 or t.hu is not None):
+                return t
+    return fallback_label_tables(base) if rules.hole_cards != 2 else base
 
 
 # ---------------------------------------------------------------- label fallback (no variant set)
@@ -444,7 +488,7 @@ def generic_doc(rules: Rules, root: str = GENERIC_DIR) -> dict | None:
     through the variant's own hooks). Among files with the name, the one whose rules match `rules`, else the first with
     the same hole-card count. None when there is none or it is unreadable."""
     name = (rules.extras or {}).get("variant")
-    if not name or not os.path.isdir(root):
+    if not name or _QUICK[0] or not os.path.isdir(root):
         return None
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in str(name))[:40]
     from ..tablegen import rules_to_dict

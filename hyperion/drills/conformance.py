@@ -12,7 +12,10 @@ rule) in `adapter.conformance`; it also counts translation errors, which `Adapte
 turns silently into the kit's check/fold, and the action kinds sent back, which is the "folds, calls
 and raises at least once" check. `maybe_checked(adapter)` does that only when `HYPERION_CHECK=1` and
 prints the report to stderr at exit, so an entry point can call it unconditionally and the shipped
-bot is unchanged (the variable is not set in the sandbox).
+bot is unchanged (the variable is not set in the sandbox). Each table start (the adapter's `start`) clears the
+cross-call state (seat, button, chips, the last history), so one adapter can play many tables, and `warmed(adapter)`
+clears the whole report after the entry's import-time warm-up (drill 9: the warm-up's made-up hand 1 showed as
+`history_prefix` and `button_changed` findings on the kit's real hand 1).
 
 The checks cost tens of microseconds per decision and allocate: a drill tool, never a submission path.
 """
@@ -184,6 +187,22 @@ class ConformanceReport:
         self._last: tuple[int, int, int] | None = None  # hand_no, chip total, button
         self._hist: tuple[int, list] | None = None  # hand_no, the last observation's history as (seat, kind, amount)
 
+    def new_table(self) -> None:
+        """A table start: the cross-call checks (seat, button, chip total, history growth) begin again."""
+        self._seat = None
+        self._last = None
+        self._hist = None
+        self._inf_hist = None
+
+    def reset(self) -> None:
+        """Forget everything recorded so far (the entry's warm-up decisions are not the kit's)."""
+        self.observations = 0
+        self.counts.clear()
+        self.fixes.clear()
+        self.examples.clear()
+        self.actions.clear()
+        self.new_table()
+
     @property
     def total(self) -> int:
         return sum(self.counts.values())
@@ -304,7 +323,12 @@ def checked(adapter: Any, rules: Rules | None = None, report: ConformanceReport 
     report = report or ConformanceReport(history_source=getattr(adapter, "history_source", "log"))
     to_obs, from_act = adapter.to_observation, adapter.from_action
     with_hist = getattr(adapter, "with_history", None)
+    start = getattr(adapter, "start", None)
     report.inference = getattr(adapter, "inference", None)
+
+    def start_table(*args, **kw):
+        report.new_table()
+        return start(*args, **kw)
 
     def to_observation(native: Any) -> Observation:
         try:
@@ -333,7 +357,18 @@ def checked(adapter: Any, rules: Rules | None = None, report: ConformanceReport 
     adapter.from_action = from_action
     if with_hist is not None:
         adapter.with_history = with_history
+    if start is not None:
+        adapter.start = start_table
     adapter.conformance = report
+    return adapter
+
+
+def warmed(adapter: Any) -> Any:
+    """The entry's import-time warm-up is over: drop what the conformance report recorded from it (a no-op without
+    HYPERION_CHECK=1). The entry template calls it after warm_up()."""
+    report = getattr(adapter, "conformance", None)
+    if report is not None:
+        report.reset()
     return adapter
 
 

@@ -21,7 +21,9 @@ Action:
          each round trip is charged to the kit's pooled clock (1 ms x max_hands x 3), and once it runs
          out every action is a check or fold.
   seat.py  tonight's in-process kit: a class Seat modelled on gate_host.KitA, with --kit-module the
-         organisers' kit.py.
+         organisers' kit.py. Its state's history rows carry the street and the chips each action put in
+         ([seat, kind, total, street, put]) and `posts` the hand's forced bets, so the seat can send the kit's own
+         per-street log (hyperion/drills/gate_seat_template.py by_street) and the gate tests the adapter's parser.
 Illegal replies and exceptions are a check or fold, as the rules score them. One exception: kit D's legal set
 lets a seat re-raise after a short all-in, which our engine does not reopen; that raise is played as a call
 and reported as a rule mismatch, since the bot followed its kit.
@@ -235,11 +237,19 @@ class HostProxy(Proxy):
             return Reply(value=msg["v"], ns=ns, late=late)
         return Reply(kind=msg["k"], total=msg["t"], ns=ns, late=late)
 
-    def decide(self, obs: Observation) -> Reply:
-        st = dealer_state(obs, self.table.street_start(1) if self.table else None)
+    def state(self, obs: Observation) -> dict:
+        """The dealer state the host's seat gets; a seat file (tonight's kit) also gets each row's street and chips
+        and the posts, for the kit's own log."""
+        t = self.table
+        if self.kind == "seat" and t is not None:
+            return dealer_state(obs, t.street_start(1), tags=t.history_tags(obs.history), posts=t.posts)
+        st = dealer_state(obs, t.street_start(1) if t else None)
         if self.kind == "direct":
             st["extras"] = _json_extras(obs.extras)
-        return self._ask({"op": "act", "st": st})
+        return st
+
+    def decide(self, obs: Observation) -> Reply:
+        return self._ask({"op": "act", "st": self.state(obs)})
 
     def variant(self, prompt: dict) -> Reply:
         if self.kind == "direct":
@@ -248,7 +258,7 @@ class HostProxy(Proxy):
         if prompt.get("decision") != "discard" or self.kind == "b":
             self.unsupported += 1
             return Reply()
-        st = self.table.discard_state(self.seat, prompt)  # kit A (and a seat file): a DISCARD-only state
+        st = self.table.discard_state(self.seat, prompt, tagged=self.kind == "seat")  # kit A, a seat: DISCARD only
         r = self._ask({"op": "act", "st": st})
         if r.kind is not None:
             if r.kind != "discard" or not 0 <= r.total < len(prompt["hole"]):
@@ -261,9 +271,12 @@ class HostProxy(Proxy):
             return
         res = None
         if self.kind in ("direct", "seat"):  # a seat file passes on what tonight's kit's hand end would carry
+            t = self.table if self.kind == "seat" else None
             res = {"deltas": list(result.deltas), "board": list(result.board),
                    "showdown": {str(s): list(h) for s, h in (result.showdown or {}).items()},
-                   "history": history_rows(result.history)}
+                   "history": history_rows(result.history, tags=t.history_tags(result.history) if t else None)}
+            if t is not None:
+                res["posts"] = [list(p) for p in t.posts]
         self._send({"op": "end", "hand_no": result.hand_no, "delta": result.deltas[self.seat], "result": res})
 
     def close(self) -> None:
@@ -540,38 +553,90 @@ class GateTable(Table):
     """A sim Table whose `gate_seat` is a Proxy: it is asked through the proxy, timed by the proxy, and held
     to the rules' scoring (an exception, an illegal or late reply is a check or fold). Every other seat, and
     the whole table when gate_seat is None, is the engine's own code. Records what the reverse adapters need:
-    the hand in play, the stacks and pips right after the blinds, and where each street's history begins."""
+    the hand in play, the stacks and pips right after the blinds, where each street's history begins, and the forced
+    bets, from which each history entry's street and chips follow (history_tags, posts)."""
 
     def __init__(self, bots, rules, seed, mode, variant, stats, gate_seat=None, proxy=None):
         self.gate_seat, self.proxy = gate_seat, proxy
         self.cur = None
         self.pre = None
         self.marks: list[tuple[tuple, int]] = []
+        self.starts: list[tuple[int, int]] = []  # (street, history index) where each betting round began
+        self.posts: list[list] = []  # this hand's forced bets [seat, "ante" | "sb" | "bb" | "straddle", chips]
         if proxy is not None:
             proxy.table = self
         super().__init__(bots, rules, seed, 0, mode, variant, stats)
 
     def _needs_betting(self, hs) -> bool:
         if hs is not self.cur:  # street 0 of a new hand: the blinds (and a straddle) are in, nobody has acted
-            self.cur, self.marks = hs, []
+            self.cur, self.marks, self.starts = hs, [], []
             self.pre = (self.stacks[:], hs.bets[:], list(hs.holes), hs.button, hs.blinds)
+            self.posts = self._forced(hs)
         self.marks.append((tuple(hs.board), len(hs.history)))
         return super()._needs_betting(hs)
+
+    def _betting_round(self, hs, street: int, first: int) -> None:
+        self.starts.append((street, len(hs.history)))
+        return super()._betting_round(hs, street, first)
+
+    def _forced(self, hs) -> list[list]:
+        """The hand's forced bets as the engine posted them: every ante (dead money, out of the bets), then the small
+        blind, the big blind and a straddle (Table.play_hand's order; heads-up the button posts the small blind)."""
+        out = [[s, "ante", hs.contrib[s] - hs.bets[s]] for s in range(self.n) if hs.contrib[s] > hs.bets[s]]
+        in_hand = hs.in_hand
+        sb = hs.button if hs.n_in_hand == 2 else self._after(hs.button, in_hand)
+        bb = self._after(sb, in_hand)
+        seats = [(sb, "sb"), (bb, "bb")]
+        if self.rules.straddle and hs.n_in_hand >= 3:
+            seats.append((self._after(bb, in_hand), "straddle"))
+        out += [[s, name, hs.bets[s]] for s, name in seats if hs.bets[s] > 0]
+        return out
+
+    def history_tags(self, history) -> list[tuple[int, int]]:
+        """(street, chips put in) for each entry of this hand's `history`: the street from where each betting round
+        began, the chips replayed from the stacks and bets right after the posts (a call puts in what it owes, capped by
+        the stack; a raise its total less the seat's bet on the street)."""
+        if self.pre is None:
+            return [(0, 0)] * len(history)
+        stacks, bets = list(self.pre[0]), list(self.pre[1])
+        starts = self.starts
+        k, street = 0, starts[0][0] if starts else 0
+        out = []
+        for i, (s, a) in enumerate(history):
+            while k + 1 < len(starts) and starts[k + 1][1] <= i:
+                k += 1
+                street = starts[k][0]
+                bets = [0] * len(bets)
+            kind = a.kind
+            if kind is CALL:
+                put = min(max(bets) - bets[s], stacks[s])
+            elif kind is RAISE:
+                put = min(int(a.amount) - bets[s], stacks[s])
+            else:
+                put = 0
+            bets[s] += put
+            stacks[s] -= put
+            out.append((street, put))
+        return out
 
     def street_start(self, street: int) -> int | None:
         return self.marks[street][1] if street < len(self.marks) else None
 
-    def discard_state(self, seat: int, prompt: dict) -> dict:
-        """The dealer's DISCARD-only state for a toss (fakekits/_table.py _toss_round)."""
+    def discard_state(self, seat: int, prompt: dict, tagged: bool = False) -> dict:
+        """The dealer's DISCARD-only state for a toss (fakekits/_table.py _toss_round); `tagged` for a seat file."""
         hs = self.cur
         discards = dict(getattr(getattr(self.variant, "hooks", None), "discards", {}) or {})
-        return {
+        st = {
             "hole": list(prompt["hole"]), "board": list(prompt.get("board") or hs.board), "street": 1, "seat": seat,
             "button": hs.button, "stacks": self.stacks[:], "bets": list(hs.bets), "in_hand": list(hs.in_hand),
             "pot": hs.pot, "to_call": 0, "min_raise": 0, "max_raise": 0, "legal": ["discard"],
-            "hand_no": hs.hand_no, "blinds": list(hs.blinds), "history": history_rows(hs.history, discards),
+            "hand_no": hs.hand_no, "blinds": list(hs.blinds),
+            "history": history_rows(hs.history, discards, tags=self.history_tags(hs.history) if tagged else None),
             "discards": {int(s): int(c) for s, c in discards.items()},
         }
+        if tagged:
+            st["posts"] = [list(p) for p in self.posts]
+        return st
 
     def _fallback(self, obs: Observation) -> Action:
         return Action.check() if CHECK in obs.legal else Action.fold()

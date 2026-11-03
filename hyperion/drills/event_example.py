@@ -13,12 +13,14 @@ import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(os.path.dirname(_HERE))  # in a package: the entry's own folder holds hyperion/
-for _p in (_HERE if os.path.isdir(os.path.join(_HERE, "hyperion")) else _ROOT,):
+_ROOTS = (_HERE if os.path.isdir(os.path.join(_HERE, "hyperion")) else _ROOT,)
+for _p in _ROOTS:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
 from hyperion import ship  # noqa: E402
 from hyperion.core.types import Action, ActionKind, Observation, Rules, parse_card  # noqa: E402,F401
+from hyperion.drills.adapter import pin_package, repin_package  # noqa: E402
 from hyperion.drills.conformance import maybe_checked  # noqa: E402
 from hyperion.drills.events import EventAdapter  # noqa: E402
 
@@ -63,19 +65,32 @@ class KitEStyleAdapter(EventAdapter):
             return {"move": "fold"}
 
 
+def build() -> KitEStyleAdapter:
+    a = maybe_checked(KitEStyleAdapter(ship.make_bot(), RULES))
+    if HAND_END_TIMED:
+        a.defer_hand_end(True)
+    a.start(0, RULES.n_players, RULES)  # tables and modules load at import, never in a timed event
+    return a
+
+
+_SPARE = [build()]
+pin_package(*_ROOTS)  # at import: a loader may unload our modules before it builds the Agent
+
+
 class Agent:
     def __init__(self):
-        self.a = maybe_checked(KitEStyleAdapter(ship.make_bot(), RULES))
-        if HAND_END_TIMED:
-            self.a.defer_hand_end(True)
+        repin_package()
+        self.a = _SPARE.pop() if _SPARE else build()
 
     def on_table(self, info):
+        repin_package()
         try:
             self.a.start(int(info["seat"]), int(info["players"]), RULES)
         except Exception:  # noqa: BLE001
             pass
 
     def on_hand(self, info):
+        repin_package()
         try:
             t = self.a.t
             chips = {int(s): int(c) for s, c in info["chips"].items()}

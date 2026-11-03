@@ -19,8 +19,8 @@ their CI, else revert it and say so. Kept: `python -m hyperion.ship --set '<the 
 
 The realistic field ignores most twists (only toss, bounty, short deck, river of blood, auction and keep-two have
 opponents that play them), so check the patch against opponents that read tonight's rules too, in one command:
-`python tools/climb_accept.py --stages aware --aware generic:<variant> --base '' --cand '<the dict>' --set
-10000:10100 --workers 2`. `<variant>` is the catalog name; for a twist the catalog lacks, first write its Rules and
+`python tools/climb_accept.py --stages aware --aware generic:<variant> --base '' --cand '{"dials": <the dict>}'
+--set 10000:10100 --workers 2` (the spec wraps the dials: `{"dials": {"hero.multi_call_shift": 1}}`). `<variant>` is the catalog name; for a twist the catalog lacks, first write its Rules and
 hooks as a file (copy `hyperion/drills/variant_file_example.py`: name the variant in `Rules.extras["variant"]`, give
 the hooks `restore()` if their public state is published under another name) and pass `generic:path/to/file.py:variant`.
 The command builds the twist's table if missing (catalog: committed; a new twist 15-45 s) and pairs F and the

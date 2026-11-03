@@ -17,3 +17,6 @@ packages = ["hyperion"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "timing: wall-clock budget and latency tests that fail on a loaded host (the night runs pytest -m \"not timing\"; the default runs everything)",
+]

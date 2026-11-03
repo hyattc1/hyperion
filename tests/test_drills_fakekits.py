@@ -27,6 +27,7 @@ def run_kit(kit: str, submission: str, hands: int = 30, hole_cards: int = 2):
     return run_c.run([sys.executable, path], hands=hands, seed=3, hole_cards=hole_cards)
 
 
+@pytest.mark.timing  # passed = timeouts within 1% of decisions: kit A failed it at load 7-8 (drill 9)
 @pytest.mark.parametrize("kit", ["a", "b", "c"])
 def test_reference_adapter_passes_runner(kit):
     r = run_kit(kit, f"kit_{kit}_submission.py")
@@ -43,6 +44,7 @@ def test_slow_adapter_is_auto_folded(kit):
     assert r.hands == 8  # the runner survives a slow bot and finishes the hands
 
 
+@pytest.mark.timing
 @pytest.mark.parametrize("kit", ["a", "b"])
 def test_three_hole_cards_through_kits(kit):
     r = run_kit(kit, f"kit_{kit}_submission.py", hands=10, hole_cards=3)

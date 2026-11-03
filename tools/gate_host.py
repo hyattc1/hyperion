@@ -19,14 +19,19 @@ is importable). The working directory is a scratch directory, not the package.
 The state each request carries is the fake kits' dealer dict (hyperion/drills/fakekits/_table.py): hole,
 board, street, seat, button, stacks, bets, in_hand, pot (previous streets), to_call, min_raise and
 max_raise (raise-to totals), legal (lowercase names), hand_no, blinds, history [[seat, kind, total]],
-discards {seat: card}. Cards are ints, rank * 4 + suit.
+discards {seat: card}. Cards are ints, rank * 4 + suit. A seat file's state (kind seat) has more, for a kit whose log
+is per street or counts chips: each history row is [seat, kind, total, street, put] (the street it was on, the chips
+it put in) and `posts` lists the hand's forced bets [[seat, "ante" | "sb" | "bb" | "straddle", chips]];
+hyperion/drills/gate_seat_template.py's `by_street(rows, posts)` groups them by street, posts first.
 
 Writing a seat file for tonight's kit (in-process kits only): copy class KitA, rename it Seat, and change
 `native` (dealer dict -> the kit's state object, using the kit's own classes), `parse` (the bot's reply ->
 (kind, raise-to total), kind in fold/check/call/raise/discard) and the lifecycle calls. Only `call` is timed.
+Build the kit's log in its own shape (per street, chips added, the blinds posted) from the tagged rows and posts:
+a seat that sends one street's log never tests the adapter's per-street parsing (drills 8 and 9 did).
 A seat's `end(hand_no, delta, result)` gets the hand's `result` dict (deltas of every seat, board, showdown
-{seat: cards}, history rows): pass on what the kit's own hand end carries, never more. An event-driven kit (no
-state snapshot): hyperion/drills/gate_seat_template.py.
+{seat: cards}, the tagged history rows, posts): pass on what the kit's own hand end carries, never more. An
+event-driven kit (no state snapshot): hyperion/drills/gate_seat_template.py.
 """
 from __future__ import annotations
 
@@ -60,6 +65,8 @@ def _fix_state(st: dict) -> dict:
     st["legal"] = set(st["legal"])
     st["blinds"] = tuple(st["blinds"])
     st["history"] = [tuple(h) for h in st.get("history", ())]
+    if "posts" in st:
+        st["posts"] = [tuple(p) for p in st["posts"]]
     st["discards"] = {int(k): v for k, v in (st.get("discards") or {}).items()}
     return st
 

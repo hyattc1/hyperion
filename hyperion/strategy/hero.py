@@ -46,7 +46,7 @@ from .profiler import Profiler
 from .pushfold import PushFold, PushFoldParams
 from .safe import SafeBot, safe_action
 from .spot import Spot, history_explains_bets, history_from_bets
-from .tables import CLASSES, Tables, load as load_tables, tables_for
+from .tables import CLASSES, Tables, load as load_tables, quick, tables_for
 
 _CHECK = Action(ActionKind.CHECK)
 _FOLD = Action(ActionKind.FOLD)
@@ -759,8 +759,10 @@ class HeroCore:
                 var[t] = var[t + 1] + float(rules.blinds_at(t)[1]) ** 2
             self._cap_var = var
         # the evaluator tables these rules need (8 cards only for three kept hole cards or a bought card: 60 ms), here
-        # and never inside a timed act(); a count they miss is still exact (eval.max_cards)
-        warm(max_cards(rules))
+        # and never inside a timed act(); a count they miss is still exact (eval.max_cards). Not in a table start inside
+        # a decision (tables.quick_start): the evaluations go through the subsets until a table start outside one
+        if not quick():
+            warm(max_cards(rules))
         self._configure(rules)
         if self.prof is not None:
             self.prof.reset(n_players, seat)
@@ -796,6 +798,9 @@ class HeroCore:
         self.postflop.holdem = holdem_table(rules)
         self._cls_map = mirror_map(self.tables.rank) if low else wild_map(wild_c) if wild_c >= 0 else None
         t = tables_for(rules, self.tables, name=cfg.variant_tables or None)
+        q = quick()  # a table start inside a decision (tables.quick_start): build nothing that costs milliseconds
+        if q and t is not self.tables and t.hu is not None and (t.dir, t.scheme, t.source) not in self._modules:
+            t = self.tables  # a 169-class set's modules (its push/fold arrays, the matrix's fingerprint: 5-14 ms)
         if cfg.twin_preflop > 0.0 and rules.hole_cards == 2 and self._remap is None \
                 and (t is self.tables or (cfg.twin_force and t.scheme == "169")):
             tm = self._twins(rules)
@@ -836,9 +841,10 @@ class HeroCore:
             # -0.065 +- 0.051 and -0.062 +- 0.047 (held-out H1)
             vkey = ("variant_preflop", id(pre))
             vpre = self._modules.get(vkey)
-            if vpre is None:
+            if vpre is None and not (q and t.hu is not None):  # (a quick start plays without the layer: 5 ms)
                 vpre = self._modules[vkey] = Preflop(replace(pre.p, **vp), t)
-            pre = vpre
+            if vpre is not None:
+                pre = vpre
         gate = None  # the table's rule for the *_ex dials: the first that applies
         if ex.get("variant") and str(ex.get("variant")).lower() not in PLAIN_NAMES:
             gate = "must_use" if rules.must_use_hole else "fixedlimit" if rules.betting == "fixedlimit" else \
@@ -851,9 +857,10 @@ class HeroCore:
             if over:
                 vkey = ("variant_preflop_ex", gate, id(pre))
                 vpre = self._modules.get(vkey)
-                if vpre is None:
+                if vpre is None and not (q and t.hu is not None):
                     vpre = self._modules[vkey] = Preflop(replace(pre.p, **over), t)
-                pre = vpre
+                if vpre is not None:
+                    pre = vpre
         if vpf and twist:
             vkey = ("variant_pushfold", id(pf))
             vpf_mod = self._modules.get(vkey)
@@ -882,6 +889,8 @@ class HeroCore:
                rules.hole_cards, self.cfg.twin_preflop, self.tables.dir, self.tables.source)
         cache = _TWINS  # once per process: reading the table is ~1.5 ms, at a table start
         if key not in cache:
+            if quick():
+                return None  # inside a decision: the plain classes, until a table start outside one reads the table
             tm = twin_classes(generic_doc(rules), self.tables)
             cache[key] = tm if tm is not None and twin_shift(tm, self.tables) >= self.cfg.twin_preflop else None
         return cache[key]
@@ -893,6 +902,8 @@ class HeroCore:
 
         key = ("recut", t.dir, t.source, str((rules.extras or {}).get("variant")), self.cfg.twin_multi)
         if key not in _TWINS:
+            if quick():
+                return None
             res = recut_label_tables(generic_doc(rules), t)
             _TWINS[key] = res[0] if res is not None and res[1] >= self.cfg.twin_multi else None
         t2 = _TWINS[key]
