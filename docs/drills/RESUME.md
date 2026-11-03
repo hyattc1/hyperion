@@ -21,10 +21,8 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
   goal/b25/s15e_h26.md; goal/b25/CHAIN3_DONE when finished.
 - S20 (climb/s20-three, wt_s20): the structural round's first idea, a three-handed preflop solved for strong tables
   (log docs/drills/climb/s20-log.md on its branch). Diagnostics 11000-11199.
-- Drill 11 done (docs/drills/prompt-drill-11.md). Its fixes: H7 (climb/h7-drill11-fixes, wt_h7: night tooling and
-  prompts) and V-j (climb/vj-tranche, wt_vj: street-settled pots in our engine and catalog, F's play there;
-  diagnostics 12000-12199). H7 and V-j both touch prompt 05: merge H7 first.
-- start-vs-now (goal/b18/run.sh, detached): confirm, guards, elite, exploit only; output goal/b18/start_vs_now.md.
+- Drill 11 done (docs/drills/prompt-drill-11.md); H7 and V-j merged. Future organiser briefs exclude tranche_holdem.
+- start-vs-now done (the leaderboard's "Since the start" table).
 
 ## Dated items
 - After Menlo Park (Nov 6) and Boston (Nov 9): search the web (X first, LinkedIn sparingly) for what they reveal of
@@ -34,7 +32,8 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 ## Held-out sets used
 H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); in use or queued H22-H24; H25 queued for S7, H26 for S15e, H27 for
 C3's bonus_card replicate (down: C3 rejected), H28 for C3h (goal/b26/chain4.sh, output
-goal/b26/c3h_h28.md, CHAIN4_DONE); next fresh H29 = 49000-49399. Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 30800-31199.
+goal/b26/c3h_h28.md, CHAIN4_DONE), H29 for V-j's c6 (goal/b27/c6_h29.md); next fresh H30 = 50000-50399
+(worker briefs say held-out is 20000-49999: widen it to 20000-59999 in the next brief). Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 30800-31199.
 
 ## End deliverables (goal.md)
 Final SHIP and zip, a decisions entry, PLAYBOOK and HANDOFF, the last rehearsal on the final ship (drills 7-10 were
