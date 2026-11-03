@@ -1084,3 +1084,12 @@ and (in judges) `elite_judge`.
   exploit2_3 +0.117 ± 0.107, adapt_hu +0.203 ± 0.126 UP; every other cell level (realistic +0.006).
 - Merge conflicts with S16 kept both sides. C3 goes to H21 (41000-41399) against
   batch 6 once batch 6 is decided. Identity after the merge: 15 cells identical.
+
+## 08:57: V-i merged (twist decisions as value of information; off); held-out after batch 6
+- hero.voi (one multiplier on each twist decision's option values from tables/voi.json: bid, buy; keep, discard
+  and swap take the best option) and hero.sd_tax (calls and thin value tighten when a twist's prepared table pays
+  showdowns 0.05+ unlike hold'em: only the Ghost opens it; it needs the twist named). Screen, voi 1.5 the best of
+  three values fixed in advance: auction generic aware +0.115 ± 0.051 and realistic +0.064 ± 0.045, swap_one_turn
+  +0.080 ± 0.072 UP; nothing down. Ghost (named) sd_tax +0.27 ± 0.21 UP on 400 seeds (not a catalog entry).
+- Identity after the merge: 15 cells identical. Candidate {"hero.voi": 1.5, "hero.sd_tax": true} to H22
+  (42000-42399, aware and variants) against batch 6 once it is decided.
