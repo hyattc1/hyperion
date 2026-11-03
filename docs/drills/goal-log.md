@@ -806,3 +806,13 @@ and (in judges) `elite_judge`.
   hybrid3_x sometimes pass the gate through the layer's small stabs).
 - S6 on H16 (36000-36399), --aim exploit, every stage including elite_b and mirror_b. Identity check after the merge
   15 cells identical.
+
+## 22:53: drill 9 scored; H5 started on its fixes
+- The player had batch 5's ship gated and submitted at minute 10 (cheap bot minute 5), kept no Chain patch (three
+  candidates, all lower in our sim with its Chain deal file), stopped at minute 19. In kit G's own simulator under the
+  real twist: 24.46 a table against seven of the organiser's Chain-aware bots (theirs 15.51), 28.41 in a mixed field
+  (Chain-aware 18.89); a seat averages 16.6. Write-up docs/drills/prompt-drill-9.md.
+- H5 (goal/wt_h5, climb/h5-drill9-fixes): pin the package at import in the entry templates; defer the hand end when
+  the kit times its callback; street-tagged history and blind posts in the gate seat's state; a conformance reset
+  after warm-up; a `timing` pytest marker; no table build inside a decision; PLAYBOOK's --cand syntax.
+- Variants lead (V-h, not started): cards that are also the opponents' (Chain's links, exposed_card) priced as such.
