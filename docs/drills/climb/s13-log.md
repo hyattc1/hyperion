@@ -457,3 +457,46 @@ against exploiter 1; none of 1,068 on realistic and 3 of 730 on night_hard (riva
 
 S6 = `{"short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short", "short.pre_roles": "bb",
 "short.pre_open_min": 0.65, "short.like_probe": 0.75, "short.like_bet": 0.6, "short.like_pfr": 0.15}`.
+
+## S6 on the screen set against main's F (code 81afd88; climb_accept --aim exploit: ACCEPT)
+
+Base = main's F (`{"dials": {}}`, e5ebfdb: batch 5's SHIP_DIALS), its chunks computed in a clean main worktree; the
+candidate's in a detached worktree at 81afd88 (scratch `accept.py` pins only F's cache key to main's code version).
+Stages exploit, confirm, guards, elite, variants (top_heavy, antes_from_level_3, fast_schedule, straddle at 200 seeds).
+
+| stage | cell | F | S6 | S6 - F | | exploiter F / S6 |
+|---|---|---|---|---|---|---|
+| exploit | exploit (8-max, 10/7/5/4/3/2/1/0) | 5.839 | 5.840 | +0.001 ± 0.002 | level | 4.608 / 4.607 |
+| | exploit_hu | 9.227 | 9.227 | +0.000 ± 0.029 | level | 7.772 / 7.772 |
+| | exploit_3 | 8.458 | 8.448 | -0.010 ± 0.020 | level | 6.900 / 6.910 |
+| | exploit2 (8-max) | 5.844 | 5.856 | +0.012 ± 0.018 | level | 5.086 / 5.073 |
+| | exploit2_hu | 7.848 | 8.268 | **+0.420 ± 0.159** | UP | 9.152 / 8.732 |
+| | exploit2_3 | 7.378 | 7.478 | **+0.100 ± 0.067** | UP | 8.165 / 8.065 |
+| confirm | night | 5.972 | 5.972 | +0.000 ± 0.000 | level | |
+| guards | night_hard | 5.499 | 5.499 | +0.001 ± 0.001 | level | |
+| | realistic | 6.370 | 6.370 | +0.000 ± 0.000 | level | |
+| | top | 5.058 | 5.059 | +0.001 ± 0.001 | level | |
+| | night @10/7/5/4/3/2/1/0 | 6.199 | 6.198 | -0.002 ± 0.004 | level | |
+| | night @50/25/12/6/3/2/1/1 | 24.699 | 24.684 | -0.016 ± 0.031 | level | |
+| | night, doubling blinds | 5.848 | 5.848 | +0.000 ± 0.000 | level | |
+| elite | elite | 4.865 | 4.866 | +0.000 ± 0.001 | level | |
+| | elite_night | 5.422 | 5.421 | -0.000 ± 0.003 | level | |
+| | mirror | 4.498 | 4.495 | -0.003 ± 0.003 | level | |
+| variants | top_heavy (realistic) | 28.654 | 28.638 | -0.016 ± 0.031 | level | |
+| | antes_from_level_3 | 6.496 | 6.496 | +0.000 ± 0.000 | level | |
+| | fast_schedule | 6.122 | 6.122 | +0.000 ± 0.000 | level | |
+| | straddle | 6.412 | 6.412 | +0.000 ± 0.000 | level | |
+
+0 timeouts, 0 errors. The ordinary fields play almost exactly as F (realistic, night, antes and the doubling schedule
+identical sample for sample); the exploiter 2 gains stay: heads-up 8.268 to 8.732 (41% of matches; F 28%), against
+S5's +0.443 on H14 (S5 vs this F was not screened here), three-handed +0.100.
+
+Who the gate still admits (gatecount.py, seeds 3300-3311 x 8): on mirror, Hybrid3X (102 of 186 heads-up decisions)
+and the F copies (86 of 425): F-like bots probe often because the exploit layer stabs small into checks; on top,
+HeroTight (20 of 216); on elite, rival3 (7 of 40). That is mirror's -0.003 ± 0.003, the one cell at its bound; at
+400 held-out seeds it could show. Not re-tuned here (the thresholds were fixed before this run); a stricter probe
+(0.85) or a size condition (the layer's stab is 0.33 pot, exploiter 2's 0.6) would take the copies out, unscreened.
+
+Latency (latency.py --hand-end --reps 3 --tables 12, per-call minimum, load 4.6-4.8, F / S6, µs): exploit2_hu act
+p99 72.0 / 84.8, max 85.5 / 108.3, hand_end p99 79.2 / 85.6; mirror act p99 107.1 / 107.7, max 122.8 / 145.5. Full
+suite at 81afd88: 1,257 passed, 1 skipped.
