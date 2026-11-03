@@ -939,3 +939,20 @@ and (in judges) `elite_judge`.
   (5.2-5.3 points against 5.3-5.9).
 - Registry `adapt2`, judge cells adapt_judge, adapt_judge_hu, adapt_judge_3 (judges stage); md5 ee30b9a6; tests keep
   it in adapt_judge* fields only and check exact replay with Hero's panic off.
+
+## 04:20: S14 merged (no candidate met the rule); climb_accept's exploit check fixed
+- S14's profile (elite, elite_b, mirror, mirror_b, fresh diagnostic seeds): the strong bots beat F in four preflop
+  sections. Re-shove or fold under 20 bb (rival 2 +0.48-0.50 bb a decision, F +0.23-0.28); facing a raise at 20+ bb
+  (rival 2 only); three-handed and heads-up preflop (F 0.0-0.1 bb, elite1, elite2, rival 2 +0.2-0.4: F min-raises
+  38-39% and folds 40-42% of those to a re-raise). After the flop F is the best bot at these tables. Rival 2 tops the
+  fields by reaching three-handed more often (43-46% against 37-41%); the elites win from three-handed (46-57% first
+  against 22-31%). Elite4 is best in no section.
+- Every donor's short-handed preflop loses to exploiter 1 (it 3-bets every open). Best candidate K18 (elite1 three-
+  handed and heads-up at strong tables, keeping F's 3-bet defence): elite, mirror, elite_b, mirror_b +0.036-0.044 UP,
+  night_hard and top UP, night level, but exploit_3 -0.238 ± 0.159 DOWN. Not accepted. Built and merged, all off:
+  members r2s (rival 2's core with a cheap shadow, plays as the full one) and elite4, strong2_route, and a routing fix
+  (a strong-route donor that cannot play a twist hands back to the section's own donor).
+- Tool fix: climb_accept counted exploit cells only under --aim exploit; with --aim strong it printed ACCEPT with
+  exploit cells down. Now an exploit cell down rejects under every aim. Checked: no accepted run had one (G2 on H4 and
+  H6, C7, D1, D3, batch 5 on H13: all exploit cells level or up). S16 told.
+- Identity after the merge: running.
