@@ -302,3 +302,6 @@ sample. (Main's climb_accept now names a short last chunk `*.n15.json`; the scri
 chunks as missing and they were compared by hand: identical.) F's cells copied to main's key 2ff4eef35075. O4's
 screen from 10:27, 2 workers: elite, the four variants, confirm and guards, the 12 exploit cells, then one call that
 prints the whole table from the cache.
+
+O4's elite stage (O4 - F; O3 beside it): elite +0.030 ± 0.086 (O3 +0.030), elite_night +0.062 ± 0.072 (+0.026),
+**mirror +0.095 ± 0.080 UP** (+0.105), elite_b +0.075 ± 0.080 (+0.075), **mirror_b +0.177 ± 0.089 UP** (+0.197).
