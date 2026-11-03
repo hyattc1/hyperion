@@ -884,3 +884,16 @@ and (in judges) `elite_judge`.
   S14 told to cover pre_3way and pre_hu. Queued: S17 (one size for the layer's stab, aimed at exploiter 2's raises),
   S18 (blinds owed before the cap in ICM), R7 (an all-in runout term to cut seeds per test), V-i (twist decisions as
   value of information).
+
+## 02:20: V-h merged (known opponent cards, shared ones included; off); candidate on H18
+- Hero's exposed path assumed every known card was the opponent's alone: a shared card would shrink our steals, a pair
+  of Chain's links read as a premium pair, top pair made with a shared card read as top pair. New `extras["known"]`
+  ({seat: cards}, ours included when shared) and dial `hero.known_cards`: "pre" re-reads our heads-up preflop class
+  from prepared equity tables (tables/known_*.json, three shapes, 72 KB each); "post" reads shared cards as board
+  cards against that neighbour. Kit G's adapter and the Chain deal file feed the links in.
+- Screen: Chain in our sim pre +1.06 ± 0.58 (realistic) and +0.73 ± 0.48 (generic aware) UP; exposed_card +0.186 ±
+  0.066 (realistic) and +0.148 ± 0.078 (generic aware) UP. In kit G's own sim, level (+0.28 ± 0.83 at 5 ms; host at
+  load 13-25). With the dial on, plain hold'em and 25 of 26 catalog variants identical; only exposed_card moves.
+- Identity after the merge: 15 cells identical.
+- Candidate {"hero.known_cards": "pre"} on H18 (38000-38399): variants exposed_card at 400 seeds and generic aware
+  exposed_card (the only catalog entry it changes).
