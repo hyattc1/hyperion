@@ -1177,3 +1177,38 @@ and (in judges) `elite_judge`.
   exploiter-like seats and close to never against others, then screen, a fresh held-out set and the next batch's
   judges (fresh judge seeds 30800-31199).
 - Batch 6's four-part H20 run was stopped (moot); start-vs-now resumed.
+
+## 13:37: batch 6 (V-f + V-h) accepted on H21 and frozen (91014ae)
+- H21 (41000-41399), batch 5 + V-f + V-h against batch 5, variants and aware, --identical holdem, the runout term:
+  exposed_card +0.216 ± 0.068, knockout_bounty +0.111 ± 0.092, bounty_aware +0.026 ± 0.024 UP; swap_holdem +0.051,
+  swap_one_turn +0.031, bonus_card -0.013, toss_aware -0.005 level; 19 cells identical. None down. ACCEPT. H21 used
+  once. Weighted +0.0049 ± 0.0053, cap holds.
+- climb/batch6b (V-f's three dials and V-h's known_cards in SHIP_DIALS, BATCH6_OFF) merged into main (91014ae).
+  Digests identical with BATCH6_OFF on plain and 13 variants; heads-up identical; identity after the merge 14 cells
+  identical. Tests that pinned the old defaults take BATCH6_OFF; the full suite passes (two wall-clock kit
+  round-trips failed at load 10, pass alone).
+- Frozen frozen/B6-91014ae, kit B zip a66eb4b3 (1.1 MB, V-h's tables in); gate pass plain +0.274 ± 0.579,
+  exposed_card +0.150 ± 0.560, knockout_bounty -0.816 ± 0.904, 0 exceptions, 0 illegal, 1.4-1.5% timeouts at load
+  9-10 on package and sim copy alike (load clause). Per-call minimum: exposed_card act mean 36 -> 42 µs.
+- No judge run: every judge field is plain hold'em, where batch 6 is identical. Decisions entry "The climb: batch
+  6", leaderboard row, HANDOFF, RESUME.
+- The chain runs C3 on H22, V-i on H23, O3 on H24 (addendum 13 named H21-H23; batch 6 took H21), each against
+  batch 5 + V-f + V-h = batch 6. S13c and S15d in their screens.
+
+## 13:47: the structural round starts (S20); drill 11 commissioned; start-vs-now cut to plain hold'em
+- S20 (goal/wt_s20, climb/s20-three): a three-handed preflop solved on the right game, for strong tables. S14 showed
+  the strong builds beat F three-handed and heads-up preflop and win 1st from three-handed 46-57% against F's
+  22-31%; K18 (elite1's play copied) was up on every strong cell but down on exploit_3; S13's own three-handed tables
+  lost to both exploiters (no small-blind flat, no big-blind 4-bet, small 3-bets mapped to 3.5x). S20 diagnoses by
+  line first, refits the solver's flop model from our own postflop's realization, re-solves with the missing lines,
+  and screens ungated and behind the strong-table read, --aim strong, every exploit cell. Diagnostics on 11000-11199
+  (new), screens on 10000-10199.
+- Not started, and why: playing for first when three or fewer remain (under 8..1 points first place is worth what
+  ICM already prices; it matters only under a top-heavy table, which the window recipes cover); a bandit over a
+  portfolio (the research expects a small edge at 150-200 hands); full-ring preflop retrained offline (S20 first:
+  the measured gap is short-handed). The counter-exploitation alarm waits on S15d (the same leak: folding to bets).
+- Drill 11: a fresh organiser (goal/drill11/kit, no repo access) builds a kit with an unseen twist on an axis the
+  last three drills did not move (betting structure, a hand's payoff, or chips to points), and an interface that is
+  neither a process boundary nor a pot-fraction menu. The player then runs the hour on batch 6's ship.
+- Start-vs-now restarted on confirm, guards, elite and exploit only (cached chunks kept): at 13 hours it was a quarter
+  done, and batch 6 changes only twist tables, so the plain-hold'em stages answer "how much better since the start".

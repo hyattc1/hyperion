@@ -3,7 +3,10 @@
 One page, updated after every accepted batch. Points are per table, averaged over the seeds shown, every seed played
 in all eight seat rotations; "margin" is F minus the other bot on the same deals, with the 95% interval.
 
-## Where we stand (2026-11-02 21:18 ET, batch 5)
+## Where we stand (2026-11-03 13:37 ET, batch 6)
+
+Batch 6 changes only twist tables, so every plain hold'em number below (judges, night, elite rooms, exploiters) is
+batch 5's and holds for batch 6 exactly.
 
 **F (the composite) is first against every judge field.** On fresh seeds (30000-30399, 400 x 8), none of them ever
 used for tuning. Batch 5 moved judge_top +0.106 and outside +0.087 (beyond noise) and left the rest level; the
@@ -36,7 +39,8 @@ paired on held-out seeds, +0.241 ± 0.065. Elite 2 and elite 1 still take 1st pl
 
 **On a slow sandbox:** with the governor (batch 2), F on a 3x slower box scores what it scores on a normal one.
 
-**Variants:** 25 of 25 catalogued entries READY. Batch 5 adds, on held-out seeds: wild_deuces +0.39, three_card_keep
+**Variants:** 25 of 25 catalogued entries READY. Batch 6 (2026-11-03, twist tables only) adds, on held-out seeds:
+exposed card +0.22, knockout bounty +0.11, bounty against bounty-aware bots +0.03. Batch 5 added: wild_deuces +0.39, three_card_keep
 +0.19, omaha_four +0.16, short_deck +0.15 (and +0.22 against short-deck-aware bots), on top of batches 3-4 (toss,
 bounty, short deck, keep2). A ninth catalog-free twist (drill 8's Ghost Hold'em, an organiser agent's own engine): the
 drill's zip of batch 4 scored 7.64 a table against the organiser's Ghost-aware bot's 6.39.
@@ -54,5 +58,6 @@ drill's zip of batch 4 scored 7.64 a table against the organiser's Ghost-aware b
 | 2026-11-02 06:18 (batch 3) | composite F + governor + variant play | 9e620c8 | 774f0636...89bcf6f20 | twist tables: aware toss +0.13, bounty +0.30, short deck +0.18; plain hold'em identical |
 | 2026-11-02 08:59 (batch 4) | + 3-bet defence, keep2/toss calls, kit fixes | e3cec13 | bb5820cc...6197fe | beats exploiter 1 in every format; keep2 +0.29; adapter reads 20 kit shapes; no test bots in the zip |
 | 2026-11-02 20:56 (batch 5) | + strong-table route, size read, S11 fixes, twist play | 3aac34d | cbf2ccb3...95fa4803 | held-out night +0.096, mirror +0.241, every exploit cell up (heads-up vs exploiter 2 +0.30), wild/short deck/omaha/keep up |
+| 2026-11-03 13:37 (batch 6) | + per-family twist dials, known opponent cards | 91014ae | a66eb4b3...d6666f77 | twist tables only: exposed card +0.22, knockout bounty +0.11, bounty-aware +0.03 (held-out H21); plain hold'em identical |
 
 Zips live in `frozen/` (git-ignored); each is rebuilt from its commit with `tools/pack.py --slim`.

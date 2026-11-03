@@ -3387,3 +3387,41 @@ unbiased. R7 (docs/drills/climb/r7-log.md) found:
 Note: the term is unbiased by construction for any field (no bot sees the cards to come); R7 did not separately
 measure the judges and aware stages, so rule 2's check (a cell whose raw and corrected flags point opposite ways
 replicates) is watched there first. First runs under it: S17's C3 on H21, V-i on H22, S16b's O3 on H23.
+
+## The climb: batch 6 (twist play: the per-family dials and known cards) (2026-11-03, builder: the climb's coordinator)
+
+**Batch 6 (91014ae).** On top of batch 5's ship, two parts, each accepted alone on its own held-out set against
+batch 5. Both act only on twist tables: plain hold'em plays exactly as batch 5 (digests identical on plain hold'em and
+13 variants with `BATCH6_OFF`, heads-up identical; the identity check after the merge: 14 cells identical).
+- **The hold'em-gated gains on the twist families they help** (V-f): `hero.postflop.size_read_twists`
+  discard,bounty,knockout,swap,exposed; `hero.postflop.s11_twists` knockout,buy,swap,exposed; `strong_route_twists`
+  bounty,knockout,buy. A twist's family is read from its rules; two twists at once or an unknown key is no family (the
+  gate stays shut). H15 (35000-35399), aware and all 26 variants: knockout_bounty generic aware +0.103 ± 0.077 UP;
+  none down.
+- **Cards an opponent is known to hold** (V-h): `hero.known_cards` pre. Heads-up before the flop against an opponent
+  known to hold cards, Hero reads its hand as the class whose heads-up equity is ours against him (a prepared table;
+  a shared card counts for both hands), and every known card off the draw outs. H18 (38000-38399), exposed_card
+  at 400 seeds: realistic +0.162 ± 0.048, generic aware +0.213 ± 0.057 UP; no other catalog entry changes.
+- **Together** against batch 5 on H21 (41000-41399), variants (26, realistic field) and aware, `--identical holdem`,
+  the first run under addendum 13 (corrected deltas decide; raw beside): exposed_card +0.216 ± 0.068 UP (raw +0.225 ±
+  0.082), knockout_bounty +0.111 ± 0.092 UP (raw +0.073 ± 0.108 level; the term narrows it, it does not flip it),
+  bounty_aware +0.026 ± 0.024 UP; swap_holdem +0.051, swap_one_turn +0.031, toss +0.006, bonus_card -0.013,
+  toss_aware -0.005 level; the other 19 cells identical. None down. ACCEPT. Weighted score (addendum 11): +0.0049 ±
+  0.0053 night points, W-min +0.0040 ± 0.0052, cap holds. H21 used once.
+- **Why only these two.** Batch 6 was first composed with S6 (H16) and S15c (H19), which act on plain hold'em; that
+  four-part batch failed the judges under addendum 12 (pooled outside -0.0032 ± 0.0021, beyond noise down, about 0.06%
+  of the score). V-f and V-h were kept because every judge field is plain hold'em, where they are identical by
+  construction, not because of any judge number; no judge run is needed for this batch. S6 and S15c went back to their
+  builders to tighten their gates on tuning fields, then a fresh held-out set and fresh judge seeds (30800-31199).
+- **Timing** (tools/latency.py per-call minimum, act mean / p99, µs, batch 5 -> 6, load 9-10): exposed_card 36 / 67 ->
+  42 / 76 (the known-card pricing); knockout_bounty 56 / 113 -> 56 / 111. Plain hold'em runs the same code as batch 5.
+- **Sets shift.** Addendum 13 named H21-H23 for C3, V-i and O3; batch 6 took H21, so they run on H22 (42000), H23
+  (43000) and H24 (44000), each against batch 5 + V-f + V-h. Nothing about them was chosen after H21's result.
+- Tests that pinned the old defaults take `BATCH6_OFF` (test_s11_dials, test_s12_reads, test_vf_twists); the
+  strong-route twist test shuts `strong_route_twists` (elite1 now plays the core's sections on bounty, knockout and
+  buy on purpose). The full suite passes; two wall-clock kit round-trips failed at load 10 and pass alone.
+- Frozen: frozen/B6-91014ae, kit B zip sha256 a66eb4b317f232dbc6acac2deef0e0815a3bf2051ee5a46318a45c25d6666f77
+  (1.1 MB, slim, elite1 and V-h's tables kept, no kit import, imports stdlib and the package only); gate pass, 40
+  tables strict each, 0 exceptions, 0 illegal: plain +0.274 ± 0.579, exposed_card +0.150 ± 0.560, knockout_bounty
+  -0.816 ± 0.904 against the sim's composite; 1.4-1.5% timeouts at load 9-10 on both the package and the sim copy
+  (the load clause; re-time on a quiet box before the final rehearsal).

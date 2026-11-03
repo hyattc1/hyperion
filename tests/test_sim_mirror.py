@@ -249,13 +249,14 @@ def test_s14_r2s_lazy_curve_is_the_eager_one(monkeypatch):
 
 def test_s14_strong_route_members_play_exactly_as_f_on_every_twist(monkeypatch):
     """r2s and the elite builds are plain hold'em only: with the gate open and all of them routed, every catalogued twist
-    (not hold'em by Hero's test) plays exactly as F."""
+    (not hold'em by Hero's test) plays exactly as F. strong_route_twists is shut here: batch 6 opens it on bounty,
+    knockout and buy, where elite1 plays the core's sections on purpose (test_vf_twists)."""
     from hyperion.drills import variants as V
     from hyperion.strategy.hero import holdem_table
 
     _model(monkeypatch)
-    CB.register("s14_tw_f", dials=dict(CB.SHIP_DIALS))
-    CB.register("s14_tw_c", dials={**CB.SHIP_DIALS, "strong_rr": 0.0,
+    CB.register("s14_tw_f", dials={**CB.SHIP_DIALS, "strong_route_twists": ""})
+    CB.register("s14_tw_c", dials={**CB.SHIP_DIALS, "strong_route_twists": "", "strong_rr": 0.0,
                                    "strong_route": "pre_open_10=elite1x,pre_3way=elite1x,pre_hu=elite2x,"
                                                    "pre_raised_short=r2sx,pre_raised_deep=r2sx,pre_open_40=elite4x"})
     twists = [n for n in V.catalog_names() if not holdem_table(V.get(n, seed=7).rules)]
