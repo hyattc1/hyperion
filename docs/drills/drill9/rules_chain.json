@@ -1,0 +1,10 @@
+{
+  "hole_cards": 3,
+  "blind_levels": [[10, 20], [15, 30], [25, 50], [40, 80], [60, 120], [100, 200], [150, 300], [250, 500]],
+  "hands_per_level": 25,
+  "max_hands": 200,
+  "starting_stack": 2000,
+  "n_players": 8,
+  "payouts": [50, 32, 21, 14, 9, 5, 2, 0],
+  "extras": {"variant": "chain_holdem"}
+}
