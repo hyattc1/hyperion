@@ -1261,5 +1261,5 @@ and (in judges) `elite_judge`.
   0.074 and exploit3_3 +0.027 ± 0.026 UP; exploit_hu -0.001 ± 0.007 and every other exploit and adapt cell level;
   confirm, guards, elite cells and four plain-table variants level or identical; weighted +0.0007 ± 0.0009. ACCEPT on
   the screen. Three-handed it keeps about a third of S15c's gain (a heads-up-only rate is untested).
-- climb/s15d-gate merged (be9d8bf; dials off). S15e queued on H26 (46000-46399) after S7's H25 (goal/b25/chain3.sh).
+- climb/s15d-gate merged (be9d8bf; dials off; identity after the merge: 14 cells identical). S15e queued on H26 (46000-46399) after S7's H25 (goal/b25/chain3.sh).
   S7 and S15e each need their own held-out acceptance, then a combined check and the judges (30800-31199) as batch 7.
