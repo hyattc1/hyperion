@@ -4,6 +4,7 @@ out (Rules.extras["no_runout"]). The engine's side is hyperion/sim/engine.py's m
 table built once per process from the rule (never from a kit).
 
   street_settled(rules), no_runout(rules)   the two rules
+  closes_betting(obs)   a call here ends the hand's betting (the river, an all-in on either side)
   two_card_key(hole)    (high rank, low rank) of two canonical cards; suits never count
   TWO_CARD_KEYS         the 91 keys, weakest first: non-pairs by (high, low), then the pairs (evaluate_short's order)
   beat_share(key)       the chance the two-card hand beats one random two-card hand (ties half), exact with removal
@@ -25,6 +26,16 @@ def street_settled(rules: Rules) -> bool:
 
 def no_runout(rules: Rules) -> bool:
     return bool((rules.extras or {}).get("no_runout"))
+
+
+def closes_betting(obs) -> bool:
+    """A call here ends the hand's betting: the river, a call that puts us all-in, or no one else in the hand with
+    chips behind (the bettor all-in). What a fold forfeits is then kept by the call to the showdown, with no later
+    bet to pay."""
+    me = obs.seat
+    if obs.street >= 3 or obs.to_call >= obs.stacks[me]:
+        return True
+    return not any(obs.in_hand[s] and obs.stacks[s] > 0 for s in range(len(obs.stacks)) if s != me)
 
 
 def two_card_key(hole) -> tuple[int, int]:

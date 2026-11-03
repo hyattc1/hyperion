@@ -41,6 +41,7 @@ from ..core.types import RANKS, Action, ActionKind, HandResult, Observation, Rul
 from ..tablegen import hole_label
 from .exploit import Exploit, ExploitParams, ShippedExploitParams
 from . import known as _known
+from . import tranche as _tranche
 from .known import ladder as known_ladder
 from .postflop import TIER_EQUITY, Postflop, PostflopParams
 from .preflop import Preflop, PreflopParams
@@ -472,7 +473,26 @@ class Config:
     # station tiers) move up by the tiers that cover a called bet's need, 1 / (2f) instead of 1/2 (Ghost: f 0.683, two
     # tiers). Not where Hero prices the payoff itself (bounty, knockout). The table needs rules.extras["variant"]. Off: no read
     sd_tax: bool = False
-    sd_tax_gate: float = 0.05  # (fixed in advance: every catalog twist with hold'em's payoff measures 0.4996-0.5015)
+    sd_tax_gate: float = 0.05
+    # payoff by street (V-j, docs/drills/climb/vj-log.md; drill 11's Tranche Hold'em): on a table whose Rules settle
+    # each street's chips on the hand as it stood then (extras settle="street") or an all-in on the cards already out
+    # (extras no_runout), after the flop. A comma list of the parts on, "" = off:
+    #   now    (street settlement) the hand read as it is now, no draws, as on a river: this street's pot is decided on
+    #          these cards, and a later card only matters to a pot that does not exist yet
+    #   sunk   (street settlement) a call priced against this street's pot alone: (call - claim) / (this street's
+    #          chips + call), the claim the earlier tranches (obs.extras["tranches"]) times the chance of holding each
+    #          (two-card share against the opponents in for the preflop one, the tier's equity on that street's board
+    #          after), counted in full where the call ends the betting (the river, an all-in) and x tranche_claim_early
+    #          before (a fold forfeits it, but a call keeps it only by paying the later bets too); x tranche_claim_scale
+    #   allin  (no runout) a call that ends the betting (an all-in) priced on the hand as it is: no draws
+    tranche: str = ""
+    tranche_claim_early: float = 0.5
+    tranche_claim_scale: float = 1.0
+    # ... and on those street-settled tables (now or sunk on), the value and raise thresholds this many tiers up (a
+    # negative shift bets thinner: each street's bet is an even-money side bet on the hand as it is now) and, facing a
+    # bet, the made hand read this many tiers lower. 0 = off
+    tranche_value_shift: int = 0
+    tranche_call_shift: int = 0  # (fixed in advance: every catalog twist with hold'em's payoff measures 0.4996-0.5015)
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5
@@ -853,6 +873,7 @@ class HeroCore:
         self._voi = voi_parts(cfg.voi_parts) if cfg.voi > 0.0 else frozenset()
         self._tax = None
         self._last_obs = None
+        self._tr_now = self._tr_sunk = self._tr_allin = False  # V-j: Config.tranche's parts on this table
 
     # ------------------------------------------------------------------ Bot protocol
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
@@ -1021,6 +1042,17 @@ class HeroCore:
                 self._tax = (f, tax_tiers(f, self.postflop.p.value_tier))
         if self._voi:
             voi_table()  # read at a table start, never inside a decision
+        self._tr_now = self._tr_sunk = self._tr_allin = False
+        if cfg.tranche:
+            parts = {x.strip() for x in str(cfg.tranche).split(",") if x.strip()}
+            bad = parts - {"now", "sunk", "allin"}
+            if bad:
+                raise KeyError(f"unknown tranche part {sorted(bad)[0]!r}; known: now, sunk, allin")
+            st, nr = _tranche.street_settled(rules), _tranche.no_runout(rules)
+            ok = rules.hole_cards == 2 and not rules.must_use_hole and not low and wild_c < 0
+            self._tr_now = ok and st and "now" in parts
+            self._tr_sunk = ok and st and "sunk" in parts
+            self._tr_allin = ok and nr and "allin" in parts
 
     def _sd_share(self, rules: Rules) -> float | None:
         """The variant's prepared table's mean value share against one hand (Config.sd_tax), read once per variant and
@@ -1294,6 +1326,14 @@ class HeroCore:
                                   value_shift=value_shift, call_shift=call_shift, shared=sh, shared_call_shift=cs2,
                                   shared_all=sh_all, **tax)
             self.known_post_n += 1
+        elif self._tr_now or self._tr_sunk or self._tr_allin:
+            if self._tr_now or self._tr_sunk:
+                value_shift += cfg.tranche_value_shift
+                call_shift += cfg.tranche_call_shift
+            a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
+                                  value_shift=value_shift, call_shift=call_shift,
+                                  **self._tranche_kw(obs, spot, hole, board, dead), **tax)
+            self.last_path = "postflop.tranche"
         else:
             a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
                                   value_shift=value_shift, call_shift=call_shift, **tax)
@@ -1304,6 +1344,31 @@ class HeroCore:
         if xl is not None and not cheap:
             a = self._exploit(xl, raw, a)
         return a
+
+    def _tranche_kw(self, obs: Observation, spot: Spot, hole, board, dead) -> dict:
+        """Postflop.act's keywords for Config.tranche on this table (the parts _configure turned on)."""
+        kw: dict = {}
+        closes = _tranche.closes_betting(obs)
+        if self._tr_now or (self._tr_allin and closes):
+            kw["now"] = True
+            kw["to_come"] = 0
+        if self._tr_sunk and spot.to_call > 0:
+            cfg = self.cfg
+            n_opp = spot.n_opps if spot.n_opps > 0 else 1
+            claim = 0.0
+            sizes = self.rules.board_sizes
+            for k, t in enumerate(((obs.extras or {}).get("tranches") or ())[:obs.street]):
+                if t <= 0:
+                    continue
+                if k == 0:
+                    q = _tranche.beat_share(_tranche.two_card_key(hole))
+                else:
+                    sz = sizes[k] if k < len(sizes) else len(board)
+                    q = TIER_EQUITY[self.postflop.read(hole, board[:sz], dead, now=True)[0]]
+                claim += q ** n_opp * t
+            claim *= cfg.tranche_claim_scale * (1.0 if closes else cfg.tranche_claim_early)
+            kw["tranche"] = (sum(obs.bets), claim)
+        return kw
 
     def _exploit(self, ex: Exploit, obs: Observation, a: Action) -> Action:
         """The exploit layer's override of the module's action, if it has one; a slip there keeps `a`."""

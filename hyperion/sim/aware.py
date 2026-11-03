@@ -825,13 +825,7 @@ def _tr_board(obs: Observation, k: int) -> tuple:
     return obs.board[:(0, 3, 4, 5)[k] if k < 4 else len(obs.board)]
 
 
-def closes_betting(obs: Observation) -> bool:
-    """A call here ends the hand's betting: the river, or no one else in the hand would have chips behind after it
-    (the bettor all-in), or the call puts us all-in. The claim is then exact: folding forfeits it, calling keeps it to
-    the showdown with no later bet to pay."""
-    if obs.street >= 3 or obs.to_call >= obs.my_stack:
-        return True
-    return not any(obs.in_hand[s] and obs.stacks[s] > 0 for s in range(obs.n_players) if s != obs.seat)
+closes_betting = _tr.closes_betting  # the river, or an all-in on either side: the claim is then exact
 
 
 class _TrancheReads:
