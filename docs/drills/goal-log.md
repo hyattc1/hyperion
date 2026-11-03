@@ -1226,3 +1226,12 @@ and (in judges) `elite_judge`.
   nothing else outside its folder.
 - Player: a fresh agent with R = a clone of main at c8d64fa (batch 6; push disabled), the handout without the
   organiser's notes, prompts 00-05 and the playbook.
+
+## 14:53: drill 11 scored; H7 and V-j next
+- Kit I, Tranche Hold'em (a hand's payoff by street; a preflop all-in has no board), module-function interface. Ship
+  gated and submitted at minute 12 (drill 10: 29), the two-card twin patch at 26, stop at 29. Kit sim: ship +9.12 ±
+  0.67 a table against the organiser's twist-aware bot's +5.47; the patch +0.35 over 1,000 paired tables. Write-up
+  docs/drills/prompt-drill-11.md, files docs/drills/drill11/.
+- Fixes: H7 (tooling and prompts: a module-function template, the checker's pass rule under load, a night test
+  subset, one keep rule, and the rest of the list) and V-j (street-settled pots in our engine and catalog, so F's
+  play there can be measured and improved outside the kit).
