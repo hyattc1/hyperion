@@ -759,3 +759,11 @@ and (in judges) `elite_judge`.
   opponents (§3.8, docs/research), so this cannot happen on the night; kit F's one Agent per session was its
   organiser's choice. Kept as a fact about kits that allow it, not as work.
 - Identity after the merge: 15 cells identical (batch 5 at d865e7d against merged main, 10000-10039).
+
+## 22:15: elite 4 wired in (tuning, as fixed in advance)
+- Elite 4 (solver-minded): offline tables (169-class equities, heads-up push/fold Nash 1-30 bb, a postflop
+  hand-strength table), stack-risking decisions in finish points slightly more cautious than plain ICM, per-seat
+  ranges, EV-chosen mixed sizes; frozen at minute 73 (md5 063caf8c); first in every field its builder tried.
+- In the repo as hyperion/sim/field/elite4.py (archive docs/drills/field/elite4_bot.py, log elite4.md), registry
+  `elite4`. New tuning fields `elite_b` (elite's room with elite4 for agent_default) and `mirror_b` (three copies
+  of F, rival 2, elite4, elite1, elite2), added to climb_accept's elite stage (dacf009). Ranking F there now.
