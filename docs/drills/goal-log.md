@@ -729,3 +729,11 @@ and (in judges) `elite_judge`.
 - Likely cause: the specialist takes heads-up spots against ordinary bots, where F's exploitative play does better,
   and under a top-heavy table that is where first place is decided. Back to S13's builder: find where it loses and
   gate it to opponents that play like the exploiters, on the screen set; then a fresh held-out set.
+
+## 21:52: V-f's twist-family dials accepted on H15 (batch 6's first part)
+- H15 (35000-35399), base batch 5, aware (9 generic + 2 hand-built) and all 26 variants: knockout_bounty generic aware
+  +0.103 ± 0.077 UP; swap_holdem +0.033, swap_one_turn +0.025, bounty +0.014 / +0.016, auction +0.003 level;
+  bonus_card -0.030 ± 0.046, exposed_card -0.022 ± 0.042, blind discard -0.004 level; realistic variant cells level
+  (auction +0.039, knockout +0.037, bonus -0.024, bounty -0.019). None down. ACCEPT. H15 used once.
+- Spec: {size_read_twists discard,bounty,knockout,swap,exposed; s11_twists knockout,buy,swap,exposed;
+  strong_route_twists bounty,knockout,buy}. Batch 6 so far: V-f (H15).
