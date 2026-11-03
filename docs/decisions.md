@@ -3288,3 +3288,19 @@ all of FIN's exploit gain on S2's screens (+0.62 / +1.11 / +1.33) and never fire
 - Frozen: frozen/B5-3aac34d, kit B zip sha256 cbf2ccb3d57b85c72a8ee31902dd39f4efc32bb2e5f94b05d42fe52095fa4803
   (963 KB, slim, elite1 kept, no kit import, imports stdlib and the package only); gate pass (40 tables strict, 0
   exceptions, 0 illegal, -0.317 ± 0.559 against the sim's composite; 0.33% timeouts at load 9-10, the load clause).
+
+## The climb: addendum 9 (adaptive test opponents) and the second elite wave's roles (2026-11-03, builder: the climb's coordinator)
+
+Fixed before any of these bots is measured:
+- **Elite 4** (a solver-minded fresh build) tunes: fields `elite_b` and `mirror_b` in the elite stage. **Elite 5** (a
+  reads-minded fresh build) is held out: field `elite_judge_b` in the judges stage, measured once per batch, never tuned
+  on (goal log 2026-11-02 20:59; tests keep elite3 and elite5 in elite_judge* fields only).
+- **Exploiter 3** (a fresh black-box red team against batch 5) is a test opponent like exploiters 1 and 2: cells
+  `exploit3`, `exploit3_hu`, `exploit3_3` in the exploit stage, tunable (addendum 6 applies).
+- **Adaptive opponents (R6).** A test bot that starts sound and learns F inside one table, then switches to fixed
+  counters. Two copies: one written by a worker with repo access (cells `adapt`, `adapt_hu`, `adapt_3` in the exploit
+  stage; tunable), and one built by a fresh agent with no repo access, which only ever plays F through an arena
+  (cells `adapt_judge*` in the judges stage; held out, never tuned on). Addendum 6's rule covers both: an adapt cell
+  beyond noise up and nothing down counts as exploit resistance; the held-out copy is read once per batch.
+- Red-team and builder briefs ask for a running notebook (each run's command, seeds and numbers, appended as it
+  happens), so a final write-up is never the only record.
