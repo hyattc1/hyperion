@@ -1133,3 +1133,14 @@ and (in judges) `elite_judge`.
 - Memory: one OOM kill on the box earlier (a 2.5 GB python; the owner's browser sessions and other Claude sessions
   share the 15 GB); 8 GB available now.
 - Identity after the merge: 14 cells identical.
+
+## 10:35: batch 6's judges: one cell grazes down; addendum 12's replicate running
+- Judge set (30000-30399), batch 6 against batch 5: elite_judge_b +0.006 ± 0.004 UP; outside -0.003 ± 0.003 DOWN
+  (by the narrowest margin; about 0.05% of the score); judge, judge2, judge2_night, judge_top, outside_strong,
+  elite_judge, outside_b, adapt_judge (8-max -0.002, heads-up +0.049, three-handed +0.029) level.
+- Addendum 12 written first (a lone judge cell down replicates on fresh judge seeds, as addendum 7 for variants;
+  with 12 judge cells a chance graze is about a one-in-four event): the judges stage on 30400-30799, deciding on
+  `outside` alone.
+- Timing (per-call minimum, act p99, batch 5 -> 6): plain 115 -> 119 us, exposed_card 94 -> 115, omaha_four 118 -> 131,
+  swap_holdem 115 -> 119, knockout_bounty 118 -> 118; hand end p99 121-153 -> 134-154. All under 200.
+- Batch 6's combined check on H20 still running.
