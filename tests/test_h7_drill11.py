@@ -46,13 +46,11 @@ def test_ship_set_touches_only_the_value_it_sets(tmp_path):
 def _short_bb_obs(to_call: int):
     """Hand 1 at 10/20, three seats: seat 1 posted the small blind, seat 2 is all-in for a big blind of 10, we (seat
     0, the button) face `to_call`."""
-    from hyperion.core.types import Action, ActionKind
     from hyperion.drills.adapter import make_observation
 
     return make_observation(hole=(48, 45), board=(), street=0, seat=0, button=0, stacks=[2000, 1990, 0],
                             bets=[0, 10, 10], in_hand=[True, True, True], pot=0, to_call=to_call, min_raise=40,
-                            max_raise=2000, legal=["fold", "call", "raise"], hand_no=0, blinds=(10, 20),
-                            history=[(1, Action(ActionKind.CALL, 0))][:0])
+                            max_raise=2000, legal=["fold", "call", "raise"], hand_no=0, blinds=(10, 20))
 
 
 @pytest.mark.night
@@ -586,7 +584,6 @@ def test_module_seat_builds_kit_i_state_answer_and_hand_end(alarm):
     """The seat's `v` is kit I's (seats relative to us, chips per street, the log with the posts and chips added), the
     drill 11 adapter reads it with 0 conformance violations, the int answer maps to the gate's (kind, raise-to total),
     and the hand end's `won` is chips collected, with the bet nobody called given back as `u`."""
-    from hyperion.core.types import Rules
     from hyperion.drills.cheapbot import CheapBot
     from hyperion.drills.conformance import check_observation
     from hyperion.tablegen import rules_from_dict
@@ -623,7 +620,6 @@ def test_module_seat_builds_kit_i_state_answer_and_hand_end(alarm):
     assert h.paid[5] == (60, 300, 0, 0) and h.paid[0] == (60, 300, 0, 0)
     assert [w - sum(p) for w, p in zip(h.won, h.paid)] == [-360, 0, 0, 0, 0, 430, -10, -60]  # the gate's deltas
     assert h.shown[0] == (48, 45) and h.stacks[0] == 1640 and h.stacks[5] == 2430 and h.hand == 1
-    assert Rules  # noqa: B018
 
 
 def _busy(ms):
