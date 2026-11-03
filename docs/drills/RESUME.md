@@ -23,6 +23,11 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
   main, copy drill 10's player_prompt.txt with the paths changed and `timeout` restored in the last rule).
 - start-vs-now (goal/b18/run.sh, detached): confirm, guards, elite, exploit only; output goal/b18/start_vs_now.md.
 
+## Dated items
+- After Menlo Park (Nov 6) and Boston (Nov 9): search the web (X first, LinkedIn sparingly) for what they reveal of
+  the twist, the kit's interface and the scoring; record it in the goal log and turn it into a drill or a catalog
+  entry the same day. Our regional is Pittsburgh, Nov 12; the climb stops by Nov 11 18:00 ET.
+
 ## Held-out sets used
 H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); in use or queued H22-H24; next
 fresh H25 = 45000-45399. Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 30800-31199.
