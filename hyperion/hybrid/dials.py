@@ -111,3 +111,7 @@ class Rival3Knobs:
     l3_max_pct: float = _dial(0.35, "light 3-bets only with hands inside this share of rival 3's preflop ranking")
     l3_lose: float = _dial(0.75, "share of the raise lost when the light 3-bet is not folded to (called or 4-bet)")
     l3_min_bb: float = _dial(25.0, "effective depth in big blinds from which a light 3-bet is considered")
+    # horizon-aware ICM (S18, docs/drills/climb/s18-log.md). Off: Malmuth-Harville on the stacks as they stand
+    icm_horizon: bool = _dial(False, "every all-in price (fold, steal, win, lose, and the 3-bet defence's call) values "
+                                     "each stack s as max(s - o, s / 2), o the blinds it must still post before its "
+                                     "next button or the hand cap (hero.blinds_owed), computed once a hand")

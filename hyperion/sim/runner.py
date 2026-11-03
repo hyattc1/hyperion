@@ -30,7 +30,7 @@ from ..core.cards import hole_class
 from ..core.types import ActionKind, Rules
 from . import bestiary
 from .bestiary import FIELDS, OPTIONAL_FIELDS, REGISTRY, BotUnavailable, field_names, make_bot
-from .engine import BUDGET_NS, BotStats, find_safe, play_table
+from .engine import BUDGET_NS, BotStats, Table, find_safe, play_table
 
 
 @dataclass
@@ -172,6 +172,9 @@ class Report:
     hands: int
     seconds: float
     busts: list = field(default_factory=list)
+    # run_tournament(late_at=H): one record per table played, (table index, rotation, players with chips when hand H
+    # was about to be dealt (0 if the table had ended), {name: [(points, had chips at H, survived) per seat]})
+    late: list = field(default_factory=list)
 
     @property
     def hands_per_second(self) -> float:
@@ -234,9 +237,12 @@ def run_tournament(
     trace_busts: Optional[str] = None,
     table_offset: int = 0,
     variant=None,
+    late_at: Optional[int] = None,
 ) -> Report:
     """`variant` is a hyperion.drills.variants.Variant (catalog entry): a fresh hooks object is built per
-    table because hooks keep per-hand state. Its Rules are used unless `rules` is given."""
+    table because hooks keep per-hand state. Its Rules are used unless `rules` is given. `late_at` (S18's late-table
+    report): also record, per table played, who had chips when hand `late_at` (0-based) was about to be dealt
+    (Report.late); the play is the same hand for hand."""
     if variant is not None and rules is None:
         rules = variant.rules
     rules = rules if rules is not None else Rules()
@@ -251,6 +257,7 @@ def run_tournament(
     rotations = range(n) if rotate else (0,)
     hands = 0
     busts: list = []
+    late: list = []
     t0 = time.perf_counter()
     for t in range(table_offset, table_offset + tables):
         table_seed = seed * 1_000_003 + t
@@ -266,8 +273,22 @@ def run_tournament(
                 bots = [BustTracer(b, nm, seating, busts) if nm == trace_busts else b for b, nm in zip(bots, seating)]
             stats = [reports[nm].stats for nm in seating]
             hooks = variant.new_hooks() if variant is not None else None
-            res = play_table(bots, rules, seed=table_seed, rotation=rot, mode=mode, stats=stats, stacks=stacks,
-                             variant=hooks)
+            if late_at is None:
+                res = play_table(bots, rules, seed=table_seed, rotation=rot, mode=mode, stats=stats, stacks=stacks,
+                                 variant=hooks)
+            else:  # Table.play() hand by hand, looking at the chips once before hand `late_at`
+                tab = Table(bots, rules, seed=table_seed, rotation=rot, mode=mode, stats=stats, stacks=stacks,
+                            variant=hooks)
+                alive_at = None
+                while not tab.done:
+                    if tab.hand_no == late_at:
+                        alive_at = [c > 0 for c in tab.stacks]
+                    tab.play_hand()
+                res = tab.result()
+                per: dict = {}
+                for s, nm in enumerate(seating):
+                    per.setdefault(nm, []).append((res.points[s], bool(alive_at and alive_at[s]), res.survived[s]))
+                late.append((t, rot, sum(alive_at) if alive_at else 0, per))
             hands += res.hands
             for s, nm in enumerate(seating):
                 r = reports[nm]
@@ -278,7 +299,7 @@ def run_tournament(
         for nm, pts in per_name_points.items():
             if pts:
                 reports[nm].samples.append(sum(pts) / len(pts))
-    return Report(reports, tables * len(rotations), hands, time.perf_counter() - t0, busts)
+    return Report(reports, tables * len(rotations), hands, time.perf_counter() - t0, busts, late)
 
 
 def load_hero_config(spec: Optional[str]) -> Optional[dict]:

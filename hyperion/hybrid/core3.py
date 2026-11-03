@@ -12,6 +12,8 @@ Nothing in hyperion/sim/rivals/rival3.py is edited. `Rival3Core` subclasses its 
   - a soft deadline: if the decision has already used `soft_us` when its preflop or postflop logic would start (the
     history replay ran long or the process was preempted), `SoftDeadline` is raised and Hero's cheap path answers.
   - replay errors, which rival 3 swallows, are counted (`replay_errors`) before its own handler sees them.
+  - horizon-aware ICM (`r3.icm_horizon`, S18, off): each all-in price's stacks after the blinds each still owes
+    (`_owed`, once a hand from its button and live seats; hero.blinds_owed and horizon_stack).
   - dials (`HybridConfig.r3`, hyperion/hybrid/dials.py): its preflop and postflop decisions and its seat reads
     (`_pre`, `_post`, `_rates`) are copied here from rival3.py with a dozen literals named as knobs. At the defaults
     every decision is bit-identical to rival 3's own methods (tests/test_ship.py replays whole tables against them).
@@ -25,7 +27,7 @@ from time import perf_counter
 from ..core.types import HandResult, Rules
 from ..sim.rivals import rival3 as R3
 from ..sim.rivals.rival3 import CLASSES, PCT, _cls, _eqvs
-from ..strategy.hero import holdem_table, icm_me, twist_families, twist_family
+from ..strategy.hero import blinds_owed, holdem_table, horizon_stack, icm_me, twist_families, twist_family
 from .dials import Rival3Knobs
 from .kit import LeanICM, SoftDeadline
 
@@ -179,6 +181,9 @@ class Rival3Core(R3.Bot):
     replay_errors = 0
     seat = 0
     k = Rival3Knobs()  # the dials (hyperion/hybrid/dials.py); setup() takes HybridConfig.r3
+    rules = Rules()
+    _owed_key = None  # r3.icm_horizon: (kit hand number, button) the cached blinds owed (`_owed_v`) belong to
+    _owed_v = None
 
     # ------------------------------------------------------------------ the adapter HybridCore drives
     def setup(self, rules: Rules, seat: int, n_players: int, cfg) -> None:
@@ -195,6 +200,8 @@ class Rival3Core(R3.Bot):
             self.holdem = True  # V-f: a twist family the BvB prior is carried to plays it as on hold'em
         self.replay_errors = 0
         self.seat = seat
+        self.rules = rules
+        self._owed_key = self._owed_v = None
         self._v3_reset()
 
     def _v3_reset(self) -> None:
@@ -538,10 +545,14 @@ class Rival3Core(R3.Bot):
         evf, evs, evw, evl = self._allin(stacks, bets, inh, seat, agg, pot, n_alive)
         pot_all = pot + sum(bets)
 
+        owed = self._owed(stacks, bets, inh) if kn.icm_horizon else None
+
         def lose(x):  # we put x more in and give the pot up to the 3-bettor
             st = list(stacks)
             st[seat] -= x
             st[agg] += pot_all + x
+            if owed is not None:
+                st = [horizon_stack(c, o) for c, o in zip(st, owed)]
             return icm_points(st, seat, pays)
 
         ip = (seat - button - 1) % n > (agg - button - 1) % n  # we act after it postflop
@@ -633,8 +644,21 @@ class Rival3Core(R3.Bot):
             self.replay_errors += 1
             raise
 
+    def _owed(self, stacks, bets, inh) -> list:
+        """r3.icm_horizon: per seat, the blinds it still owes after this hand (hero.blinds_owed from this hand's
+        button and the seats with chips or in the hand), computed once a hand."""
+        key = (self.hand, self.button)
+        if key != self._owed_key or self._owed_v is None or len(self._owed_v) != len(stacks):
+            n = len(stacks)
+            live = [stacks[j] + bets[j] > 0 or bool(inh[j]) for j in range(n)]
+            h = (self.hand - 1) if isinstance(self.hand, int) else 0  # the kit's hand number is 1-based
+            self._owed_v = blinds_owed(live, self.button, h, self.rules)
+            self._owed_key = key
+        return self._owed_v
+
     def _allin(self, stacks, bets, inh, seat, opp, pot, n_alive):
-        """Rival 3's `_allin` (ICM values of fold, steal, win, lose against `opp`) with this table's payouts."""
+        """Rival 3's `_allin` (ICM values of fold, steal, win, lose against `opp`) with this table's payouts; with
+        r3.icm_horizon each line's stacks after the blinds they still owe (horizon_stack)."""
         if self.lean and self.exact_icm:
             raise LeanICM()
         pays = self.payouts
@@ -644,25 +668,29 @@ class Rival3Core(R3.Bot):
         pot_all = pot + sum(bets)
         dead_other = pot_all - bets[seat] - bets[opp]
         c = min(tot[opp], mytot)
+        owed = self._owed(stacks, bets, inh) if self.k.icm_horizon else None
+        icm = icm_points if owed is None else (  # horizon_stack, inline
+            lambda x, i, p: icm_points([((v - o) if v - o > 0.5 * v else 0.5 * v) if v > 0 else v
+                                        for v, o in zip(x, owed)], i, p))
         base = list(stacks)
         f = list(base)
         f[opp] += pot_all
-        ev_fold = icm_points(f, seat, pays)
+        ev_fold = icm(f, seat, pays)
         st = list(base)
         st[seat] = mytot + pot_all - bets[seat]
-        ev_steal = icm_points(st, seat, pays)
+        ev_steal = icm(st, seat, pays)
         w = list(base)
         w[seat] = mytot + c + dead_other
         w[opp] = tot[opp] - c
-        ev_win = icm_points(w, seat, pays)
+        ev_win = icm(w, seat, pays)
         b = self._bounty
         if b is not None:  # the house's bounty on what I take from the others: in the steal and the win
             p_win, on_steal, k, const, share = b
             w[seat] += share * p_win * (k * (c + dead_other) + const)
-            ev_win = icm_points(w, seat, pays)
+            ev_win = icm(w, seat, pays)
             if on_steal:
                 st[seat] += share * (k * (pot_all - bets[seat]) + const)
-                ev_steal = icm_points(st, seat, pays)
+                ev_steal = icm(st, seat, pays)
         lo = list(base)
         lo[seat] = mytot - c
         lo[opp] = tot[opp] + c + dead_other
@@ -670,5 +698,5 @@ class Rival3Core(R3.Bot):
             place = min(len(pays), max(1, n_alive)) - 1  # busting now: last of the n_alive places
             ev_lose = float(pays[place]) if 0 <= place < len(pays) else 0.0
         else:
-            ev_lose = icm_points(lo, seat, pays)
+            ev_lose = icm(lo, seat, pays)
         return ev_fold, ev_steal, ev_win, ev_lose

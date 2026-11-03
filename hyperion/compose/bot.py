@@ -176,6 +176,7 @@ def _hero_light(m, obs: Observation) -> None:
         m.hand_no = obs.hand_no
         m.hand_start = [s + b for s, b in zip(obs.stacks, obs.bets)]
         m._pre_aggr = False
+        m.btn_seen = (obs.hand_no, obs.button)
     prof = m.prof
     if prof is not None:
         try:
@@ -1082,6 +1083,8 @@ def parse_dials(dials: dict | None) -> tuple:
       hero.<key>     Hero's Config wherever Hero plays: the hero member (sections routed to `hero`) and the base's
                      fallback Hero (the tables it plays whole), as `hero.<key>` reaches hybrid3_x's fallback Hero
       base.<key>     any other dial for the base (`base.hero.<key>`: its fallback Hero; flat HybridConfig fields)
+      icm.horizon    S18's horizon-aware ICM in both of F's ICM prices: Hero's curve wherever Hero plays
+                     (`hero.icm_horizon`) and rival 3's all-in prices in the base (`r3.icm_horizon`)
       cheap          every decision the base's cheap path (Hero's), no other member
       late_us, deadline_ms, panic_after, panic_rate   the shell's clocks
       panic_window, panic_ladder, panic_recover, panic_backoff, degrade   SafeBot's governor and the composite's
@@ -1108,6 +1111,10 @@ def parse_dials(dials: dict | None) -> tuple:
             base[rest] = v
         elif head == "short":  # the short-handed specialist's dials (S13)
             short[rest] = v
+        elif head == "icm" and rest == "horizon":  # S18: both ICM prices, Hero's curve and rival 3's all-ins
+            hero["icm_horizon"] = v
+            base["hero.icm_horizon"] = v
+            base["r3.icm_horizon"] = v
         else:
             raise KeyError(f"unknown composite dial {k!r}")
     if d.pop("cheap", False):  # as on hybrid3_x: every decision Hero's cheap path, no reads, no layer

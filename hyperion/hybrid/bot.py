@@ -391,6 +391,7 @@ class HybridCore:
             # its first decision) would be off by whatever moved since, and its hand_end chip chain with it
             h.hand_no = obs.hand_no
             h.hand_start = list(self._start)
+            h.btn_seen = (obs.hand_no, obs.button)
         if cheap and not h.panic:
             h.panic = True
             try:
