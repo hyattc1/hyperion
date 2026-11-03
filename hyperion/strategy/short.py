@@ -184,6 +184,9 @@ class ShortParams:
         self.three2 = False
         self.three2_file = "3b"  # the table: tables/extra/short_<three2_file>.json
         self.three2_roles = "btn,sb,bb"  # ... the three-handed seats it plays (a hand's seat: F plays the others)
+        # ... and once our own raise this hand has been re-raised, the hand's preflop goes back to F (its 3-bet defence,
+        # batch 4, hardened against the exploiters): the tables open and answer opens; F defends its raises
+        self.three2_keep_defence = False
         for k, v in kw.items():
             if not hasattr(self, k):
                 raise KeyError(f"unknown short dial {k!r}")
@@ -324,6 +327,9 @@ class ShortMember:
                         return False
                 return True
             if len(alive) == 3 and self.t3b is not None:
+                if self.p.three2_keep_defence and obs.to_call > 0 and any(
+                        seat == obs.seat and a.kind is _RAISE for seat, a in obs.history):
+                    return False
                 got = self._three_node2(obs)
                 return got is not None and got[3] in self._roles3 and got[4] <= self.p.three_max * (obs.blinds[1] or 1)
             if len(alive) == 3 and self.t3 is not None:
