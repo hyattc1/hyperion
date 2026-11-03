@@ -1103,7 +1103,7 @@ and (in judges) `elite_judge`.
   and --resume for table generation; pack --max-zip-mb; "kill by PID" in the prompts and PLAYBOOK. climb_accept fix:
   a short last chunk is cached under its own name (no past run affected: identity runs used fresh --out dirs, held-out
   and screen sets have no short chunk).
-- The conflict with V-i kept both. Identity after the merge running (plain, and five Hero-whole and twist variants
-  against 9acc160).
+- The conflict with V-i kept both. Identity after the merge: plain 14 cells and five variants (omaha_four, short_deck,
+  wild_deuces, exposed_card, swap_holdem; 10 cells) identical against 9acc160 (H6 renames the short chunk: .n15).
 - climb/batch6 (SHIP_DIALS + BATCH6_OFF + tests) rebased and green (166 tests); BATCH6_OFF's digests equal batch 5's
   on plain and 13 variants, exploit2_hu and adapt_hu. Merges when H20 and the judges report.
