@@ -21,6 +21,7 @@ def test_mirror_fields_seat_copies_of_f_with_the_strong_bots():
     assert B.REGISTRY["f_copy"] is B.ShipCopy
     assert B.field_names("mirror") == ["hero", "f_copy", "f_copy", "f_copy", "rival2", "elite1", "elite2", "hybrid3_x"]
     assert B.field_names("mirror_night")[:5] == ["hero", "f_copy", "f_copy", "elite1", "elite2"]
+    assert B.field_names("mirror_b") == ["hero", "f_copy", "f_copy", "f_copy", "rival2", "elite4", "elite1", "elite2"]
     assert B.field_names("mirror_night")[5:] == ["elite_rest.1", "elite_rest.2", "elite_rest.3"]
     assert B.field_names("mirror@hybrid_x")[0] == "hybrid_x"
     for name, pool in N.POOLS.items():

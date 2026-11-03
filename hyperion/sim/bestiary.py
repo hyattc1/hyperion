@@ -1512,6 +1512,16 @@ class Elite2Bot(_EliteBot):
     MODULE = "elite2"
 
 
+class Elite4Bot(_EliteBot):
+    """Elite `elite4` (second wave, a solver-minded team): offline tables (169-class equities, heads-up push/fold Nash
+    1-30 bb, a postflop hand-strength table from 3.5M simulated spots), every stack-risking decision in finish points
+    with a little more caution than plain ICM, per-seat ranges from this table's frequencies, EV-chosen postflop sizes
+    mixed between near-equal ones. Pauses the garbage collector inside each decision and restores it. No clock. Frozen
+    at minute 73 (md5 063caf8c). In the tuning fields `elite_b` and `mirror_b` (role fixed before it was measured)."""
+
+    MODULE = "elite4"
+
+
 class Elite3Bot(_FixedSpeedInModel, _EliteBot):
     """Elite `elite3`: every big decision in tournament points (exact ICM with dead money), push/fold at about 13 bb
     with per-seat call rates, a postflop Monte Carlo capped at 85 us of wall time (module-level `_pc`, read every
@@ -1725,6 +1735,7 @@ REGISTRY: dict[str, type] = {
     "out_quants": OutsideQuantsBot,  # outside field: import-time equilibria and exact ICM, never tuned on
     "elite1": Elite1Bot,  # elite field (prepared top-team build): tuning fields elite, elite_night
     "elite2": Elite2Bot,  # elite field: tuning fields elite, elite_night
+    "elite4": Elite4Bot,  # elite field, second wave: tuning fields elite_b, mirror_b
     "elite3": Elite3Bot,  # elite field: the held-out elite judge (elite_judge), never tuned on
     "exploiter1": Exploiter1Bot,  # the S2 exploiter of F (black-box attacker): a test opponent, never in a night pool
     "exploiter2": Exploiter2Bot,  # the second exploiter (S11), of F with FIN: a test opponent, never in a night pool
@@ -1848,6 +1859,11 @@ FIELDS["elite_judge"] = ("hero", "elite3", "elite1", "elite2", "rival4", "rival5
 # elite2 and hybrid3_x (F's own base). `mirror_night`: two copies of F with elite_night's seats (elite1, elite2 and the
 # first three of its five drawn night seats). Tuning fields: climb_accept's elite stage measures `mirror`.
 FIELDS["mirror"] = ("hero", "f_copy", "f_copy", "f_copy", "rival2", "elite1", "elite2", "hybrid3_x")
+# second wave (2026-11-02): elite4 (a solver-minded build) in a room of strong bots and at a mirror table, new fields so
+# the first wave's numbers keep their meaning. `elite_b`: elite's room with elite4 in agent_default's seat;
+# `mirror_b`: three copies of F with rival 2 and three elite builds (elite4 in hybrid3_x's seat)
+FIELDS["elite_b"] = ("hero", "elite4", "elite1", "elite2", "rival1", "rival2", "rival3", "agent_pushfold")
+FIELDS["mirror_b"] = ("hero", "f_copy", "f_copy", "f_copy", "rival2", "elite4", "elite1", "elite2")
 FIELDS["mirror_night"] = ("hero", "f_copy", "f_copy", "elite1", "elite2") + _night.seat_names("elite_rest")[:3]
 # the exploiter's fields (S2, docs/drills/exploiter/): as its arena seated it, the hero seat and exploiter1 with six
 # night-pool seats at 8-max, alone heads-up, and with the first night-pool seat three-handed (play them with Rules of
