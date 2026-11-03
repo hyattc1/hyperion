@@ -111,3 +111,10 @@ class Rival3Knobs:
     l3_max_pct: float = _dial(0.35, "light 3-bets only with hands inside this share of rival 3's preflop ranking")
     l3_lose: float = _dial(0.75, "share of the raise lost when the light 3-bet is not folded to (called or 4-bet)")
     l3_min_bb: float = _dial(25.0, "effective depth in big blinds from which a light 3-bet is considered")
+    # a trust weight on the fold read that prices steals at strong tables (S16, docs/drills/climb/s16-log.md). Off: the
+    # read as built, (folds + 2.4) / (raises faced + 4). The composite says per seat when the weight applies (while the
+    # table reads strong: hero member's Profiler.strong_table at the strong route's threshold; hold'em tables only)
+    read_trust: float = _dial(0.0, "unopened pots (the steal price, the open clauses, a short shove's fold equity): a "
+                                   "seat's fold-to-a-raise read is at most prior + (observed - prior) x n / (n + this), "
+                                   "n its raises faced, prior 0.6; 0 = off")
+    read_trust_min_n: float = _dial(10.0, "... and only the prior (0.6) below this many raises faced")

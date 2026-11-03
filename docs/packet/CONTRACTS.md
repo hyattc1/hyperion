@@ -150,6 +150,8 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.l3_max_pct` | `0.35` | light 3-bets only with hands inside this share of rival 3's preflop ranking |
 | `r3.l3_lose` | `0.75` | share of the raise lost when the light 3-bet is not folded to (called or 4-bet) |
 | `r3.l3_min_bb` | `25.0` | effective depth in big blinds from which a light 3-bet is considered |
+| `r3.read_trust` | `0.0` | unopened pots (the steal price, the open clauses, a short shove's fold equity): a seat's fold-to-a-raise read is at most prior + (observed - prior) x n / (n + this), n its raises faced, prior 0.6; 0 = off |
+| `r3.read_trust_min_n` | `10.0` | ... and only the prior (0.6) below this many raises faced |
 
 The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"exploit": null}` turns the layer off):
 
@@ -175,6 +177,8 @@ The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"
 | `exploit.raise_guard` | 1.0 |
 | `exploit.raise_prior` | 0.1 |
 | `exploit.raise_n` | 4.0 |
+| `exploit.read_trust` | 0.0 |
+| `exploit.read_trust_min_n` | 10.0 |
 | `exploit.isolate` | False |
 | `exploit.iso_min_fold` | 0.85 |
 | `exploit.iso_max_bb` | 6.0 |
@@ -433,6 +437,8 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `exploit.raise_guard` | 1.0 |
 | `exploit.raise_prior` | 0.1 |
 | `exploit.raise_n` | 4.0 |
+| `exploit.read_trust` | 0.0 |
+| `exploit.read_trust_min_n` | 10.0 |
 | `exploit.isolate` | False |
 | `exploit.iso_min_fold` | 0.85 |
 | `exploit.iso_max_bb` | 6.0 |

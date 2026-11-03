@@ -179,6 +179,9 @@ class Rival3Core(R3.Bot):
     replay_errors = 0
     seat = 0
     k = Rival3Knobs()  # the dials (hyperion/hybrid/dials.py); setup() takes HybridConfig.r3
+    # S16 (r3.read_trust): per seat, whether the trust weight applies to its fold read in this decision's unopened pot;
+    # set by the composite before each preflop decision while the dial is on (the table reads strong), else None
+    trust = None
 
     # ------------------------------------------------------------------ the adapter HybridCore drives
     def setup(self, rules: Rules, seat: int, n_players: int, cfg) -> None:
@@ -195,6 +198,7 @@ class Rival3Core(R3.Bot):
             self.holdem = True  # V-f: a twist family the BvB prior is carried to plays it as on hold'em
         self.replay_errors = 0
         self.seat = seat
+        self.trust = None
         self._v3_reset()
 
     def _v3_reset(self) -> None:
@@ -316,10 +320,11 @@ class Rival3Core(R3.Bot):
         # ---------------- unopened (maybe limpers)
         if n_raises == 0:
             limpers = [s for s in opp_in if bets[s] >= bb and s != bbs]
-            # fold equity of everybody behind
+            # fold equity of everybody behind (S16: with the trust weight where the composite set it)
+            fp = self._fold_prob if self.trust is None else self._fold_trust
             pf = 1.0
-            for s in behind: pf *= self._fold_prob(s, short)
-            for s in limpers: pf *= self._fold_prob(s, short) * 0.9
+            for s in behind: pf *= fp(s, short)
+            for s in limpers: pf *= fp(s, short) * 0.9
             n_beh = len(behind) + len(limpers)
             if short:
                 cands = behind + limpers
@@ -588,6 +593,25 @@ class Rival3Core(R3.Bot):
         cont = min(w3, cont)
         fo4 = (self.v4f[agg] + kn.v3_f4_n * min(f4_cap, 1.0 - cont / w3)) / (self.v4o[agg] + kn.v3_f4_n)
         return w3, fo4
+
+    # ------------------------------------------------------------------ S16: the trust weight on the steal's fold read
+    def _fold_trust(self, s, short):
+        """`_fold_prob` with its fold-to-a-raise read at most prior + (observed - prior) x n / (n + read_trust), n the
+        raises seat s has faced, prior 0.6 (rival 3's own, 2.4 of 4), and the prior alone below read_trust_min_n raises
+        faced; where `trust[s]` is set. One-sided: a read under that (a seat that calls) narrows our risk and is kept,
+        and so is a dead seat's 1.0."""
+        f = self._fold_prob(s, short)
+        tr = self.trust
+        if f >= 1.0 or not 0 <= s < len(tr) or not tr[s]:
+            return f
+        kn = self.k
+        S = self.st[s]
+        n = S.fr
+        t = 0.6
+        if n >= kn.read_trust_min_n and n > 0:
+            t = 0.6 + (S.fr_f / n - 0.6) * n / (n + kn.read_trust)
+        t = max(0.05, min(0.97, t))
+        return f if f <= t else t
 
     # ------------------------------------------------------------------ S12: a light 3-bet against a folding opener
     def _light3(self, o, legal, bets, seat, agg, bb, pot_tot, mytot, behind):
