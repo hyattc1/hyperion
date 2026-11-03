@@ -930,3 +930,12 @@ and (in judges) `elite_judge`.
   (exploit_hu -0.060 ± 0.108 to watch). A long-board counter bug fixed along the way (river_of_blood played differently
   with the dials off).
 - Identity after the merge: 15 cells identical. S15c on H19 (39000-39399), --aim exploit, every stage (12 exploit cells).
+
+## 04:04: adapt2 (the held-out adaptive opponent) wired in as a judge
+- A fresh agent with no repo access (goal/adapt2, about 81 minutes, a running notebook) built an adaptive bot
+  against five anonymous strong targets. Its counters (on minus off, fresh seeds) gained against all five at 8-max
+  and most heads-up; the target it took most from was F (8-max +1,326 chips a table, +0.19 points; heads-up +292
+  chips, +0.07 points), mostly from F folding 71% to postflop bets heads-up. Base game weaker than the targets at 8-max
+  (5.2-5.3 points against 5.3-5.9).
+- Registry `adapt2`, judge cells adapt_judge, adapt_judge_hu, adapt_judge_3 (judges stage); md5 ee30b9a6; tests keep
+  it in adapt_judge* fields only and check exact replay with Hero's panic off.
