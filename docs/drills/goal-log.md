@@ -742,3 +742,20 @@ and (in judges) `elite_judge`.
 - Same organiser brief as drill 8 (goal/drill9/kit, no repo access), with Ghost Hold'em added to the excluded twists,
   a twist that must change how most hands are played, and one interface choice on bet sizing (a fixed menu of sizes,
   or sizes in a unit other than chips). The player, a fresh agent on batch 5's ship, follows when the kit is done.
+
+## 21:56: V-g merged: our sim transfers to an engine we did not write; three general fixes
+- Sim-to-kit check (kit F, Ghost Hold'em, drill 8's four Stage 5 candidates, paired by deal): with the same eight
+  bots in both engines (field B, our field bots seated in the kit) the two agree in sign and size (c2 +0.23 ± 0.22 in
+  ours, +0.31 ± 0.22 in the kit; the others level in both) and F's own score matches. Against the kit's own sample
+  bots every candidate shrinks to level (9,600 tables). What does not carry over is the field, not the engine, the
+  twist, cap scoring or timing. Drill 8's Stage 5 verdicts (-0.9, -0.5, -0.24 on 160-400 tables) were noise.
+- Ghost Hold'em fits the existing hooks (hyperion/drills/ghost_example.py; 19,992 showdowns against kit F's dealer, 0
+  mismatches). General additions: Rules.extras cap_places "chips" (survivors placed by chips at the cap; Hero reads
+  it as plain hold'em); generic tables price any settle hook through the engine's award (AA 0.738 under the Ghost,
+  as kit F); the Adapter re-pins its own package's modules (kit F's loader removed them, so an import inside a
+  function failed silently: batch 5's twin dials hit one at every table start).
+- Not a lead: the broken-reset zip kept its opponent reads across a whole session (kit F gives session-wide ids)
+  and scored +0.45 ± 0.26 over F on the kit's bots. The official rules reset bot state per table and anonymise
+  opponents (§3.8, docs/research), so this cannot happen on the night; kit F's one Agent per session was its
+  organiser's choice. Kept as a fact about kits that allow it, not as work.
+- Identity after the merge: running (batch 5 reference at d865e7d against merged main).
