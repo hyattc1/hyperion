@@ -961,3 +961,16 @@ and (in judges) `elite_judge`.
 - S18 (goal/wt_s18, climb/s18-horizon-icm): one fixed form (blinds each stack still owes before the cap or its next
   button, taken off before ICM) in Hero's curve and rival 3's icm_points, off by default; a late-table report and a
   150-hand-cap guard file; cap_vol_bb stays off (kit F's rule). Screen, then held out.
+
+## 04:58: S16 merged (trust weight; T2 parked); S16b started on the direct fix
+- Diagnostic (S12's warm-store split on elite, elite_b, mirror, mirror_b, 200 seeds): the risk-widening preflop reads
+  (rival 3's unopened fold read and the layer's steal read) carry the strong-table loss (elite -0.133, mirror -0.217
+  DOWN when warm alone). The cause is bias, not small samples: strong seats fold 4-13 points less to F's own
+  first-in raises than their pooled fold-to-a-raise says (rival 3 0.67 vs 0.80, rival 2 0.73 vs 0.81) and re-raise
+  8-15%. Holding those reads at their priors: elite_b +0.136, mirror +0.147, mirror_b +0.210 UP; ungated it lost on
+  realistic and top_heavy (T3).
+- T2 (one-sided trust weight, s = 10, per-seat gate: a seat that re-raised our open): screen mirror_b +0.070 ± 0.049
+  UP, the rest level (adapt -0.085 ± 0.086 the closest). Narrow: parked as a fallback, not sent to a held-out set yet.
+- S16b (goal/wt_s16b): read each seat's answer to F's own first-in raises in place of the pooled fold-to-a-raise in
+  the steal price, with a surveyed prior and the trust floor; gated as the survey supports.
+- Identity after the merge: running.
