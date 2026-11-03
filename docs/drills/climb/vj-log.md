@@ -92,3 +92,59 @@ I's 19-point scale (about 1 on our 7-point one): our archetypes already play mad
 Tests: `tests/test_vj_aware.py` (8): the shares and twins, now_share, the field's wiring, the claim only where the
 betting ends, both aware fields (tranche_holdem_aware, generic_aware) playing the entry clean, the generic read.
 test_aware, test_generic_aware (every catalog entry has a prepared table and plays clean), test_climb_accept: pass.
+
+## 3. F's dials (off by default; SHIP_DIALS unchanged)
+
+Who plays what on a tranche_holdem table: the extras keys are not a showdown key the base's core refuses
+(`hybrid.bot.table_reason` is None), so F plays it as hold'em is played: rival 3's core preflop (the base), Hero after
+the flop (route `post=hero`) and in `pre_raised_short`. So the preflop patch has to reach every member, and the
+postflop one is Hero's.
+
+- `tranche_twin` (ComposeConfig, a flat dial; "" off, "all", "allin"): on a street-settled table every preflop
+  decision is shown, to every member, the hold'em class at our two-card rank's percentile of Hero's own tables
+  (`tranche.twin_cards_map(tables.load().rank)`, a copy of the observation; the engine's is untouched). On a table
+  that only settles all-ins on the cards out (`no_runout` alone), and with "allin" on either, only the all-in
+  decisions (effective stack 20 bb or less, or a call of 40% of our stack or more: the drill's TWIN_BB 20 /
+  TWIN_CALL_FRAC 0.4). The drill's adapter `twin_hole`, keyed on the Rules instead of the kit.
+- `hero.tranche` (Config.tranche; comma parts, "" off), each part only where its rule is on, two hole cards and
+  hold'em's showdown:
+  - `now` (street settlement): the postflop read without draws (`Postflop.read(..., now=True)`: no draw outs, no
+    draw tier bumps) and no cards to come, as on a river: this street's pot is decided on these cards.
+  - `sunk` (street settlement): facing a bet the price is (call - claim) / (this street's chips + call) instead of
+    the whole pot's; claim = sum over earlier streets of T_k x q_k^n (q_0 the two-card share against one random hand,
+    q_k the tier's equity on street k's board, n the opponents in), counted in full where the call ends the betting
+    (the river, an all-in either side: `tranche.closes_betting`) and x `hero.tranche_claim_early` (0.5) before, x
+    `hero.tranche_claim_scale` (1.0). The aware bots' calibration above is why the early claim is discounted.
+  - `allin` (no runout): a call that ends the betting is read as the hand is now (no draws).
+  - `hero.tranche_value_shift`, `hero.tranche_call_shift` (int, 0): value/raise thresholds and the facing-a-bet read
+    moved on street-settled tables (for candidates without a code change; every hyperion edit misses the cache).
+- Tests: `tests/test_vj_dials.py` (6): off in the ship and in the defaults; the twin only on street-settled or
+  no-runout tables (22 shown as A-T suited; no other catalog entry, no hold'em table; no-runout alone only short);
+  Hero's parts only where the rule is (none on the 26 other entries); the now-read gives a nut flush draw ace high and
+  no outs; a flush draw that calls a half-pot flop bet in hold'em folds; a pair of deuces holding a 1000-chip
+  preflop tranche calls a river bet it folds without `sunk`, and the same on the turn calls at claim_early 1.0 and
+  folds at 0.
+
+## 4. Screen runs (our sim)
+
+Every run: `tools/climb_accept.py --base '{"dials": {}}' --cand <spec> --set screen --stages variants,aware --variants
+tranche_holdem --aware tranche_holdem_aware,generic:tranche_holdem --runout-term`, seeds 10000-10199 (200 seeds, eight
+rotations each, model mode, paired by seed), out `goal/vj_work/ca`, code version b3ae54d3e7 (branch c1ccbdd). The
+cells: tranche_holdem on `realistic` (twist-blind opponents), `tranche_holdem_aware` and `generic_aware` under the
+entry. The runout term has no events on the entry (no_runout), so corrected = raw throughout. F (base) scores 6.475
+(realistic), 6.331 (aware), 6.345 (generic aware) on the 8..1 table.
+
+| candidate | realistic | tranche_holdem_aware | generic_aware | verdict |
+|---|---|---|---|---|
+| c1 `{"tranche_twin": "all"}` | +0.027 ± 0.095 | -0.019 ± 0.106 | +0.014 ± 0.102 | level (25.2 min with base, 2 workers) |
+| c3 `{"tranche_twin": "all", "hero.tranche": "now,sunk"}` (claim_early 0.5) | +0.045 ± 0.100 | -0.025 ± 0.110 | +0.024 ± 0.108 | level |
+
+How often the parts change Hero's decision (`goal/vj_work/flips.py`: F + dials in tranche_holdem_aware, diagnostic
+seeds 12000-12019 x 8; at each tranche-path decision the plain read is asked too, from the same rng state):
+
+| dials (with the twin) | tranche-path decisions | changed | the main changes |
+|---|---|---|---|
+| now | 5,149 | 4.2% | turn bets checked (100: semi-bluffs gone), flop bets checked (58), flop calls folded (47: draws) |
+| now,sunk (claim_early 0.5) | 5,237 | 9.9% | flop folds called (229: half the preflop claim makes a flop call cheap), turn/flop bets checked (180), river folds called (42) |
+| now,sunk (claim_early 0.0) | 4,804 | 9.3% | flop calls folded (239: this street's pot alone prices the call), bets checked (149), river folds called (29) |
+| c2 `{"tranche_twin": "all", "hero.tranche": "now"}` | +0.040 ± 0.098 | -0.007 ± 0.103 | +0.005 ± 0.104 | level |
