@@ -240,18 +240,17 @@ class PostflopParams:
     # ... only heads-up against a seat that raises my heads-up flop and turn bets at a smoothed rate (prior 0.12 worth
     # 5) above balance_from: the reader of sizes shows itself by raising the small ones. 1.0 = off
     balance_from: float = 1.0
-    # a stabber (S15, docs/drills/climb/s15-log.md): facing the street's first bet heads-up right after my check
-    # (nothing of mine in) on a street in stab_streets (bit mask: 1 flop, 2 turn, 4 river), from a seat that bets
-    # right after my checks at a smoothed rate r above stab_from (Profiler.stab_rate: on this street, or the streets of
-    # the bit mask stab_pool pooled; prior stab_prior worth stab_n chances, none before stab_min chances are seen).
-    # Whoever has the initiative, a seat that
-    # bets nearly every time I check bets its whole range there, and folding my checking range to it pays every bet it
-    # makes: my equity moves from the tier's proxy toward WIDE_EQUITY (the tier against a whole range) by the weight
-    # (r - from) / (stab_full - from), at most 1, and the call margin toward stab_margin by the same weight (-1: it
-    # stays). stab_bluff: on the streets in stab_bluff_streets, air (tier 0-1) raises it with this chance times the
-    # weight (a check-raise; times the bluff dial when that is under 1). stab_aggr_only: only when the bettor has the
-    # initiative (the last aggressor of the earlier streets: a c-bet or a barrel after my check; a bet after it called
-    # mine holds its calling range). stab_holdem_only: hold'em tables only (hero.holdem_table). 1.0 / -1 / 0 = off
+    # a stabber (S15, docs/drills/climb/s15-log.md). Facing the street's first bet heads-up right after my check
+    # (nothing of mine in) on a street of stab_streets (bit mask: 1 flop, 2 turn, 4 river), from a seat whose rate of
+    # betting right after my checks (Profiler.stab_rate: on this street, or on the streets of the bit mask stab_pool
+    # pooled; prior stab_prior worth stab_n chances; no read before stab_min chances) is r above stab_from: a seat
+    # that bets nearly every time I check bets most of its range there, and folding my checking range to it pays for
+    # every bet it makes. My equity moves from the tier's proxy toward WIDE_EQUITY (the tier against a whole range) by
+    # the weight (r - from) / (stab_full - from), at most 1, and the call margin toward stab_margin by the same weight
+    # (-1: it stays). stab_bluff: on the streets of stab_bluff_streets, air (tier 0-1) raises it with this chance times
+    # the weight (a check-raise; times the bluff dial when that is under 1). stab_aggr_only: only against the bettor
+    # with the initiative (the last aggressor of the earlier streets: a c-bet or a barrel; a bet after it called mine
+    # holds its calling range). stab_holdem_only: hold'em tables only (hero.holdem_table). 1.0 / -1 / 0 = off
     stab_from: float = 1.0
     stab_full: float = 1.0
     stab_prior: float = 0.5

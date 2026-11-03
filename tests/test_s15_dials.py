@@ -11,7 +11,10 @@ from .test_s2_dials import _digest
 HU = ["hero", "exploiter3"]
 THREE = ["hero", "exploiter3", "loose_aggro"]
 R2, R3 = Rules(n_players=2, payouts=(10, 7)), Rules(n_players=3, payouts=(10, 7, 5))
-S = {"hero.postflop.stab_from": 0.5, "hero.postflop.stab_margin": 0.03, "hero.postflop.stab_holdem_only": True}
+# S15's candidate
+S = {"hero.postflop.stab_from": 0.55, "hero.postflop.stab_full": 0.8, "hero.postflop.stab_prior": 0.4,
+     "hero.postflop.stab_min": 3, "hero.postflop.stab_pool": 7, "hero.postflop.stab_margin": 0.03,
+     "hero.postflop.stab_holdem_only": True}
 
 
 def _obs(seat, hist, bets, to_call):
@@ -54,11 +57,12 @@ def test_a_lead_into_me_is_not_a_stab():
     assert prof.st_opp[1] == [0, 0, 0]  # it led the flop and acted first on the turn and river: no check of mine
 
 
-@pytest.mark.parametrize("dials", [S, {**S, "hero.postflop.stab_bluff": 1.0},
-                                   {**S, "hero.postflop.stab_streets": 7}])
-def test_each_s15_dial_reaches_the_decisions(dials):
-    base = {k: v for k, v in dials.items() if k not in ("hero.postflop.stab_bluff", "hero.postflop.stab_streets")}
-    ref = {} if base == dials else base
+S7 = {**S, "hero.postflop.stab_streets": 7}
+
+
+@pytest.mark.parametrize("dials,ref", [(S, {}), (S7, S), ({**S7, "hero.postflop.stab_bluff": 1.0}, S7),
+                                       ({**S, "hero.postflop.stab_aggr_only": True}, S)])
+def test_each_s15_dial_reaches_the_decisions(dials, ref):
     assert any(_digest(dials, t, HU, R2)[0] != _digest(ref, t, HU, R2)[0] for t in range(10)), dials
 
 
