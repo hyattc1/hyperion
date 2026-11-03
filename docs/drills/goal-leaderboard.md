@@ -3,45 +3,46 @@
 One page, updated after every accepted batch. Points are per table, averaged over the seeds shown, every seed played
 in all eight seat rotations; "margin" is F minus the other bot on the same deals, with the 95% interval.
 
-## Where we stand (2026-11-02 08:59 ET, batch 4)
+## Where we stand (2026-11-02 21:20 ET, batch 5)
 
 **F (the composite) is first against every judge field.** On fresh seeds (30000-30399, 400 x 8), none of them ever
-used for tuning (batches 3 and 4 left every judge level, so these numbers stand):
+used for tuning. Batch 5 moved judge_top +0.106 and outside +0.087 (beyond noise) and left the rest level; the
+fallbacks' margins below are batch 4's measured margins plus F's paired change on the same deals:
 
 | field | 1. F | 2. hybrid3_x (margin) | 3. Hero (margin) |
 |---|---|---|---|
-| judge (rival 4 + realistic) | 6.483 | 6.263 (F +0.220 ± 0.082) | 6.100 (F +0.383 ± 0.085) |
-| judge2 (rival 5 + realistic) | 6.524 | 6.328 (+0.196 ± 0.080) | 6.192 (+0.332 ± 0.088) |
-| judge2_night (rival 5 + night pool) | 5.903 | 5.632 (+0.270 ± 0.086) | 5.616 (+0.287 ± 0.081) |
-| judge_top (rivals 1-4) | 5.095 | 4.956 (+0.139 ± 0.084) | 4.885 (+0.210 ± 0.095) |
-| outside (four fresh one-hour builds + night pool) | 5.418 | 5.281 (+0.137 ± 0.075) | 5.138 (+0.279 ± 0.086) |
-| outside_strong (the four + rivals 4, 5 + agent_pushfold) | 5.034 | 4.947 (+0.088 ± 0.088, level) | 4.805 (+0.229 ± 0.091) |
+| judge (rival 4 + realistic) | 6.457 | 6.263 (F +0.194) | 6.100 (F +0.357) |
+| judge2 (rival 5 + realistic) | 6.524 | 6.328 (+0.196) | 6.192 (+0.332) |
+| judge2_night (rival 5 + night pool) | 5.892 | 5.632 (+0.259) | 5.616 (+0.276) |
+| judge_top (rivals 1-4) | 5.201 | 4.956 (+0.245) | 4.885 (+0.316) |
+| outside (four fresh one-hour builds + night pool) | 5.507 | 5.281 (+0.226) | 5.138 (+0.368) |
+| outside_strong (the four + rivals 4, 5 + agent_pushfold) | 5.059 | 4.947 (+0.113) | 4.805 (+0.254) |
 
-**Against prepared top teams** (the elite field, three fresh builds told to make the strongest general bot; 150 seeds,
-every seat ranked): F is 1st in a night room with two of them (5.35 vs 5.18) and 1st in the held-out strongest room
-(4.93 vs 4.81), but 3rd at a table of only strong bots (4.67, behind rival 2 4.83 and elite 2 4.70, inside noise of
-elite 2). It wins 1st place less often than they do.
+**On the night field, batch 5 is up beyond noise** on held-out seeds (H13, 33000-33399): +0.096 ± 0.053 points a
+table against batch 4, +0.23 under a 10/7/5 table and +1.0 under a top-heavy one.
 
-**Against bots built to beat F** (fresh agents that see F only by playing it):
-- exploiter 1: F now beats it in every format (batch 4's 3-bet defence, held-out seeds): 8-max 5.62 vs 4.65,
-  heads-up 9.08 vs 7.92, three-handed 8.41 vs 7.03. Before, F lost all three.
-- exploiter 2, against F with that fix: heads-up 9.52 vs F 7.48, three-handed 8.61 vs 7.21; 8-max F still ahead
-  (5.65 vs 5.15). It defends wide against F's small-blind opens, reads F's bet sizes, and stabs when F checks. Fixes
-  in progress (S11). Short-handed play decides 1st place, so this is the biggest open gap.
+**Against prepared top teams** (the elite builds: fresh agents told to make the strongest general bot; 150 seeds x 8,
+every seat ranked, diagnostic): F is now **1st** in the room of strong bots (4.84; rival 2 4.80, elite 2 4.67; batch
+4 was 2nd at 4.75) and 1st in the night room with two of them (5.34 vs elite 2 5.23). At the mirror table (three
+copies of F with rival 2, elite 1, elite 2, hybrid3_x) F rose from 5th of six to about 3rd (4.52-4.54, rival 2 4.75):
+paired on held-out seeds, +0.241 ± 0.065. Elite 2 and elite 1 still take 1st place more often (19-24% against F's
+12-18%). Two more prepared-team builds are being made (elite 4 for tuning, elite 5 held out as a judge).
 
-**On a slow sandbox:** with the governor (batch 2), F on a 3x slower box scores what it scores on a normal one; before
-it lost 3.6 points of 100 under a top-heavy table (half the tables fell to the cheap path).
+**Against bots built to beat F** (fresh agents that see F only by playing it), on held-out seeds after batch 5:
+- exploiter 1: F wins every format: 8-max 5.72 vs 4.55, heads-up 9.27 vs 7.73, three-handed 8.47 vs 6.92.
+- exploiter 2: F wins 8-max (5.79 vs 5.06); heads-up 7.80 vs its 9.20 and three-handed 7.35 vs 8.23 it still leads,
+  by less than before (it was 7.50 vs 9.50 and 7.15 vs 8.57). The short-handed specialist (S13), which cuts most of the
+  heads-up gap on the screen set, is in held-out confirmation.
 
-**Variants:** 25 of 25 catalogued entries READY, first on 24 (second on fixed_raise, level with rival 1). Against
-variant-aware opponents (bots built for the twist), batch 3 adds toss_or_holdem +0.13, bounty +0.30, short deck +0.18
-points a table (held-out seeds); batch 4 adds deal5_keep2 +0.29 to +0.31 and toss +0.10 more.
+**On a slow sandbox:** with the governor (batch 2), F on a 3x slower box scores what it scores on a normal one.
 
-**At a table of strong general bots** (the mirror field: three copies of F with rival 2, elite 1, elite 2,
-hybrid3_x), F is last of six (4.43; rival 2 4.79) and takes 1st 8% of the time. Cause found (its 10-20 bb opens with
-four or more players); a fix that hands those spots to elite 1 at tables that re-raise is in held-out confirmation.
+**Variants:** 25 of 25 catalogued entries READY. Batch 5 adds, on held-out seeds: wild_deuces +0.39, three_card_keep
++0.19, omaha_four +0.16, short_deck +0.15 (and +0.22 against short-deck-aware bots), on top of batches 3-4 (toss,
+bounty, short deck, keep2). A ninth catalog-free twist (drill 8's Ghost Hold'em, an organiser agent's own engine): the
+drill's zip of batch 4 scored 7.64 a table against the organiser's Ghost-aware bot's 6.39.
 
-**Rehearsal (drill 7):** a fresh agent on an unfamiliar event-driven kit with an unseen variant had a legal upload at
-minute 8 and the ship bot gated at minute 20; that zip beat raw F under the variant (+3.4 ± 6.5 of 100).
+**Rehearsals:** drill 7 (event-driven kit, unseen variant): legal upload minute 8, ship gated minute 20. Drill 8
+(one Agent per session, int actions, Ghost Hold'em): insurance minute 1, ship gated minute 12.
 
 ## Ship and frozen fallbacks
 
