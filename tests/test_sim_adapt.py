@@ -21,7 +21,7 @@ def _rules(name):
 
 
 def test_registered_seated_and_in_no_pool():
-    assert B.ADAPTERS == ("adapt1", "adapt1_off") and set(B.ADAPTERS) <= set(B.REGISTRY)
+    assert B.ADAPTERS == ("adapt1", "adapt1_off", "adapt2") and set(B.ADAPTERS) <= set(B.REGISTRY)
     for name, pool in N.POOLS.items():
         drawn = {b for _, _, ms in pool.groups for b, _ in ms}
         assert not drawn & set(B.ADAPTERS), name
@@ -154,3 +154,34 @@ def test_acts_legally_on_random_observations():
         assert kind in legal
         if kind == "raise":
             assert obs.min_raise <= amt <= obs.max_raise
+
+
+ADAPT2_MD5 = "ee30b9a61161cdbf3c126a6c345bac70"
+
+
+def test_the_held_out_adapter_matches_its_archive_and_sits_only_in_judge_fields():
+    import hashlib
+
+    raw = (ROOT / "docs/drills/adapt2/adapt_bot.py").read_bytes()
+    assert hashlib.md5(raw).hexdigest() == ADAPT2_MD5
+    lines = (ROOT / "hyperion/sim/field/adapt2.py").read_bytes().splitlines(keepends=True)
+    assert all(ln.startswith(b"#") for ln in lines[:6]) and ADAPT2_MD5.encode() in b"".join(lines[:6])
+    assert b"".join(lines[6:]) == raw
+    for name, members in B.FIELDS.items():
+        if "adapt2" in members:
+            assert name.startswith("adapt_judge"), name
+    assert B.field_names("adapt_judge_hu") == ["hero", "adapt2"]
+    assert B.FIELD_PLAYERS["adapt_judge_hu"] == 2 and B.FIELD_PLAYERS["adapt_judge_3"] == 3
+
+
+@pytest.mark.parametrize("field,rules", [("adapt_judge", None), ("adapt_judge_hu", "hu"), ("adapt_judge_3", "three")])
+def test_the_held_out_adapter_plays_legally_and_replays_exactly(field, rules, monkeypatch):
+    # Hero's panic mode reads the wall clock; climb_accept turns it off, so does this (as the adapt1 test above)
+    monkeypatch.setattr(B, "HERO_CONFIG", B.HERO_CONFIG)
+    r = _rules(rules) if rules else None
+    kw = dict(seed=1, rotate=True, mode="model", table_offset=10000, rules=r, hero_config={"panic_after": 10 ** 9})
+    a = run_tournament(B.field_names(field), 2, **kw)
+    b = run_tournament(B.field_names(field), 2, **kw)
+    for nm, rep in a.bots.items():
+        assert rep.stats.exceptions == 0 and rep.stats.illegal == 0, nm
+        assert rep.samples == b.bots[nm].samples, nm

@@ -1702,6 +1702,23 @@ class Adapt1OffBot(Adapt1Bot):
     COUNTERS = False
 
 
+class Adapt2Bot(Adapt1Bot):
+    """Judge `adapt2` (decisions "The climb: addendum 9"): the held-out adaptive opponent, built in about 81 minutes by a
+    fresh agent with no repo access against five anonymous strong targets (F among them) through an arena only. A
+    sound base (position ranges from an equity table, push/fold by expected value at 13 bb or less), each seat read
+    from its actions with slow forgetting, and eleven counters that act only once a read leaves a dead zone (steals,
+    opener and shover widths, light 3-bets, fold to 3-bets and to bets, calls of our shoves, aggression and traps,
+    raise rate, size tells and called value bets from our showdowns). No clock. Its RNG is seeded from the seat at
+    new_table; here from the seat seed, so runs replay exactly. Frozen at md5 ee30b9a6. Never tuned on (fields
+    `adapt_judge`, `adapt_judge_hu`, `adapt_judge_3` in the judges stage)."""
+
+    MODULE = "adapt2"
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self.impl.rng = random.Random(self._seed * 1_000_003 + 0xA2)
+
+
 # ----- the hybrid candidate: rival 2's decision core behind Hero's shell ---------------------------------------
 
 
@@ -1835,6 +1852,7 @@ REGISTRY: dict[str, type] = {
     "exploiter3": Exploiter3Bot,  # the third exploiter, of batch 5: a test opponent, never in a night pool
     "adapt1": Adapt1Bot,  # the adaptive opponent (R6), tuning copy: a test opponent, never in a night pool
     "adapt1_off": Adapt1OffBot,  # adapt1 with its counters off (its twin): a test opponent, never in a night pool
+    "adapt2": Adapt2Bot,  # the held-out adaptive opponent (addendum 9): a judge, never tuned on, never in a night pool
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
@@ -1981,13 +1999,18 @@ FIELDS["exploit3_hu"] = ("hero", "exploiter3")
 FIELDS["exploit3_3"] = ("hero", "exploiter3") + _night.seat_names("night")[:1]
 # the adaptive opponent's (R6, addendum 9: the tuning copy), seated as the exploiters are: with six night-pool seats at
 # 8-max, heads-up, and with the first night-pool seat three-handed
-ADAPTERS = ("adapt1", "adapt1_off")
+ADAPTERS = ("adapt1", "adapt1_off", "adapt2")
 FIELDS["adapt"] = ("hero", "adapt1") + _night.seat_names("night")[:6]
 FIELDS["adapt_hu"] = ("hero", "adapt1")
 FIELDS["adapt_3"] = ("hero", "adapt1") + _night.seat_names("night")[:1]
+# the held-out adaptive opponent (addendum 9): judges only, seated as adapt1's cells
+FIELDS["adapt_judge"] = ("hero", "adapt2") + _night.seat_names("night")[:6]
+FIELDS["adapt_judge_hu"] = ("hero", "adapt2")
+FIELDS["adapt_judge_3"] = ("hero", "adapt2") + _night.seat_names("night")[:1]
 # fields of fewer than eight seats, with the player count their Rules must carry (every other field seats eight)
 FIELD_PLAYERS: dict[str, int] = {"exploit_hu": 2, "exploit_3": 3, "exploit2_hu": 2, "exploit2_3": 3,
-                                  "exploit3_hu": 2, "exploit3_3": 3, "adapt_hu": 2, "adapt_3": 3}
+                                  "exploit3_hu": 2, "exploit3_3": 3, "adapt_hu": 2, "adapt_3": 3,
+                                  "adapt_judge_hu": 2, "adapt_judge_3": 3}
 
 # fields that seat an optional bot: present in FIELDS only when every bot in them is registered
 OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {
