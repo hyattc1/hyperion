@@ -87,7 +87,8 @@ Per table seed (95% intervals; sd ratio = raw sd / corrected sd, unpaired):
 | omaha_four, 60000-62999 | -0.002 ± 0.016 | +0.004 ± 0.016 | +0.007 ± 0.017 | +0.001 ± 0.013 | -0.001 ± 0.016 | -0.006 ± 0.015 | +0.007 ± 0.013 | 1.10-1.31 |
 | knockout_bounty, 60000-62999 | -0.013 ± 0.018 | -0.003 ± 0.018 | -0.004 ± 0.018 | -0.004 ± 0.011 | +0.004 ± 0.017 | +0.023 ± 0.017 | -0.009 ± 0.010 | 1.16-1.42 |
 
-34 of 35 within their interval at 95%... except the station: z +1.84 (hold'em), +2.53 (hi_lo), +2.78 (knockout_bounty)
+33 of 35 within their 95% interval; the two outside are the station, which leans up on all three of hold'em (z +1.84),
+hi_lo (+2.53) and knockout_bounty (+2.78)
 on the same seeds 60000-62999. Those three rules keep the deck, so they replay the same deals with the same
 deterministic station: one lucky realization seen three times, not three. short_deck and omaha_four, which change the
 deck, give -0.85 and -0.79. Replicated on fresh seeds 66000-71999 (hold'em, per event, split by cards to come):
