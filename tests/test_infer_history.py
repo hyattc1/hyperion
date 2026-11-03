@@ -10,6 +10,8 @@ import dataclasses
 import random
 from collections import Counter
 
+import pytest
+
 from hyperion.core.types import Action, ActionKind, Rules
 from hyperion.drills import infer_eval as E
 from hyperion.drills.adapter import KitBAdapter, dealer_state
@@ -149,6 +151,7 @@ def _play(scripts, me, hands=1, final="none", rules=None, stacks=None):
     return seen
 
 
+@pytest.mark.night
 def test_preflop_raise_fold_call_then_the_flop():
     # 4 seats, button 0, blinds 1 and 2, UTG 3. UTG raises to 60, we (button) call, SB folds, BB calls; flop: BB
     # checks, UTG bets 100, our turn
@@ -161,6 +164,7 @@ def test_preflop_raise_fold_call_then_the_flop():
     assert not flop[3]
 
 
+@pytest.mark.night
 def test_a_free_option_out_by_our_next_turn_is_a_gap():
     # UTG limps, we limp, SB completes, BB folds its free option (or checks and folds to the flop bet: the states are
     # the same); flop: SB bets 40, UTG calls, our turn. The log stops before the big blind's action.
@@ -171,6 +175,7 @@ def test_a_free_option_out_by_our_next_turn_is_a_gap():
         assert flop[2][:3] == flop[1]
 
 
+@pytest.mark.night
 def test_hand_end_folds_after_our_raise_only_when_the_kit_shows_them():
     # we raise on the button, both blinds fold
     scripts = [[Action.raise_to(60)], [Action.fold()], [Action.fold()], [Action.fold()]]
@@ -184,6 +189,7 @@ def test_hand_end_folds_after_our_raise_only_when_the_kit_shows_them():
     assert ends and ends[0][1] == truth
 
 
+@pytest.mark.night
 def test_hand_end_stops_at_a_seat_that_put_more_in():
     # we fold UTG+1; the button raises and the blinds fold: our fold, then the cutoff's... (3 seats after us)
     scripts = [[Action.raise_to(60)], [Action.fold()], [Action.fold()], [Action.call(), Action.fold()]]
@@ -199,6 +205,7 @@ def test_hand_end_stops_at_a_seat_that_put_more_in():
     assert end[1] == [(3, "fold", 0)] and end[2][0] == (3, "fold", 0)  # the button's raise is not settled: stop
 
 
+@pytest.mark.night
 def test_merge_takes_a_kit_log_of_this_street():
     inf = HistoryInference()
     mine = [(3, Action.raise_to(60)), (0, Action.call())]
@@ -223,6 +230,7 @@ class Record:
         self.ends.append(result)
 
 
+@pytest.mark.night
 def test_kit_b_adapter_end_to_end_against_the_engine_log():
     """Engine -> kit B's dict -> KitBAdapter (with only our chip change at hand end) -> the bot: what the bot reads
     is the engine's log at every decision; a hand end where a seat owed chips after our reply arrives one state
@@ -279,6 +287,7 @@ def test_kit_b_adapter_end_to_end_against_the_engine_log():
     assert full > 0.3 * ends  # held when a seat owed chips after our reply: every seat's chips, one state late
 
 
+@pytest.mark.night
 def test_conformance_flags_a_state_the_betting_cannot_explain():
     import types
 
@@ -318,6 +327,7 @@ def test_infer_seat_matches_the_adapter_path_and_costs_little():
     assert ns[len(ns) // 2] < 100_000, ns[len(ns) // 2]  # ~10 us on a quiet host; generous under load
 
 
+@pytest.mark.night
 def test_chips_after_hand_adds_the_antes_back():
     from tests.strategy_helpers import make_obs
 

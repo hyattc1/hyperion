@@ -407,6 +407,12 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `postflop.stab_aggr_only` | False |
 | `postflop.stab_max_alive` | 0 |
 | `postflop.stab_pfr_min` | 0.0 |
+| `postflop.stab_lead_max` | 1.0 |
+| `postflop.stab_lead_prior` | 0.3 |
+| `postflop.stab_lead_n` | 2.0 |
+| `postflop.stab_free_max` | 1.0 |
+| `postflop.stab_free_prior` | 0.4 |
+| `postflop.stab_free_n` | 2.0 |
 | `postflop.stab_holdem_only` | False |
 | `postflop.size_read` | 0.0 |
 | `postflop.size_read_n0` | 8.0 |
@@ -552,7 +558,8 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 
 ## Commands
 
-- Run tests: `python -m pytest -q`
+- Run tests (the day): `python -m pytest -q`
+- The night's tests: adapter, conformance, pack, switch and templates (about a minute at load 18): `python -m pytest -q -p no:cacheprovider -m night`
 - The ship bot (see the switch) vs realistic field, strict 1 ms: `python -m hyperion.sim --tables 300 --seed 11 --mode strict --field realistic@ship`
 - Same, duplicate-dealt (seating luck cancels): `python -m hyperion.sim --tables 40 --rotate --seed 11 --mode strict --field realistic@ship`
 - A window's recipe, measured (prompt 06: paired against the bot we ship, the night field, tonight's rules): `python tools/climb_accept.py --stages window --base '<kept>' --cand '<kept>+passive' --rules submission/rules_tonight.json --workers 4`

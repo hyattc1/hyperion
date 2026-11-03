@@ -15,12 +15,15 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 - Each accepted part joins the next batch, which needs judges on fresh judge seeds 30800-31199 (addendum 12).
 
 ## Workers running (branches in worktrees under /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal; each commits as it goes)
-- S13c (climb/s13c-gate): S6's gate tightened on tuning fields only, so it fires close to never against non-exploiters.
-- S15d (climb/s15d-gate): S15c's stab-read gate, the same.
+- S13c done: S7 (S6 + a looseness gate) merged off; queued on H25 after the b23 chain: goal/b24/chain2.sh, output
+  goal/b24/s7_h25.md (ends "done"); goal/b24/CHAIN2_DONE when finished.
+- S15d done: S15e (the gated stab read) merged off; queued on H26 after S7: goal/b25/chain3.sh, output
+  goal/b25/s15e_h26.md; goal/b25/CHAIN3_DONE when finished.
 - S20 (climb/s20-three, wt_s20): the structural round's first idea, a three-handed preflop solved for strong tables
   (log docs/drills/climb/s20-log.md on its branch). Diagnostics 11000-11199.
-- Drill 11's organiser: goal/drill11/kit (unseen twist, unusual interface). Then a player on batch 6's ship (pin
-  main, copy drill 10's player_prompt.txt with the paths changed and `timeout` restored in the last rule).
+- Drill 11 done (docs/drills/prompt-drill-11.md). Its fixes: H7 (climb/h7-drill11-fixes, wt_h7: night tooling and
+  prompts) and V-j (climb/vj-tranche, wt_vj: street-settled pots in our engine and catalog, F's play there;
+  diagnostics 12000-12199). H7 and V-j both touch prompt 05: merge H7 first.
 - start-vs-now (goal/b18/run.sh, detached): confirm, guards, elite, exploit only; output goal/b18/start_vs_now.md.
 
 ## Dated items
@@ -29,8 +32,8 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
   entry the same day. Our regional is Pittsburgh, Nov 12; the climb stops by Nov 11 18:00 ET.
 
 ## Held-out sets used
-H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); in use or queued H22-H24; next
-fresh H25 = 45000-45399. Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 30800-31199.
+H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); in use or queued H22-H24; H25 queued for S7, H26 for S15e;
+next fresh H27 = 47000-47399. Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 30800-31199.
 
 ## End deliverables (goal.md)
 Final SHIP and zip, a decisions entry, PLAYBOOK and HANDOFF, the last rehearsal on the final ship (drills 7-10 were

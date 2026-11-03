@@ -42,7 +42,7 @@ that axis. Everything in between is identical regardless of the game.
 | 0:15 | **SUBMIT cheap bot** | portal confirms | nothing else matters until this is green |
 | 0:17 | `03-tables` only if the rule sheet says the strength or information axis moved | generator finishes, spot check prints sane equities | ship Hero with old tables plus the axis fallback |
 | 0:25 | `04-wire-hero` | 300 strict-mode tables (`--field realistic@ship`): zero exceptions, zero illegal, p99 under 0.3 ms, the bot not last; the gate on the zip passes | `--bot hero` if only the bot's line fails, else the Stage 2 cheap package |
-| 0:40 | `05-variant-patch` for the axis the rule sheet named | re-run the 300 tables with and without the dials, the score did not drop | ship without the patch |
+| 0:40 | `05-variant-patch` for the axis the rule sheet named | the patch kept by its keep rule (paired, 600 tables or more, above zero, nothing down beyond noise) | ship without the patch |
 | 0:50 | **SUBMIT the ship bot** | portal confirms | re-submit the cheap bot |
 | 0:55 | freeze; read `06-windows` | known-good bot recorded with its hash | |
 | T1 + each 20 min | `06-windows` loop | one dial change per window at most, verified in sim before submit | keep the frozen bot |

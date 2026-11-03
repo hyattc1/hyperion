@@ -231,20 +231,37 @@ def read_record(path) -> tuple[str, dict]:
     return found["SHIP"], found["DIALS"]
 
 
-def write_record(path, name: str, dials: dict) -> None:
-    """Rewrite the SHIP and DIALS lines of a copy of this file (tools/pack.py, in the package it builds)."""
+def write_record(path, name: str | None = None, dials: dict | None = None) -> None:
+    """Set SHIP (`name`) and DIALS (`dials`) in a copy of this file: tools/pack.py in the package it builds, `python -m
+    hyperion.ship --set` / `--bot` in the repo's. Only the value given is touched, and only when it changes: the
+    line's quoting, its annotation and its comment stay (drill 11: --set rewrote the SHIP line and dropped its
+    comment)."""
     import ast
     from pathlib import Path
 
     path = Path(path)
-    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
-    new = {"SHIP": f"SHIP = {name!r}\n", "DIALS": f"DIALS: dict = {dict(dials)!r}\n"}
-    nodes = sorted(_record_nodes(ast.parse("".join(lines))), key=lambda x: -x[0].lineno)
-    if {n for _, n in nodes} != set(new):
+    text = path.read_text(encoding="utf-8")
+    nodes = {nm: node for node, nm in _record_nodes(ast.parse(text))}
+    if set(nodes) != {"SHIP", "DIALS"}:
         raise ValueError(f"{path}: no SHIP and DIALS assignments to rewrite")
-    for node, nm in nodes:  # bottom first, so earlier line numbers stay valid
-        lines[node.lineno - 1:node.end_lineno] = [new[nm]]
-    path.write_text("".join(lines), encoding="utf-8")
+    starts = [0] + [i + 1 for i, c in enumerate(text) if c == "\n"]  # where each line begins, as ast counts lines
+    edits = []
+    if name is not None and ast.literal_eval(nodes["SHIP"].value) != name:
+        old = ast.get_source_segment(text, nodes["SHIP"].value) or ""
+        q = old[:1] if old[:1] in ("'", '"') and old[:1] * 3 != old[:3] else "'"
+        edits.append((nodes["SHIP"].value, q + name + q if q not in name and "\\" not in name else repr(name)))
+    if dials is not None and ast.literal_eval(nodes["DIALS"].value) != dict(dials):
+        edits.append((nodes["DIALS"].value, repr(dict(dials))))
+
+    def at(lineno: int, col: int) -> int:  # an ast (line, utf-8 byte column) -> an index into text
+        s = starts[lineno - 1]
+        return s + len(text[s:].encode("utf-8")[:col].decode("utf-8", "ignore"))
+
+    for node, src in sorted(edits, key=lambda e: (-e[0].lineno, -e[0].col_offset)):  # last first: offsets stay valid
+        a, b = at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset)
+        text = text[:a] + src + text[b:]
+    if edits:
+        path.write_text(text, encoding="utf-8")
 
 
 def _record_nodes(tree):
@@ -289,7 +306,7 @@ def main(argv=None, path=None) -> int:
     if a.dials is not None:
         dials = parse_dials(a.dials, name) if a.dials.strip() else {}
     if a.bot is not None or a.dials is not None:
-        write_record(path, name, dials)
+        write_record(path, name if a.bot is not None else None, dials if a.dials is not None else None)
     print(f"SHIP = {name!r}\nDIALS = {dials!r}")
     return 0
 

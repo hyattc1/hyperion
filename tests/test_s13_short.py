@@ -224,3 +224,26 @@ def test_the_exploiter_gate_needs_every_read():
     assert not m.wants(o, P(0.45, 0.7, 0.6))  # exploiter 1 / an ordinary bettor: probes rarely
     assert not m.wants(o, P(0.8, 0.7, 0.07))  # leads a lot but never raises preflop (naive)
     assert not m.wants(o, P(0.9, 0.4, 0.5))  # probes, but bets little overall
+
+
+def test_the_looseness_bounds_of_the_exploiter_gate():
+    class P(_Prof):
+        def __init__(self, vpip, pfr):
+            super().__init__(0.9)
+            self.pb_bet, self.pb_opp, self.ab_bet, self.ab_opp = [90] * 2, [100] * 2, [60] * 2, [100] * 2
+            self._v, self._p = vpip, pfr
+
+        def pfr_rate(self, s):
+            return self._p
+
+        def vpip_rate(self, s):
+            return self._v
+
+    m = SH.ShortMember(SH.ShortParams(like_probe=0.75, like_bet=0.6, like_pfr=0.3, like_vpip_min=0.5,
+                                      like_vpip_max=0.88))
+    m.new_table(R2, 1, 2)
+    o = _obs([(0, Action.raise_to(50))], bets=(50, 20), stacks=(1950, 1980), to_call=30)
+    assert m.wants(o, P(0.76, 0.54))  # exploiter 2 heads-up
+    assert not m.wants(o, P(0.33, 0.25))  # an elite build at an 8-max table's end
+    assert not m.wants(o, P(0.91, 0.65))  # a maniac: F's reads
+    assert not m.wants(o, P(0.6, 0.2))  # loose but passive preflop

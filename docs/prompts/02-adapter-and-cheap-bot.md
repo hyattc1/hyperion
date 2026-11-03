@@ -26,7 +26,13 @@ Track A (repo present):
    worked through; TODOs 0-3 are the message names, the answer forms, the translation and the warm-up). It replies
    unbuffered, answers each request first and does the deferred work after, and skips the bot's hand end when the next
    request is already waiting on stdin (drill 10: the hand end, with the next message on its 1 ms clock, was most of
-   the timeouts); do not write that loop by hand (drill 10 spent 10 minutes on it).
+   the timeouts); do not write that loop by hand (drill 10 spent 10 minutes on it). A kit whose bot is plain
+   MODULE-LEVEL FUNCTIONS, one module for the whole session (drill 11's kit I: start/table/act/done, act returning the
+   chips to put in now as one int, a loader that takes the folder off sys.path and our modules out of sys.modules
+   right after the import, an Overtime BaseException at each limit): copy `hyperion/drills/module_entry_template.py`
+   (kit I's shape worked through). Its TODO 3a asks what every template's hand end now asks: is the kit's `won` chips
+   collected (deltas = won - paid) or the net change (deltas = won)? Drill 11 pasted kit G's line onto kit I's
+   collected chips. Never a bare `except:` or `except BaseException:`: the kit's Overtime must end the call.
    The entry pins the package at import (`pin_package()` after the bot is built and warmed, `repin_package()` at the
    top of every method): kit G's loader unloaded our modules before `Agent()` was built (drill 9), kit F's after it.
    The rule sheet's timed hand-end callback (prompt 01) sets the template's `HAND_END`: timed (kits E, F, G: 1 ms, a
@@ -58,10 +64,11 @@ Track A (repo present):
    many hands the rebuilt log stopped at a gap: near 0. Over 5% is a `history_gap` violation: the pot,
    bets, stacks or in-hand flags disagree with the betting (pot with this street's bets in it, a folded
    seat still in hand); fix TODO 3 or 6, not the rebuild.
-5. `python -m pytest -q -m "not timing"` from the repo root; it must stay green. It takes 3 to 5 minutes and
-   never imports `submission/`: run it while step 6 packs. On the night it always runs with `-m "not timing"`: the
-   wall-clock tests (budgets, slow-box, hand-end timing) fail on a loaded box and say nothing about the adapter
-   (drills 8 and 9 lost minutes reading them); the default `python -m pytest` still runs everything.
+5. `python -m pytest -q -p no:cacheprovider -m night` from the repo root: the night's subset (the adapter,
+   conformance, pack, ship switch and template tests), about a minute at load 18; it must stay green. It never
+   imports `submission/`: run it while step 6 packs. The full suite (`-m "not timing"`, 3 to 5 minutes on a quiet box)
+   is for the day: drill 11's was 16% done at its 400 s timeout at load 18 and said nothing. Never the wall-clock tests
+   (marked `timing`) on the night: they fail on a loaded box and say nothing about the adapter (drills 8 and 9).
 6. `python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py
    submission/rules_tonight.json --bot cheap --note "cheap bot" --import-budget <the kit's start budget, s>
    --max-mb <its unzipped cap> --max-zip-mb <its zipped cap>` (the rule sheet's numbers; kit H: `--import-budget 2
@@ -72,7 +79,14 @@ Track A (repo present):
    both; drill 10's `--max-mb 5` checked the 8.4 MB unzipped package against kit H's 5 MB zipped cap), zips with the
    entry at the top level, prints the sha256 and writes the Submissions row in `NIGHT.md`. An import over budget on a
    box above one load per core: re-run pack once before moving work to the table start. If the rules name another
-   layout, match it and say so. Tell me to upload.
+   layout, match it and say so. Then the kit's own checker on the zip, if it has one (kit I: `python3 -m engine.check
+   <zip> --clock cpu`). On a loaded box its wall clock flags every bot, the kit's own sample bots too (drill 11, load
+   17): use its CPU clock if it has one. It passes when the layout, the size caps and the load are fine, 0 errors, and
+   our timeouts per decision are no worse than the worst of the kit's sample bots in the same run; write the box's
+   load beside it. A checker with no CPU clock: the same rule on its wall clock, run while nothing else heavy runs; ours
+   worse than the kit's bots there is ours (prompt 04 step 4). Tell me to upload. The cheap bot is the exception: it
+   uploads on layout, caps, loading and 0 errors alone (it is insurance, and the next upload replaces it); a timeout
+   gap goes to prompt 04 step 4.
 7. After the upload, gate that zip once: `python tools/gate.py dist/submission.zip --kit <a|b|c|d>
    --tables 30 --rules rules_tonight.json` (plus `--variant <name>` if the catalog has it). It imports
    the zip as the organisers would and plays it in our sim, paired against the bot the package records,
@@ -87,7 +101,11 @@ Track A (repo present):
    2): `hyperion/drills/process_gate_seat_template.py` as `submission/gate_seat.py` (its defaults are kit H's, as the
    entry's), `--kit submission/gate_seat.py --entry <entry file>` and no `--kit-module`: the seat launches the entry as
    the kit does and plays the real stdin loop through a pipe, so the gate times the round trip the kit's clock times
-   (drill 10's in-process seat never tested the loop). Another subprocess kit unlike c or d: say the gate cannot run. Required: `GATE PASS`. It proves the reverse adapter now, so Stage 4's gate
+   (drill 10's in-process seat never tested the loop). A module-function kit (step 2):
+   `hyperion/drills/module_gate_seat_template.py` as `submission/gate_seat.py`, `--kit submission/gate_seat.py --entry
+   bot.py`: it loads the entry as the kit's loader does (the folder off sys.path, our modules out of sys.modules) and
+   raises the kit's Overtime at its limits; an entry that swallows one fails the gate. Another subprocess kit unlike c
+   or d: say the gate cannot run. Required: `GATE PASS`. It proves the reverse adapter now, so Stage 4's gate
    is one command; a FAIL on the delta means the adapter loses something the sim's Hero has.
 
 Track B (blank directory): steps 1 and 4 are "one file, no vendoring". `submission.py` is steps 0 and 1

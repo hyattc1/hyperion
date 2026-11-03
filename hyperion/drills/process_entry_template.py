@@ -151,7 +151,13 @@ class Session:
         return self.ad.decide(m)
 
     def end(self, m, deliver: bool = True) -> None:
-        """The hand's chips (always: a few dict entries) and, with `deliver`, the bot's hand end."""
+        """The hand's chips (always: a few dict entries) and, with `deliver`, the bot's hand end.
+
+        TODO 2a  each seat's chip change: kit H's end carries every seat's chips after the hand, so the deltas are those
+        less the chips at the hand's start (below). A kit whose end carries `won` instead:
+        won: chips collected or net change? The README says which: collected (kit I) is `won - paid` (what the seat put
+        in this hand), net change (kit G) is `won` as it is. The wrong one feeds the bot wrong stacks in silence; right,
+        they sum to 0."""
         if self.ad is None or not self.active:
             return
         idx = self.ad.idx

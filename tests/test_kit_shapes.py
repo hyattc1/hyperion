@@ -19,6 +19,8 @@ from hyperion.drills.fakekits.kit_s import kit as ks
 from hyperion.sim import bestiary as B
 from hyperion.sim.engine import BotStats, play_table
 
+pytestmark = pytest.mark.night  # the night's one-minute subset (pyproject.toml markers)
+
 ROOT = Path(__file__).resolve().parents[1]
 RAISE, CALL, CHECK, FOLD = ActionKind.RAISE, ActionKind.CALL, ActionKind.CHECK, ActionKind.FOLD
 LOSSY = {"log_own", "log_last3", "log_none", "bounds_missing"}  # what the bot reads differs from the plain shape

@@ -1235,3 +1235,43 @@ and (in judges) `elite_judge`.
 - Fixes: H7 (tooling and prompts: a module-function template, the checker's pass rule under load, a night test
   subset, one keep rule, and the rest of the list) and V-j (street-settled pots in our engine and catalog, so F's
   play there can be measured and improved outside the kit).
+
+## 15:25: S13c's S7 (S6 with a looseness gate) passes the screen; merged (off); queued on H25
+- Audit on tuning fields (fresh seeds 3400-3419): S6's gate opened on 76 of 21,056 heads-up decisions against seats
+  other than the exploiters and adapt1 (elite2, elite4, hero_tight, F copies), changing 35. A preflop looseness read
+  separates them: the ordinary openers show VPIP 0.28-0.44, PFR 0.20-0.33; exploiter 2 0.76/0.54 heads-up, 0.51/0.38
+  three-handed. S7 adds VPIP 0.50-0.88 and PFR 0.30 or more (fixed before the screen) to S6's probe and bet gates:
+  ordinary opens 0 in the audit; 99% of exploiter 2's heads-up opens kept, 58% three-handed.
+- Screen (10000-10199, --aim exploit, runout term): exploit2_hu +0.298 ± 0.120 and exploit2_3 +0.084 ± 0.041 UP; the
+  other exploit cells level (8-max identical); confirm, all guards, elite, elite_night, elite_b, mirror_b and aware
+  identical; mirror +0.0008 ± 0.0015; weighted +0.0016 ± 0.0010. It gives up S6's 8-max exploit2 gain and about 40%
+  of its three-handed one. ACCEPT on the screen.
+- climb/s13c-gate merged (3295488; the dials off; identity after the merge: 14 cells identical). S7 queued on H25 (45000-45399) against batch 6, --aim exploit,
+  every stage, after the b23 chain (goal/b24/chain2.sh). If accepted it needs the next batch's judges (30800-31199).
+
+## 16:22: S15d's S15e (the stab read gated by lead and free-bet rates) passes the screen; merged (off); queued on H26
+- Audit on tuning fields (seeds 11000-11099, about 6,800 tables): S15c's stab read acted 53 times against ordinary
+  seats (rival 1-3, elite1, elite2, a loose student, F copies), changing 26 folds to calls, mostly against value.
+  Exploiter 3 bets right after F checks but rarely otherwise: its other free bets (lead rate) 0.20 median against
+  0.37-0.65 for ordinary seats; preflop raise rate 0.48 against 0.30-0.42.
+- S15d (raise rate 0.35 or more, lead rate 0.4 or less): ordinary, strong and variant cells identical, but exploit_hu
+  -0.060 ± 0.059 corrected (raw +0.037). S15e adds an overall free-bet rate cap of 0.5 (exploiter 1 bets 0.75 of those
+  chances, exploiter 3 0.40), fixed before its screen: 3 acts against non-exploiters in the re-audit (one elite1 hand).
+- S15e screen (10000-10199, --aim exploit, runout term, twists identical by its hold'em gate): exploit3_hu +0.118 ±
+  0.074 and exploit3_3 +0.027 ± 0.026 UP; exploit_hu -0.001 ± 0.007 and every other exploit and adapt cell level;
+  confirm, guards, elite cells and four plain-table variants level or identical; weighted +0.0007 ± 0.0009. ACCEPT on
+  the screen. Three-handed it keeps about a third of S15c's gain (a heads-up-only rate is untested).
+- climb/s15d-gate merged (be9d8bf; dials off; identity after the merge: 14 cells identical). S15e queued on H26 (46000-46399) after S7's H25 (goal/b25/chain3.sh).
+  S7 and S15e each need their own held-out acceptance, then a combined check and the judges (30800-31199) as batch 7.
+
+## 16:34: H7 merged (drill 11's tooling and prompt fixes)
+- A module-function entry template and gate seat for kit I's shape (purge after import, Overtime raised inside the
+  bot and never swallowed); "won: collected or net?" in all eight templates with a deltas_sum check; the organisers'
+  checker's pass rule on a loaded box (prompt 02 step 6, PLAYBOOK Stage 2); a night test subset (pytest -m night,
+  153 tests, 16-52 s); extras.full_bb_call for kit I's blind rule; a latency recipe kept only on the kit's own sim;
+  one keep rule for a variant patch (prompt 05; floor 600 paired tables, pooled above zero, no paired check down
+  beyond its interval); the Stage 0 clause skipped on a solo night; ship --set keeps the line's comment. Identity:
+  14 chunks identical. Full suite: 7 wall-clock failures, the same on main.
+- Coordinator's edit on merge: under the new checker rule both our zip and the drill player's failed the timeout half
+  on today's box (1.2-2.0% against the kit bot's 0.4-0.5%), so the cheap bot uploads on layout, caps, loading and 0
+  errors alone (insurance; the next upload replaces it) and the timeout gap goes to prompt 04 step 4.

@@ -4,6 +4,8 @@ its kit has no log and the history is rebuilt from the bets. The reference adapt
 kits' runners with no history violation, and the template says how."""
 from pathlib import Path
 
+import pytest
+
 from hyperion.core.types import Action, ActionKind, Rules
 from hyperion.drills.adapter import Adapter, KitAAdapter, KitBAdapter, KitCAdapter, KitDAdapter, make_observation
 from hyperion.drills.cheapbot import CheapBot
@@ -12,6 +14,8 @@ from hyperion.drills.fakekits.kit_a import runner as run_a
 from hyperion.drills.fakekits.kit_b import runner as run_b
 
 from .strategy_helpers import make_obs, preflop_obs, street_obs
+
+pytestmark = pytest.mark.night  # the night's one-minute subset (pyproject.toml markers)
 
 ROOT = Path(__file__).resolve().parents[1]
 RAISE = ActionKind.RAISE

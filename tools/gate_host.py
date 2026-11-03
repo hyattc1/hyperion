@@ -34,7 +34,11 @@ A seat's `end(hand_no, delta, result)` gets the hand's `result` dict (deltas of 
 event-driven kit (no state snapshot): hyperion/drills/gate_seat_template.py. A process kit (the bot is its own process on
 JSON lines, drill 10's kit H): hyperion/drills/process_gate_seat_template.py, whose module-level `PROCESS = True` makes
 this host hand the seat the entry's path instead of importing it; the seat launches the entry and plays the real stdin
-loop through a pipe, and its `close()` (called at the gate's close) ends the bot process.
+loop through a pipe, and its `close()` (called at the gate's close) ends the bot process. A module-function kit (plain
+module-level functions, one module a session, drill 11's kit I): hyperion/drills/module_gate_seat_template.py, whose
+`load_entry(path)` this host calls instead of its own import, so the entry is loaded as the kit's loader loads it (the
+folder off sys.path and its modules out of sys.modules right after); a seat's `gate_counts` dict goes back with the
+close and the gate prints the sums.
 """
 from __future__ import annotations
 
@@ -223,6 +227,10 @@ def serve(kind: str, pkg: str, entry: str, kit_dir: str, seat_file: str | None) 
                 # a process kit's seat (hyperion/drills/process_gate_seat_template.py) launches the entry itself, as
                 # the kit does: it gets the entry's path, never an in-process import
                 module = types.SimpleNamespace(__file__=os.path.join(pkg, entry), __name__="submission")
+            elif seat_mod is not None and callable(getattr(seat_mod, "load_entry", None)):
+                # a module-function kit's seat (hyperion/drills/module_gate_seat_template.py) loads the entry as the
+                # kit's loader does: the folder on sys.path for the import only, its modules out of sys.modules after
+                module = seat_mod.load_entry(os.path.join(pkg, entry))
             else:
                 module = _load_file(os.path.join(pkg, entry), "submission")
             if kind == "a":
@@ -291,7 +299,8 @@ def serve(kind: str, pkg: str, entry: str, kit_dir: str, seat_file: str | None) 
                 except Exception as e:  # noqa: BLE001
                     errors += 1
                     note(f"close raised {type(e).__name__}: {e}")
-            send({"errors": errors, "notes": notes})
+            counts = getattr(seat, "gate_counts", None)  # a seat's own tallies (the module seat's Overtimes)
+            send({"errors": errors, "notes": notes, "counts": dict(counts) if counts else {}})
             break
     return 0
 
