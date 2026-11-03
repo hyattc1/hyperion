@@ -48,6 +48,14 @@ Stages (comma-separated; default confirm,guards,variants):
   night's rules JSON: payouts, blinds, antes ...) and --variant (a catalog entry's hooks) it plays tonight's game;
   both also apply to confirm, guards and elite cells (a guard's own payouts or schedule still wins there).
 
+After the verdict, every run prints addendum 11's weighted score (tools/accept_weights.json, tools/accept_weighted.py):
+the weighted mean in night points, its family-block lower bound under the base weights and under W-min (the worst
+corner of the plausible weights), the cap check and the cells missing; `--identical holdem|twists|NAME,...` counts
+cells identical by construction as 0 +- 0. It decides nothing in the verdict. `--route2` adds route 2's own verdict
+for a candidate the main rule rejects; it refuses unless the set is held out (H<k>) and every stage ran
+(confirm,guards,elite,exploit,variants,aware), and reads the judges from `--judges-json` (the judge-set run).
+`--json` holds both under "weighted" and "route2".
+
 Every run is model mode at fixed speed, eight rotations per seed, the same deals for both specs, with panic, soft
 deadlines and `late_us` off (tools/swap.py's setup_process), so it replays exactly. The unit is one table seed; the
 interval is the 95% interval of the per-seed paired difference. UP / DOWN = beyond noise.
@@ -76,6 +84,9 @@ sys.path.insert(0, ROOT)
 _spec = importlib.util.spec_from_file_location("climb_swap_tool", os.path.join(_HERE, "swap.py"))
 SW = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(SW)
+_wspec = importlib.util.spec_from_file_location("climb_weighted_score", os.path.join(_HERE, "accept_weighted.py"))
+WS = importlib.util.module_from_spec(_wspec)  # addendum 11's weighted score (tools/accept_weights.json)
+_wspec.loader.exec_module(WS)
 
 RULES_DIR = os.path.join(ROOT, "docs", "drills", "climb", "rules")
 CONFIRM = [("night", "lin", None)]
@@ -354,6 +365,14 @@ def main(argv=None) -> int:
                    help="what the change is for: night (confirm beyond noise up), exploit (addendum 6: an exploit "
                         "field up, night not down) or strong (addendum 8: elite, elite_night or mirror up, night "
                         "not down)")
+    p.add_argument("--identical", default="", help="cells identical by construction for the weighted score "
+                                                   "(addendum 11, 0 +- 0 where not run), comma-separated: holdem (a "
+                                                   "change to twist tables only), twists (a change gated to hold'em "
+                                                   "tables: the 22 variants off them), or variant names")
+    p.add_argument("--route2", action="store_true", help="also apply addendum 11's route 2 to a candidate the main "
+                                                         "rule rejects: a held-out set with every stage run only")
+    p.add_argument("--judges-json", default=None, help="route 2's condition (c): the candidate's climb_accept "
+                                                       "--json on --set judge --stages judges (same base and cand)")
     a = p.parse_args(argv)
     version = code_version()
     base_raw, cand_raw = load_spec(a.base), load_spec(a.cand)
@@ -362,6 +381,21 @@ def main(argv=None) -> int:
     stages = [s.strip() for s in a.stages.split(",") if s.strip()]
     a.set = a.set or ("screen" if stages == ["window"] else "H1")
     lo, hi = seed_range(a.set)
+    identical = [t.strip() for t in a.identical.split(",") if t.strip()]
+    judges_rows = None
+    if a.route2:  # addendum 11: route 2 only on a fresh held-out set with every stage run; refuse before any play
+        why = WS.route2_refusal(a.set, stages, a.variants, a.variant_seeds, a.rules, a.variant)
+        if a.judges_json:
+            with open(a.judges_json) as fh:
+                jv = json.load(fh)
+            if "judges" not in jv.get("stages", {}):
+                why = "; ".join(filter(None, [why, f"{a.judges_json} has no judges stage"]))
+            elif [jv.get("base"), jv.get("cand")] != json.loads(json.dumps([base, cand])):
+                why = "; ".join(filter(None, [why, f"{a.judges_json} is another base or candidate"]))
+            else:
+                judges_rows = jv["stages"]["judges"]
+        if why:
+            raise SystemExit(f"--route2 refuses: {why}")
     rows, verdict = [], {"version": version, "set": a.set, "seeds": [lo, hi], "base": base, "cand": cand,
                          "stages": {}}
     t0 = time.time()
@@ -499,6 +533,17 @@ def main(argv=None) -> int:
               f"held-out set with --variants NAME --variant-seeds 400")
     else:
         print(f"\n**{'ACCEPT' if verdict['accept'] else 'REJECT'}**" if checks else "")
+    # addendum 11: the weighted score beside the verdict; it decides nothing above (route 2 is its own verdict)
+    ws = WS.score(st, identical)
+    verdict["weighted"] = ws
+    out_lines = WS.lines(ws)
+    if a.rules or a.variant:
+        out_lines.append("- note: cells under --rules/--variant are the night's game; the weights and units assume "
+                         "the protocol's cells")
+    print("\n".join(out_lines))
+    if a.route2:
+        verdict["route2"] = WS.route2(ws, verdict["accept"], judges_rows)
+        print("\n".join(WS.route2_lines(verdict["route2"])))
     if a.json:
         with open(a.json, "w") as fh:
             json.dump(verdict, fh, indent=1)

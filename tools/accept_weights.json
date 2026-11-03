@@ -1,0 +1,119 @@
+{
+ "what": "The weighted second route's numbers (docs/decisions.md addendum 11), encoding docs/research/acceptance-rule-review.md, section 'The proposed rule', as committed in 24e106b. Changes only by an addendum. Read by tools/accept_weighted.py, which tools/climb_accept.py prints beside its verdict.",
+ "unit": "night points: points of one 8-max table on the 8..1 table (F scores about 6.0 there against night)",
+
+ "units": {
+  "what": "factor taking a cell's own points to night points. A heads-up or three-handed rules file sets the factor; the top_heavy variant sets it next; else the cell's payout table (the label's ' @' part, 8..1 when absent)",
+  "variants": {"top_heavy": 0.14285714285714285},
+  "rules": {"hu": 0.3333333333333333, "three": 0.4},
+  "payouts": {"8..1": 1.0, "10/7/5/4/3/2/1/0": 0.7, "50/25/12/6/3/2/1/1": 0.14285714285714285},
+  "why": {
+   "8..1": "the night cell's own table (night, guards, elite stage, variants, aware)",
+   "10/7/5/4/3/2/1/0": "ratio of spreads, 7/10 (night @brief, the 8-max exploit cells)",
+   "50/25/12/6/3/2/1/1": "7/49 (night @th, the top_heavy variant)",
+   "hu": "heads-up 10/7: the night has no heads-up tables; heads-up decides 8 against 7 on an 8..1 table",
+   "three": "three-handed 10/7/5: it decides 8/7/6 (spread 2 of 5)"
+  }
+ },
+
+ "families": {
+  "ordinary": {
+   "name": "ordinary room",
+   "weight": 0.20, "range": [0.10, 0.35],
+   "fields": ["night", "night_hard", "realistic"],
+   "cells": {"night": 0.40, "night_hard": 0.20, "realistic": 0.10, "night @10/7/5/4/3/2/1/0": 0.10,
+             "night @50/25/12/6/3/2/1/1": 0.10, "night +double": 0.10}
+  },
+  "strong": {
+   "name": "strong tables",
+   "weight": 0.15, "range": [0.05, 0.30],
+   "fields": ["elite_night", "elite", "elite_b", "top", "mirror", "mirror_b"],
+   "cells": {"elite_night": 0.25, "elite": 0.20, "elite_b": 0.20, "top": 0.15, "mirror": 0.10, "mirror_b": 0.10}
+  },
+  "adapters": {
+   "name": "adapters",
+   "weight": 0.15, "range": [0.05, 0.30],
+   "formats": {"8max": 0.3333333333333333, "three": 0.3333333333333333, "hu": 0.3333333333333333},
+   "bot_share": 0.25,
+   "bots": {
+    "exploiter1": {"8max": "exploit", "hu": "exploit_hu", "three": "exploit_3"},
+    "exploiter2": {"8max": "exploit2", "hu": "exploit2_hu", "three": "exploit2_3"},
+    "exploiter3": {"8max": "exploit3", "hu": "exploit3_hu", "three": "exploit3_3"},
+    "adapt1": {"8max": "adapt", "hu": "adapt_hu", "three": "adapt_3"}
+   },
+   "rule": "8-max, three-handed and heads-up a third each; inside a format each adapter bot a fixed quarter; a bot not run counts 0 +- 0"
+  },
+  "twist_realistic": {
+   "name": "twist, twist-blind field",
+   "weight": 0.20, "range": [0.10, 0.30],
+   "stage": "variants",
+   "rule": "the catalogued variants on realistic, each by its probability below, renormalised over the variants with a cell"
+  },
+  "twist_aware": {
+   "name": "twist, twist-aware field",
+   "weight": 0.30, "range": [0.15, 0.45],
+   "stage": "aware",
+   "rule": "the aware cells, each twist by its probability below, renormalised over the twists with a cell; cells on the same twist split it"
+  }
+ },
+
+ "variant_probability": {
+  "source": "docs/drills/climb/variants-ranked.md, column P (percent); only ratios matter",
+  "p": {"toss_or_holdem": 11, "bounty": 8, "short_deck": 7, "auction": 5, "omaha_four": 5, "two_boards": 5,
+        "three_card_blind_discard": 4, "permuted_ranks": 4, "exposed_card": 4, "swap_one_turn": 3, "swap_holdem": 3,
+        "three_card_keep": 3, "knockout_bounty": 3, "river_of_blood": 2.5, "wild_deuces": 2.5,
+        "antes_from_level_3": 2.5, "deal5_keep2": 2, "flush_over_full_house": 2, "bonus_card": 2, "straddle": 2,
+        "top_heavy": 2, "hi_lo": 1.5, "lowball": 1.5, "pot_limit": 1.5, "fixed_raise": 1, "fast_schedule": 1},
+  "unlisted": 1
+ },
+
+ "holdem_tables": ["top_heavy", "antes_from_level_3", "fast_schedule", "straddle"],
+
+ "judges": ["judge", "judge2", "judge2_night", "judge_top", "outside", "outside_strong", "elite_judge", "elite_judge_b",
+            "adapt_judge", "adapt_judge_hu", "adapt_judge_3", "outside_b"],
+
+ "interval": "family block: a family's half-width is the share-weighted sum of its cells' unit-converted half-widths (perfect correlation inside the family); families combine as independent (the square root of the sum of (weight x half-width) squared). The lower bound is the weighted mean minus that interval.",
+
+ "w_min": "the same lower bound with each family's weight anywhere in its plausible range, summing to 1, set least favourably to the candidate: the minimum over the corners of the ranges (the bound is concave in the weights, so the minimum sits at a corner)",
+
+ "cap": {
+  "night_points": 0.03,
+  "test": "a cell breaks the cap when its unit-converted upper bound, factor x (delta + ci), is below -0.03 night points",
+  "own_points": {"8..1": 0.03, "10/7/5/4/3/2/1/0": 0.043, "50/25/12/6/3/2/1/1": 0.21, "top_heavy": 0.21,
+                 "heads-up 10/7": 0.09, "three-handed 10/7/5": 0.075},
+  "own_points_note": "the same cap in each scale's own points, 0.03 divided by the factor and rounded as addendum 11 prints it; the test uses the night-point form"
+ },
+
+ "missing": {
+  "identical_by_construction": "a cell documented as identical by construction counts as 0 +- 0 (climb_accept --identical): 'holdem' for a change that plays only twist tables (the ordinary room, strong tables and adapters count 0 +- 0 where not run), 'twists' for a change gated to hold'em tables (the 22 variants not in holdem_tables), or one variant's name. A twist claimed identical with no cell gets a 0 +- 0 cell in both twist families.",
+  "inside_a_family": "the cells that ran share the family's weight (shares renormalised over them); adapters are the exception, with fixed per-bot shares (a bot not run counts 0 +- 0)",
+  "family_not_run": "dropped and the others reweighted (and, for W-min, the ranges scaled by the present families' base weights when they cannot sum to 1). Allowed on a screen, never under route 2."
+ },
+
+ "route2": {
+  "stages": ["confirm", "guards", "elite", "exploit", "variants", "aware"],
+  "conditions": [
+   "the main rule rejects the candidate",
+   "a fresh held-out set (H<k>) with every stage run, the full catalogue at 200 seeds or more, the protocol's own cells (no --rules, --variant or --variants)",
+   "(a) the W-min family-block lower bound is above zero",
+   "(b) no cell breaks the cap",
+   "(c) no judge beyond noise down (the judges stage on the judge set, once per batch)",
+   "(d) each down cell is written up in the log with its cause"
+  ]
+ },
+
+ "notes": [
+  "top is a guards-stage cell but the section puts it in the strong-table family (share 0.15); climb_accept's family follows the field, not the stage.",
+  "elite_b and mirror_b (the second elite wave, after most reviewed verdicts) are in the strong-table family at the section's 0.20 and 0.10. On a verdict without them the strong cells that ran share the family.",
+  "exploit3, exploit3_hu and exploit3_3 are exploiter 3's cells, adapt, adapt_hu and adapt_3 are adapt1's (R6's tuning copy, addendum 9): both bots are among the section's four adapter bots, each a fixed quarter of every format.",
+  "The adapters' 8-max cells are played at 10/7/5/4/3/2/1/0 (factor 0.7), heads-up at 10/7 (1/3), three-handed at 10/7/5 (0.4), as the section's units table says.",
+  "The judge cells (the list above) carry no weight: route 2's condition (c) reads them. adapt_judge* are adapt2's cells, the held-out copy (addendum 9), so they are judges, not adapters.",
+  "Aware cells beyond the four hand-built fields (generic_aware under any variant, FIELD:VARIANT cells such as realistic_keep2:deal5_keep2) are in the twist-aware family under their variant, by the section's principle: the aware cells by the probability of their twist, cells on the same twist splitting it.",
+  "A variant that variants-ranked.md does not list (a variant file, a new catalogue entry) gets probability 1, the smallest listed row and the review script's default.",
+  "A hold'em cell whose label the section does not list (a cell under a --rules file, a new guard) goes to its field's family at share 0.05, the review script's default for an unnamed cell; its factor follows its label's payout table. A cell whose field is in no family is reported as not weighted.",
+  "The window stage is not weighted: it is its own check (prompt 06). Cells under --rules or --variant are the night's game, not the protocol's, so the block warns and route 2 refuses them.",
+  "The twist half never drops below 0.25 under W-min: that follows from the ranges' lower bounds (0.10 + 0.15) and needs no extra constraint.",
+  "The cap is tested on every weighted cell, measured or identical (an identical cell is 0 +- 0 and never breaks it), never on judges.",
+  "The section says to use the exact per-seed interval once climb_accept computes it; addendum 11 fixed the family-block interval, which is what this file and climb_accept use."
+ ]
+}
