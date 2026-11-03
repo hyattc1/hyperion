@@ -805,4 +805,4 @@ and (in judges) `elite_judge`.
   elite and the four reachable variants level. Risk flagged by the builder: mirror -0.003 ± 0.003 (F's copies and
   hybrid3_x sometimes pass the gate through the layer's small stabs).
 - S6 on H16 (36000-36399), --aim exploit, every stage including elite_b and mirror_b. Identity check after the merge
-  running alongside.
+  15 cells identical.
