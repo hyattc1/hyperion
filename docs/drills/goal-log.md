@@ -988,3 +988,9 @@ and (in judges) `elite_judge`.
   tables unless shown to carry (V-f); the general path (twist files, generic aware opponents, known cards, settle
   pricing) for unseen twists; three rehearsals on organiser-invented twists. Plan: one more fresh-twist rehearsal on
   the final ship (an end deliverable).
+
+## 05:02: a second wave of outside judges commissioned (addendum 10)
+- Three fresh agents, no repo access, the elite brief (goal/outside2/o5-o7, about 2 hours each, a running notebook):
+  o5 trains its strategy offline by self-play (ML students), o6 is hyper-aggressive (pressure, light 3-bets, overbets,
+  ICM-aware), o7 plays memorised solver charts (push/fold Nash, ICM calls, standard charts, minimum defence). All
+  three held out as the judge field outside_b, fixed in addendum 10 before any measurement.
