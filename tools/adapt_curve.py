@@ -6,9 +6,10 @@ same deals for the bot and its counters-off twin (R6, decisions "The climb: adde
     .venv/bin/python tools/adapt_curve.py --field adapt --hero rival2 --set 10000:10100   (a field without F)
 
 The hero seat plays `--hero`: a spec as tools/climb_accept.py takes it ({"dials": {}} or '' is F, the default; a bare
-registry name is that bot). The adaptive seat plays `--bot` (default adapt1) and, on the same seeds, `--twin` (default
-adapt1_off). Each cell plays as climb_accept's exploit stage does: model mode, eight rotations per seed, payouts
-10/7/5/4/3/2/1/0 at 8-max, rules hu.json / three.json short-handed.
+registry name is that bot). The field's `--seat` member (default adapt1) plays `--bot` (default adapt1) and, on the
+same seeds, `--twin` (default adapt1_off; '' for none). Any field works (a held-out adapter's `adapt_judge_hu`, say);
+each plays as climb_accept's exploit stage does: model mode, one rotation per seat, payouts 10/7/5/4/3/2/1/0 at 8-max,
+rules hu.json for a `_hu` field and three.json for a `_3` field.
 
 Per hand the adaptive seat's chip delta is read at hand end, and the chips that flowed between it and the hero seat:
 each loser's chips are split over the winners in proportion to what each won, so flow(hero -> adaptive) is exact
@@ -41,6 +42,13 @@ SW = CA.SW
 
 WINDOWS = ((0, 30), (30, 100), (100, 200))
 CELLS = {"adapt": ("brief", None), "adapt_hu": ("lin", "hu"), "adapt_3": ("lin", "three")}
+
+
+def cell(field: str) -> tuple:
+    """A field's payouts and rules file, as the exploit stage plays it."""
+    if field in CELLS:
+        return CELLS[field]
+    return ("lin", "hu") if field.endswith("_hu") else (("lin", "three") if field.endswith("_3") else ("brief", None))
 CHUNK = 10
 
 
@@ -55,68 +63,65 @@ def _hero_spec(s: str) -> dict:
 
 
 def _job(args):
-    field, hero_spec, bots, off, n = args
+    field, seat_name, hero_spec, bots, off, n = args
     SW.setup_process("model")
     from hyperion.sim import bestiary as B
     from hyperion.sim.engine import play_table
 
-    pay, rules_name = CELLS[field]
+    pay, rules_name = cell(field)
     rules = CA._rules(pay, rules_name)
     from hyperion.core.types import Rules
 
     rules = rules if rules is not None else Rules()
     hero = SW._spec_bot("hero_x", hero_spec)
     sink = []
-    orig = B.Adapt1Bot.hand_end
-
-    def rec(self, result):
-        sink.append((self.seat, result.hand_no, list(result.deltas)))
-        orig(self, result)
-
-    B.Adapt1Bot.hand_end = rec
     out = {}
-    try:
-        for bot in bots:
-            names = [hero if x == "hero" else (bot if x == "adapt1" else x) for x in B.field_names(field)]
-            per_seed = []
-            for t in range(off, off + n):
-                table_seed = SW.SEED * 1_000_003 + t
-                rng = random.Random(table_seed)
-                seating = list(names[:rules.n_players])
-                while len(seating) < rules.n_players:
-                    seating.append(rng.choice(names))
-                rng.shuffle(seating)
-                a_seat, h_seat = seating.index(bot), seating.index(hero)
-                tabs = []
-                for rot in range(rules.n_players):
-                    built = [B.make_bot(nm, seed=table_seed * 64 + rot * 8 + s) for s, nm in enumerate(seating)]
-                    del sink[:]
-                    res = play_table(built, rules, seed=table_seed, rotation=rot, mode="model")
-                    win = [[0, 0.0, 0.0, 0.0] for _ in WINDOWS]  # hands, chips, bb, flow from hero
-                    for seat, hand, d in sink:
-                        if seat != a_seat:
-                            continue
-                        bb = rules.blinds_at(hand)[1]
-                        pos = sum(x for x in d if x > 0)
-                        flow = 0.0
-                        if pos:
-                            if d[h_seat] < 0 < d[a_seat]:
-                                flow = -d[h_seat] * d[a_seat] / pos
-                            elif d[a_seat] < 0 < d[h_seat]:
-                                flow = d[a_seat] * d[h_seat] / pos
-                        for w, (lo, hi) in enumerate(WINDOWS):
-                            if lo <= hand < hi:
-                                x = win[w]
-                                x[0] += 1
-                                x[1] += d[a_seat]
-                                x[2] += d[a_seat] / bb
-                                x[3] += flow
-                    tabs.append({"win": win, "pts": res.points[a_seat], "hero_pts": res.points[h_seat],
-                                 "hands": res.hands})
-                per_seed.append(tabs)
-            out[bot] = per_seed
-    finally:
-        B.Adapt1Bot.hand_end = orig
+    for bot in bots:
+        names = [hero if x == "hero" else (bot if x == seat_name else x) for x in B.field_names(field)]
+        per_seed = []
+        for t in range(off, off + n):
+            table_seed = SW.SEED * 1_000_003 + t
+            rng = random.Random(table_seed)
+            seating = list(names[:rules.n_players])
+            while len(seating) < rules.n_players:
+                seating.append(rng.choice(names))
+            rng.shuffle(seating)
+            a_seat, h_seat = seating.index(bot), seating.index(hero)
+            tabs = []
+            for rot in range(rules.n_players):
+                built = [B.make_bot(nm, seed=table_seed * 64 + rot * 8 + s) for s, nm in enumerate(seating)]
+                del sink[:]
+                inner = built[a_seat].hand_end  # the adaptive seat's hand ends, read on the way in
+
+                def rec(result, inner=inner, seat=a_seat):
+                    sink.append((seat, result.hand_no, list(result.deltas)))
+                    inner(result)
+
+                built[a_seat].hand_end = rec
+                res = play_table(built, rules, seed=table_seed, rotation=rot, mode="model")
+                win = [[0, 0.0, 0.0, 0.0] for _ in WINDOWS]  # hands, chips, bb, flow from hero
+                for seat, hand, d in sink:
+                    if seat != a_seat:
+                        continue
+                    bb = rules.blinds_at(hand)[1]
+                    pos = sum(x for x in d if x > 0)
+                    flow = 0.0
+                    if pos:
+                        if d[h_seat] < 0 < d[a_seat]:
+                            flow = -d[h_seat] * d[a_seat] / pos
+                        elif d[a_seat] < 0 < d[h_seat]:
+                            flow = d[a_seat] * d[h_seat] / pos
+                    for w, (lo, hi) in enumerate(WINDOWS):
+                        if lo <= hand < hi:
+                            x = win[w]
+                            x[0] += 1
+                            x[1] += d[a_seat]
+                            x[2] += d[a_seat] / bb
+                            x[3] += flow
+                tabs.append({"win": win, "pts": res.points[a_seat], "hero_pts": res.points[h_seat],
+                             "hands": res.hands})
+            per_seed.append(tabs)
+        out[bot] = per_seed
     return off, out
 
 
@@ -163,7 +168,8 @@ def summarize(data: dict, bots: list) -> str:
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--field", choices=sorted(CELLS), default="adapt_hu")
+    p.add_argument("--field", default="adapt_hu", help="a field with a hero seat and the adaptive seat")
+    p.add_argument("--seat", default="adapt1", help="the field member the adaptive bot and its twin replace")
     p.add_argument("--hero", default='{"dials": {}}', help="the hero seat: a climb_accept spec (default F) or a bot name")
     p.add_argument("--bot", default="adapt1")
     p.add_argument("--twin", default="adapt1_off", help="'' for none")
@@ -174,7 +180,7 @@ def main(argv=None) -> int:
     lo, hi = CA.seed_range(a.set)
     hero = _hero_spec(a.hero)
     bots = [a.bot] + ([a.twin] if a.twin else [])
-    jobs = [(a.field, hero, bots, off, min(CHUNK, hi - off)) for off in range(lo, hi, CHUNK)]
+    jobs = [(a.field, a.seat, hero, bots, off, min(CHUNK, hi - off)) for off in range(lo, hi, CHUNK)]
     t0 = time.time()
     res = {}
     with Pool(a.workers, maxtasksperchild=4) as pool:
