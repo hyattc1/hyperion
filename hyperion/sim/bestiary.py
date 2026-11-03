@@ -1621,6 +1621,26 @@ class Exploiter1Bot(_FixedSpeedInModel, PersonaBot):
         return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
 
 
+class Exploiter3Bot(PersonaBot):
+    """Test opponent `exploiter3`: the climb's third red-team exploiter (docs/drills/exploiter3/), built in about 2 hours
+    by a fresh agent that played batch 5's ship (3aac34d) only as a black box. Its arena (8-max with six night-pool
+    seats, heads-up and three-handed, payouts N..1) put it ahead of batch 5 heads-up (56% of matches) and three-handed
+    (49% of first places against 39%) and behind at 8-max (5.41 against 5.61). Reads `payouts` from the rules. No clock.
+    Its RNG is seeded 12345 + seat at new_table; here it is reseeded from the seat seed at every table, so each table
+    draws its own stream and runs replay exactly. Never in a night pool (fields `exploit3`, `exploit3_hu`,
+    `exploit3_3`)."""
+
+    MODULE = "exploiter3"
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self._seed = seed or 0
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self.impl.rng = random.Random(self._seed * 1_000_003 + 0xE3)
+
+
 class Exploiter2Bot(PersonaBot):
     """Test opponent `exploiter2`: the climb's second red-team exploiter (docs/drills/exploiter2/FINDINGS.md), built in
     ~2 hours by a fresh agent that played F with FIN (r3.v3_defend, half-pot dry c-bet) only as a black box. Against
@@ -1778,6 +1798,7 @@ REGISTRY: dict[str, type] = {
     "elite3": Elite3Bot,  # elite field: the held-out elite judge (elite_judge), never tuned on
     "exploiter1": Exploiter1Bot,  # the S2 exploiter of F (black-box attacker): a test opponent, never in a night pool
     "exploiter2": Exploiter2Bot,  # the second exploiter (S11), of F with FIN: a test opponent, never in a night pool
+    "exploiter3": Exploiter3Bot,  # the third exploiter, of batch 5: a test opponent, never in a night pool
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
@@ -1909,7 +1930,7 @@ FIELDS["mirror_night"] = ("hero", "f_copy", "f_copy", "elite1", "elite2") + _nig
 # the exploiter's fields (S2, docs/drills/exploiter/): as its arena seated it, the hero seat and exploiter1 with six
 # night-pool seats at 8-max, alone heads-up, and with the first night-pool seat three-handed (play them with Rules of
 # n_players 2 / 3: docs/drills/climb/rules/hu.json, three.json). A test opponent, never in a night pool.
-EXPLOITERS = ("exploiter1", "exploiter2")
+EXPLOITERS = ("exploiter1", "exploiter2", "exploiter3")
 FIELDS["exploit"] = ("hero", "exploiter1") + _night.seat_names("night")[:6]
 FIELDS["exploit_hu"] = ("hero", "exploiter1")
 FIELDS["exploit_3"] = ("hero", "exploiter1") + _night.seat_names("night")[:1]
@@ -1918,8 +1939,13 @@ FIELDS["exploit_3"] = ("hero", "exploiter1") + _night.seat_names("night")[:1]
 FIELDS["exploit2"] = ("hero", "exploiter2") + _night.seat_names("night")[:6]
 FIELDS["exploit2_hu"] = ("hero", "exploiter2")
 FIELDS["exploit2_3"] = ("hero", "exploiter2") + _night.seat_names("night")[:1]
+# the third exploiter's (of batch 5, docs/drills/exploiter3/), seated as its arena did
+FIELDS["exploit3"] = ("hero", "exploiter3") + _night.seat_names("night")[:6]
+FIELDS["exploit3_hu"] = ("hero", "exploiter3")
+FIELDS["exploit3_3"] = ("hero", "exploiter3") + _night.seat_names("night")[:1]
 # fields of fewer than eight seats, with the player count their Rules must carry (every other field seats eight)
-FIELD_PLAYERS: dict[str, int] = {"exploit_hu": 2, "exploit_3": 3, "exploit2_hu": 2, "exploit2_3": 3}
+FIELD_PLAYERS: dict[str, int] = {"exploit_hu": 2, "exploit_3": 3, "exploit2_hu": 2, "exploit2_3": 3,
+                                  "exploit3_hu": 2, "exploit3_3": 3}
 
 # fields that seat an optional bot: present in FIELDS only when every bot in them is registered
 OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {

@@ -86,8 +86,9 @@ JUDGES = [("judge", "lin", None), ("judge2", "lin", None), ("judge2_night", "lin
 ELITE = [("elite", "lin", None), ("elite_night", "lin", None), ("mirror", "lin", None),
          ("elite_b", "lin", None), ("mirror_b", "lin", None)]  # elite4 joined 2026-11-02 (second wave)
 EXPLOIT = [("exploit", "brief", None), ("exploit_hu", "lin", "hu"), ("exploit_3", "lin", "three"),
-           ("exploit2", "brief", None), ("exploit2_hu", "lin", "hu"), ("exploit2_3", "lin", "three")]
-EXPLOIT_BOTS = ("exploiter1", "exploiter2")  # the one seated in a cell's field is printed beside us
+           ("exploit2", "brief", None), ("exploit2_hu", "lin", "hu"), ("exploit2_3", "lin", "three"),
+           ("exploit3", "brief", None), ("exploit3_hu", "lin", "hu"), ("exploit3_3", "lin", "three")]  # of batch 5
+EXPLOIT_BOTS = ("exploiter1", "exploiter2", "exploiter3")  # the one seated in a cell's field is printed beside us
 VARIANT_FIELD = "realistic"
 VARIANT_SEEDS = 200
 CHUNK = 25
