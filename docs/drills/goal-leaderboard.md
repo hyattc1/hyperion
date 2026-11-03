@@ -3,7 +3,10 @@
 One page, updated after every accepted batch. Points are per table, averaged over the seeds shown, every seed played
 in all eight seat rotations; "margin" is F minus the other bot on the same deals, with the 95% interval.
 
-## Where we stand (2026-11-02 21:18 ET, batch 5)
+## Where we stand (2026-11-03 13:37 ET, batch 6)
+
+Batch 6 changes only twist tables, so every plain hold'em number below (judges, night, elite rooms, exploiters) is
+batch 5's and holds for batch 6 exactly.
 
 **F (the composite) is first against every judge field.** On fresh seeds (30000-30399, 400 x 8), none of them ever
 used for tuning. Batch 5 moved judge_top +0.106 and outside +0.087 (beyond noise) and left the rest level; the
