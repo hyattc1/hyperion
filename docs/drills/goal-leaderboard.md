@@ -52,5 +52,6 @@ minute 8 and the ship bot gated at minute 20; that zip beat raw F under the vari
 | 2026-11-02 00:20 (batch 2) | composite F + governor | f7914c0 | a59f45b9...7f4f134327 | slow or noisy box: +3.64 of 100 (th), +0.14 (8..1) at 3x; bit-identical on a normal box |
 | 2026-11-02 06:18 (batch 3) | composite F + governor + variant play | 9e620c8 | 774f0636...89bcf6f20 | twist tables: aware toss +0.13, bounty +0.30, short deck +0.18; plain hold'em identical |
 | 2026-11-02 08:59 (batch 4) | + 3-bet defence, keep2/toss calls, kit fixes | e3cec13 | bb5820cc...6197fe | beats exploiter 1 in every format; keep2 +0.29; adapter reads 20 kit shapes; no test bots in the zip |
+| 2026-11-02 20:56 (batch 5) | + strong-table route, size read, S11 fixes, twist play | 3aac34d | cbf2ccb3...95fa4803 | held-out night +0.096, mirror +0.241, every exploit cell up (heads-up vs exploiter 2 +0.30), wild/short deck/omaha/keep up |
 
 Zips live in `frozen/` (git-ignored); each is rebuilt from its commit with `tools/pack.py --slim`.

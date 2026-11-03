@@ -3245,3 +3245,46 @@ all of FIN's exploit gain on S2's screens (+0.62 / +1.11 / +1.33) and never fire
 - Frozen: frozen/B4-e3cec13, kit B zip sha256 bb5820cc2c5439f48aa0bf1177c3ffac425f27842621120935ee6a3d746197fe
   (813 KB, slim); gate pass (40 tables strict, 0 exceptions, 0 illegal; 0.79% timeouts at load 17, the gate's load
   clause).
+
+## The climb: batch 5 (strong tables, the second exploiter, twist play) (2026-11-02, builder: the climb's coordinator)
+
+**Batch 5 (3aac34d).** On top of batch 4's ship, four parts, each accepted alone on its own held-out set against batch 4:
+- **The strong-table route** (S9's G2): `strong_route` pre_open_10=elite1x, `strong_rr` 0.2. While the share of our
+  first-in raises re-raised before the flop (smoothed) reads at least 0.2, an opened pot with ten or more big blinds is
+  played preflop by elite1 (our own prepared top-team build) with the layer; never blind against blind. Held-out H6
+  (25000-25399), `--aim strong`: mirror +0.101 ± 0.040, night +0.025 ± 0.020, exploit 8-max +0.092 ± 0.068 UP; elite
+  +0.034, elite_night +0.013, guards, aware and all 26 variants level (twists identical: hold'em tables only).
+- **The bet-size read** (S12c's D3): Hero's postflop reads a seat's bet sizes as its range (rank prior 5), only with
+  four or more alive, on hold'em tables, for seats with two or more bets in two informative size buckets, skipping the
+  weak, on flop and turn, and only for seats that c-bet at least 0.55 of their chances. H11 (31000-31399), `--aim
+  strong`: night +0.032 ± 0.024, elite +0.048 ± 0.042, elite_night +0.038 ± 0.029, mirror +0.158 ± 0.056 UP; guards,
+  exploit, variants and aware level.
+- **The second exploiter's fixes** (S11's Z3): rival 3's core reads the big blind's 3-bets against our small-blind
+  open with its own prior (0.15); Hero probes a seat that checks to it on later streets (from 0.75, two chances,
+  margin 0.03, raise tier 5, bluff 0.4) and balances its bet sizes; both gated to hold'em tables
+  (`s11_holdem_only`, `r3.v3_bvb_holdem_only`: the ungated Z2 lost a little on six variants on H9). H12
+  (32000-32399), `--aim exploit` (addendum 6): exploit2_hu +0.352 ± 0.102, exploit_hu +0.180 ± 0.105, exploit2_3
+  +0.143 ± 0.107 UP (the third fresh set showing them); night, guards, elite, aware level; all 26 variants level.
+- **Twist play against twist-aware opponents** (V-e): a hand read as its hold'em twin from the variant's own table
+  (`hero.twin_preflop` 0.05, `twin_multi` 0.07), calls one or two tiers tighter on multi-card and wild deals. H10
+  (29000-29399), aware and variants: generic aware wild_deuces +1.074 ± 0.096, three_card_keep +0.333, omaha_four
+  +0.266, short_deck +0.226, hi_lo +0.098, lowball +0.096 UP; hand-built short_deck_aware +0.197 UP; realistic
+  wild_deuces +0.373, three_card_keep +0.225, omaha_four +0.098, short_deck +0.093 UP; none down.
+- **Together** against batch 4 on H13 (33000-33399), every stage, `--aim strong`: **night +0.096 ± 0.053 UP** (the
+  brief's own test: beyond noise up on held-out night seeds), top +0.086 ± 0.058, night at 10/7/5 payouts +0.232 ±
+  0.093, at 50/25/12 +1.011 ± 0.597, mirror +0.241 ± 0.065 UP; every exploit cell UP (8-max +0.161 and +0.106,
+  heads-up +0.176 and +0.300, three-handed +0.111 and +0.198); variants short_deck +0.154, wild_deuces +0.391,
+  three_card_keep +0.190, omaha_four +0.160, straddle +0.068, short_deck_aware +0.215 UP; elite +0.036, elite_night
+  +0.036, night_hard, realistic, doubling blinds and every other variant and aware cell level. None down. ACCEPT.
+- **Judges** once on the judge set against batch 4's ship: judge_top +0.106 ± 0.063 and outside +0.087 ± 0.056 UP;
+  elite_judge +0.061, outside_strong +0.024, judge -0.026, judge2 -0.000, judge2_night -0.012 level.
+- **Timing** (per-call minimum, act p99 / hand end p99, us, batch 4 -> 5, load 9): plain 87 -> 100 / 98 -> 137;
+  deal5_keep2 71 -> 86; toss 69 -> 85; river_of_blood 86 -> 97; omaha_four 101 -> 110; wild_deuces 113 -> 128. The
+  cost is elite1's light shadow and the size read.
+- **Caught before the freeze:** `--slim` dropped hyperion/sim/field, so a slim zip could not have built elite1; pack
+  now keeps every module the recorded bot's build imports and drops try-only kit imports (6f4afbe, a46f958). The
+  emergency `cheap` dial now also drops the strong route (the base alone). `BATCH5_OFF` plays batch 4 from this tree
+  (digests identical plain and under five twists).
+- Frozen: frozen/B5-3aac34d, kit B zip sha256 cbf2ccb3d57b85c72a8ee31902dd39f4efc32bb2e5f94b05d42fe52095fa4803
+  (963 KB, slim, elite1 kept, no kit import, imports stdlib and the package only); gate pass (40 tables strict, 0
+  exceptions, 0 illegal, -0.317 ± 0.559 against the sim's composite; 0.33% timeouts at load 9-10, the load clause).
