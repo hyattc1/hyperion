@@ -362,7 +362,7 @@ class Profiler:
                     if kind is _CHECK:
                         self.my_chk = self.tstreet
                 elif self.my_chk == self.tstreet and self.inhand == (bit | (1 << self.me)):
-                    k = self.tstreet - 1
+                    k = self.tstreet - 1 if self.tstreet <= 3 else 2  # a long board's later streets count as the river
                     self.st_opp[seat][k] += 1
                     if kind is _RAISE:
                         self.st_bet[seat][k] += 1

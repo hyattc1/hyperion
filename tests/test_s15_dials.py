@@ -71,6 +71,17 @@ def test_three_handed_with_every_s15_dial_replays_exactly():
     assert _digest(d, 1, THREE, R3)[0] == _digest(d, 1, THREE, R3)[0]
 
 
+def test_the_stab_read_counts_a_long_board_without_an_error():
+    """river_of_blood deals past the river (obs.street 4 and up, the profiler's street with it): those count as the
+    river."""
+    prof = Profiler(2)
+    prof.reset(2, 1)
+    prof._start_blank()
+    prof.tstreet, prof.inhand, prof.need = 4, 0b11, 0b11
+    prof._consume([(1, Action.check()), (0, Action.raise_to(50))], 4)
+    assert prof.st_opp[0] == [0, 0, 1] and prof.st_bet[0] == [0, 0, 1]
+
+
 def test_stab_holdem_only_plays_a_twist_table_exactly_as_f():
     from hyperion.drills import variants as V
 
