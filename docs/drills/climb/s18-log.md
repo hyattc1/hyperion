@@ -4,6 +4,42 @@ Branch climb/s18-horizon-icm, from main 11cc61f (batch 5 is F). Item 5 of `docs/
 opponents.md`. Screens only: seeds 10000-10199 (`--set screen`); diagnostics, if any, on seeds 8600-8699. No held-out
 set, judge set, judge bot, judge field or held-out variant is run, read or tuned on. Workers: at most 3, nice 5.
 
+## Findings
+
+- **Not accepted: the horizon is level where it should gain and down in four cells.** One form, fixed before any
+  screen (section 0), screen set 10000-10199, base F:
+  - night +0.010 ± 0.044 (level, not up);
+  - guards all level; no guard payout table is up (10/7/5/4/3/2/1/0 +0.020 ± 0.074, 50/25/12/6/3/2/1/1 -0.024 ±
+    0.551, doubling blinds -0.012 ± 0.044);
+  - the three variants the report expected most from are level (fast_schedule -0.036 ± 0.048, antes_from_level_3
+    -0.018 ± 0.036, top_heavy +0.015 ± 0.461); elite's five fields level (-0.026 to +0.038);
+  - **down: exploit (exploiter 1, 8-max) -0.107 ± 0.104, adapt (adapt1, 8-max) -0.081 ± 0.077**, three_card_keep
+    -0.020 ± 0.018 and auction -0.025 ± 0.024, each just past its interval; up: two_boards +0.060 ± 0.046.
+  - An exploit cell down rejects under every aim, so it is a reject whatever the aim.
+- **The form barely changes play.** 0.30% of F's decisions differ (13 of 4,343 on 24 diagnostic night tables, about
+  one every two tables). Far from the cap every stack but the next button's loses about 1.5 bb, which moves ICM only
+  for short stacks; within the last orbit the correction fades to nothing, where ICM is the cap's payoff anyway. The
+  report's expected +0.01 to +0.03 would be under this screen's resolution (± 0.044 on night) even if it were there.
+- **The late-table report (F, tables still three-or-more-handed at hand 150):** about half of all tables (night 777
+  of 1,600; night_hard 882, realistic 866, top 1,206, elite 914-1,042; doubling blinds only 43). On them F scores
+  5.87 at night (5.97 overall), is already out of 36% of them by hand 150 (realistic 30%, top 45%, elite ~50%), and
+  busts 32% of the seats still in during the last 50 hands (realistic 19%, top 55%, elite 56-73%). The horizon moves
+  none of these beyond noise (paired on F's late tables: night -0.012 ± 0.079; brief +0.050 ± 0.128; top-heavy +0.27 ±
+  0.93, its busts after 150 32.1 -> 29.6%, the expected direction but inside the noise).
+- **The 150-hand cap guard** (`docs/drills/climb/rules/cap150.json`): 94-99% of tables reach hand 100 three-or-more-
+  handed, so the cap governs nearly every table; every cell is level (night +0.007 ± 0.037, top-heavy -0.119 ±
+  0.356).
+- **Cost.** No per-decision cost beyond noise (act p99 108.5 -> 113.0 us plain, 157.2 -> 154.0 top_heavy). Hand end
+  +9 us on plain (p99 146.7 -> 155.5) and +14 us under top_heavy (p99 343.9 -> 357.5): the owed blinds move with the
+  button every hand, so the curve's memoised exact ICM hits less. That is the form's own cost.
+- **Identity.** With the dial off F plays bit for bit: 14 of 14 chunks identical to main 11cc61f on 10000-10039
+  (confirm and guards), at both commits that touch code.
+- **What stays, all off by default:** `icm.horizon` (`hero.icm_horizon`, `r3.icm_horizon`; hero.blinds_owed,
+  horizon_stack), `climb_accept --late` (records kept in every cell; the report for confirm, guards, elite, window),
+  `run_tournament(late_at=)`, the cap150 rules file, and the note on `cap_vol_bb` (kit F's chip-rank rule, not the
+  official ICM split, so it stays off). Not swept, as specified; I would not try other forms of this rule on the
+  screen set: the decisions it changes are too few to measure, and the cells that moved moved against it.
+
 ## 0. The form, fixed before any screen
 
 Written before any code ran. One form, not swept. The rule is the research note's own heuristic (poker_ai_literature
@@ -197,3 +233,41 @@ cap and the horizon is in play for its whole last stretch; still nothing moves. 
 | top_heavy | 28.654 | 28.669 | +0.015 ± 0.461 | level |
 
 None of the three the report expected to gain most (faster blinds, antes, top-heavy payouts) moves.
+
+### 3.5 s3: every stage (`--stages confirm,guards,elite,exploit,variants --late --aim night`), the whole catalog
+
+Confirm, guards, elite and exploit as above (cached). The catalog on realistic, 200 seeds each (s4's three included):
+
+| cell | F | horizon | horizon - F | |
+|---|---|---|---|---|
+| permuted_ranks | 6.693 | 6.669 | -0.023 ± 0.036 | level |
+| short_deck | 6.362 | 6.371 | +0.009 ± 0.017 | level |
+| lowball | 7.796 | 7.804 | +0.008 ± 0.009 | level |
+| wild_deuces | 7.422 | 7.433 | +0.011 ± 0.020 | level |
+| flush_over_full_house | 6.140 | 6.131 | -0.009 ± 0.029 | level |
+| toss_or_holdem | 6.497 | 6.491 | -0.006 ± 0.021 | level |
+| three_card_blind_discard | 6.434 | 6.422 | -0.012 ± 0.020 | level |
+| three_card_keep | 6.425 | 6.405 | **-0.020 ± 0.018** | **DOWN** |
+| omaha_four | 6.826 | 6.821 | -0.005 ± 0.011 | level |
+| swap_holdem | 6.343 | 6.354 | +0.012 ± 0.039 | level |
+| swap_one_turn | 6.440 | 6.427 | -0.013 ± 0.037 | level |
+| exposed_card | 6.167 | 6.175 | +0.008 ± 0.030 | level |
+| two_boards | 6.127 | 6.188 | +0.060 ± 0.046 | UP |
+| bonus_card | 5.980 | 5.968 | -0.012 ± 0.032 | level |
+| auction | 6.531 | 6.506 | **-0.025 ± 0.024** | **DOWN** |
+| deal5_keep2 | 6.884 | 6.884 | -0.000 ± 0.006 | level |
+| bounty | 6.389 | 6.377 | -0.013 ± 0.032 | level |
+| knockout_bounty | 8.102 | 8.093 | -0.009 ± 0.063 | level |
+| top_heavy | 28.654 | 28.669 | +0.015 ± 0.461 | level |
+| hi_lo | 6.166 | 6.169 | +0.002 ± 0.034 | level |
+| pot_limit | 6.387 | 6.344 | -0.043 ± 0.045 | level |
+| antes_from_level_3 | 6.496 | 6.478 | -0.018 ± 0.036 | level |
+| fixed_raise | 6.307 | 6.309 | +0.003 ± 0.032 | level |
+| fast_schedule | 6.122 | 6.087 | -0.036 ± 0.048 | level |
+| straddle | 6.412 | 6.402 | -0.010 ± 0.026 | level |
+| river_of_blood | 6.301 | 6.298 | -0.003 ± 0.037 | level |
+
+Verdict (`--aim night`): **REJECT**. Confirm: night level, not up. Guards none down. Elite none down. Variants: two
+down (three_card_keep, auction; both just past the interval), so not addendum 7's lone-cell
+replication case either. Exploit: two down (exploit, adapt; section 3.2). 23 of 26 variant cells moved by less than
+0.03. The catalog took 108 minutes at host load 16-56 (3 workers, started before the coordinator capped runs at 2).
