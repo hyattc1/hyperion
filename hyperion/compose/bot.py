@@ -66,6 +66,10 @@ strong general bots and copies of F 24-26% (docs/drills/climb/s9-log.md). Never 
 `strong_bvb` (True: every section; or the sections it names, S14). Its donors' members run (and shadow) on every
 decision, like any routed member's.
 
+**The second strong-table route** (S14, `strong2_route`, off by default): more sections on the same read, played while
+it is in [`strong2_rr`, `strong2_rr_max`): a table where nearly every open of ours is re-raised holds an exploiter, and
+F's own play (its 3-bet defence) is kept there. Blind-vs-blind as `strong_bvb` says.
+
 **The short-handed route** (S13, `short_route`, off by default): sections played by another donor (the specialist
 `short`, hyperion/strategy/short.py) while at most `short_alive` players have chips and that member `wants` the decision
 (the hand maps onto its tables, no opponent alive reads as a clear leak); otherwise the section's donor as above. The
@@ -572,6 +576,13 @@ class ComposeConfig:
     # ... and in an unopened pot with one opponent left in the hand (the small blind against the big, or folded round to
     # the button with the small blind out): off = never there (blind-vs-blind play is S11's, climb/s11-exploiter2-fixes)
     strong_bvb: object = False  # True = every section; or section names ("pre_hu,pre_3way": those only; S14)
+    # a second strong-table route (S14) on the same read with its own band: these sections go to these donors while the
+    # read is at least `strong2_rr` and under `strong2_rr_max`. A table where our opens are re-raised nearly every time
+    # holds an exploiter, not strong general bots, and F's own play (its 3-bet defence) is the one to keep there.
+    # Blind-vs-blind unopened pots as `strong_bvb` says. Empty (the default): no second route
+    strong2_route: dict = field(default_factory=dict)
+    strong2_rr: float = 0.0
+    strong2_rr_max: float = 1.01
     # the short-handed route (S13, module doc of hyperion/strategy/short.py): these sections go to these donors while at
     # most `short_alive` players have chips and the donor's member wants the decision (the hand maps onto its tables,
     # no opponent alive reads as a clear leak). Empty (the default): every section as `route` / `strong_route` say
@@ -590,8 +601,9 @@ def compose_config(route=None, seed=None, **kw) -> ComposeConfig:
     cfg = ComposeConfig(seed=seed, **kw)
     cfg.route = parse_route(route)
     cfg.strong_route = parse_route(cfg.strong_route)
+    cfg.strong2_route = parse_route(cfg.strong2_route)
     cfg.short_route = parse_route(cfg.short_route)
-    for r in (cfg.route, cfg.strong_route, cfg.short_route):
+    for r in (cfg.route, cfg.strong_route, cfg.strong2_route, cfg.short_route):
         for sec, d in r.items():
             if sec not in SECTIONS:
                 raise KeyError(f"unknown section {sec!r}")
@@ -640,6 +652,7 @@ class CompositeCore:
         donors = [cfg.route.get(s, cfg.base_donor) for s in SECTIONS]
         names = ["base"]  # index 0 is always the base
         for d in donors + [cfg.strong_route[s] for s in SECTIONS if s in cfg.strong_route] \
+                + [cfg.strong2_route[s] for s in SECTIONS if s in cfg.strong2_route] \
                 + [cfg.short_route[s] for s in SECTIONS if s in cfg.short_route]:
             m = DONORS[d][0]
             if m not in names:
@@ -653,6 +666,9 @@ class CompositeCore:
         self.route = [(idx[DONORS[d][0]], DONORS[d][1]) for d in donors]  # per section: (member index, layer on)
         sr = cfg.strong_route
         self.strong = [(idx[DONORS[sr[s]][0]], DONORS[sr[s]][1]) if s in sr else None for s in SECTIONS] if sr else None
+        s2 = cfg.strong2_route
+        self.strong2 = [(idx[DONORS[s2[s]][0]], DONORS[s2[s]][1]) if s in s2 else None for s in SECTIONS] if s2 else None
+        self._rr_on = self.strong is not None or self.strong2 is not None  # keep the read
         bvb = cfg.strong_bvb
         if isinstance(bvb, str):
             bvb = set(parse_route({k.strip(): "1" for k in bvb.split(",") if k.strip()}))
@@ -711,6 +727,11 @@ class CompositeCore:
         if c.strong_rr <= 0.0:
             return True
         return (self._rr_k + c.strong_prior * c.strong_prior_n) / (self._rr_n + c.strong_prior_n) >= c.strong_rr
+
+    def rr_read(self) -> float:
+        """The share of our first-in raises re-raised this table, smoothed toward strong_prior."""
+        c = self.cfg
+        return (self._rr_k + c.strong_prior * c.strong_prior_n) / (self._rr_n + c.strong_prior_n)
 
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
         self.panic = False
@@ -771,17 +792,28 @@ class CompositeCore:
         mi, layer = self.route[sec]
         counts = self.counts
         strong = self.strong
-        if strong is not None:
+        rr_on = self._rr_on
+        if rr_on:
             if obs.hand_no != self._rr_hand:
                 self._rr_hand, self._rr_open = obs.hand_no, False
             elif self._rr_open and (obs.street or obs.to_call > 0):
                 if not obs.street:
                     self._rr_k += 1  # we act again before the flop, facing a bet: our raise was re-raised
                 self._rr_open = False
-            sr = strong[sec]
-            if sr is not None and self.strong_table() and (self._sbvb[sec] or obs.street or not _bvb(obs)):
-                mi, layer = sr
-                counts["strong"] += 1
+            if strong is not None:
+                sr = strong[sec]
+                if sr is not None and self.strong_table() and (self._sbvb[sec] or obs.street or not _bvb(obs)):
+                    mi, layer = sr
+                    counts["strong"] += 1
+            strong2 = self.strong2
+            if strong2 is not None:
+                s2 = strong2[sec]
+                if s2 is not None and (self._sbvb[sec] or obs.street or not _bvb(obs)):
+                    c2 = self.cfg
+                    r = self.rr_read()
+                    if (c2.strong2_rr <= 0.0 or r >= c2.strong2_rr) and r < c2.strong2_rr_max:
+                        mi, layer = s2
+                        counts["strong2"] += 1
         short = self.short
         if short is not None and short[sec] is not None and not self.panic and self.plain:
             si, sl = short[sec]
@@ -894,7 +926,7 @@ class CompositeCore:
                 tap(self, obs, sec, mi, own, a, props, ex)
         for j in range(nm):
             props[j] = None
-        if strong is not None and not obs.street and a.kind is _RAISE and max(obs.bets) <= obs.blinds[1] \
+        if rr_on and not obs.street and a.kind is _RAISE and max(obs.bets) <= obs.blinds[1] \
                 and a.amount < obs.max_raise:
             self._rr_n += 1  # a first-in raise that is not all-in: will it be re-raised?
             self._rr_open = True

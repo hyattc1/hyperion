@@ -289,3 +289,20 @@ def test_s14_strong_bvb_by_section(monkeypatch):
     assert dec("s14_b_none", "")[0] == off
     one, hu_one = dec("s14_b_hu", "pre_hu")
     assert one != on and one != off and hu_one > hu_off
+
+
+def test_s14_second_strong_route(monkeypatch):
+    """strong2_route reads the same re-raise share with its own band: always open, it plays as the same sections in
+    strong_route at an open gate; never open (max 0), as no second route; the band's top closes it."""
+    _model(monkeypatch)
+    one = {"strong_route": "pre_open_10=elite1x,pre_3way=elite1x,pre_hu=elite1x", "strong_rr": 0.0}
+    two = {"strong_route": "pre_open_10=elite1x", "strong_rr": 0.0, "strong2_route": "pre_3way=elite1x,pre_hu=elite1x"}
+    assert _play("s14_s2_one", one) == _play("s14_s2_two", two)
+    alone = _play("s14_s2_alone", {"strong_route": "pre_open_10=elite1x", "strong_rr": 0.0})
+    assert _play("s14_s2_shut", {**two, "strong2_rr_max": 0.0}) == alone
+    core = CB.ship({"strong2_route": "pre_hu=elite1x", "strong2_rr": 0.2, "strong2_rr_max": 0.6}, seed=5).core
+    assert core.strong is not None and core.strong2[CB.SECTIONS.index("pre_hu")] is not None and core._rr_on
+    core._rr_n, core._rr_k = 10, 3
+    assert abs(core.rr_read() - 0.225) < 1e-9  # (3 + 1.5) / 20: in the band
+    core._rr_n, core._rr_k = 30, 27
+    assert core.rr_read() > 0.6  # an exploiter's table: out of the band
