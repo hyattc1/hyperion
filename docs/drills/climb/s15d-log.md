@@ -175,8 +175,8 @@ changes 2 decisions (S15c: 26). Against exploiter 3 it acts 367 times (S15c: 533
 ## What I would still try
 
 - **Three-handed.** S15e keeps a third of S15c's three-handed gain (+0.027 against +0.080 raw). There exploiter 3
-  plays more multiway hands, so its free-bet rate reads higher (0.40-0.51) and the 0.5 gate drops more of its
-  events (100 of 147 kept in the audit). A free-bet rate over heads-up pots only would separate it better. The
+  plays more multiway hands, and its free-bet rate (median 0.40, 75th percentile 0.51 over all its events) runs
+  into the 0.5 gate there: 100 of its 147 three-handed events are kept, against 270 of 305 heads-up. A free-bet rate over heads-up pots only would separate it better. The
   profiler counts free actions in every pot.
 - **The one elite1 hand.** Two decisions in about 6,800 tables. Its lead and free rates were low that table (0.28,
   under 0.5) and its pfr 0.39. A per-table minimum of free-action evidence (it had few heads-up free chances) would
