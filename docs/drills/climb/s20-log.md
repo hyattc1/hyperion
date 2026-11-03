@@ -317,3 +317,8 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
   per process; `import hyperion.strategy.short` 0.06 s). Table size: tables/extra/short_3b.json 3.19 MB, 2.43 MB
   zlib-9 (S13's short_3.json 1.5 MB). tools/pack.py copies only tables/*.json, so a ship with `short.three2` on must
   carry the file (move it to tables/ or name it with --extra); with the dial off nothing changes.
+- 18:05 What GK25R plays at strong tables (`d3.py`, diagnostic seeds; elite 11000-11099, mirror_b 11000-11059):
+  the tables make 20-51% of our three-handed preflop decisions at elite (the strong read opens as the table goes on)
+  and 48-57% at mirror_b. Our seat's three-handed bb a hand: elite +0.020 against F's -0.035 on the same seeds (the
+  button +0.16 against +0.05: it folds 44% / raises 48% / jams 8% where F raised 65%; our opens faced a jam 440
+  times, folding 85%), mirror_b -0.008 against -0.091 (the button +0.12 against -0.13).
