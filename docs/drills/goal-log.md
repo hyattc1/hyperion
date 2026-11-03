@@ -1053,3 +1053,13 @@ and (in judges) `elite_judge`.
   prints a "weighted (addendum 11)" block and writes it to --json. `--route2` refuses off held-out sets or with a
   stage missing; `--identical` declares cells identical by construction; `--judges-json` feeds the judge condition.
   The review's S5-on-H14 and V-f-on-H15 rows reproduce exactly. The main verdict is untouched (tests).
+
+## 07:44: drill 10 scored; H6 started on its fixes
+- Ship gated minute 29, a kept patch at minute 41 (`hero.solo_flop`: our sim 7.24 -> 8.16, twist-aware +0.86 ± 0.36,
+  kit at 5 ms 8.24 -> 8.63). Slower than drills 8-9: a hand-written process entry and gate seat (10 min), table
+  generation at load 22-28 (8 min), the kit's 1 ms clock with the next message waiting while the composite did its
+  hand end twice (62% auto-played; the entry's answer-first fix halved it). A real gap: Hero's must-use path checks
+  or folds every flop when the board must supply four cards. Write-up docs/drills/prompt-drill-10.md.
+- H6 (goal/wt_h6): a process-kit (JSON lines) entry and gate-seat template; no hand-end work for the base's fallback
+  Hero on tables the hero member plays whole (play identical); the must-use path plays the flop in general (Solo as a
+  variant file); table generation preset, progress and resume; pack.py's import budget and both size caps.
