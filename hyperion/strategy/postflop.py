@@ -898,7 +898,7 @@ class Postflop:
     def act(self, spot: Spot, hole, prof: Profiler | None, i_was_aggressor: bool, cheap: bool = False,
             board=None, board2=None, must_use: int = 0, dead=(), value_shift: int = 0, call_shift: int = 0,
             street: int | None = None, to_come: int | None = None, long: bool = False, more: bool = False,
-            shared: tuple = (), shared_call_shift: int | None = None) -> Action:
+            shared: tuple = (), shared_call_shift: int | None = None, shared_all: bool = False) -> Action:
         """`hole` and `board` are canonical cards (Hero remaps under a permuted rank order); the
         displayed obs.board is only the fallback when no board is passed. `board2` is the second board of
         a two-board game, `must_use` the Omaha rule, `dead` the exposed cards, `value_shift` raises the
@@ -906,8 +906,9 @@ class Postflop:
         facing a bet. `street` / `to_come` replace the observation's street and the cards still to come (a long
         board: Hero plays a street that may not be the last as a turn); `long` / `more`: see `read`. `shared`: one
         tuple of our cards per opponent in the hand who holds them too (Hero's known cards); against each, the hand is
-        read with them on the board (`read_shared`) and the lowest read is the hand's; when it is one of those reads,
-        facing a bet it is shifted by `shared_call_shift` (None: call_shift)."""
+        read with them on the board (`read_shared`) and the lowest read is the hand's (`shared_all`: every opponent
+        in the hand is one of them, so the plain read, which prices our shared cards as ours alone, is left out);
+        facing a bet a shared read is shifted by `shared_call_shift` (None: call_shift)."""
         p = self.p
         obs = spot.obs
         if board is None:
@@ -925,8 +926,10 @@ class Postflop:
         t_eq = tier - call_shift if call_shift and spot.to_call > 0 else tier
         if shared and board2 is None and not must_use and not self.low and self.wild_rank < 0:
             cs2 = call_shift if shared_call_shift is None else shared_call_shift
-            for sh in shared:
-                r = self.read_shared(hole, board, sh, dead, cards_to_come > 0)
+            reads = [self.read_shared(hole, board, sh, dead, cards_to_come > 0) for sh in shared]
+            if shared_all and all(r is not None for r in reads):
+                tier = t_eq = 99  # every opponent holds cards of ours: his read is the only one that applies to him
+            for r in reads:
                 if r is None:
                     continue
                 t2, o2 = r[0], r[1]

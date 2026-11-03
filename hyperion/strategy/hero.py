@@ -437,7 +437,8 @@ class Config:
     #         class whose heads-up equity is ours against him (known.equity: a shared card counts for both hands, his
     #         exposed cards are his), and the exposed-card range reads stand down for that decision
     #   post  after the flop: against each opponent in the hand who shares cards with us, the hand is read with the
-    #         shared cards on the board (they make his hand as much as ours); the lowest read is the hand's
+    #         shared cards on the board (they make his hand as much as ours); the lowest read over the opponents (the
+    #         plain read for those who share nothing) is the hand's
     # With it on, every known card that is not ours comes off the draw outs (as exposed cards always did)
     known_cards: str = ""
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
@@ -1140,16 +1141,17 @@ class HeroCore:
             if nh + nb > 8:
                 self.last_path = "safe"
                 return safe_action(obs)
-        sh = ()
+        sh, sh_all = (), False
         if shared and self._known_post:
-            sh = self._shared_sets(shared, spot)
+            sh, sh_all = self._shared_sets(shared, spot)
         if sh:
             # the shared reads are pairwise (his hand on the same board as ours): the multi-card call shift, there
             # because every three-card hand is stronger, does not apply to them
             cs2 = call_shift - (cfg.multi_call_shift if (nh >= 3 and self.rules.hole_cards >= 3 and not mu
                                                          and not self._revealed_dead and not self._toss) else 0)
             a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
-                                  value_shift=value_shift, call_shift=call_shift, shared=sh, shared_call_shift=cs2)
+                                  value_shift=value_shift, call_shift=call_shift, shared=sh, shared_call_shift=cs2,
+                                  shared_all=sh_all)
             self.known_post_n += 1
         else:
             a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
@@ -1386,14 +1388,18 @@ class HeroCore:
         return _known.class_at(self._known_ladder, e)
 
     @staticmethod
-    def _shared_sets(shared: dict, spot: Spot) -> tuple:
-        """Our cards each opponent still in the hand holds too, one tuple per distinct set."""
+    def _shared_sets(shared: dict, spot: Spot) -> tuple[tuple, bool]:
+        """Our cards each opponent still in the hand holds too, one tuple per distinct set, and whether every
+        opponent in the hand holds some."""
         out = []
+        every = True
         for s in spot.opps:
             cs = shared.get(s)
-            if cs and cs not in out:
+            if not cs:
+                every = False
+            elif cs not in out:
                 out.append(cs)
-        return tuple(out)
+        return tuple(out), every and bool(out)
 
     def _exposed(self, ex: dict, me: int):
         """Other seats' face-up cards: {seat: canonical card} and the dead tuple for draw reads."""
