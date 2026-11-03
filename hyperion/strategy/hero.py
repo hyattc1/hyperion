@@ -786,6 +786,7 @@ class HeroCore:
             self.prof.reset(n_players, seat)
         if self.exploit is not None:
             self.exploit.new_table(n_players, seat)
+            self.exploit.size_from(self.postflop)  # S17's stab_size: this table's one size (after _configure)
         self._curve_todo = None
         if self.cfg.use_icm:
             self._curve(self.last_stacks, 0)
