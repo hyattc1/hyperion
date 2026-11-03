@@ -91,3 +91,39 @@ def test_the_one_size_can_wait_for_a_short_table_and_ask_for_more_folds():
         assert (_stab(ex) is not None) is fires
     ex = Exploit(ExploitParams(bet_checked=True, stab_min_fold=0.95))  # no one size: bet_min_fold as before
     assert _stab(ex).amount == int(0.33 * 180)
+
+
+def test_the_hold_em_gate_keeps_bet_frac_on_every_twist_table():
+    """C3h: batch 6 carries Hero's one size to the buy family (bonus_card, auction) and others (postflop.s11_twists), so
+    the ungated stab_size changed play there (C3 lost on bonus_card, H22 and H27). With stab_holdem_only the stab takes
+    the one size on plain hold'em only."""
+    from hyperion.drills import variants as V
+
+    on = {"exploit.stab_size": True, "exploit.stab_alive": 3}
+    gated = ship.make_bot("composite", {**on, "exploit.stab_holdem_only": True})
+    ungated = ship.make_bot("composite", on)
+    bonus = V.get("bonus_card").rules
+    ungated.new_table(bonus, 0, 8)
+    assert ungated.core.ex.stab_frac == 0.5  # the leak C3 had
+    from hyperion.strategy.hero import holdem_table
+
+    twists = 0
+    for name in V.catalog_names():
+        rules = V.get(name).rules
+        gated.new_table(rules, 0, 8)
+        if holdem_table(rules):  # a hold'em table with its own points or schedule (top_heavy, straddle ...)
+            assert gated.core.ex.stab_frac == 0.5, name
+        else:
+            twists += 1
+            assert gated.core.ex.stab_frac is None, name
+    assert twists >= 18
+    gated.new_table(Rules(), 0, 8)
+    assert gated.core.ex.stab_frac == 0.5
+    from hyperion.strategy.hero import HeroCore, config_from_dict
+
+    h = HeroCore(config_from_dict({"exploit.stab_size": True, "exploit.stab_holdem_only": True,
+                                   "postflop.balance_sizes": True}, seed=1))
+    h.new_table(bonus, 0, 8)
+    assert h.exploit.stab_frac is None
+    h.new_table(Rules(), 0, 8)
+    assert h.exploit.stab_frac == 0.5
