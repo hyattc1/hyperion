@@ -548,6 +548,11 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `voi_parts` | 'bid,buy,swap,keep,discard' |
 | `sd_tax` | False |
 | `sd_tax_gate` | 0.05 |
+| `tranche` | '' |
+| `tranche_claim_early` | 0.5 |
+| `tranche_claim_scale` | 1.0 |
+| `tranche_value_shift` | 0 |
+| `tranche_call_shift` | 0 |
 | `cheap` | False |
 | `deadline_ms` | 0.5 |
 | `panic_after` | 5 |

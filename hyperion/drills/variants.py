@@ -1490,6 +1490,47 @@ def river_of_blood() -> Variant:
     )
 
 
+# ------------------------------------------------------------------------------- tranche_holdem (2026-11-03)
+# Drill 11's unseen twist (kit I, docs/drills/drill11/kitI-README.md section 3), written from the handout's rules. The
+# engine side is two Rules.extras keys (hyperion/sim/engine.py's module doc), each usable alone: `settle: "street"`
+# (every street's chips a pot of their own, won by the best hand as it stood on that street) and `no_runout` (no cards
+# once the betting is over). No hooks. Points, blinds and the hand cap are the catalog's defaults (8..1, ICM at the
+# cap), as every entry but top_heavy; kit I's own (16/10/6/3/1/0/-1/-3, places by chips at hand 200, its schedule)
+# are docs/drills/drill11/rules_tonight.json, for --rules.
+
+def tranche_holdem() -> Variant:
+    rules = Rules(extras={"variant": "tranche_holdem", "settle": "street", "no_runout": True})
+    return Variant(
+        name="tranche_holdem",
+        summary="Tranche Hold'em (drill 11, kit I): every betting round's chips are a pot of their own (a tranche), "
+                "won at showdown by the best hand as it stood on that street: the two hole cards alone preflop (a "
+                "pair over any non-pair, then the high card, then the kicker, suits never count), hole cards plus "
+                "the flop, plus the turn, then ordinary hold'em on the river. Side pots are layered within each "
+                "tranche; folding gives up every tranche paid into. Once the betting is over no more cards come: an "
+                "all-in is settled on the cards already out (a preflop all-in has no board).",
+        rules=rules,
+        breaks=(
+            "The payoff moves, street by street. Preflop chips are a two-card contest: 22 beats AK every time, A2 "
+            "beats KQ, suited connectors are the worst hands to put money in with; our preflop tables and push/fold "
+            "solve rank hold'em equity. Postflop each street's bet is an even-money side bet on the hand as it is "
+            "now (plus fold pressure: folding forfeits the earlier tranches), so draws are worth nothing for the "
+            "street they are bet on and nothing at all once all-in (no runout); whole-pot odds overpay, and a big "
+            "earlier tranche we are winning (a pocket pair's preflop pot) is worth calling down to keep. The "
+            "observation carries the earlier tranches (obs.extras['tranches'])."
+        ),
+        checklist=(
+            "F: tranche_twin (the preflop decision sees the hold'em class at our two-card rank's percentile).",
+            "F: hero.tranche now,sunk (postflop: the hand as it is now, no draws; pot odds against this street's "
+            "tranche, the earlier tranches we hold kept by calling).",
+            "Night adapter: obs.extras['tranches'] = the earlier streets' pot totals (kit I: v.tranches[:street]).",
+        ),
+        needs_engine=True,
+        axis="payoff", tables="unsupported",
+        tables_note="the generator plays hold'em's runout; no table knows a two-card showdown or per-street pots",
+        playable_note="the engine's settle/no_runout rules (no hooks)",
+    )
+
+
 PRESETS: dict[str, Callable[..., Variant]] = {
     "permuted_ranks": permuted_ranks,
     "toss_or_holdem": toss_or_holdem,
@@ -1524,6 +1565,7 @@ CATALOG: dict[str, Callable[..., Variant]] = {
     "knockout_bounty": knockout_bounty,
     "top_heavy": top_heavy,
     "hi_lo": hi_lo,
+    "tranche_holdem": tranche_holdem,  # drill 11's twist (2026-11-03): payoff by street
     # betting
     "pot_limit": pot_limit,
     "antes_from_level_3": antes_from_level_3,
@@ -1632,7 +1674,8 @@ def validate(v: Variant) -> list[str]:
         problems.append("tables")
     if v.hooks is not None and not isinstance(v.hooks, VariantHooks):
         problems.append("hooks must subclass VariantHooks")
-    if v.needs_engine and v.hooks is None and r.betting == "nolimit":
+    if v.needs_engine and v.hooks is None and r.betting == "nolimit" \
+            and not (r.extras.get("settle") == "street" or r.extras.get("no_runout")):
         problems.append("needs_engine without hooks or a documented engine rule")
     removed = set(r.extras.get("removed_ranks", ()))
     if (13 - len(removed)) * r.n_suits < r.hole_cards * r.n_players + r.board_sizes[-1] * r.extras.get("n_boards", 1):

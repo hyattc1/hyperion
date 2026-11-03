@@ -28,6 +28,17 @@ street)` runs after each fold, and the observations after it carry the recompute
 `free_fold_checks = True` plays a fold with nothing to call as a check; `settle(table, hand)` runs after the main
 award, before the deltas (a side game's payout); `result_extras(hand) -> dict` goes into HandResult.extras.
 
+Payoff by street (2026-11-03, branch climb/vj-tranche; drill 11's Tranche Hold'em), two Rules.extras keys, each on
+its own or together; neither is set in any earlier table, so default play never reads them:
+`settle: "street"`: each betting round's chips are a pot of their own (a tranche), layered by what each seat paid on
+that street (side pots within the tranche, a folded seat's chips dead money in it, what nobody still in matched joining
+the layer below), and won by the best hand as it stood on that street: the board as it was when that round was bet
+(hole cards alone preflop: core.eval.evaluate_short, a pair over any non-pair, then the high card, then the kicker,
+suits never count). Folding gives up every tranche. Observation.extras["tranches"] holds the earlier streets' totals
+(the current street's chips are obs.bets); HandResult.extras["tranches"] and ["awards"] (per street, per seat) report
+the hand. `no_runout: True`: once a betting round ends with at most one seat in the hand holding chips behind, no more
+cards are dealt and the hand is shown down on the cards already out (a preflop all-in on the hole cards alone).
+
 Scoring at the hand cap (2026-11-02, branch climb/vg-ghost): survivors get ICM equity on their stacks, unless
 Rules.extras["cap_places"] == "chips": then they are placed by chip count, exactly equal counts sharing the places'
 points (kit F's rule). Default play never reads the key.
@@ -77,7 +88,7 @@ from time import perf_counter_ns
 from typing import Callable, Optional, Sequence
 
 from ..core.cards import deck_for, is_identity_order, remap
-from ..core.eval import evaluate, warm
+from ..core.eval import evaluate, evaluate_short, warm
 from ..core.icm import icm_equity
 from ..core.types import Action, ActionKind, Bot, HandResult, Observation, Rules
 
@@ -189,7 +200,7 @@ class HandState:
     __slots__ = (
         "hand_no", "button", "blinds", "holes", "runout", "board", "stacks_start", "in_hand",
         "n_in_hand", "bets", "contrib", "pot", "current_bet", "last_inc", "history", "showdown",
-        "deltas", "ante", "spare", "extras", "dead",
+        "deltas", "ante", "spare", "extras", "dead", "marks", "boards", "awards",
     )
 
 
@@ -406,6 +417,11 @@ class TableResult:
 class Table:
     """One sit-and-go. Call play_hand() until done, or use play_table()."""
 
+    # the payoff-by-street rules (module doc), set per table in __init__ from Rules.extras; off here for a Table built
+    # without __init__ (hyperion/sim/generic.py's settle probe)
+    by_street = False
+    no_runout = False
+
     def __init__(
         self,
         bots: Sequence[Bot],
@@ -447,6 +463,11 @@ class Table:
         self.srng = random.Random(seed * 1_000_033 + 11)  # shuffles the undealt cards hooks draw from (HooksVariant)
         removed = set(rules.extras.get("removed_ranks", ()) or ())
         self.deck = [c for c in deck_for(rules) if (c >> 2) not in removed]
+        settle = (rules.extras or {}).get("settle", "hand") or "hand"
+        if settle not in ("hand", "street"):
+            raise ValueError(f"Rules.extras['settle'] must be 'hand' or 'street', got {settle!r}")
+        self.by_street = settle == "street"  # each street's chips a pot of their own (module doc)
+        self.no_runout = bool((rules.extras or {}).get("no_runout"))  # no cards once betting is over
         self.cards_per_hand = rules.hole_cards * n + rules.board_sizes[-1]
         if self.cards_per_hand > len(self.deck):
             raise ValueError("deck too small for this many seats under these rules")
@@ -580,6 +601,11 @@ class Table:
             after_forced(hs)
 
         first = self._after(last_blind, in_hand)
+        by_street, no_runout = self.by_street, self.no_runout
+        if by_street:
+            hs.marks = []  # contrib at the start of each street after the first
+            hs.boards = [hs.board]  # the board each street's round was bet on
+            self._publish(hs)
         for street in range(rules.streets):
             if street:
                 hs.pot += sum(bets)
@@ -587,13 +613,20 @@ class Table:
                     bets[i] = 0
                 hs.current_bet = 0
                 hs.last_inc = blinds[1] * (2 if (self.betting == 2 and street >= 2) else 1)
+                if by_street:
+                    hs.marks.append(contrib[:])
                 hs.board = tuple(hs.runout[: rules.board_sizes[street]])
                 self.variant.on_street(hs, street, self.vrng)
+                if by_street:
+                    hs.boards.append(hs.board)
+                    self._publish(hs)
                 first = self._after(b, in_hand)
             if (street or not skip_pre) and self._needs_betting(hs):
                 self._betting_round(hs, street, first)
             if hs.n_in_hand == 1:
                 break
+            if no_runout and self._betting_over(hs):
+                break  # no more cards: the hand is shown down on the board as it stands
         else:
             more = self.variant.extra_street
             if more is not None:  # extra streets past the last listed one (River of Blood), each with a betting round
@@ -604,13 +637,21 @@ class Table:
                         bets[i] = 0
                     hs.current_bet = 0
                     hs.last_inc = blinds[1] * (2 if self.betting == 2 else 1)
+                    if by_street:
+                        mark = contrib[:]
                     if not more(hs, street, self.vrng):
                         break
                     if street > 64:
                         raise RuntimeError("extra_street ran past 64 streets")
+                    if by_street:
+                        hs.marks.append(mark)
+                        hs.boards.append(hs.board)
+                        self._publish(hs)
                     if self._needs_betting(hs):
                         self._betting_round(hs, street, self._after(b, in_hand))
                     if hs.n_in_hand == 1:
+                        break
+                    if no_runout and self._betting_over(hs):
                         break
                     street += 1
         self._award(hs)
@@ -621,6 +662,28 @@ class Table:
         return hs
 
     # ----- betting -----------------------------------------------------------------------------
+
+    def _betting_over(self, hs: HandState) -> bool:
+        """Rules.extras["no_runout"]: two or more seats in the hand and at most one of them has chips behind."""
+        stacks, in_hand = self.stacks, hs.in_hand
+        k = 0
+        for s in range(self.n):
+            if in_hand[s] and stacks[s] > 0:
+                k += 1
+                if k > 1:
+                    return False
+        return True
+
+    def _publish(self, hs: HandState) -> None:
+        """Settlement by street: the earlier streets' tranche totals in Observation.extras["tranches"] (a new dict on
+        top of the variant's extras; the current street's chips are the observation's bets)."""
+        marks = hs.marks
+        prev = None
+        tot = []
+        for m in marks:
+            tot.append(sum(m) - (sum(prev) if prev is not None else 0))
+            prev = m
+        hs.extras = {**(hs.extras or {}), "tranches": tuple(tot)}
 
     def _needs_betting(self, hs: HandState) -> bool:
         stacks, in_hand, bets = self.stacks, hs.in_hand, hs.bets
@@ -691,6 +754,8 @@ class Table:
                         history.append((s, a))
                         if on_fold is not None:
                             on_fold(hs, s)
+                            if self.by_street:
+                                self._publish(hs)
                             extras = hs.extras
                         if hs.n_in_hand == 1:
                             return
@@ -818,7 +883,12 @@ class Table:
         b = hs.button
         order = [(b + 1 + i) % n for i in range(n)]  # odd chips go clockwise from the button
         splits = variant.splits
-        if splits is None:
+        if self.by_street:
+            self._award_streets(hs, contenders, order)
+            return
+        if self.no_runout and len(board) < rules.board_sizes[-1]:
+            scores, k = self._scores(hs, contenders, board)  # the cards out when the betting ended
+        elif splits is None:
             ev = variant.evaluate
             scores = {s: (ev(hs.holes[s], board, rules),) for s in contenders}
             k = 1
@@ -838,6 +908,66 @@ class Table:
             self._settle_pot(pot, [s for s in contenders if contrib[s] >= lvl], scores, k, order)
             prev = lvl
         if dead:
+            for seats, chips in dead:
+                eligible = [s for s in contenders if s in seats] or [s for s in contenders if contrib[s] >= top]
+                self._settle_pot(chips, eligible, scores, k, order)
+
+    def _scores(self, hs: HandState, contenders: list, board) -> tuple[dict, int]:
+        """(scores per contender, columns) on `board`: the variant's showdown from five cards on, evaluate_short on
+        fewer (a hand settled before the board is out: one column)."""
+        rules, holes = self.rules, hs.holes
+        board = tuple(board)
+        if any(len(holes[s]) + len(board) < 5 for s in contenders):
+            ident = is_identity_order(rules)
+            return {s: (evaluate_short(tuple(holes[s]) + board if ident else remap(tuple(holes[s]) + board, rules)),)
+                    for s in contenders}, 1
+        splits = self.variant.splits
+        if splits is None:
+            ev = self.variant.evaluate
+            return {s: (ev(holes[s], board, rules),) for s in contenders}, 1
+        scores = {s: tuple(splits(holes[s], board, rules)) for s in contenders}
+        return scores, len(next(iter(scores.values())))
+
+    def _award_streets(self, hs: HandState, contenders: list, order: list) -> None:
+        """Rules.extras["settle"] == "street": each street's chips a pot of its own (a tranche), layered by what each
+        seat paid on that street, won by the best hand on the board that street's round was bet on (module doc). A
+        hook's dead money (hs.dead) is judged on the last street's board, as in the hand's award."""
+        n, stacks, contrib = self.n, self.stacks, hs.contrib
+        cum = [[0] * n] + hs.marks + [contrib]
+        boards = hs.boards
+        awards = []
+        scores = k = None
+        for t in range(len(cum) - 1):
+            lo, hi = cum[t], cum[t + 1]
+            ck = [hi[s] - lo[s] for s in range(n)]
+            got = [0] * n
+            awards.append(got)
+            if not any(ck):
+                continue
+            scores, k = self._scores(hs, contenders, boards[t] if t < len(boards) else hs.board)
+            before = stacks[:]
+            levels = sorted({ck[s] for s in contenders})
+            top = levels[-1]
+            prev = 0
+            for lvl in levels:
+                pot = 0
+                last = lvl == top
+                for s in range(n):
+                    c = ck[s]
+                    if c > prev:
+                        # chips above every contender's level (a folded seat's) join the top layer
+                        pot += (c if (c < lvl or last) else lvl) - prev
+                if pot:
+                    self._settle_pot(pot, [s for s in contenders if ck[s] >= lvl], scores, k, order)
+                prev = lvl
+            for s in range(n):
+                got[s] = stacks[s] - before[s]
+        hs.awards = awards
+        dead = hs.dead
+        if dead:
+            if scores is None:
+                scores, k = self._scores(hs, contenders, hs.board)
+            top = max(contrib[s] for s in contenders)
             for seats, chips in dead:
                 eligible = [s for s in contenders if s in seats] or [s for s in contenders if contrib[s] >= top]
                 self._settle_pot(chips, eligible, scores, k, order)
@@ -892,6 +1022,8 @@ class Table:
         result_extras = self.variant.result_extras
         if result_extras is not None:
             result.extras = result_extras(hs)
+        if self.by_street:
+            result.extras = {**(result.extras or {}), **self._tranche_report(hs)}
         alive_before = [s for s in range(n) if start[s] > 0]
         for s in alive_before:
             try:
@@ -929,6 +1061,19 @@ class Table:
             self.done = True
         if self.done:
             self._harvest_safe()
+
+    def _tranche_report(self, hs: HandState) -> dict:
+        """HandResult.extras under settlement by street: "tranches" (each street's chips) and "awards" (per street,
+        per seat: the chips each won from it; one seat left takes every tranche)."""
+        n = self.n
+        cum = [[0] * n] + hs.marks + [hs.contrib]
+        paid = [[cum[t + 1][s] - cum[t][s] for s in range(n)] for t in range(len(cum) - 1)]
+        tot = tuple(sum(p) for p in paid)
+        aw = getattr(hs, "awards", None) if hs.showdown else None
+        if aw is None:
+            win = [s for s in range(n) if hs.in_hand[s]]
+            aw = [[t if (win and s == win[0]) else 0 for s in range(n)] for t in tot]
+        return {"tranches": tot, "awards": tuple(tuple(a) for a in aw)}
 
     def _harvest_safe(self) -> None:
         """Observability only. A SafeBot (hyperion.strategy.safe) turns its inner bot's exceptions and

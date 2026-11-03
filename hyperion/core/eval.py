@@ -395,6 +395,29 @@ def evaluate_displayed(cards: Sequence[int], rules: Rules) -> int:
     return evaluate(remap(cards, rules))
 
 
+def evaluate_short(cards: Sequence[int]) -> int:
+    """A hand of fewer than five cards (an all-in settled before the board is out, Tranche Hold'em's preflop pot):
+    ranks only, suits never count, no straights or flushes. Quads over trips over two pair over a pair over no pair,
+    then the ranks by how many of each (the pair's rank before the kickers), highest first: two cards are a pair over
+    any non-pair, a higher pair over a lower one, a non-pair by its high card then its low card. Higher wins; compare
+    only hands of the same size. Canonical cards (remap a permuted rank order first). Any size works; a five-card
+    hand is still ranked this way (no straights), so call evaluate() from five cards on."""
+    counts = [0] * 13
+    for c in cards:
+        counts[c >> 2] += 1
+    groups = sorted(((n, r) for r, n in enumerate(counts) if n), reverse=True)
+    top = groups[0][0] if groups else 0
+    pairs = sum(1 for n, _ in groups if n == 2)
+    cat = 4 if top >= 4 else 3 if top == 3 else 2 if pairs >= 2 else 1 if pairs == 1 else 0
+    score = cat
+    for n, r in groups:
+        for _ in range(n):
+            score = score * 16 + r + 1
+    for _ in range(len(cards), 4):
+        score *= 16
+    return score
+
+
 def category(strength: int) -> int:
     """0 high card .. 8 straight flush."""
     return CATEGORY_OF[strength]

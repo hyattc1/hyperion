@@ -102,6 +102,7 @@ builds; its light shadow records only the hand's starting chips.
 from __future__ import annotations
 
 from collections import Counter
+from copy import copy
 from dataclasses import dataclass, field
 from time import perf_counter
 from typing import Callable
@@ -625,6 +626,14 @@ class ComposeConfig:
     # while the hero member's profiler reads the table strong (strong_rr / strong_prior / strong_prior_n), and with
     # this > 0 also to a seat that re-raised at least this many of my first-in raises this table (the per-seat gate)
     trust_seat_rr: int = 0
+    # V-j (docs/drills/climb/vj-log.md): payoff by street. On a table whose Rules settle each street's chips on the
+    # hand as it stood then (extras settle="street"), every preflop decision is shown, to every member, the hold'em
+    # class at the same combo percentile as our hand's two-card rank (a pair over any non-pair, then the high card,
+    # then the kicker; suits never count): drill 11's adapter patch (twin_hole), keyed on the rule. "all": so on a
+    # street-settled table; on a table that only settles all-ins on the cards out (extras no_runout), the all-in
+    # decisions alone (effective stack 20 bb or less, or a call of 40% of our stack or more). "allin": the all-in
+    # decisions alone on either. "" = off (the real cards everywhere)
+    tranche_twin: str = ""
     seed: int | None = None
 
 
@@ -644,6 +653,8 @@ def compose_config(route=None, seed=None, **kw) -> ComposeConfig:
         from ..strategy.hero import twist_families
 
         twist_families(cfg.strong_route_twists)  # an unknown family fails here, not at a table start
+    if cfg.tranche_twin not in ("", "all", "allin"):
+        raise KeyError(f"tranche_twin must be '', 'all' or 'allin', got {cfg.tranche_twin!r}")
     if cfg.base_donor not in DONORS or DONORS[cfg.base_donor][0] != "base":
         raise KeyError(f"base_donor must be a donor of the base member, got {cfg.base_donor!r}")
     for lv in degrade_levels(cfg.degrade):
@@ -680,6 +691,7 @@ class CompositeCore:
 
     def __init__(self, config: ComposeConfig | None = None):
         self._obs = None  # the last decision's observation (variant_decide passes it to the base's Hero)
+        self._twin = None  # tranche_twin on this table: (two-card key -> twin cards, every preflop decision)
         self.cfg = cfg = config or ComposeConfig()
         donors = [cfg.route.get(s, cfg.base_donor) for s in SECTIONS]
         names = ["base"]  # index 0 is always the base
@@ -792,6 +804,16 @@ class CompositeCore:
         self.panic = False
         self._obs = None
         self._rr_reset()
+        self._twin = None
+        tw = self.cfg.tranche_twin
+        if tw and rules.hole_cards == 2 and is_identity_order(rules):
+            from ..strategy import tranche as _tr
+
+            st = _tr.street_settled(rules)
+            if st or _tr.no_runout(rules):
+                from ..strategy.tables import load as _load
+
+                self._twin = (_tr.twin_cards_map(_load().rank), tw == "all" and st)
         for m in self.members:
             m.new_table(rules, seat, n_players)
         if self.cfg.start_level or self.level:
@@ -871,8 +893,29 @@ class CompositeCore:
             if sl is not None:
                 sl(lean)
 
+    def _twin_obs(self, obs: Observation):
+        """tranche_twin: this preflop decision with the hold'em twin of our two-card rank in place of the hole cards,
+        or None where it does not apply (an all-in-only table and a deep decision)."""
+        cards, every = self._twin
+        hole = obs.hole
+        if len(hole) != 2:
+            return None
+        if not every:
+            me, st, bt = obs.seat, obs.stacks, obs.bets
+            other = max((st[s] + bt[s] for s in range(len(st)) if s != me and obs.in_hand[s]), default=0)
+            if min(st[me] + bt[me], other) > 20 * obs.blinds[1] and not (st[me] > 0 and obs.to_call >= 0.4 * st[me]):
+                return None
+        a, b = hole[0] >> 2, hole[1] >> 2
+        o = copy(obs)
+        o.hole = cards[(a, b) if a >= b else (b, a)]
+        return o
+
     def act(self, obs: Observation) -> Action:
         t0 = perf_counter()
+        if self._twin is not None and not obs.street:
+            o = self._twin_obs(obs)
+            if o is not None:
+                obs = o
         self._obs = obs  # the last decision's observation, for the variant decisions (variant_decide)
         ex = self.ex
         if ex is not None:
