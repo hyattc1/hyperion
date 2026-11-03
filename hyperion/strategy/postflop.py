@@ -243,7 +243,8 @@ class PostflopParams:
     # a stabber (S15, docs/drills/climb/s15-log.md): facing the street's first bet heads-up right after my check
     # (nothing of mine in) on a street in stab_streets (bit mask: 1 flop, 2 turn, 4 river), from a seat that bets
     # right after my checks at a smoothed rate r above stab_from (Profiler.stab_rate: on this street, or the streets of
-    # the bit mask stab_pool pooled; prior stab_prior worth stab_n chances). Whoever has the initiative, a seat that
+    # the bit mask stab_pool pooled; prior stab_prior worth stab_n chances, none before stab_min chances are seen).
+    # Whoever has the initiative, a seat that
     # bets nearly every time I check bets its whole range there, and folding my checking range to it pays every bet it
     # makes: my equity moves from the tier's proxy toward WIDE_EQUITY (the tier against a whole range) by the weight
     # (r - from) / (stab_full - from), at most 1, and the call margin toward stab_margin by the same weight (-1: it
@@ -257,6 +258,7 @@ class PostflopParams:
     stab_n: float = 3.0
     stab_streets: int = 6
     stab_pool: int = 0
+    stab_min: int = 0
     stab_margin: float = -1.0
     stab_bluff: float = 0.0
     stab_bluff_streets: int = 1
@@ -1046,7 +1048,7 @@ class Postflop:
                 and (self._holdem or not p.stab_holdem_only) \
                 and (not p.stab_aggr_only or bettor == prof.prev_aggressor(street)) \
                 and (self._tw is None or not self._twist_read_off(spot, bettor)):
-            r = prof.stab_rate(bettor, street, p.stab_prior, p.stab_n, p.stab_pool)
+            r = prof.stab_rate(bettor, street, p.stab_prior, p.stab_n, p.stab_pool, p.stab_min)
             if r > p.stab_from:
                 w = (r - p.stab_from) / (p.stab_full - p.stab_from) if p.stab_full > p.stab_from else 1.0
                 if w > 1.0:
