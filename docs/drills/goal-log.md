@@ -737,3 +737,8 @@ and (in judges) `elite_judge`.
   (auction +0.039, knockout +0.037, bonus -0.024, bounty -0.019). None down. ACCEPT. H15 used once.
 - Spec: {size_read_twists discard,bounty,knockout,swap,exposed; s11_twists knockout,buy,swap,exposed;
   strong_route_twists bounty,knockout,buy}. Batch 6 so far: V-f (H15).
+
+## 21:54: drill 9 started: a fresh organiser builds kit G
+- Same organiser brief as drill 8 (goal/drill9/kit, no repo access), with Ghost Hold'em added to the excluded twists,
+  a twist that must change how most hands are played, and one interface choice on bet sizing (a fixed menu of sizes,
+  or sizes in a unit other than chips). The player, a fresh agent on batch 5's ship, follows when the kit is done.
