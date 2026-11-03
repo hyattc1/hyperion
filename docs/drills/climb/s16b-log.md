@@ -100,3 +100,12 @@ caches: **all 31 cells identical sample for sample**, and the 28 that existed th
 the dials off nothing is counted (the scan runs only with `r3.oa_read` or the layer's `open_read`) and the deep branch
 keeps its `pf`. F's cells at main's version were copied to the branch's (7dd316b7d4, key 6c18820fd9c6). (A first
 launch of the queue died at 05:53 with this session's command; relaunched under setsid.)
+
+**Added at 06:25, after O1's partial screen (not pre-registered with O1).** With 7 of O1's 28 cells complete, top was
+beyond noise down (-0.096 ± 0.094) and elite at -0.084 ± 0.109 after 150 seeds. A likely reason, before the rest is
+in: rival 3's open clause prices a steal as pf x pot - (1 - pf) x raise x 0.55, a crude model tuned with the biased
+read; an accurate read raises pf for early-position opens (seats that are not blinds fold 0.87, above the old 0.8)
+as well as lowering it for late ones, and the `prior` arm's gain came from steals given up, not from accuracy. **O2**
+= O1 + `{"r3.oa_cap": true, "exploit.open_cap": true}`: the open-answer read only lowers a seat's fold read (min of
+the two), S16's one-sided rule, which kept T2's guards level. Code da609e3; O1 plays identically under it. Screened
+after O1's table, the same stages; the held-out set decides, not this screen.
