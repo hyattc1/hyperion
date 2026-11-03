@@ -369,9 +369,10 @@ play).
 
 Against the brief's targets:
 1. **Win heads-up against exploiter 2: not met by an accepted candidate.** F 7.540 to 9.460 (18% of matches); S5
-   8.387 to 8.613 (46%); S5 + Z 8.447 to 8.553 (48%). Two of the three named leaks are closed: the big blind no longer
-   folds 70% to its c-bet (minimum defence) and the layer's 0.33 bluff is gone from heads-up pots (the specialist bets
-   one size and never sizes by strength); the light blind-vs-blind 4-bet is the button's, still F's. A candidate that
+   8.387 to 8.613 (46%); S5 + Z 8.447 to 8.553 (48%). Two of the three named leaks are closed: facing its flop c-bet
+   after calling its open, the big blind folds 41% (444 of 1,087; calls 36%, raises 23%) where F folds 67% (389 of 580;
+   diagnostic seeds 9780-9819), and the layer's 0.33 bluff is gone from the heads-up pots the specialist plays (one
+   size, the layer off); the light blind-vs-blind 4-bet is the button's, still F's. A candidate that
    wins (S2b: the specialist on both blinds, 8.688 to 8.312, 56%) loses to exploiter 1 heads-up (-0.383 ± 0.191) and
    three-handed (-0.127 ± 0.101).
 2. **Not lose to exploiter 1: met.** S5 heads-up 9.220 to 7.780 (+0.105, level), three-handed 8.419 (+0.065, level),
