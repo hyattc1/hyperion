@@ -319,8 +319,14 @@ class Config:
     # Malmuth-Harville's s_j / (s_me + s_j) with the cap's Phi((s_j - s_me) / sigma), where sigma^2 is twice the sum
     # over the remaining hands of (cap_vol_bb * big blind)^2 (a pair of stacks' variance to the cap) and the weight
     # on Malmuth-Harville is sigma^2 / (sigma^2 + average stack^2). Early on it is ~1; it falls in the last levels.
-    # 0 = off (pure Malmuth-Harville).
+    # 0 = off (pure Malmuth-Harville). It stays off: it models kit F's rule (`cap_places: chips`, survivors ranked by
+    # chips at the cap), not the official rule, which our engine plays: survivors split the points by ICM on their
+    # stacks at the cap, so ICM already is the cap's payoff (docs/drills/climb/s18-log.md).
     cap_vol_bb: float = 0.0
+    # S18 (docs/drills/climb/s18-log.md): before each ICM evaluation of the curve, every stack s becomes
+    # max(s - o, s / 2), o the blinds it must still post before its next button or the hand cap, whichever comes first
+    # (blinds_owed). Off = plain Malmuth-Harville. Built at hand end with the curve: no per-decision cost
+    icm_horizon: bool = False
     # my-stack multiples the ICM curve samples. Dense around 1x: with samples only at 0.5/1/1.5 the piecewise-linear
     # curve had a kink at my stack that priced a +-7% flip at 57% equity where exact ICM says 47%.
     icm_ratios: tuple = (0.0, 0.25, 0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 2.0, 3.0, 4.0, 6.0)
@@ -506,6 +512,55 @@ def config_from_dict(overrides: dict | None, seed: int | None = None) -> Config:
     return cfg
 
 
+def next_live(alive, s: int) -> int:
+    """The engine's button move: the next seat after `s`, clockwise, with chips (`s` itself if no other has)."""
+    n = len(alive)
+    for k in range(1, n + 1):
+        t = (s + k) % n
+        if alive[t]:
+            return t
+    return s
+
+
+def blinds_owed(alive, button: int, hand_no: int, rules: Rules) -> list:
+    """S18's horizon (docs/drills/climb/s18-log.md, section 0): per seat, the blinds it must still post after hand
+    `hand_no` (0-based, `button` its button, `alive` the seats with chips) before its next button or the hand cap,
+    whichever comes first, nobody busting. Hand hand_no + 1's button is the next live seat; the seat j live seats after
+    it posts the small blind at hand_no + j and (j >= 2) the big blind at hand_no + j - 1. Heads-up the button posts
+    the small blind on its own button hand, so only the other seat owes: the big blind of hand_no + 1."""
+    n = len(alive)
+    owed = [0.0] * n
+    order = [s for s in range(button + 1, n) if alive[s]] + [s for s in range(button + 1) if alive[s]]
+    k = len(order)
+    if k < 2:
+        return owed
+    cap = rules.max_hands if rules.max_hands > 0 else 1 << 30
+    levels, per = rules.blind_levels, rules.hands_per_level  # rules.blinds_at, inline
+    top = len(levels) - 1
+    if k == 2:
+        t = hand_no + 1
+        if t < cap:
+            owed[order[1]] = float(levels[min(t // per, top)][1])
+        return owed
+    for j in range(1, k):
+        t = hand_no + j  # its small blind; its big blind the hand before (j >= 2)
+        o = levels[min(t // per, top)][0] if t < cap else 0
+        if j >= 2 and t - 1 < cap:
+            o += levels[min((t - 1) // per, top)][1]
+        owed[order[j]] = float(o)
+    return owed
+
+
+def horizon_stack(c: float, o: float) -> float:
+    """A stack once it has posted what it owes, never under half of itself (a stack that cannot cover its blinds is
+    all-in in them, not busted); 0 stays 0."""
+    if c <= 0:
+        return c
+    e = c - o
+    h = 0.5 * c
+    return e if e > h else h
+
+
 class IcmCurve:
     """V(x): my expected points as a function of my stack x, chips moving to/from the field pro rata.
     Sampled at a few multiples of my current stack; linear between samples. V(0) is the payout for
@@ -520,8 +575,10 @@ class IcmCurve:
         self.n = 2
 
     def compute(self, stacks, me: int, payouts, ratios, buckets: int = ICM_BUCKETS, subdiv: int = ICM_ME_SUBDIV,
-                cap=None) -> None:
-        """`cap` = (weight on Malmuth-Harville, sigma of a stack pair to the hand cap), linear payouts only."""
+                cap=None, owed=None) -> None:
+        """`cap` = (weight on Malmuth-Harville, sigma of a stack pair to the hand cap), linear payouts only. `owed`
+        (S18's horizon): per seat, the blinds it still owes (blinds_owed); each sampled point's stacks are priced as
+        horizon_stack(stack, owed) (x stays the curve's axis: my stack after this hand)."""
         total = float(sum(s for s in stacks if s > 0))
         base = float(stacks[me])
         alive = sum(1 for s in stacks if s > 0)
@@ -552,11 +609,19 @@ class IcmCurve:
             if x <= 0:
                 v = bust_value
             else:
-                if others > 0:
-                    scale = (total - x) / others
-                    st = [x if s == me else (stacks[s] * scale if stacks[s] > 0 else 0) for s in range(len(stacks))]
-                else:
-                    st = [x if s == me else 0 for s in range(len(stacks))]
+                xe = x
+                if owed is None:
+                    if others > 0:
+                        scale = (total - x) / others
+                        st = [x if s == me else (stacks[s] * scale if stacks[s] > 0 else 0)
+                              for s in range(len(stacks))]
+                    else:
+                        st = [x if s == me else 0 for s in range(len(stacks))]
+                else:  # the same stacks, each as horizon_stack(stack, owed) (inline: up to 13 points of 8 seats)
+                    scale = (total - x) / others if others > 0 else 0.0
+                    st = [((c - o) if c - o > 0.5 * c else 0.5 * c) if c > 0 else 0
+                          for c, o in zip([x if s == me else stacks[s] * scale for s in range(len(stacks))], owed)]
+                    xe = st[me]
                 if cap is not None:
                     v = _cap_value(st, me, pays, cap)
                 else:
@@ -575,7 +640,7 @@ class IcmCurve:
                         else:
                             acc = 0.0
                             for c in opp:
-                                acc += c / (x + c)
+                                acc += c / (xe + c)
                             v = pk[0] - step * acc
                     else:
                         if pays_t is None:
@@ -799,6 +864,7 @@ class HeroCore:
         self.hand_no = -1
         self.hand_start = None
         self.last_stacks = [rules.starting_stack] * n_players
+        self.btn_seen = None
         self.panic = False
         self._pre_aggr = False  # (the first act of the table resets it too: hand_no -1 above)
         self._last_obs = None  # (V-i: another table's hand numbers would match this one's)
@@ -1057,6 +1123,7 @@ class HeroCore:
             stacks, bets = obs.stacks, obs.bets
             self.hand_start = [stacks[s] + bets[s] for s in range(len(stacks))]
             self._pre_aggr = False
+            self.btn_seen = (obs.hand_no, obs.button)
         self._last_obs = obs  # (V-i's option prices read the hand's state from it: the prompts do not carry it)
         prof = self.prof
         if prof is not None:
@@ -1282,6 +1349,7 @@ class HeroCore:
 
     lazy_curve = False
     _curve_todo = None  # (chips after the last hand, its next hand number): the curve still to compute
+    btn_seen = None  # (hand number, button) of the last hand this Hero met (icm_horizon reads it; set wherever hand_no is)
 
     def settle(self) -> None:
         """Compute the ICM curve the last hand end left pending, if any (cleared only once it is done)."""
@@ -1312,7 +1380,20 @@ class HeroCore:
             lam = s2 / (s2 + avg * avg)
             if lam < 0.999:
                 cap = (lam, sqrt(s2))
-        self.curve.compute(stacks, self.seat, self.payouts, ratios, cfg.icm_buckets, cfg.icm_me_subdiv, cap)
+        owed = None
+        seen = self.btn_seen
+        if cfg.icm_horizon and seen is not None and seen[0] <= next_hand and alive >= 2:
+            # this hand's button: the engine moves it to the next live seat each hand, from the last one seen (a lazy
+            # curve may be built in the hand it prices, its button seen); d steps over k live seats = (d - 1) % k + 1
+            live = [c > 0 for c in stacks]
+            b = seen[1]
+            d = next_hand - seen[0]
+            if d > alive:
+                d = (d - 1) % alive + 1
+            for _ in range(d):
+                b = next_live(live, b)
+            owed = blinds_owed(live, b, next_hand, self.rules)
+        self.curve.compute(stacks, self.seat, self.payouts, ratios, cfg.icm_buckets, cfg.icm_me_subdiv, cap, owed)
 
     # ------------------------------------------------------------------ extras
     def _bounty_bonus(self, obs: Observation, extras: dict) -> float:

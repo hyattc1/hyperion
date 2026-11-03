@@ -118,3 +118,7 @@ class Rival3Knobs:
                                    "seat's fold-to-a-raise read is at most prior + (observed - prior) x n / (n + this), "
                                    "n its raises faced, prior 0.6; 0 = off")
     read_trust_min_n: float = _dial(10.0, "... and only the prior (0.6) below this many raises faced")
+    # horizon-aware ICM (S18, docs/drills/climb/s18-log.md). Off: Malmuth-Harville on the stacks as they stand
+    icm_horizon: bool = _dial(False, "every all-in price (fold, steal, win, lose, and the 3-bet defence's call) values "
+                                     "each stack s as max(s - o, s / 2), o the blinds it must still post before its "
+                                     "next button or the hand cap (hero.blinds_owed), computed once a hand")

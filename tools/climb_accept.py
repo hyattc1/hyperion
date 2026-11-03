@@ -55,6 +55,10 @@ cells identical by construction as 0 +- 0. It decides nothing in the verdict. `-
 for a candidate the main rule rejects; it refuses unless the set is held out (H<k>) and every stage ran
 (confirm,guards,elite,exploit,variants,aware), and reads the judges from `--judges-json` (the judge-set run).
 `--json` holds both under "weighted" and "route2".
+Late tables (`--late`, S18): every cell also records, per table played, who still had chips LATE (50) hands before
+the cap (hand 150 of 200). `--late` prints, for the confirm, guards, elite and window cells, each spec's points and
+bust rate on the tables that reached that hand with three or more players alive, and the paired difference on the
+base's late tables (the same deals; 95% interval clustered by seed).
 
 Every run is model mode at fixed speed, eight rotations per seed, the same deals for both specs, with panic, soft
 deadlines and `late_us` off (tools/swap.py's setup_process), so it replays exactly. The unit is one table seed; the
@@ -107,6 +111,7 @@ EXPLOIT_BOTS = ("exploiter1", "exploiter2", "exploiter3", "adapt1", "adapt2")  #
 VARIANT_FIELD = "realistic"
 VARIANT_SEEDS = 200
 CHUNK = 25
+LATE = 50  # the late-table report's checkpoint: this many hands before the cap (hand 150 of 200)
 
 
 def seed_range(name: str) -> tuple[int, int]:
@@ -228,14 +233,19 @@ def _job(args):
     nm = SW._spec_bot(name, spec)
     rules = _rules(pay, rules_name)
     v = V.get(variant, seed=SW.SEED) if variant else None
+    from hyperion.core.types import Rules
+
+    cap = (rules if rules is not None else v.rules if v is not None else Rules()).max_hands
     t0 = time.time()
     l0 = os.getloadavg()[0]
     rep = run_tournament(B.field_names(f"{field}@{nm}"), n, seed=SW.SEED, rotate=True, mode="model", rules=rules,
-                         hero_config=B.HERO_CONFIG, table_offset=off, variant=v)
+                         hero_config=B.HERO_CONFIG, table_offset=off, variant=v, late_at=max(0, cap - LATE))
     b = rep.bots[nm]
     st = b.stats
     ex = next((rep.bots[x] for x in EXPLOIT_BOTS if x in rep.bots), None)
+    late = [[t, rot, alive, [list(x) for x in per.get(nm, [])]] for t, rot, alive, per in rep.late]
     return key, (field, pay, rules_name, variant, off), {
+        "late": late,
         "samples": b.samples, "opp_samples": ex.samples if ex is not None else None, "tmo": st.over_budget,
         "exc": st.exceptions, "ill": st.illegal,
         "safe_err": st.safe_err, "calls": st.calls, "p50": st.percentile_us(0.5), "p99": st.percentile_us(0.99),
@@ -307,6 +317,57 @@ def gather(out: str, key: str, cell4, lo: int, hi: int) -> dict:
     return agg
 
 
+def gather_late(out: str, key: str, cell4, lo: int, hi: int) -> dict | None:
+    """The cell's late-table records, {(table, rotation): (alive at the checkpoint, [(points, alive then, survived)
+    per seat of the spec])}; None if a chunk was cached before the records were kept."""
+    field, pay, rules_name, variant = cell4
+    recs = {}
+    for off in range(lo, hi, CHUNK):
+        with open(cell_path(out, key, (field, pay, rules_name, variant, off))) as fh:
+            r = json.load(fh)
+        if "late" not in r:
+            return None
+        for t, rot, alive, seats in r["late"]:
+            recs[(t, rot)] = (alive, seats)
+    return recs
+
+
+def _cluster_mean(vals: list) -> tuple[float, float, int]:
+    """(mean, 95% half-width, n) of [(cluster, x)]: the mean over every x, its interval clustered by seed."""
+    n = len(vals)
+    if n == 0:
+        return float("nan"), float("nan"), 0
+    m = sum(x for _, x in vals) / n
+    by: dict = {}
+    for c, x in vals:
+        by[c] = by.get(c, 0.0) + (x - m)
+    g = len(by)
+    v = sum(e * e for e in by.values()) / (n * n) * (g / (g - 1)) if g > 1 else 0.0
+    return m, 1.96 * math.sqrt(v), n
+
+
+def late_rows(recs: dict, base_recs: dict | None = None) -> dict:
+    """A spec's late-table numbers: tables that reached the checkpoint with three or more alive; on them the spec's
+    points (mean over its seats), bust rate, share alive at the checkpoint and busts after it given alive; with
+    `base_recs`, the paired difference on the base's late tables."""
+    late = [(k, a, seats) for k, (a, seats) in recs.items() if a >= 3 and seats]
+    pts = [(k[0], sum(x[0] for x in seats) / len(seats)) for k, a, seats in late]
+    seat_rows = [x for _, _, seats in late for x in seats]
+    alive = [x for x in seat_rows if x[1]]
+    out = {"tables": len(recs), "late": len(late), "pts": _cluster_mean(pts),
+           "bust": sum(1 for x in seat_rows if not x[2]) / len(seat_rows) if seat_rows else float("nan"),
+           "alive": len(alive) / len(seat_rows) if seat_rows else float("nan"),
+           "bust_after": sum(1 for x in alive if not x[2]) / len(alive) if alive else float("nan")}
+    if base_recs is not None:
+        d = []
+        for k, (a, seats) in base_recs.items():
+            if a >= 3 and seats and k in recs and recs[k][1]:
+                mine = recs[k][1]
+                d.append((k[0], sum(x[0] for x in mine) / len(mine) - sum(x[0] for x in seats) / len(seats)))
+        out["paired"] = _cluster_mean(d)
+    return out
+
+
 def paired(a: list, b: list) -> tuple[float, float]:
     d = [y - x for x, y in zip(a, b)]
     n = len(d)
@@ -366,6 +427,9 @@ def main(argv=None) -> int:
     p.add_argument("--rules", default=None, help="a Rules JSON (the night's rules_tonight.json) for the window, "
                                                  "confirm, guards and elite cells")
     p.add_argument("--variant", default=None, help="a catalog variant's hooks for the same cells")
+    p.add_argument("--late", action="store_true", help=f"print the late-table report (tables alive {LATE} hands "
+                                                       "before the cap with three or more players) for the confirm, "
+                                                       "guards, elite and window cells")
     p.add_argument("--aim", choices=("night", "exploit", "strong"), default="night",
                    help="what the change is for: night (confirm beyond noise up), exploit (addendum 6: an exploit "
                         "field up, night not down) or strong (addendum 8: elite, elite_night or mirror up, night "
@@ -469,6 +533,16 @@ def main(argv=None) -> int:
                         "exc": (gb["exc"] + gb["ill"] + gb["safe_err"], gc_["exc"] + gc_["ill"] + gc_["safe_err"]),
                         "p99": (gb["p99"], gc_["p99"]), "opp": (gb["opp_mean"], gc_["opp_mean"])})
         verdict["stages"][stage] = out
+        if a.late and stage in ("window", "confirm", "guards", "elite"):
+            rows_l = []
+            for c in cells4:
+                rb = gather_late(a.out, specs["base"][0], c, s_lo, s_hi)
+                rc = gather_late(a.out, specs["cand"][0], c, s_lo, s_hi)
+                if rb is None or rc is None:
+                    rows_l.append({"cell": label(c), "missing": True})
+                    continue
+                rows_l.append({"cell": label(c), "base": late_rows(rb), "cand": late_rows(rc, rb)})
+            verdict.setdefault("late", {})[stage] = rows_l
     if "timing" in stages:
         verdict["stages"]["timing"] = {"base": latency(base), "cand": latency(cand)}
     # the protocol's rule
@@ -531,6 +605,22 @@ def main(argv=None) -> int:
             print(f"| {r['cell']} | {r['base']:.3f} | {r['cand']:.3f} | {r['delta']:+.3f} ± {r['ci']:.3f} | "
                   f"{r['flag']} | {r['n']} | {r['tmo'][0]}/{r['tmo'][1]} | {r['exc'][0]}/{r['exc'][1]} | "
                   f"{r['p99'][0]:.0f}/{r['p99'][1]:.0f} |")
+    for s, rows_l in verdict.get("late", {}).items():
+        print(f"\n## late tables: {s} (alive {LATE} hands before the cap with 3+ players)\n\n"
+              "| cell | late tables b/c | pts on late tables b | c | bust b/c | alive then b/c | bust after b/c | "
+              "c - b on base's late tables |")
+        print("|---|---|---|---|---|---|---|---|")
+        for r in rows_l:
+            if r.get("missing"):
+                print(f"| {r['cell']} | (chunks cached before the late records) | | | | | | |")
+                continue
+            b_, c_ = r["base"], r["cand"]
+            pm, ph, _ = c_["paired"]
+            print(f"| {r['cell']} | {b_['late']}/{c_['late']} of {b_['tables']} | {b_['pts'][0]:.3f} ± "
+                  f"{b_['pts'][1]:.3f} | {c_['pts'][0]:.3f} ± {c_['pts'][1]:.3f} | {100 * b_['bust']:.1f}/"
+                  f"{100 * c_['bust']:.1f}% | {100 * b_['alive']:.1f}/{100 * c_['alive']:.1f}% | "
+                  f"{100 * b_['bust_after']:.1f}/{100 * c_['bust_after']:.1f}% | {pm:+.3f} ± {ph:.3f} "
+                  f"{flag(pm, ph)} (n {c_['paired'][2]}) |")
     if "timing" in st:
         print(f"\n## timing\n- base: {st['timing']['base']['raw']}\n- cand: {st['timing']['cand']['raw']}")
     print("\n## verdict")

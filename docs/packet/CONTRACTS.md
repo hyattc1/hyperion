@@ -152,6 +152,7 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.l3_min_bb` | `25.0` | effective depth in big blinds from which a light 3-bet is considered |
 | `r3.read_trust` | `0.0` | unopened pots (the steal price, the open clauses, a short shove's fold equity): a seat's fold-to-a-raise read is at most prior + (observed - prior) x n / (n + this), n its raises faced, prior 0.6; 0 = off |
 | `r3.read_trust_min_n` | `10.0` | ... and only the prior (0.6) below this many raises faced |
+| `r3.icm_horizon` | `False` | every all-in price (fold, steal, win, lose, and the 3-bet defence's call) values each stack s as max(s - o, s / 2), o the blinds it must still post before its next button or the hand cap (hero.blinds_owed), computed once a hand |
 
 The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"exploit": null}` turns the layer off):
 
@@ -480,6 +481,7 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `ror_full_bb` | 80.0 |
 | `ror_hands` | 75 |
 | `cap_vol_bb` | 0.0 |
+| `icm_horizon` | False |
 | `icm_ratios` | (0.0, 0.25, 0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 2.0, 3.0... |
 | `icm_many_alive` | 7 |
 | `icm_ratios_many` | (0.0, 0.5, 0.9, 1.0, 1.1, 1.5, 2.0, 3.0, 6.0) |
