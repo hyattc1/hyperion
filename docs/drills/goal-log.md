@@ -1246,5 +1246,5 @@ and (in judges) `elite_judge`.
   other exploit cells level (8-max identical); confirm, all guards, elite, elite_night, elite_b, mirror_b and aware
   identical; mirror +0.0008 ± 0.0015; weighted +0.0016 ± 0.0010. It gives up S6's 8-max exploit2 gain and about 40%
   of its three-handed one. ACCEPT on the screen.
-- climb/s13c-gate merged (3295488; the dials off). S7 queued on H25 (45000-45399) against batch 6, --aim exploit,
+- climb/s13c-gate merged (3295488; the dials off; identity after the merge: 14 cells identical). S7 queued on H25 (45000-45399) against batch 6, --aim exploit,
   every stage, after the b23 chain (goal/b24/chain2.sh). If accepted it needs the next batch's judges (30800-31199).
