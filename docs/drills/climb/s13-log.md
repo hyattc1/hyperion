@@ -576,3 +576,41 @@ has gone loose).
 S7 = `{"short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short", "short.pre_roles": "bb",
 "short.pre_open_min": 0.65, "short.like_probe": 0.75, "short.like_bet": 0.6, "short.like_pfr": 0.3,
 "short.like_vpip_min": 0.5, "short.like_vpip_max": 0.88}`.
+
+## S7 on the screen set against main's F (code bd79f81; climb_accept --aim exploit --runout-term: ACCEPT)
+
+Base `{"dials": {}}` = main a2a7bf6's F (batch 5); both specs in one run from a detached worktree at bd79f81, 2 workers.
+Stages exploit (12 cells), confirm, guards, elite (5), aware (4), variants: the four entries the specialist can reach
+(top_heavy, antes_from_level_3, fast_schedule, straddle; the route needs a plain hold'em table, so the other 22 play as
+F by construction, as all 22 did on H14; 3 of them, permuted_ranks, short_deck and lowball, ran before the stage was
+narrowed: raw +0.000). The verdict reads the runout-corrected delta (addendum 13); raw beside it where it differs.
+
+| stage | cell | F | S7 | S7 - F (corrected) | | raw | exploiter F / S7 |
+|---|---|---|---|---|---|---|---|
+| exploit | exploit (8-max) | 5.765 | 5.765 | +0.000 ± 0.000 | level | +0.000 | 4.608 / 4.608 |
+| | exploit_hu | 9.247 | 9.233 | -0.014 ± 0.019 | level | +0.000 ± 0.030 | 7.772 / 7.772 |
+| | exploit_3 | 8.491 | 8.492 | +0.001 ± 0.008 | level | -0.010 ± 0.020 | 6.900 / 6.910 |
+| | exploit2 (8-max) | 5.849 | 5.849 | -0.000 ± 0.001 | level | +0.000 | 5.086 / 5.086 |
+| | exploit2_hu | 7.903 | 8.201 | **+0.298 ± 0.120** | UP | +0.413 ± 0.159 | 9.152 / 8.740 |
+| | exploit2_3 | 7.321 | 7.405 | **+0.084 ± 0.041** | UP | +0.050 ± 0.052 | 8.165 / 8.115 |
+| | exploit3 / exploit3_hu / exploit3_3 | | | +0.000 / +0.003 ± 0.007 / -0.002 ± 0.008 | level | | |
+| | adapt / adapt_hu / adapt_3 | | | +0.000 / +0.007 ± 0.009 / -0.003 ± 0.007 | level | | |
+| confirm | night | 6.006 | 6.006 | -0.000 ± 0.000 | level | +0.000 | |
+| guards | night_hard, realistic, top, night @10/7/5..., night @50/25/12... | | | +0.000 ± 0.000 each | level | +0.000 | |
+| | night, doubling blinds | 5.872 | 5.872 | +0.0002 ± 0.0003 | level | +0.000 | |
+| elite | elite, elite_night, elite_b, mirror_b | | | +0.000 ± 0.000 each | level | +0.000 | |
+| | mirror | 4.506 | 4.507 | +0.0008 ± 0.0015 | level | +0.0006 ± 0.0012 | |
+| aware | toss_or_holdem, bounty, short_deck, river_of_blood | | | +0.000 ± 0.000 each | level | | |
+| variants | top_heavy, antes_from_level_3, fast_schedule, straddle | | | +0.000 ± 0.000 each | level | | |
+
+Addendum 11's weighted score (printed, decides nothing): W +0.0016 ± 0.0010 night points (lower bound +0.0007); W-min
++0.0005 ± 0.0003. 0 timeouts, 0 errors.
+
+On every ordinary and strong field S7 now plays F's game sample for sample (raw +0.000), but on mirror, where a few
+tables differ (+0.0006 raw); against exploiter 2 it keeps the heads-up gain (raw +0.413 here, S6 +0.420 on the screen
+against batch 5's F) and about half the three-handed one (raw +0.050, corrected +0.084, S6 raw +0.100); the 8-max
+exploit2 gain (+0.012 for S6) is given up.
+
+Latency (latency.py --hand-end --reps 3 --tables 12, per-call minimum, load 15.3-15.8, F / S7, µs): exploit2_hu act
+p99 96.2 / 99.5, max 111.7 / 130.3, hand_end p99 90.8 / 89.4; mirror act p99 114.3 / 122.3, max 143.4 / 191.4,
+hand_end p99 142.2 / 138.1. Nothing near 1 ms.
