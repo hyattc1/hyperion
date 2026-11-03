@@ -219,3 +219,12 @@ the stage wrapper's module was not importable by the pool's workers; fixed, rela
 | **mirror_b** | 4.466 | 4.663 | **+0.197 ± 0.092** | UP | +0.202 |
 
 The four-alive gate keeps nearly all of O2's strong-table gain: it was made at four or more alive.
+
+O3's 8-max exploit cells (`EXPLOIT_CELLS=exploit,exploit2,exploit3,adapt oaccept.py --stages exploit`):
+
+| cell | F | O3 | O3 - F | | exploiter's points F / O3 |
+|---|---|---|---|---|---|
+| exploit (exploiter 1) | 5.839 | 5.757 | -0.082 ± 0.125 | level | 4.608 / 4.707 |
+| exploit2 | 5.844 | 5.891 | +0.047 ± 0.131 | level | 5.086 / 5.001 |
+| **exploit3** | 5.471 | 5.602 | **+0.131 ± 0.126** | UP | 5.306 / 5.173 |
+| adapt (adapt1) | 5.889 | 5.864 | -0.024 ± 0.123 | level | 5.106 / 5.083 |
