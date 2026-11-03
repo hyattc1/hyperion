@@ -308,5 +308,12 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
 
   W +0.0123 ± 0.0149, W-min +0.0052 ± 0.0195 (the best of the candidates; G +0.0008, GK25 +0.0070). Chosen as the
   final candidate: the full screen (200 seeds; exploit, elite, confirm, guards, all 26 variants) is next.
-- 17:56 Full suite on the branch (`pytest -q -m "not timing"`, wt_s20 at 3c6c... with the 3b table present, load
+- 17:56 Full suite on the branch (`pytest -q -m "not timing"`, wt_s20 at 356d6d7, code ff07018, with the 3b table present, load
   ~15): **1,355 passed, 5 skipped**, 106 deselected, 9:42.
+- 18:05 Latency (tools/latency.py --bot composite --hand-end --tables 12 --reps 3, per-call minimum, load ~15; F /
+  GK25R, µs): exploit_3 (rules three.json) act p99 78.7 / 90.4, max 114.5 / 121.2, hand_end p99 134.1 / 123.6, first
+  decision mean 94.7 / 94.3; elite act p99 119.4 / 113.8, max 200.7 / 167.7, hand_end p99 137.1 / 138.7. A decision is
+  a history walk and a string lookup. The member with `short.three2` builds in 0.30 s cold (the table decoded once
+  per process; `import hyperion.strategy.short` 0.06 s). Table size: tables/extra/short_3b.json 3.19 MB, 2.43 MB
+  zlib-9 (S13's short_3.json 1.5 MB). tools/pack.py copies only tables/*.json, so a ship with `short.three2` on must
+  carry the file (move it to tables/ or name it with --extra); with the dial off nothing changes.
