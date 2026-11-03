@@ -10,6 +10,34 @@ scripts: the session scratchpad, `goal/vj_work/`.
 
 This log is written as the work goes; each run's command, seeds and numbers are appended when it finishes.
 
+## Findings (written last; the sections below are the running log)
+
+1. **Our engine plays payoff by street.** Two Rules.extras keys, each usable alone: `settle: "street"` (each street's
+   chips a pot of their own, layered by what each seat paid on that street, won by the hand as it stood on that street,
+   two cards alone preflop) and `no_runout: True` (no cards once the betting is over). Catalog entry `tranche_holdem`
+   (axis payoff) is kit I's twist with our default points; hand-worked tests cover the deal, side pots within a
+   tranche, ties and the odd chip, folds forfeiting paid tranches, and a no-board preflop all-in ranked on two cards.
+2. **Twist-aware opponents**: `tranche_tag`, `tranche_pushfold`, `tranche_mc` in the field `tranche_holdem_aware`
+   (climb_accept's aware stage runs it), built from the handout; the generic opponents read `settle: "street"` too
+   (their showdown on the board as it stands), with a committed prepared table.
+3. **F's dials, off by default** (SHIP_DIALS unchanged): `tranche_twin` (drill 11's two-card twin preflop, for every
+   member, keyed on the rule) and `hero.tranche` (`now`: no draws after the flop; `sunk`: a call priced against this
+   street's pot, the earlier pots kept by calling counted in full where the call ends the betting and x
+   `hero.tranche_claim_early` before; `allin` for no-runout tables).
+4. **Our sim (screen 10000-10199)**: the twin alone level (+0.03 / -0.02 / +0.01 on realistic / tranche aware /
+   generic aware); the postflop parts move with the early-claim weight: 0 -0.03, **0.25 +0.09 / +0.05 / +0.04**, 0.5
+   +0.015 pooled, 1.0 **down in all three** (-0.15 / -0.25 / -0.15). Candidate c6 =
+   `{"tranche_twin": "all", "hero.tranche": "now,sunk", "hero.tranche_claim_early": 0.25}`, level in each cell, chosen
+   among five weights on this set.
+5. **Kit I's own simulator**: c6 against F in the same tables, +0.40, +0.15, +0.29 over 3 x 400 tables (pooled +0.28,
+   every run up); c6 against the twin alone +0.20 over 800 (one run each way).
+6. **Identity**: with the dials off, and with every tranche dial on at non-default values, F plays the seven hold'em
+   cells (40 seeds) and the 26 other entries (25 seeds) sample for sample as main d9e26d2 (40 of 40 chunks each).
+7. **What I would try next**: the claim's chance per earlier street against the bettor's range rather than a random
+   hand (q_0 by the opponents' preflop action: a 3-bettor's two-card range is mostly pairs); a size for each street's
+   bet against this street's pot (now sized against the whole pot); the 200-hand cap by chips that kit I uses (89% of
+   its tables reach it: chip accumulation late); a paired kit runner (per-table points) so kit A/B intervals shrink.
+
 ## Decisions (taken without asking; noted here)
 
 - **Rules.extras keys, not new Rules fields.** `settle: "street"` and `no_runout: True`, each usable alone. A new
@@ -181,6 +209,12 @@ carry that selection; the held-out run is the test.
 | main d9e26d2 F (code 962fc40f42, detached worktree) vs branch F, dials off | 7 hold'em cells x 40 seeds, 26 entries x 25 seeds | 40 | **40 of 40** |
 | branch F vs branch F + every tranche dial on at non-default values (`{"tranche_twin": "all", "hero.tranche": "now,sunk,allin", "hero.tranche_claim_early": 0.25, "hero.tranche_value_shift": -1, "hero.tranche_call_shift": 1}`) | the same | 40 | **40 of 40** |
 
+After the full suite found generic's settle probe broken (it builds a Table without __init__, so the new flags were
+missing; fixed at 2db095c with class-level defaults), a spot check at the final head (code 63d2a193dd), `--set
+10000:10025 --stages confirm,guards,variants --variants tranche_holdem`, base F, cand c6: F equals main on all 7
+hold'em chunks; c6 equals F on all 7 and differs on tranche_holdem only; and F's tranche_holdem samples there equal
+the pre-merge base's chunk (code b3ae54d3e7), so the screen table above holds at the head.
+
 So plain hold'em (night, night_hard, realistic, top, night under 10/7/5/4/3/2/1/0 and 50/25/12/6/3/2/1/1, night under
 the doubling schedule) and every other catalog entry play bit for bit as on main, with the dials off and with them on;
 SHIP_DIALS is unchanged. The engine's new paths need a Rules key no earlier table sets, and every dial checks the rule
@@ -226,3 +260,17 @@ per earlier street, a dict lookup for the preflop one) are not in these numbers.
 table start from Hero's own tables (91 entries, no file); the two-card shares are 91 numbers built on first use;
 `tables/generic/tranche_holdem-d65b70f5.json` (10.6 KB) is for the simulator's generic opponents only. Package 2.1 MB
 zipped, 8.6 MB unzipped (caps 5 / 25).
+
+## 8. Organiser briefs' exclusion lists
+
+`grep -rn "chain_holdem (one private card" docs/` finds nothing in the repo: the list lives only in the goal scratch
+prompts (`goal/drill10/organiser_prompt.txt`, `goal/drill11/organiser_prompt.txt`), which I was told not to edit. The
+entry to add to the next brief's list, after `solo_holdem (...)`: `tranche_holdem (each betting round's chips a pot of
+their own, won by the hand as it stood on that street; no cards once the betting is over)`.
+
+## 9. Tests
+
+`pytest -q -p no:cacheprovider -m "not timing"` at the head: 1408 passed, 1 skipped (8.6 min, load 9-11). The first
+full run (before 2db095c) failed three: CONTRACTS.md stale (regenerated: the five `hero.tranche*` keys), generic's
+settle probe (the class-level defaults above), and H7's prompt-05 check (the bullet now names the keep rule and the
+kit's simulator). New: tests/test_vj_tranche.py (14), tests/test_vj_aware.py (8), tests/test_vj_dials.py (6).
