@@ -2,7 +2,8 @@
 
 Tonight's rules and starter kit. Fill the RULE SHEET in `NIGHT.md` (from `docs/packet/NIGHT-template.md`)
 and write `rules_tonight.json`. No bot code yet. The header's Stage 0 line is the Verifier's, re-measured
-with `--rules` (and `--variant` if the catalog has hooks) while Stage 2 runs.
+with `--rules` (and `--variant` if the catalog has hooks) while Stage 2 runs; one person in both roles leaves it
+empty, and prompt 04 skips its Stage 0 clause and says so.
 
 <paste the variant rules verbatim here>
 

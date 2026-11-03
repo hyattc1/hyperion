@@ -723,3 +723,100 @@ def test_the_gate_module_seat_fails_a_lazy_import(tmp_path):
                 pkg.stats.last_error, pkg.counts)
         else:
             assert pkg.stats.exceptions == 0 and pkg.stats.illegal == 0, (pkg.stats.last_error, pkg.notes)
+
+
+# ---------------------------------------------------------------------------------------------- the docs: 3, 4, 6, 7, 8, 10
+def _read(rel: str) -> str:
+    return (ROOT / rel).read_text()
+
+
+def _flat(text: str) -> str:
+    return " ".join(text.split())
+
+
+@pytest.mark.night
+def test_the_checker_rule_on_a_loaded_box_is_stated():
+    """Item 3: the organisers' checker passes on its CPU clock with 0 errors and timeouts no worse than the kit's own
+    sample bots in the same run, the load noted; with no CPU clock, the same rule on the wall clock."""
+    p02, p04 = _flat(_read("docs/prompts/02-adapter-and-cheap-bot.md")), _flat(_read("docs/prompts/04-wire-hero.md"))
+    stage2 = _flat(_read("PLAYBOOK.md").split("### Stage 2: ADAPT", 1)[1].split("### Stage 3", 1)[0])
+    for text in (p02, stage2):
+        assert "CPU clock" in text and "0 errors" in text and "no CPU clock" in text
+        assert "no worse than the worst of the kit's sample bots in the same run" in text
+    assert "prompt 02 step 6's rule" in p04 and "--clock cpu" in p02
+
+
+def test_the_night_subset_is_marked_and_has_no_timing_test():
+    """Item 4: `pytest -m night` collects the adapter, conformance, pack, switch and template tests (about a minute at
+    load 18: 147 tests, 49-52 s at load 17-20 on this box) and no wall-clock test; prompts 00 and 02 run it."""
+    import subprocess
+
+    def collect(expr: str) -> list[str]:
+        r = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "--collect-only", "-m",
+                            expr], cwd=ROOT, capture_output=True, text=True, timeout=600)
+        return [x for x in r.stdout.splitlines() if "::" in x]
+
+    ids = collect("night")
+    assert 100 <= len(ids) <= 220, len(ids)
+    for part in ("test_nightof_conformance.py::", "test_nightof_history.py::", "test_kit_shapes.py::",
+                 "test_nightof_pack.py::test_pack_builds_verifies_zips_and_logs",
+                 "test_h5_drill9.py::test_the_entry_template_survives", "test_h6_drill10.py::test_process_entry_round",
+                 "test_h7_drill11.py::test_module_entry_plays", "test_ship.py::test_recipes_resolve"):
+        assert any(part in x for x in ids), part
+    assert collect("night and timing") == []
+    assert '"night: ' in _read("pyproject.toml")
+    for rel in ("docs/prompts/00-briefing.md", "docs/prompts/02-adapter-and-cheap-bot.md"):
+        assert "-m night" in _read(rel), rel
+
+
+@pytest.mark.night
+def test_a_latency_recipe_is_kept_by_the_kits_simulator():
+    """Item 6: prompt 04 step 4 and prompt 06 keep a latency recipe only by the kit's own simulator, paired."""
+    p04, p06 = _flat(_read("docs/prompts/04-wire-hero.md")), _flat(_read("docs/prompts/06-windows.md"))
+    assert "only when the kit's own simulator shows it" in p04 and "tools/latency.py alone is not the check" in p04
+    assert "verified in the kit's own simulator" in p06 and "not by tools/latency.py alone" in p06
+
+
+@pytest.mark.night
+def test_one_keep_rule_written_once_and_pointed_at():
+    """Item 7: prompt 05 states the keep rule (paired on the same tables, our sim with --variant else the kit's, the
+    estimate above zero, nothing down beyond its 95% interval, 600 paired tables or more); the three phrasings that
+    disagreed are gone, and PLAYBOOK Stage 5, hard rule 6, the stage table, prompt 00 and the prompts README point
+    at it."""
+    p05 = _flat(_read("docs/prompts/05-variant-patch.md"))
+    rule = p05.split("**The keep rule**", 1)[1].split("Dials, in our simulator", 1)[0]
+    for words in ("paired", "`--variant`", "the kit's own simulator", "600 paired tables", "above zero",
+                  "beyond its 95% interval"):
+        assert words in rule, words
+    docs = {rel: _flat(_read(rel)) for rel in ("PLAYBOOK.md", "docs/prompts/00-briefing.md", "docs/prompts/README.md",
+                                               *(f"docs/prompts/{p.name}" for p in (ROOT / "docs" / "prompts").glob("0*.md")))}
+    for rel, text in docs.items():
+        for old in ("rise by more than half", "did not drop beyond the confidence interval", "points did not drop beyond CI",
+                    "the score did not drop", "When the sim cannot see what a patch does"):
+            assert old not in text, (rel, old)
+    assert p05.count("**The keep rule**") == 1
+    pb = docs["PLAYBOOK.md"]
+    stage5 = pb.split("### Stage 5: PATCH", 1)[1].split("### Submit and freeze", 1)[0]
+    rules = pb.split("## 7. Hard rules", 1)[1].split("## 8.", 1)[0]
+    assert "the keep rule** in `05-variant-patch.md`" in stage5 and "keep rule (`05-variant-patch.md`)" in rules
+    assert "The keep rule in `05-variant-patch.md`" in pb
+    assert "keep rule" in docs["docs/prompts/00-briefing.md"] and "keep rule" in docs["docs/prompts/README.md"]
+
+
+@pytest.mark.night
+def test_the_stage_0_clause_is_skipped_on_a_solo_night():
+    """Item 8: with no Stage 0 number under tonight's rules, prompt 04 skips the clause and notes it."""
+    p04 = _flat(_read("docs/prompts/04-wire-hero.md"))
+    assert "No Stage 0 number under tonight's rules" in p04 and "Stage 0 clause skipped" in p04
+    assert "skipped, and noted, when nobody re-measured Stage 0 under tonight's rules" in _flat(_read("PLAYBOOK.md"))
+    assert "prompt 04 skips its Stage 0 clause" in _flat(_read("docs/prompts/01-rule-sheet.md"))
+
+
+@pytest.mark.night
+def test_prompt_05_has_a_street_settled_pots_section():
+    """Item 10: prompt 05's payoff section names street-settled pots, points at the catalog, and gives drill 11's twin
+    (the adapter's twin_hole) as the first move, measured by the keep rule."""
+    p05 = _flat(_read("docs/prompts/05-variant-patch.md"))
+    sec = p05.split("Pots settled by street", 1)[1].split("- Point tables", 1)[0]
+    assert "--variant" in sec and "twin_hole" in sec and "keep rule" in sec and "kit's simulator" in sec
+    assert "def twin_hole(" in _read("docs/drills/drill11/adapter.py")

@@ -2,11 +2,14 @@
 logs to NIGHT.md. Run as a subprocess the way the night uses it, plus the two pure helpers."""
 import hashlib
 import importlib.util
+import re
 import subprocess
 import sys
 import zipfile
 from datetime import datetime
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 PACK = ROOT / "tools" / "pack.py"
@@ -29,6 +32,7 @@ def run_pack(cwd: Path, *args: str):
     return subprocess.run([sys.executable, str(PACK), *args], cwd=cwd, capture_output=True, text=True, timeout=240)
 
 
+@pytest.mark.night
 def test_pack_builds_verifies_zips_and_logs(tmp_path):
     sub = tmp_path / "submission"
     sub.mkdir()
@@ -52,7 +56,8 @@ def test_pack_builds_verifies_zips_and_logs(tmp_path):
     rows = [line for line in night.splitlines() if sha in line]
     from hyperion import ship
 
-    assert len(rows) == 1 and f"| {ship.SHIP}: cheap bot |" in rows[0] and "import 0." in rows[0]
+    # the row carries the import time; its size is the box's (1.4 s at load 17), not the check
+    assert len(rows) == 1 and f"| {ship.SHIP}: cheap bot |" in rows[0] and re.search(r"/ import \d+\.\d+ s \|", rows[0])
     assert night.index(sha) < night.index("## Windows"), "row goes under Submissions, not at the end"
     assert f"bot      {ship.SHIP}  dials {{}}" in r.stdout and "bot built in" in r.stdout
 
@@ -88,6 +93,7 @@ def test_pack_without_slim_keeps_fakekits_and_skips_night_when_absent(tmp_path):
     assert not (tmp_path / "NIGHT.md").exists() and "NIGHT.md row" not in r.stdout
 
 
+@pytest.mark.night
 def test_pack_fails_on_a_broken_import(tmp_path):
     (tmp_path / "agent.py").write_text("import no_such_module_xyz\n")
     r = run_pack(tmp_path, "--entry", "agent.py", "--out", "dist")
@@ -113,6 +119,7 @@ def test_tables_dir_is_packaged_whole(tmp_path):
     assert "entry does not import hyperion" in r.stdout
 
 
+@pytest.mark.night
 def test_minute_and_night_row_helpers(tmp_path):
     pack = load_pack()
     assert pack.minute_since_t0("T0: 18:00", datetime(2026, 11, 6, 18, 12)) == "12"
@@ -175,6 +182,7 @@ print("ok", mods)
 '''
 
 
+@pytest.mark.night
 def test_slim_drops_the_opponents_and_every_ship_bot_still_builds_and_plays(tmp_path):
     """--slim leaves out the field bots, the judges (elite3 above all), the exploiter, the outside builds, the aware
     opponents and every rival but rival 3 (rival 3's core is hybrid3_x's and the composite's base). Each ship bot is

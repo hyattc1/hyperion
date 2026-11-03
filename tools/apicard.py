@@ -22,7 +22,9 @@ from hyperion.strategy.hero import Config  # noqa: E402
 OUT = ROOT / "docs" / "packet" / "CONTRACTS.md"
 
 COMMANDS = [
-    ("Run tests", "python -m pytest -q"),
+    ("Run tests (the day)", "python -m pytest -q"),
+    ("The night's tests: adapter, conformance, pack, switch and templates (about a minute at load 18)",
+     "python -m pytest -q -p no:cacheprovider -m night"),
     ("The ship bot (see the switch) vs realistic field, strict 1 ms", "python -m hyperion.sim --tables 300 --seed 11 --mode strict --field realistic@ship"),
     ("Same, duplicate-dealt (seating luck cancels)", "python -m hyperion.sim --tables 40 --rotate --seed 11 --mode strict --field realistic@ship"),
     ("A window's recipe, measured (prompt 06: paired against the bot we ship, the night field, tonight's rules)", "python tools/climb_accept.py --stages window --base '<kept>' --cand '<kept>+passive' --rules submission/rules_tonight.json --workers 4"),

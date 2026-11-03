@@ -61,7 +61,9 @@ improvement.
   nothing.
 - Our timeouts or errors are nonzero in any log the kit gives us: nothing else matters. If the latency is
   ours, `latency` first (no shadow decisions: the members not chosen skip the call, about 17 µs a call and 30 µs at
-  p99; on a box 5-8x slower a fifth to a third fewer timeouts, points level). Errors, or timeouts that `latency` did
+  p99; on a box 5-8x slower a fifth to a third fewer timeouts, points level), verified in the kit's own simulator, the
+  same tables paired with and without it (prompt 04 step 4), not by tools/latency.py alone: in drill 11 latency.py
+  showed half the act time and the kit's simulator the same timeouts. Errors, or timeouts that `latency` did
   not cure: `timeouts` (every decision Hero's cheap path, -1.6 points a table on 8..1 and -14 of 100 on a top-heavy
   table, even on a slow box: the governor already steps down on its own, so this is for errors, an emergency).
   Verify, submit.

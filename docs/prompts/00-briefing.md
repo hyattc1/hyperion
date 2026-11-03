@@ -26,9 +26,11 @@ How we work:
   and our Action back. You write that adapter; you do not rewrite strategy.
 - Priority order, non-negotiable: (1) a bot that never crashes and never returns an illegal action,
   submitted within 15 minutes; (2) the prepared Hero wired through the adapter and verified in our
-  simulator in strict 1 ms mode; (3) the smallest strategy change the variant forces. Nothing else.
+  simulator in strict 1 ms mode; (3) the smallest strategy change the variant forces, kept only by the keep rule in
+  `docs/prompts/05-variant-patch.md`. Nothing else.
 - Verify with commands, not by reading code. After every change run the kit's local simulator and
-  our test suite and show me the output. If a check fails, fix it before moving on.
+  our night test subset (`python -m pytest -q -p no:cacheprovider -m night`, about a minute) and show me the
+  output. If a check fails, fix it before moving on.
 - Ask me at most one question at a time, and only when the rules or kit are genuinely ambiguous.
   Otherwise pick the conservative option (fold, check, smaller bet) and tell me what you picked.
 - Keep a running file `NIGHT.md` with: the rule sheet, every command that verified something, the
