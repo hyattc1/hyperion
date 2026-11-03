@@ -3347,3 +3347,43 @@ cell is beyond noise down and every other check passes, that cell is re-run once
 re-run, or both runs pooled, is beyond noise down. Two or more judge cells down reject as before. The judges stay
 never tuned on: the replicate decides the batch as a whole, and no component is chosen by a judge's numbers.
 First use: batch 6's `outside` cell (-0.003 ± 0.003 on 30000-30399; elite_judge_b +0.006 UP, the other ten level).
+
+## The climb: addendum 13 (the all-in runout term) (2026-11-03, builder: the climb's coordinator)
+
+**Adopted as drafted by R7.** From the first acceptance run started after this entry,
+every climb_accept run (screen, held-out, window) adds `--runout-term`. The verdict is read on the corrected paired
+delta by the unchanged rule: UP / DOWN beyond the 95% interval of the per-seed paired difference. Stages, aims,
+addenda 6-10, held-out sets and seed counts stay as they are.
+
+*The term.* At each hand whose last decision leaves board cards to come with two or more players in, each seat alive
+at the hand has V(actual runout) - mean V over the runouts the unseen cards allow subtracted from its points. V is
+the seat's ICM points (Malmuth-Harville) on the post-hand stacks over the cell's own payouts, a seat busted in the
+hand taking its place's points as the engine places it. Runouts: all combinations when at most 1,100 (turn, flop),
+else 50 drawn from `Random("runout/<table seed>/<rotation>/<hand>")` (preflop). This is fixed as tools/runout_term.py
+at version 198453df, the tag in every term chunk's file name. Changing that file is a protocol change: repeat R7's
+checks before the changed term judges anything.
+
+*Why it is allowed.* Given everything before the event, the cards to come are uniform over the unseen cards and no
+bot sees more than its Observation, so the term has mean zero for any V fixed in advance and the corrected mean is
+unbiased. R7 (docs/drills/climb/r7-log.md) found:
+- no bias at 6,000-12,000 fast-field seeds, nor in the paired term on any real cell (61 at 200 seeds, 14 at 400);
+- the same verdicts on batch 5 against batch 4 (ACCEPT) and S5 against F (REJECT);
+- a median interval ratio of 1.30 (0.98-1.62 by cell);
+- identical play on 211 chunks.
+
+*Rules.*
+1. One estimator per decision, fixed before the run starts. A run started before this entry is read raw; a run
+   started after it is read corrected. Never run both and keep the one that passes, because that inflates false
+   accepts. A set already measured is not re-read with the other estimator to change a verdict.
+2. The raw delta and flag stay printed beside each cell and in the verdict JSON, for the record. If a cell's raw
+   and corrected flags ever point opposite ways (UP against DOWN), log it and replicate that cell on the next set as
+   addendum 7 does. R7 saw none.
+3. The gain is taken as narrower intervals, not fewer seeds: held-out sets stay at 400 (the climb's effects sit near
+   noise).
+4. Where the term is zero by construction (twists whose hooks act after the hand's last decision: the ten catalog
+   entries in tools/runout_term.py's doc, and any file variant with on_street, on_payout, next_card or settle), the
+   cell is read raw. That is the same number, so nothing changes there.
+
+Note: the term is unbiased by construction for any field (no bot sees the cards to come); R7 did not separately
+measure the judges and aware stages, so rule 2's check (a cell whose raw and corrected flags point opposite ways
+replicates) is watched there first. First runs under it: S17's C3 on H21, V-i on H22, S16b's O3 on H23.
