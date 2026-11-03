@@ -1012,3 +1012,17 @@ and (in judges) `elite_judge`.
   rival 5, elite 5, one night seat, in the judges stage; tests keep the three in outside* fields only.
 - Judges now: judge, judge2, judge2_night, judge_top, outside, outside_strong, elite_judge, elite_judge_b,
   adapt_judge (three formats), outside_b. Batch 6's judge run is the first to see the new ones.
+
+## 06:22: owner: is "down nowhere" too strict? A weighted second route under review; a structural round next
+- The owner asked whether requiring "down nowhere" misses changes that are much better where it matters (strong tables,
+  adaptive bots) and slightly worse somewhere minor. Fair: the rule protects against fitting to a field we cannot see
+  and pushed S5 into the gated S6, but it also rejected net-positive trades (S14's K18, S5, S16's T3).
+- Review commissioned (docs/research/acceptance-rule-review.md, no CPU): a weighted rule fixed in advance (weights by
+  how likely the night's tables look like each cell family; the weighted gain beyond noise up; a cap on any one
+  cell's loss; judges not down), re-scored on every past verdict, and checked against what held out. Adopted only by
+  an addendum written before it scores anything new.
+- Next (after batch 6 freezes): a structural round, as the stop rule's last stage and the owner asked: short-handed
+  endgame play aimed at strong bots; a small portfolio of ready strategies chosen during a table; playing for first
+  place when three or fewer remain; preflop retrained offline for this format with ICM.
+- A second terminal was not advised: the box is the bottleneck (load 17 on 8 cores) and a second session would edit
+  the same repo uncoordinated.
