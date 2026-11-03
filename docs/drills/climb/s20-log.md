@@ -232,3 +232,8 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
   blind against the button's open instead of 0 / 82 / 18%, and calls 2.3x 3-bets 16-52% instead of 51-77%).
   Candidates GK (G + keep the defence), GX (G with table 3c), GXK (both). Also G2 (G with `short.defer` widened to
   every leak archetype F's profiler names: dead, station, maniac, random, nit), running.
+- 16:47 **G2** (G + `short.defer` dead,station,maniac,random,nit), seeds 10000-10099, exploit + elite: **REJECT**.
+  elite +0.027 ± 0.021 UP, elite_b +0.031 ± 0.021 UP, mirror_b +0.042 ± 0.018 UP, mirror +0.017, elite_night -0.002;
+  exploit -0.114 ± 0.063 DOWN, exploit_3 -0.323 ± 0.195 DOWN, exploit2 -0.038 ± 0.027 DOWN, adapt -0.039 ± 0.045,
+  exploit3_3 +0.135, the rest level. W +0.0000 ± 0.0172, W-min -0.0133 ± 0.0236. The archetype reads do not separate
+  exploiter 1 from the strong builds three-handed; dropped.
