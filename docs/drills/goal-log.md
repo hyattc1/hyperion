@@ -955,4 +955,4 @@ and (in judges) `elite_judge`.
 - Tool fix: climb_accept counted exploit cells only under --aim exploit; with --aim strong it printed ACCEPT with
   exploit cells down. Now an exploit cell down rejects under every aim. Checked: no accepted run had one (G2 on H4 and
   H6, C7, D1, D3, batch 5 on H13: all exploit cells level or up). S16 told.
-- Identity after the merge: running.
+- Identity after the merge: 15 cells identical.
