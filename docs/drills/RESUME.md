@@ -33,7 +33,8 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 
 ## Held-out sets used
 H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); in use or queued H22-H24; H25 queued for S7, H26 for S15e, H27 for
-C3's bonus_card replicate (goal/b23/c3_rep_h27.md); next fresh H28 = 48000-48399. Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 30800-31199.
+C3's bonus_card replicate (down: C3 rejected), H28 for C3h (goal/b26/chain4.sh, output
+goal/b26/c3h_h28.md, CHAIN4_DONE); next fresh H29 = 49000-49399. Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 30800-31199.
 
 ## End deliverables (goal.md)
 Final SHIP and zip, a decisions entry, PLAYBOOK and HANDOFF, the last rehearsal on the final ship (drills 7-10 were

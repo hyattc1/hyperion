@@ -1286,3 +1286,16 @@ and (in judges) `elite_judge`.
   (47000-47399) at 400 seeds (goal/b23/c3_rep_h27.md). C3 fails if the re-run or the two pooled is beyond noise down.
 - Raw and corrected flags never point opposite ways (exploit_hu raw UP, corrected level; adapt @10/7/5 raw DOWN,
   corrected level: the term narrows, it does not flip).
+
+## 17:15: C3's bonus_card replicate is down (C3 rejected); C3h (the one size on plain hold'em only) queued on H28
+- H27 (47000-47399), bonus_card (realistic) at 400 seeds: -0.007 ± 0.007 DOWN. Under addendum 7 C3 fails (pooled
+  with H22's -0.015 ± 0.011, about -0.010, down). H27 used once.
+- Cause: C3's stab takes Hero's one balanced size where Hero has one, and batch 6 carries that size to some twist
+  families (postflop.s11_twists: knockout, buy, swap, exposed), so C3 changed twist play it was never aimed at.
+  Play digests (3 tables each, the room of digest_cmp): ungated C3 differs from batch 6 on exposed_card,
+  knockout_bounty, swap_holdem and auction.
+- C3h: `exploit.stab_holdem_only` (off by default; climb/c3h merged, 9bfb415): the one size on plain hold'em tables
+  only. Digests identical to batch 6 on all 13 sampled twists; tests. Chosen from where C3 gained (plain hold'em
+  exploit cells) and where it lost (a twist), as Z3's hold'em gates were after H9; it needs a fresh held-out set:
+  C3h on H28 (48000-48399) against batch 6, --aim exploit, every stage, twists identical (goal/b26/chain4.sh, after
+  S15e's H26).
