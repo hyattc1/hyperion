@@ -8,6 +8,31 @@ tables only plus whatever gate the survey supports; screen `--aim strong` (elite
 cells, variants). The target: S16's `prior` arm (+0.14 to +0.21 at strong tables, but it lost on realistic and
 top_heavy when gated) without the losses.
 
+**Findings.**
+1. **The survey.** 228,397 answers to F's first-in raises on nine fields: strong seats fold 0.67-0.75 to F's opens
+   (4-9 points under their pooled fold-to-a-raise), but **position matters more than the seat**: the big blind folds
+   0.57-0.60 at strong tables (0.80 on realistic), the small blind 0.77-0.79, the others 0.85-0.87. Priors fixed from
+   the nine fields pooled: 0.866 / 0.815 / 0.668 (all answers 0.774, strong fields 0.748). The estimator chosen offline
+   (no points), the only one better than F's read on every field: this table's fold rate by position (prior worth 20
+   answers) plus the seat's excess (worth 23). The floor at 10 made every estimator a little worse (a seat answers 7-15
+   opens a table), so the trust weight is the shrinkage itself, with no floor. The layer's steal read has the same bias.
+2. **O1 (the read replaces F's): rejected** (top -0.096, elite_night -0.120 down; strong cells negative). A truer fold
+   rate raises the early positions' fold equity as well as lowering the blinds', and rival 3's open clause (pf x pot -
+   (1 - pf) x raise x 0.55) then opens more junk early.
+3. **O2 (the read only lowers F's read, S16's one-sided cap): the gain the brief asked for**, mirror +0.137 and mirror_b
+   +0.202 (the `prior` arm's +0.147 / +0.210), elite +0.052, elite_b +0.071, night_hard up, realistic and top level;
+   **rejected** for exploiter 1 heads-up (-0.165) and three-handed (-0.205), antes_from_level_3 (-0.062) and straddle
+   (-0.127).
+4. **O3 = O2 with four or more alive and off on straddle tables** (both added after O2's screen): mirror +0.105 and
+   mirror_b +0.197 UP, elite_b +0.075, elite +0.030, elite_night +0.026; night -0.031, guards level, night_hard up;
+   12 exploit cells level or up (exploit3 +0.131), 8 of them and straddle exactly F's; **antes_from_level_3 -0.060 ±
+   0.051 down**, the one cell against it (realistic-based cells all lean negative, -0.03 to -0.06). Latency p99: act
+   110-111 µs, hand end 140-147 µs. Spec: `{"r3.oa_read": true, "exploit.open_read": true, "r3.oa_cap": true,
+   "exploit.open_cap": true, "r3.oa_min_alive": 4, "exploit.open_min_alive": 4}` at aafe5b9 or later.
+5. **Next:** the realistic lean comes from the big blind's pooled prior (0.668 against realistic's 0.80) moving slowly.
+   A table gate would hide it but leaked on realistic for T3; a faster table-rate prior (oa_st under 20) or a prior
+   from the table's own non-blind answers are cheaper to try. Not run.
+
 Rules kept: screen seeds 10000-10199 only for points; the survey on 8850-8899 (fresh, under 10000). No held-out set,
 judge seed, judge bot, judge field or held-out variant was run, read or profiled. Model mode, eight rotations per seed.
 At most three worker processes, nice 5. F's cells come from main's code (detached worktree `goal/wt_s16m`), copied to
@@ -236,3 +261,25 @@ O3's structural variants (realistic, 200 seeds; straddle is F's by construction,
 | **antes_from_level_3** | 6.496 | 6.436 | **-0.060 ± 0.051** | DOWN | -0.062 ± 0.052 |
 | fast_schedule | 6.122 | 6.077 | -0.045 ± 0.052 | level | -0.048 |
 | top_heavy (of 100) | 28.654 | 28.274 | -0.380 ± 0.634 | level | -0.289 |
+
+O3's confirm and guards:
+
+| cell | F | O3 | O3 - F | | O2 |
+|---|---|---|---|---|---|
+| night | 5.972 | 5.941 | -0.031 ± 0.070 | level | -0.043 |
+| **night_hard** | 5.499 | 5.584 | **+0.085 ± 0.084** | UP | +0.093 |
+| realistic | 6.370 | 6.336 | -0.034 ± 0.048 | level | -0.036 |
+| top | 5.058 | 5.037 | -0.021 ± 0.074 | level | -0.019 |
+| night @10/7/5..., @50/25/12..., doubling | | | -0.011 ± 0.130, -0.229 ± 0.854, +0.001 ± 0.075 | level | |
+
+The cells O3 plays exactly as F by construction, one 25-seed chunk each against F's cached chunk (`idchunk.py`):
+exploit_hu, exploit_3, exploit2_hu, exploit2_3, exploit3_hu, exploit3_3, adapt_hu, adapt_3 and straddle: **all
+identical sample for sample**.
+
+**O3's verdict:** every strong point estimate positive (mirror and mirror_b beyond noise up), night and every guard
+level or up, the 12 exploit cells level or up (8 of them F's exactly), and **one cell down: antes_from_level_3
+-0.060 ± 0.051**. By the brief's rule (nothing beyond noise down) O3 is not kept; under addendum 7 a lone variant cell
+down is a REPLICATE on the next held-out set at 400 seeds, not a reject. The realistic room leans the same way in
+every cell that uses it (realistic -0.034, fast_schedule -0.045, antes -0.060, top_heavy -0.38 of 100), so a
+replication may well confirm the loss: F's steals against realistic's folders pay, and the big blind's prior (0.668,
+pooled) sits far under realistic's 0.80 until 20 or so answers move the table rate.
