@@ -758,4 +758,4 @@ and (in judges) `elite_judge`.
   and scored +0.45 ± 0.26 over F on the kit's bots. The official rules reset bot state per table and anonymise
   opponents (§3.8, docs/research), so this cannot happen on the night; kit F's one Agent per session was its
   organiser's choice. Kept as a fact about kits that allow it, not as work.
-- Identity after the merge: running (batch 5 reference at d865e7d against merged main).
+- Identity after the merge: 15 cells identical (batch 5 at d865e7d against merged main, 10000-10039).
