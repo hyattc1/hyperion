@@ -3,7 +3,8 @@ H: `python3 -u bot.py`, one JSON object a line in, one reply a line out echoing 
 clock). Copy it to `submission/<the kit's entry file>` beside `submission/adapter.py` (from adapter_template.py) and
 fill the TODOs in order. A kit that imports a file and builds a bot object: entry_template.py; one call per event with
 no state: event_player_template.py. The defaults are kit H's protocol, worked through (docs/drills/drill10/bot.py, the
-drill 10 player's entry, is where they come from).
+drill 10 player's entry, is where they come from), and Session expects that player's adapter shape (`set_table(handles)`,
+`idx` handle -> seat, `history(log, idx, bb)`: docs/drills/drill10/adapter.py, with which this file runs kit H as is).
 
 What it does without being asked, each from drill 10:
 - Everything is imported, built and warmed at import, before the first line is read (kit H: 2 s for `hello` from the

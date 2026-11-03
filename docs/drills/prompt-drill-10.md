@@ -188,4 +188,8 @@ chunk's name, so a later `--set screen` run in the same `--out` read its 15 samp
 first omaha_four screen run did). A short chunk is now named by its length (`.n15`); full chunks keep their names and
 caches. Test: the two names differ.
 
-**Suite.** `python -m pytest -q -m "not timing"` at the end (below).
+**Suite.** `python -m pytest -q -m "not timing"` at load 17-22: 1296 passed, 2 skipped, 3 failed, all three failing on
+main too (a detached worktree of ed263bc, the same tests): test_sim_rival5's judge2 field check fails every time (field
+`outside_b` seats rival5); test_nightof_latency's kit D round trip fails its 500 us p99 under this load; test_sim_adapt's
+twin test plays a strict-mode table, on the wall clock, and fails one run in three on both trees. tests/test_h6_drill10.py:
+37 tests.
