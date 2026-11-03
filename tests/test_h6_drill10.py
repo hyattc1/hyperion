@@ -483,3 +483,16 @@ def test_pack_checks_the_zipped_and_the_unzipped_cap_apart(tmp_path):
     assert r.returncode == 1 and "FAIL zip is" in r.stdout and "(--max-zip-mb)" in r.stdout, r.stdout
     r = run("--max-mb", "1", "--max-zip-mb", "5")
     assert r.returncode == 1 and "unzipped, limit 1 MB" in r.stdout, r.stdout
+
+
+# ---------------------------------------------------------------------------------------------- found on the way
+def test_climb_accept_names_a_short_chunk_by_its_length():
+    """A set's last chunk shorter than CHUNK (10025-10039 of 10000:10040) has a file of its own: before H6 a 200-seed
+    run read a 40-seed run's 15-sample chunk as its 25 and played 190 seeds. Full chunks keep their names."""
+    spec = importlib.util.spec_from_file_location("h6_ca", ROOT / "tools" / "climb_accept.py")
+    ca = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ca)
+    cell = ("realistic", "lin", None, "omaha_four", 10025)
+    full, short = ca.cell_path("o", "k", cell), ca.cell_path("o", "k", cell, 15)
+    assert full.endswith("realistic.lin.-.omaha_four.10025.json") and full == ca.cell_path("o", "k", cell, ca.CHUNK)
+    assert short.endswith("realistic.lin.-.omaha_four.10025.n15.json") and short != full

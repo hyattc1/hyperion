@@ -28,13 +28,17 @@ Rules of this loop, which you must not break:
      --rules submission/rules_tonight.json`: ship exc 0 and ill 0 (tmo as in prompt 04 step 2).
   4. Kit simulator (seconds): prompt 04 step 1's command, 100 hands, `HYPERION_CHECK=1`: zero exceptions, illegal
      actions and conformance violations.
-  5. Repack (seconds): prompt 04 step 5; its `bot` line must show the new `DIALS`.
+  5. Repack (seconds): prompt 04 step 5, with the same `--import-budget`, `--max-mb` and `--max-zip-mb`; its `bot`
+     line must show the new `DIALS`.
   6. Gate (0.4 min): `python tools/gate.py dist/submission.zip --kit <same as Stage 2> --tables 40 --rules
      submission/rules_tonight.json` (plus `--variant <name>`, `--kit-log no` as in Stage 2; `--entry <file>` only if
      the gate asks): `GATE PASS`. Then upload.
 - The frozen known-good submission is <sha256>. If the change is not verified by minute 12, submit
   nothing; the frozen bot stays active.
 - Never add a new module in a window. Only dials, table swaps, or a one-line guard.
+- Kill a background job by its PID (recorded when you started it: `... & echo $! > job.pid`, then `kill $(cat
+  job.pid)`), never `pkill -f`: the pattern matches the shell that runs it (drill 10 lost its own shell three times).
+  Kit simulator runs one at a time: three at once gave every candidate 55-65% timeouts in drill 10.
 
 Read the standings for these signals and apply the matching recipe. Each was checked on the composite we ship (F),
 paired in model mode on the night field and on a field that shows the signal (docs/drills/f1-windows-log.md): each

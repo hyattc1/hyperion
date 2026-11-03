@@ -20,18 +20,21 @@ Same adapter and `rules_tonight.json`. Verify in this order, pasting every outpu
    every line "variant minus <rule>".
 3. Same with `--rotate --tables 40`; ship not last among the field's chart bots (tag, pushfold).
 4. Latency under load: in a second terminal `python tools/gen_tables.py --rules rules_tonight.json --out
-   /tmp/load --workers 4` (not the real `tables/`; skip if load is over one per core), then
+   /tmp/load --workers 4 & echo $! > load.pid` (not the real `tables/`; skip if load is over one per core), then
    `python tools/latency.py --n 2000 --rules rules_tonight.json` (the ship bot by default; add `--adapter
    submission.adapter:TonightAdapter --native kit_<a|b|c|d>`; real kit: `module:build`, see
    `latency.py`'s kit_d builder; it deals the rules' hole cards and board). Required: exit 0 (p99 under
    500 µs), over 1 ms under 0.3%; if not, the recipe `latency` (the core's exploit layer off, ~6 µs; Hero's
    profiler off), then `timeouts` (every decision Hero's cheap path; a point or two), each with `--dials` on
-   latency and the sim, kept with `python -m hyperion.ship --set <recipe>`. Kill the generator.
+   latency and the sim, kept with `python -m hyperion.ship --set <recipe>`. Kill the generator by its PID (`kill
+   $(cat load.pid)`), never `pkill -f` (it matches your own shell).
    A kit that times its hand-end callback (rule sheet): the entry's `HAND_END_TIMED` defers the bot's hand end to `idle()` at the next event; check `python tools/latency.py --hand-end --defer --payouts <tonight's table>` (hand_end and idle p99 under 300 µs) as well.
 5. `python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py
-   submission/rules_tonight.json --note "ship bot"` (no `--bot`: the package records `hyperion/ship.py`'s
-   bot; read its `bot` line): fails on a fresh-process import and bot build over 5 s (then load tables at
-   table start), vendors the variant set the rules name, zips, writes the sha256 row: the submission.
+   submission/rules_tonight.json --note "ship bot" --import-budget <the kit's start budget> --max-mb <its unzipped
+   cap> --max-zip-mb <its zipped cap>` (the same three as Stage 2's; no `--bot`: the package records
+   `hyperion/ship.py`'s bot; read its `bot` line): fails on a fresh-process import and bot build over the budget (then
+   load tables at table start; kit H's 2 s hello was close at 1.7-2.1 s under load) or a size over either cap (then
+   `--slim`), vendors the variant set the rules name, zips, writes the sha256 row: the submission.
 6. Gate the zip itself, the step 2 sim measured the in-sim bot: `python tools/gate.py dist/submission.zip
    --kit <same as Stage 2> --tables 100 --rules rules_tonight.json` (plus `--variant <name>`; about
    3 minutes; `--kit-log no` as in Stage 2 if the kit has no action log). It pairs against the bot the

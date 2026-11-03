@@ -150,7 +150,18 @@ cheap bot at 0:17, because §3.5 allows one upload per five minutes and two uplo
 five minutes are impossible. A bot on the board is the single most valuable thing in the hour: from
 that minute we cannot score zero. The adapter runs with `HYPERION_CHECK=1` so translation bugs the
 kit's simulator cannot see (raise increments passed as totals, pot double-counting) show up as named
-violations; `tools/pack.py` builds, import-tests, sizes and hashes the upload in one command.
+violations; `tools/pack.py` builds, import-tests, sizes and hashes the upload in one command, against the kit's own
+limits from the rule sheet: `--import-budget` its start budget, `--max-mb` its unzipped cap and `--max-zip-mb` its
+zipped one (drill 10: kit H allowed 2 s to answer hello and 5 MB zipped / 20 MB unzipped; pack's 5 s default and a
+`--max-mb 5` that checked the unzipped size were both wrong for it).
+
+The entry template follows the kit's shape: a kit that imports a file and builds a bot object,
+`hyperion/drills/entry_template.py`; one call per event, `event_player_template.py`; **the bot as its own process on
+JSON lines** (kit H), `hyperion/drills/process_entry_template.py`, with `process_gate_seat_template.py` as the gate
+seat, which launches the entry as the kit does and plays the real stdin loop through a pipe. The process template
+answers every request first and does the hand end after, skipped when another request already waits (drill 10: the
+composite's hand end with the next message waiting was most of kit H's timeouts). A kit that launches the bot with a
+fixed environment never passes `HYPERION_CHECK=1` on: a `check.on` file beside the entry turns the checks on there.
 
 What the kit shows of the betting is the second thing to read off its interface, after the cards. Our bots
 read every fold, call, check and raise from `obs.history`: Hero's raise counts, the profiler, the exploit layer's
@@ -165,7 +176,11 @@ the rebuild stopped at a gap; a high count means a translation bug in the pot, b
 
 Only when the rule sheet says the strength or information axis moved. One rules JSON, one command.
 Default generation is about a minute on 7 idle cores and 2 to 3 minutes on a loaded laptop; a
-3-hole-card variant about 3 minutes idle. The
+3-hole-card variant about 3 minutes idle. A must-use showdown on a loaded box is another matter (drill 10, Solo
+Hold'em at load 22-28: the defaults projected far past 20 minutes): `--preset loaded` (3,000 samples, 50 a heads-up
+pair; it prints the accuracy it buys) took about 5 minutes. The generator prints its progress as it goes, and
+`--resume` keeps the stages a stopped run finished. Start it in the background with its PID recorded and stop it by
+that PID, never `pkill -f` (hard rule 9). The
 generator re-solves push/fold from the new matrix and the loader verifies the fingerprint, which
 closed the bug drill 1 found. Then one remapped decision printed, because drill 1 also found that
 Hero can load the right tables and still hand strategy the wrong cards.
@@ -440,6 +455,8 @@ layer's keys are `exploit.*`, never `hero.exploit.*`.
 6. When the sim cannot see what a patch does, the patch does not ship.
 7. Timeouts or errors in our own log override every other priority.
 8. Nobody researches, tunes, or refactors after 6 PM.
+9. Kill by PID, never `pkill -f`. Record a background job's PID when you start it (`... & echo $! > job.pid`) and
+   `kill $(cat job.pid)`; a pattern matches the shell that runs it (drill 10 killed its own shell three times).
 
 ---
 
@@ -489,6 +506,7 @@ The track is decided in Stage 0, never on the night.
 | 2026-11-02 | The windows on F (backlog F1): the composite's own recipes (`COMPOSITE_RECIPES`: no dead keys, the layer's `exploit.*` keys, `latency` = no shadow decisions instead of the layer off), checked on F on night and on a field showing each signal; section 5 rewritten with F's column and the stale tables removed; Stage 6 and prompt 06 use `tools/climb_accept.py --stages window` (paired, tonight's rules) with rehearsed step times; warm its cache at the freeze; the gate finds the entry | F1 worker |
 | 2026-11-02 | Opponents that read any twist: `gen_mc`, `gen_tag`, `gen_pushfold` (hyperion/sim/generic.py) deal, score and pay through the variant's own hooks, no per-twist code; field `generic_aware`. Stage 5 (and prompt 05) measures a patch against them in one command, `tools/climb_accept.py --stages aware --aware generic:<variant or file>`; a new twist is a file in the shape of `hyperion/drills/variant_file_example.py`; the freeze warms its table. Section 4b: F against them on all 26 entries (`tools/aware_board.py`) | V-d worker, docs/drills/climb/vd-log.md |
 | 2026-11-02 | Drill 9's fixes (H5, docs/drills/prompt-drill-9.md): `hyperion/drills/entry_template.py` for a kit that builds a bot object (built, warmed and `pin_package`d at import: kit G unloaded our modules before `Agent()`; a timed hand end `"defer"`s its curve to the next decision); the gate seat's rows carry street and chips, plus the posts (`gate_seat_template.by_street`); conformance forgets the warm-up; a `timing` pytest marker the night deselects; a table start inside a decision reads and builds nothing (`tables.quick_start`); `--cand '{"dials": ...}'` | H5 |
+| 2026-11-03 | Drill 10's fixes (H6, docs/drills/prompt-drill-10.md): `hyperion/drills/process_entry_template.py` and `process_gate_seat_template.py` for a kit whose bot is its own process (answer first, hand end skipped while a request waits, a `check.on` marker for a stripped environment; the gate drives the real stdin loop); on a table Hero plays whole the composite's base sleeps (one hand end, not two); Hero's must-use path reads a board shorter than it must supply (`mu_short_board`, Solo's flop); `hyperion/drills/solo_example.py`; gen_tables `--preset loaded`, progress, `--resume`; pack `--max-zip-mb`; hard rule 9, kill by PID | H6 |
 ---
 
 ## 10. The email (send before the event)

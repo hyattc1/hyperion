@@ -13,6 +13,16 @@ displayed 2 is strongest" or "three hole cards, one discarded face up before the
    samples, box 5 minutes; when the hole-card count or the deck changes, never `--out tables/` (it
    overwrites the 2-card set): `--out tables/variants/<name>/` with `extras.variant` = `<name>`. `--variant-check` over-projects by about 4x: pass `--skip-matrix` (Hero then
    re-solves push/fold at startup) only if it projects over 20 minutes.
+   A loaded box (the load average over the core count) or a projection past the box: `--preset loaded` (3,000 samples
+   a class, 50 a heads-up pair, 2 flops a texture with 300 holdings; it prints the 95% accuracy that buys before it
+   starts: about +-0.018 a preflop cell, +-0.14 a matrix cell, +-0.024 against a 20% range). Drill 10's Solo Hold'em
+   (a must-use showdown, load 22-28): the defaults projected far past 20 minutes, the preset about 5 minutes on 3
+   workers, and the bot it fed played the night's kept patch. Run it in the background with its PID kept:
+   `python tools/gen_tables.py ... > gen.log 2>&1 & echo $! > gen.pid`; it prints a progress line every tenth of a
+   stage (`tail gen.log`). Stopped or killed part way: the same command plus `--resume` keeps the stages that
+   finished and runs the rest (drill 10 wrote gen_rest.py by hand). **Kill by PID (`kill $(cat gen.pid)`), never
+   `pkill -f`**: the pattern matches the shell that runs it (drill 10 killed its own shell twice, and the
+   generator in its matrix stage).
 3. From `hyperion.strategy`, `t = tables.load(need_hu=True)`; print `t.source` and `len(t.equity)`.
    `source` must be `disk` and the count must match the generator's log. `built` means the loader
    rejected the new files and Hero is on 60-sample standard tables: STOP, say "tables rejected",
