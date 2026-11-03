@@ -795,3 +795,14 @@ and (in judges) `elite_judge`.
 - Player: a fresh agent, repo pinned at 512b31f (batch 5) in goal/drill9/night/hyperion, the handout without the
   organiser's notes, prompts 00-05 and the playbook; `timeout` on long commands (drill 8 lost its last 40 minutes to
   a stuck call).
+
+## 22:43: S13b merged (the specialist gated to exploiter-like seats); S6 on H16
+- Where S5 lost: on the realistic field it played heads-up against LooseAggroStudent, RivalBot, PushFoldBot and
+  ChartTAG, which passed its gates. New gate (thresholds fixed from a survey of F's profiler reads over 10 fields on
+  fresh diagnostic seeds, before any screen run): the opponent probes at least 0.75 (exploiter 2's median 0.86-0.88,
+  exploiter 1 0.45, ordinary bots 0.69 or less), bets heads-up at least 0.60 and raises preflop at least 0.15.
+- S6 screen against batch 5: exploit2_hu +0.420 ± 0.159, exploit2_3 +0.100 ± 0.067 UP; night identical; every guard,
+  elite and the four reachable variants level. Risk flagged by the builder: mirror -0.003 ± 0.003 (F's copies and
+  hybrid3_x sometimes pass the gate through the layer's small stabs).
+- S6 on H16 (36000-36399), --aim exploit, every stage including elite_b and mirror_b. Identity check after the merge
+  running alongside.
