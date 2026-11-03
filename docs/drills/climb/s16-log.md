@@ -8,11 +8,39 @@ its steal price and open clauses, the layer's steal read)? If yes, add `r3.read_
 batch 5's threshold; the defensive reads untouched), fix a per-seat fallback gate before screening, and screen with
 `--aim strong`.
 
+**Findings.**
+1. **The diagnostic's answer is yes.** S12's warm-store split repeated at 200 seeds on elite, elite_b, mirror and
+   mirror_b: the risk-widening preflop reads (rival 3's core's fold read in unopened pots, the layer's steal read)
+   known perfectly from hand 0 lose in all four fields (elite -0.133 ± 0.104, mirror -0.217 ± 0.096, both beyond
+   noise); every other read known perfectly is level or up (mirror_b +0.130 ± 0.117); and the same reads held at
+   their priors gain in all four (elite_b +0.136, mirror +0.147, mirror_b +0.210, beyond noise; elite +0.056).
+2. **But the loss is a biased read, not a noisy one.** The strong seats fold to F's own first-in raises 4-13 points
+   less often than their pooled fold-to-a-raise (rival 3 0.67 against 0.80, rival 2 0.73 against 0.81), and F's
+   cold read passes 10 raises faced by about hand 20 and settles on the pooled rate (S12). A trust weight with s = 10 shrinks small samples only: it
+   changes about 1 in 90 of the core's unopened decisions (always a raise dropped), mostly in a table's first 20
+   hands, when the strong-table gate is still shut by its own prior (open on 26-39% of strong-table spots).
+3. **T2 (the brief's weight with the pre-registered per-seat fallback) passes the screen, narrowly.**
+   `{"r3.read_trust": 10, "exploit.read_trust": 10, "trust_seat_rr": 1}`: mirror_b +0.070 ± 0.049 UP; elite +0.023,
+   mirror +0.026, elite_b +0.011, elite_night -0.003; night -0.016 ± 0.045; every guard, the 12 exploit cells
+   (adapt1's three included) and the four hold'em-structure variants level; the 22 twist variants identical by
+   construction. Closest calls: adapt -0.085 ± 0.086, exploit_hu -0.022 ± 0.025, straddle -0.007 ± 0.010. Latency
+   p99 (per-call minimum): act 107-109 µs, hand end 129-142 µs, +1.5 µs a decision on average. The fallback replaced
+   the table-only T1 by the pre-registered firing rule; T1 itself was not screened.
+4. **T3 (the same reads at their priors while the table reads strong) gains more at strong tables and is
+   rejected:** mirror +0.087, mirror_b +0.086 UP, but realistic -0.041 ± 0.038, top_heavy -0.482 and
+   antes_from_level_3 -0.060 DOWN, where the gate leaks (11% of realistic's spots) and the priors drop steals that pay.
+5. **Next (open):** the direct fix is a read of each seat's answer to our own first-in raises (fold, call, re-raise
+   against F's opens) in place of the pooled fold-to-a-raise in rival 3's steal price. A seat answers only about 8
+   of F's opens a table at these fields, so that read needs a prior near the strong seats' 0.70-0.75 and is where a
+   trust weight with a floor would earn its keep. It needs no table gate if the read itself is right. Not built
+   here.
+
 Rules kept: screen seeds 10000-10199 only for points; recordings and the firing diagnostic on 8800-8849 (fresh, under
 10000; S13 used 8800-8803 for a diagnostic). No held-out set (H1-H18), judge seed, judge bot, judge field or held-out
 variant was run, read or profiled. Model mode, eight rotations per seed. At most three worker processes, nice 5; the
-host was at load 19-37 with other measurements running. Every measurement of F runs from a detached worktree at main's
-code (`goal/wt_s16m`, 724cc7f); scratch tools in `goal/s16/` (never shipped).
+host was at load 9-37 with other measurements running. F's cells were played in a detached worktree at main's code
+(`goal/wt_s16m`: 724cc7f, later 2403327) and copied to the branch's code version after each identity check; the
+candidates ran on the branch. Scratch tools in `goal/s16/` (never shipped).
 
 ## Tools (scratch, `goal/s16/`)
 
@@ -277,3 +305,96 @@ strong_table read and, preflop, a list of eight flags); the hand end is unchange
 Gated, the priors keep about half of the ungated arm's gain on the two mirrors and none of it on elite_b: the table
 gate is open at a quarter to two fifths of the spots, mostly late in a table (its own prior keeps it shut early). Its
 full table follows.
+
+## 04:09-04:27: T3's full screen (code 1b875ec; screen 10000-10199 x 8)
+
+Same command as T2's with `{"dials": {"r3.read_trust": 1e9, "exploit.read_trust": 1e9}}`. T3 - F, paired; 0 errors,
+0 timeouts:
+
+| stage | cell | T3 - F | |
+|---|---|---|---|
+| confirm | night | -0.014 ± 0.051 | level |
+| guards | night_hard / top | +0.048 ± 0.051 / -0.015 ± 0.048 | level |
+| | **realistic** | **-0.041 ± 0.038** | DOWN |
+| | night @10/7/5..., @50/25/12..., doubling | -0.036 ± 0.089, -0.224 ± 0.541, -0.018 ± 0.048 | level |
+| elite | elite / elite_night / elite_b | -0.010 ± 0.055 / +0.005 ± 0.045 / +0.006 ± 0.054 | level |
+| | mirror / mirror_b | **+0.087 ± 0.058 / +0.086 ± 0.060** | UP |
+| exploit | exploit / exploit_3 | -0.120 ± 0.133 / -0.105 ± 0.128 | level |
+| | the other seven | -0.022 to +0.007; exploit2_hu, exploit3_hu identical | level |
+| variants | **top_heavy (of 100)** | **-0.482 ± 0.439** | DOWN |
+| | **antes_from_level_3** | **-0.060 ± 0.046** | DOWN |
+| | fast_schedule / straddle | -0.031 ± 0.034 / -0.016 ± 0.030 | level |
+
+**T3: REJECT** (realistic and two structural variants beyond noise down, all played on realistic). The table gate
+opens on 11% of realistic's unopened spots (a seat there that re-raises: pushfold, loose_aggro), and at the priors F
+then gives up the steals that pay against that room's folders (tag, timeout bots: 0.88-0.94 fold to a raise). The
+priors are too blunt where the gate leaks; the trust weight's small change is what survives a leaky gate.
+
+## 04:27: what the strong seats fold to F's own opens (steal16.py, 8800-8811 x 8, F at 724cc7f; no points)
+
+Each seat's first answer to F's first-in raise (all folded to F; F not all-in), against its long-run fold to any
+preflop raise (rival 3's read, from the recordings):
+
+| field | seat | F's opens answered | fold | call | re-raise | fold to any raise |
+|---|---|---|---|---|---|---|
+| elite | rival3 | 724 | 0.67 | 0.21 | 0.12 | 0.80 |
+| | rival1 | 743 | 0.69 | 0.23 | 0.08 | 0.76 |
+| | elite2 | 785 | 0.69 | 0.19 | 0.12 | 0.74 |
+| | elite1 | 744 | 0.73 | 0.15 | 0.13 | 0.77 |
+| | rival2 | 805 | 0.73 | 0.12 | 0.15 | 0.81 |
+| | agent_default | 838 | 0.82 | 0.15 | 0.03 | 0.86 |
+| | agent_pushfold | 897 | 0.86 | 0.07 | 0.07 | 0.87 |
+| mirror_b | elite2 | 716 | 0.71 | 0.21 | 0.08 | 0.75 |
+| | f_copy | 2,321 | 0.75 | 0.15 | 0.10 | 0.82 |
+| | elite1 | 812 | 0.76 | 0.14 | 0.10 | 0.79 |
+| | elite4 | 719 | 0.77 | 0.12 | 0.10 | 0.80 |
+| | rival2 | 680 | 0.77 | 0.09 | 0.14 | 0.82 |
+
+This measures the explanation the split suggested: against F's own opens the strong seats fold 4-13 points less
+than their pooled fold-to-a-raise read says (the agent builds 1-4), and re-raise 8-15% each. Rival 3's core prices
+each seat behind at the pooled rate, so with three strong seats behind its fold equity is overstated by about
+(0.78 / 0.70)^3 = 1.35x (the five rivals and elite builds at elite, averaged): the steal clause opens hands it
+should fold. That bias is the same at any sample size, which is
+why the trust weight (a small-sample device) recovers only a little of the `prior` arm's gain. A read of each seat's
+answer to our own first-in raises is the direct fix (open question below).
+
+## 04:30-05:05: main merged in (3f7e045), identity again, T2 on the new exploit cells
+
+The coordinator (04:28): climb_accept on main now rejects any exploit cell beyond noise down under every aim (S14
+found `--aim strong` printing ACCEPT over such cells); apply it by hand, and run exploit3_* and the new adapt_* cells.
+By hand on the screens above: T2's nine exploit cells are all level (none down); T3's too (it fails on guards and
+variants anyway). exploit3_* were already in this branch's exploit stage.
+
+Main (2403327: S14, S15, R6's adapt1 and adapt2, V-h, the climb_accept fix) merged with no conflicts; CONTRACTS.md
+current. Identity (idcheck2.py: the brief's confirm,guards on 10000:10040 and elite,exploit on 10000:10025, now with
+adapt, adapt_hu, adapt_3): **all 31 cells identical** between the merged branch with the dials off, main at 2403327,
+and (for the 28 that existed) F at 724cc7f, so F's cells were copied to the merged version (c11b90b8ae, key
+a1eef76d6f07).
+
+T2's exploit stage at the merged code (`--stages exploit --aim strong`; the REJECT line printed there is only the
+elite rule unmet, since that run had no elite stage):
+
+| cell | F | T2 | T2 - F | |
+|---|---|---|---|---|
+| the nine exploit* cells | | | the same samples as at 1b875ec (main's changes are behind dials that are off) | level |
+| adapt (adapt1, 8-max, 10/7/5/...) | 5.889 | 5.803 | -0.085 ± 0.086 | level (upper bound +0.001) |
+| adapt_hu | 8.605 | 8.620 | +0.015 ± 0.021 | level |
+| adapt_3 | 8.007 | 7.980 | -0.027 ± 0.059 | level |
+
+adapt at 8-max is the closest cell to a down call in T2's whole table; adapt1's own points are unchanged (5.106 ->
+5.101), so the 0.09 went to the other seats. Worth watching on the held-out set.
+
+Targeted suites at the merged code (s16, s12, s11, s13, s15, ship, compose x4, hybrid3, exploit x2, profiler, API
+card, mirror, adapt, climb_accept): 238 passed.
+
+## What I kept, and why
+
+- **Kept for held-out confirmation (aim strong, addendum 8): T2** = `{"r3.read_trust": 10.0, "exploit.read_trust":
+  10.0, "trust_seat_rr": 1}` on top of SHIP_DIALS, code 1b875ec or later (the branch is at the merge with main,
+  3f7e045). Screen: mirror_b up, nothing down in 31 cells (the 12 exploit cells included). Small: expect level on most
+  held-out cells; its value is that it does not cost anything measurable while trimming the core's widest steals at
+  tables that fight back. Watch adapt (8-max), exploit_hu and straddle, the three cells with upper bounds near 0.
+- **Rejected: T3** (the risk reads at their priors behind the table gate): realistic and two structural variants down.
+- **Not screened: T1** (the table gate alone): replaced by T2 under the pre-registered firing rule.
+- **Dials, all off by default:** `r3.read_trust`, `r3.read_trust_min_n`, `exploit.read_trust`,
+  `exploit.read_trust_min_n`, `trust_seat_rr`; counters `Exploit.faced_n`, `Profiler.rr_by` (feed nothing else).
