@@ -500,3 +500,79 @@ HeroTight (20 of 216); on elite, rival3 (7 of 40). That is mirror's -0.003 ± 0.
 Latency (latency.py --hand-end --reps 3 --tables 12, per-call minimum, load 4.6-4.8, F / S6, µs): exploit2_hu act
 p99 72.0 / 84.8, max 85.5 / 108.3, hand_end p99 79.2 / 85.6; mirror act p99 107.1 / 107.7, max 122.8 / 145.5. Full
 suite at 81afd88: 1,257 passed, 1 skipped.
+
+# S13c: a stricter exploiter gate (branch climb/s13c-gate, from main a2a7bf6)
+
+S6 passed its held-out test (H16), but batch 6 (V-f + S6 + V-h + S15c) failed the judges: the `outside` cell -0.003 ±
+0.003 on the judge set, pooled with a fresh judge-seed replicate -0.0032 ± 0.0021 (addenda 12-13). Every judge field is
+plain hold'em and only S6 and S15c act there, so one or both fire against bots they should not. No judge bot or judge
+field is looked at here: the audit uses the tuning fields only (night, night_hard, realistic, top, elite, elite_night,
+elite_b, mirror, mirror_b, and the 12 exploit and adapt cells).
+
+## The audit (scratch audit.py, fresh seeds 3400-3419 x 8 in every field)
+
+Hero's seat holds F and S6 side by side: F's action is played, S6 is asked the same question (so the gate's reads,
+which are F's profiler's on F's own trajectory, are exact; S6's answer is compared with F's). Where the gate is
+closed the two never differ (0 of 21,056), so the side-by-side play does not drift.
+
+Against every seat that is not exploiter 1, 2, 3 or adapt1, over all tuning fields: **the gate opened on 76 of 21,056
+heads-up decisions (0.36%) and changed 35**. Every opener:
+
+| field | seat | heads-up decisions | gate opens (pre / post) | decisions changed |
+|---|---|---|---|---|
+| elite_night | elite2 | 493 | 24 (2 / 22) | 8 |
+| elite | elite2 | 240 | 7 (1 / 6) | 2 |
+| elite_b | elite2 | 137 | 1 (0 / 1) | 1 |
+| top | hero_tight | 219 | 11 (0 / 11) | 5 |
+| mirror_b | elite4 | 97 | 9 (0 / 9) | 7 |
+| mirror_b | f_copy | 162 | 6 (4 / 2) | 3 |
+| mirror | f_copy | 256 | 5 (1 / 4) | 4 |
+| night | maniac | 17 | 9 (0 / 9) | 2 |
+| exploit2 | rival2 | 305 | 4 (0 / 4) | 3 |
+
+No opening at all in night_hard, realistic, adapt, adapt_3, exploit, exploit_3, exploit2_3, exploit3, exploit3_3
+(their pool seats). Against the exploiters: exploiter 2 heads-up 2,459 of 4,533 (962 changed), three-handed 673 of
+1,842 (297), 8-max 76 of 277; exploiter 1 heads-up 57 of 4,457, 8-max and three-handed 0; exploiter 3: 6 in all; adapt1
+183 (8-max and three-handed), 0 heads-up.
+
+Reads at the gate's openings (median [p10, p90]):
+
+| field | seat | probe | bet | pfr | vpip |
+|---|---|---|---|---|---|
+| exploit2_hu | exploiter 2 | 1.00 [0.92, 1.00] | 0.72 [0.65, 0.80] | 0.54 [0.48, 0.59] | 0.76 [0.70, 0.83] |
+| exploit2_3 | exploiter 2 | 1.00 [0.94, 1.00] | 0.77 [0.66, 0.82] | 0.38 [0.27, 0.46] | 0.51 [0.39, 0.65] |
+| exploit2 (8-max) | exploiter 2 | 1.00 | 0.79 | 0.21 [0.17, 0.28] | 0.28 [0.23, 0.37] |
+| elite_night / elite | elite2 | 0.89 / 0.88 | 0.77 / 0.79 | 0.27 / 0.27 | 0.43 [0.40, 0.45] / 0.41 [0.37, 0.45] |
+| mirror_b / mirror | f_copy | 0.88 / 1.00 | 0.61 / 0.80 | 0.33 [0.23, 0.34] / 0.25 | 0.44 [0.31, 0.45] / 0.31 |
+| mirror_b | elite4 | 1.00 | 0.72 | 0.20 | 0.31 |
+| top | hero_tight | 1.00 | 0.68 | 0.20 | 0.28 |
+| exploit2 | rival2 | 1.00 | 0.76 | 0.23 | 0.32 |
+| night | maniac | 1.00 | 0.78 | 0.65 | 0.91 |
+
+The probe read cannot do it alone (offline, on the audit's recorded reads, S6's openings filtered by each rule): a
+stronger probe (smoothed with 6 pseudo-chances, >= 0.80) brings the ordinary openings to 0 but keeps only 32% of
+exploiter 2's heads-up openings and 24% three-handed; >= 0.75 with 6 keeps 57% / 50% and still opens 13 times
+(elite2, maniac). What separates them is the table-long preflop looseness: the ordinary openers are 8-max seats whose
+lifetime frequencies sit at vpip 0.28-0.44 and pfr 0.20-0.33, exploiter 2 heads-up at 0.76 / 0.54 and three-handed
+0.51 / 0.38; the one loose opener is the night maniac (0.91 / 0.65), a clear leak F's maniac reads take.
+
+| rule on top of S6 | ordinary openings | exploiter 2 kept: heads-up / three-handed / 8-max | exploiter 1 / adapt1 |
+|---|---|---|---|
+| vpip 0.40-0.85, pfr >= 0.30 | 7 (elite2 2, f_copy 5) | 95% / 81% / 5 of 76 | 57 / 47 |
+| vpip 0.45-0.88, pfr >= 0.30 | 2 (elite2, f_copy) | 99% / 73% / 0 | 57 / 29 |
+| **vpip 0.50-0.88, pfr >= 0.30** | **0** | **99% / 58% / 0** | 57 / 29 |
+| vpip 0.50-0.88, pfr >= 0.25 | 0 | 99% / 58% / 0 | 57 / 32 |
+
+Margin: the looseness part alone passes 527 of the 21,056 ordinary checks (rival3 at most of them: a loose table
+read, but it does not probe) and S6's probe / bet part alone 76; none passes both.
+
+**Thresholds fixed from this audit, before the screen** (bd79f81): vpip between 0.50 (above every ordinary opener's
+p90 of 0.45) and 0.88 (below the maniac's 0.91, above exploiter 2's heads-up p90 of 0.83), pfr >= 0.30 (above the
+ordinary openers' medians of 0.20-0.27, below exploiter 2's three-handed median 0.38), on top of S6's probe >= 0.75,
+bet >= 0.60 and `pre_open_min` 0.65. The price: the 8-max exploit2 openings (where the gain was +0.012 on the screen
+set) and about 40% of the three-handed ones (the first hands of a three-handed table, before exploiter 2's table read
+has gone loose).
+
+S7 = `{"short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short", "short.pre_roles": "bb",
+"short.pre_open_min": 0.65, "short.like_probe": 0.75, "short.like_bet": 0.6, "short.like_pfr": 0.3,
+"short.like_vpip_min": 0.5, "short.like_vpip_max": 0.88}`.
