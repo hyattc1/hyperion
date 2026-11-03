@@ -260,3 +260,13 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
 - 17:15 **GX** (G with table 3c, the pessimistic fit), partial (exploit3_3 and adapt cells still running): elite
   +0.017, elite_b +0.047 UP, mirror +0.022 UP, mirror_b +0.041 UP, elite_night -0.011; exploit_3 -0.434 ± 0.206 DOWN,
   exploit -0.126 ± 0.071 DOWN. The pessimistic realization alone does not hold exploiter 1.
+- 17:19 **GX** final (`q/025_GX100.out`): **REJECT**. elite +0.017, elite_b +0.047 ± 0.023 UP, mirror +0.022 ± 0.016
+  UP, mirror_b +0.041 ± 0.023 UP, elite_night -0.011; exploit3 +0.071 ± 0.049 UP; exploit_3 -0.434 ± 0.206, exploit
+  -0.126 ± 0.071, adapt -0.056 ± 0.047 DOWN; exploit2 -0.034, exploit2_3 -0.051, exploit3_3 +0.052, adapt_3 +0.002
+  level. The pessimistic table moves the strong cells a little (mirror up) but does nothing against exploiter 1 on
+  its own; F's defence (GK) is what holds there.
+- 17:20 At 8-max exploit2 (diagnostic seeds 11000-11079, F and GK): points 6.074 / 6.065; three-handed with
+  exploiter 2 alive GK -0.018 bb a hand against F +0.039 (3,688 / 3,732 hands; the tables play 19% of our preflop
+  decisions), with two pool seats +0.410 against +0.388. Small either way on these seeds (the screen's -0.047 ±
+  0.030 is near its bound); exploiter 2's 3-bet read (0.08) does not separate it, and its postflop probe read is
+  S13c's gate (being changed on climb/s13c-gate), so it is not used here.
