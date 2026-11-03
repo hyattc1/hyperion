@@ -1119,3 +1119,17 @@ and (in judges) `elite_judge`.
   at hand 150 with three or more alive; F scores 5.87 on night's late tables (5.97 overall), is out of 36% of them by
   hand 150, and a third of its remaining seats bust in the last 50 hands (realistic 19%, top 55%, elite 56-73%).
 - Merge conflicts with S16 and V-i kept both. Identity after the merge: 14 cells identical.
+
+## 10:05: S16b merged (the open-answer read; off); O3 near-miss, O4 screening
+- Survey (228,397 answers to F's first-in raises, nine fields): strong seats fold 0.67-0.75 to F's opens, 4-9 points
+  under their pooled fold-to-a-raise; position matters more than the seat (big blind 0.57-0.60 at strong fields,
+  realistic 0.80). Priors fixed from the survey: 0.866 (not a blind), 0.815 (SB), 0.668 (BB); estimator chosen
+  offline by Brier score (table rate by position + the seat's excess).
+- O1 (replace) rejected (top, elite_night down; the run was cut by the box's OOM killer at 12 of 28 cells); O2
+  (lower only) gave the strong-table gain but lost short-handed and on straddle. O3 = O2 with four or more alive and
+  off on straddle tables (post-hoc): mirror +0.105 ± 0.083, mirror_b +0.197 ± 0.092, night_hard +0.085, exploit3
+  +0.131 UP; antes_from_level_3 -0.060 ± 0.051 DOWN (the lone cell down); realistic-room cells lean -0.03 to -0.06.
+- O4 = O3 + oa_st 10 (one value, fixed now) on the screen, then the better one to a held-out set.
+- Memory: one OOM kill on the box earlier (a 2.5 GB python; the owner's browser sessions and other Claude sessions
+  share the 15 GB); 8 GB available now.
+- Identity after the merge: 14 cells identical.
