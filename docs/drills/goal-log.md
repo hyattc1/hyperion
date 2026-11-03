@@ -897,3 +897,17 @@ and (in judges) `elite_judge`.
 - Identity after the merge: 15 cells identical.
 - Candidate {"hero.known_cards": "pre"} on H18 (38000-38399): variants exposed_card at 400 seeds and generic aware
   exposed_card (the only catalog entry it changes).
+
+## 02:37: V-h accepted on H18; R6 merged (adapt1); the held-out adaptive copy commissioned
+- V-h on H18 (38000-38399), base batch 5, exposed_card at 400 seeds: realistic +0.162 ± 0.048, generic aware +0.213 ±
+  0.057 UP. ACCEPT (no other catalog entry changes with the dial; plain hold'em identical). H18 used once. Batch 6 so
+  far: V-f (H15), S6 (H16), V-h (H18).
+- R6 merged (adapt1: a sound bot that counts each seat's tendencies and switches counters on from hand 31). Against F
+  on the screen set, the counters gain +0.48 (8-max), +0.41 (heads-up), +0.52 (three-handed) over its counters-off
+  twin; F still wins all three (5.89 vs 5.11, 8.61 vs 8.40, 8.01 vs 7.66). It found: F folds 80-90% to a bet after
+  checking (S15's target), and F's small bets show weak (0.28-0.32 strength at showdown against 0.75-0.78 for large
+  ones) and fold 80-100% to a raise (S17's target). tools/adapt_curve.py measures any adapter's learning curve.
+- Held-out adaptive copy (addendum 9): a fresh agent with no repo access (goal/adapt2) builds an adaptive bot against
+  five anonymous strong targets (F, rival 2, elite 4, rival 3, hybrid3_x; the letter-to-bot map sits outside its
+  folder), counters only from observed tendencies, a running notebook. It becomes `adapt_judge*`, never tuned on.
+- Exploit-field replay test marked timing (Hero's panic reads the wall clock under load; R6's note).
