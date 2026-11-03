@@ -194,3 +194,12 @@ the kit's simulator, and the drill's adapter has twin_hole.
 - Item 1, finished: the literal question "won: chips collected or net change?" now stands in all eight templates (the
   three entry templates, the event player, the adapter, the three gate seats; the entry templates with both
   formulas), and a test holds every `*template*.py` in hyperion/drills to it.
+- The night subset on the final tree (153 tests, the six doc tests and the template test added): 25.2 s wall at
+  load 15.
+- Full suite, `pytest -q -p no:cacheprovider -m "not timing"` at load 15-18: 1358 passed, 2 skipped, 7 failed in 22.7
+  min. All seven are wall-clock bound and fail on main too, rerun three times on each tree at load 11-17:
+  test_drills_run's auto drills (toss_or_holdem-c, short_deck-b; on main swap_holdem-a, toss_or_holdem-c) and seeded
+  pick, test_gate's kit D table (kit D's pooled clock; 1 of 4 alone on main) and gate-table-equals-sim-table check,
+  test_sim_timeout_model's replay (the governor's wall clock), test_sim_rival4's timeout rate (1.10% against 1%, under
+  the suite's load only). At load 11-12 the auto drills passed 3 of 3 here, 2 of 3 on main. Not marked `timing` in this
+  pass (not asked; noted for whoever owns those files).

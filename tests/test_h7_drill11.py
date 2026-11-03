@@ -758,7 +758,7 @@ def test_the_checker_rule_on_a_loaded_box_is_stated():
 
 def test_the_night_subset_is_marked_and_has_no_timing_test():
     """Item 4: `pytest -m night` collects the adapter, conformance, pack, switch and template tests (about a minute at
-    load 18: 147 tests, 49-52 s at load 17-20 on this box) and no wall-clock test; prompts 00 and 02 run it."""
+    load 18: 153 tests, 25-52 s at load 15-20 on this box) and no wall-clock test; prompts 00 and 02 run it."""
     import subprocess
 
     def collect(expr: str) -> list[str]:
