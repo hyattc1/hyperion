@@ -798,7 +798,7 @@ class CompositeCore:
         if self._oa_core is not None:
             from ..strategy.hero import holdem_table
 
-            self.ex.open_fold = self._oa_core.oa_fold if holdem_table(rules) else None
+            self.ex.open_fold = self._oa_core.oa_fold if holdem_table(rules) and not rules.straddle else None
 
     def _trust_gate(self, obs: Observation) -> None:
         """S16: mark, before a preflop decision, the seats whose steal reads take the trust weight (module doc)."""

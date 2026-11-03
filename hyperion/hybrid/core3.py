@@ -216,7 +216,9 @@ class Rival3Core(R3.Bot):
                         "n_players": n_players, "blinds": rules.blind_levels}, seat, n_players)
         self.payouts = tuple(rules.payouts)
         self.holdem = holdem_table(rules)  # v3_bvb_holdem_only reads it
-        self._oa_h = self.holdem  # S16b: the open-answer read plays hold'em tables only
+        # S16b: the open-answer read plays hold'em tables only, and not with a straddle (posted outside the history:
+        # the read cannot tell a first-in raise there, and the straddler answers from a blind's seat)
+        self._oa_h = self.holdem and not rules.straddle
         lin = _linear_from([float(p) for p in self.payouts])
         self.exact_icm = lin is None or lin[2] > 2
         self.soft_us = float(cfg.soft_us)

@@ -125,3 +125,12 @@ def test_min_alive_keeps_short_handed_steals_as_built():
     names = ["hero", "rival1", "rival2"]
     assert _digest(gated, 1, names, r)[0] == _digest({}, 1, names, r)[0]  # never four alive: F's own play
     assert any(_digest(gated, t)[0] != _digest({}, t)[0] for t in range(3))  # eight-handed it still reads
+
+
+def test_straddle_tables_play_as_f():
+    d = {**ON, "r3.oa_cap": True, "exploit.open_cap": True}
+    r = Rules(straddle=2)
+    for t in range(2):
+        h, bot = _digest(d, t, rules=r)
+        assert h == _digest({}, t, rules=r)[0]
+        assert bot.core.ex.open_fold is None
