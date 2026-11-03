@@ -109,3 +109,28 @@ as well as lowering it for late ones, and the `prior` arm's gain came from steal
 = O1 + `{"r3.oa_cap": true, "exploit.open_cap": true}`: the open-answer read only lowers a seat's fold read (min of
 the two), S16's one-sided rule, which kept T2's guards level. Code da609e3; O1 plays identically under it. Screened
 after O1's table, the same stages; the held-out set decides, not this screen.
+
+## 06:06-06:39: O1's screen (code bc8f723, version 7dd316b7d4; screen 10000-10199 x 8), stopped part-way
+
+`climb_accept --cand '{"dials": {"r3.oa_read": true, "exploit.open_read": true}}' --set screen --stages
+confirm,guards,elite,exploit,variants --variants top_heavy,antes_from_level_3,fast_schedule,straddle --variant-seeds 200
+--aim strong`. The run was killed from outside between 06:16 and 06:39 (the host's OOM killer fired at that time on
+another process; this queue's shell went with it), after 12 of its 28 cells. Its cached chunks, O1 - F paired:
+
+| cell | O1 - F | |
+|---|---|---|
+| night | -0.001 ± 0.083 | level |
+| night_hard | +0.074 ± 0.097 | level |
+| realistic | +0.034 ± 0.074 | level |
+| **top** | **-0.096 ± 0.094** | DOWN |
+| night @10/7/5..., @50/25/12..., doubling | +0.054 ± 0.134, +0.458 ± 0.912, +0.011 ± 0.073 | level |
+| elite | -0.090 ± 0.095 | level |
+| **elite_night** | **-0.120 ± 0.085** | DOWN |
+| mirror | -0.048 ± 0.097 | level |
+| elite_b | -0.029 ± 0.101 | level |
+| mirror_b (50 seeds) | +0.140 ± 0.219 | level |
+| exploit, variants | not reached | |
+
+**O1: REJECT** (top and elite_night beyond noise down; the strong fields' point estimates negative). Not re-run: two
+cells are already down at 200 seeds. The more accurate read makes F worse at strong tables, where the brief wanted the
+gain. The intervals (± 0.08-0.10, against T2's ± 0.04-0.05) show it changes many decisions.
