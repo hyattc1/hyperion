@@ -169,3 +169,21 @@ re-run them on other seeds (that would be choosing seeds after the fact).
 
 The run was then reordered (goal/s18/screen3.sh, detached): the 150-hand cap on confirm and guards, then the three
 named variants, then the whole catalog.
+
+### 3.3 s2: the 150-hand cap (`--rules docs/drills/climb/rules/cap150.json --stages confirm,guards --late`)
+
+The guard file caps the table at 150 hands; the late checkpoint is then hand 100 (50 before the cap). The doubling cell
+keeps its own rules file, so it is s1's.
+
+| cell (cap 150) | F | horizon | horizon - F | | late tables F/hz | hz - F on F's late tables |
+|---|---|---|---|---|---|---|
+| night | 5.870 | 5.877 | +0.007 ± 0.037 | level | 1510/1507 | +0.007 ± 0.039 |
+| night_hard | 5.429 | 5.413 | -0.016 ± 0.041 | level | 1558/1556 | -0.019 ± 0.042 |
+| realistic | 6.182 | 6.183 | +0.001 ± 0.030 | level | 1526/1527 | +0.002 ± 0.031 |
+| top | 5.089 | 5.081 | -0.008 ± 0.045 | level | 1591/1590 | -0.008 ± 0.045 |
+| night @10/7/5/... | 5.908 | 5.928 | +0.019 ± 0.052 | level | 1505/1501 | +0.019 ± 0.055 |
+| night @50/25/12/... | 22.661 | 22.542 | -0.119 ± 0.356 | level | 1505/1503 | -0.129 ± 0.378 |
+
+With the cap at 150, 94-99% of tables are still three-or-more-handed at hand 100, so nearly every table ends at the
+cap and the horizon is in play for its whole last stretch; still nothing moves. F at hand 100: alive 73-81%, busting
+18-34% of those seats in the last 50 hands.
