@@ -1177,3 +1177,20 @@ and (in judges) `elite_judge`.
   exploiter-like seats and close to never against others, then screen, a fresh held-out set and the next batch's
   judges (fresh judge seeds 30800-31199).
 - Batch 6's four-part H20 run was stopped (moot); start-vs-now resumed.
+
+## 13:37: batch 6 (V-f + V-h) accepted on H21 and frozen (91014ae)
+- H21 (41000-41399), batch 5 + V-f + V-h against batch 5, variants and aware, --identical holdem, the runout term:
+  exposed_card +0.216 ± 0.068, knockout_bounty +0.111 ± 0.092, bounty_aware +0.026 ± 0.024 UP; swap_holdem +0.051,
+  swap_one_turn +0.031, bonus_card -0.013, toss_aware -0.005 level; 19 cells identical. None down. ACCEPT. H21 used
+  once. Weighted +0.0049 ± 0.0053, cap holds.
+- climb/batch6b (V-f's three dials and V-h's known_cards in SHIP_DIALS, BATCH6_OFF) merged into main (91014ae).
+  Digests identical with BATCH6_OFF on plain and 13 variants; heads-up identical; identity after the merge 14 cells
+  identical. Tests that pinned the old defaults take BATCH6_OFF; the full suite passes (two wall-clock kit
+  round-trips failed at load 10, pass alone).
+- Frozen frozen/B6-91014ae, kit B zip a66eb4b3 (1.1 MB, V-h's tables in); gate pass plain +0.274 ± 0.579,
+  exposed_card +0.150 ± 0.560, knockout_bounty -0.816 ± 0.904, 0 exceptions, 0 illegal, 1.4-1.5% timeouts at load
+  9-10 on package and sim copy alike (load clause). Per-call minimum: exposed_card act mean 36 -> 42 µs.
+- No judge run: every judge field is plain hold'em, where batch 6 is identical. Decisions entry "The climb: batch
+  6", leaderboard row, HANDOFF, RESUME.
+- The chain runs C3 on H22, V-i on H23, O3 on H24 (addendum 13 named H21-H23; batch 6 took H21), each against
+  batch 5 + V-f + V-h = batch 6. S13c and S15d in their screens.

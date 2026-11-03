@@ -1,18 +1,12 @@
 # Resume here (the climb, if the session or usage stops)
 
-Updated 2026-11-03 12:35 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
-through 13). Main is pushed after every merge. F as it ships is still batch 5 (frozen/B5-3aac34d, kit B zip
-cbf2ccb3; SHIP_DIALS in hyperion/compose/bot.py).
+Updated 2026-11-03 13:37 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
+through 13, then "The climb: batch 6"). Main is pushed after every merge. F as it ships is batch 6 (91014ae,
+frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BATCH6_OFF plays batch 5).
 
-## Batch 6 (not yet frozen)
-- The four-part batch 6 failed the judges (addendum 12: outside, pooled -0.0032 ± 0.0021). Batch 6 is now
-  V-f (H15) + V-h (H18), twist-only, identical on every judge field by construction: /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal/b22/b6p.json.
-- Its combined check: H21, variants and aware, --runout-term: output /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal/b22/b6p_h21.md (ends "done").
-- To freeze when H21 accepts: on climb/batch6 (worktree /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal/wt_b6, SHIP_DIALS holds all four parts) remove S6's and
-  S15c's dials from SHIP_DIALS and from BATCH6_OFF's tests, or rebuild the branch with V-f and V-h only; re-run the
-  digest proof (BATCH6_OFF plays batch 5) and the tests; merge; tools/pack.py --slim and tools/gate.py --kit b
-  --tables 40; decisions entry, leaderboard, HANDOFF, log (batch 5's entry is the template). No judge run is needed:
-  every judge field is plain hold'em, where V-f and V-h are identical (say so in the entry).
+## Batch 6 (frozen 2026-11-03 13:37)
+- V-f (H15) + V-h (H18), twist tables only; H21 ACCEPT (exposed card +0.216, knockout bounty +0.111, bounty-aware
+  +0.026 up, none down). Gate pass plain, exposed_card, knockout_bounty. Nothing left to do for it.
 
 ## Queued, detached (/tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal/b23/chain.sh, runs after H21; each against batch 5 + V-f + V-h, --runout-term)
 - S17's C3 (one stab size with three or fewer alive) on H22: /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal/b23/c3_h22.md

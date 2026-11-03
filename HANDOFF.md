@@ -8,18 +8,20 @@ is either committed or named as lost-if-killed.
 **The climb is running** (since 2026-11-01 20:20 ET; brief `docs/prompts/goal.md`, plan and frozen protocol
 `docs/drills/goal-plan.md`, running log `docs/drills/goal-log.md`, one-page leaderboard `docs/drills/goal-leaderboard.md`;
 our regional is Pittsburgh, Nov 12; it stops by Nov 11 18:00 ET). The ship bot is still the composite F
-(`hyperion/ship.py`: `SHIP = "composite"`, `DIALS = {}`), now batch 5 (3aac34d, SHIP_DIALS in
+(`hyperion/ship.py`: `SHIP = "composite"`, `DIALS = {}`), now batch 6 (91014ae, SHIP_DIALS in
 hyperion/compose/bot.py): the governor (batch 2), variant play (batch 3), the 3-bet defence and kit fixes (batch
-4), and batch 5's strong-table route (elite1 plays opened pots preflop at tables that re-raise), the bet-size read,
-the second exploiter's fixes (hold'em only) and twist play against twist-aware bots. Held-out against batch 4:
-night +0.096, mirror +0.241, every exploit cell up. F is first on every judge field and first in the elite room.
-Open gaps: exploiter 2 still wins heads-up (9.20 to 7.80) and three-handed (8.23 to 7.35): the short-handed
-specialist (S13, `short_route`, off) is in held-out confirmation; V-f's per-family twist dials (off) too.
-`BATCH5_OFF` (compose/bot.py) plays batch 4 from this tree. Every measurement of F goes through `tools/climb_accept.py`
+4), batch 5's strong-table route (elite1 plays opened pots preflop at tables that re-raise), the bet-size read,
+the second exploiter's fixes (hold'em only) and twist play against twist-aware bots, and batch 6's twist-only parts:
+batch 5's hold'em gains carried to the twist families they help (V-f) and cards an opponent is known to hold priced
+heads-up (V-h). Held-out: batch 5 against batch 4 night +0.096, mirror +0.241, every exploit cell up; batch 6 against
+batch 5 exposed card +0.22, knockout bounty +0.11, plain hold'em identical. F is first on every judge field and first
+in the elite room. Open gaps: exploiter 2 still wins heads-up (9.20 to 7.80) and three-handed (8.23 to 7.35): the
+short-handed specialist (S13, `short_route`, off) is back with its builder for a tighter gate. `BATCH6_OFF` plays
+batch 5 and `BATCH5_OFF` batch 4 from this tree (both together for batch 4). Every measurement of F goes through `tools/climb_accept.py`
 (never `tools/swap.py paired` specs, which skip SHIP_DIALS); `--aim exploit|strong` for the addenda 6 and 8 rules.
 Frozen fallback zips are in `frozen/` (git-ignored), listed with their sha256 in the leaderboard. Fallbacks are one word
 away: `python -m hyperion.ship --bot hybrid3_x` or `--bot hero`. Decisions entries: "The climb: protocol addenda and
-batches 1-2", "The climb: batch 3 (variant play) and addenda 7-8", "The climb: batch 4", "The climb: batch 5". Workers run on `climb/*` branches in worktrees under the session scratchpad; the coordinator merges.
+batches 1-2", "The climb: batch 3 (variant play) and addenda 7-8", "The climb: batch 4", "The climb: batch 5", addenda 9-13, "The climb: batch 6". Workers run on `climb/*` branches in worktrees under the session scratchpad; the coordinator merges.
 
 History: Hero was tuned to finish first against every field we wrote, then a red-team rival built blind beat it; the
 plan changed to choosing the best core behind Hero's shell (below), and then to combining the best sections.
