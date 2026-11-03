@@ -1082,5 +1082,5 @@ and (in judges) `elite_judge`.
   whatever the size). C3 = {"exploit.stab_size": true, "exploit.stab_alive": 3} (one size only with three or fewer
   alive; chosen on dev seeds and fixed before its screen, a disclosed deviation): screen exploit2_hu +0.247 ± 0.125,
   exploit2_3 +0.117 ± 0.107, adapt_hu +0.203 ± 0.126 UP; every other cell level (realistic +0.006).
-- Merge conflicts with S16 kept both sides. Identity after the merge: running. C3 goes to H21 (41000-41399) against
-  batch 6 once batch 6 is decided.
+- Merge conflicts with S16 kept both sides. C3 goes to H21 (41000-41399) against
+  batch 6 once batch 6 is decided. Identity after the merge: 15 cells identical.
