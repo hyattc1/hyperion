@@ -183,6 +183,7 @@ class ShortParams:
         # Off by default; `three2` wins over `three` where both are on
         self.three2 = False
         self.three2_file = "3b"  # the table: tables/extra/short_<three2_file>.json
+        self.three2_roles = "btn,sb,bb"  # ... the three-handed seats it plays (a hand's seat: F plays the others)
         for k, v in kw.items():
             if not hasattr(self, k):
                 raise KeyError(f"unknown short dial {k!r}")
@@ -200,6 +201,8 @@ class ShortMember:
         self.seed = 0 if seed is None else int(seed)
         self.defer = frozenset(x.strip() for x in str(self.p.defer).split(",") if x.strip())
         self._roles = frozenset(x.strip() for x in str(self.p.pre_roles).split(",") if x.strip())
+        self._roles3 = frozenset({"btn": 0, "sb": 1, "bb": 2}[x.strip()] for x in str(self.p.three2_roles).split(",")
+                                 if x.strip())
         self._fo = [0] * 12  # our heads-up opens per big blind seat ...
         self._ff = [0] * 12  # ... and its folds to them
         self._prof = None
@@ -322,7 +325,7 @@ class ShortMember:
                 return True
             if len(alive) == 3 and self.t3b is not None:
                 got = self._three_node2(obs)
-                return got is not None and got[4] <= self.p.three_max * (obs.blinds[1] or 1)
+                return got is not None and got[3] in self._roles3 and got[4] <= self.p.three_max * (obs.blinds[1] or 1)
             if len(alive) == 3 and self.t3 is not None:
                 got = self._three_node(obs)
                 return got is not None and got[4] <= self.p.three_max * (obs.blinds[1] or 1)
