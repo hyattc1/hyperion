@@ -1295,7 +1295,7 @@ and (in judges) `elite_judge`.
   Play digests (3 tables each, the room of digest_cmp): ungated C3 differs from batch 6 on exposed_card,
   knockout_bounty, swap_holdem and auction.
 - C3h: `exploit.stab_holdem_only` (off by default; climb/c3h merged, 9bfb415): the one size on plain hold'em tables
-  only. Digests identical to batch 6 on all 13 sampled twists; tests. Chosen from where C3 gained (plain hold'em
+  only. Digests identical to batch 6 on all 13 sampled twists; tests; identity after the merge 14 cells identical. Chosen from where C3 gained (plain hold'em
   exploit cells) and where it lost (a twist), as Z3's hold'em gates were after H9; it needs a fresh held-out set:
   C3h on H28 (48000-48399) against batch 6, --aim exploit, every stage, twists identical (goal/b26/chain4.sh, after
   S15e's H26).
