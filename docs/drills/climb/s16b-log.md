@@ -228,3 +228,11 @@ O3's 8-max exploit cells (`EXPLOIT_CELLS=exploit,exploit2,exploit3,adapt oaccept
 | exploit2 | 5.844 | 5.891 | +0.047 ± 0.131 | level | 5.086 / 5.001 |
 | **exploit3** | 5.471 | 5.602 | **+0.131 ± 0.126** | UP | 5.306 / 5.173 |
 | adapt (adapt1) | 5.889 | 5.864 | -0.024 ± 0.123 | level | 5.106 / 5.083 |
+
+O3's structural variants (realistic, 200 seeds; straddle is F's by construction, checked below):
+
+| cell | F | O3 | O3 - F | | O2 |
+|---|---|---|---|---|---|
+| **antes_from_level_3** | 6.496 | 6.436 | **-0.060 ± 0.051** | DOWN | -0.062 ± 0.052 |
+| fast_schedule | 6.122 | 6.077 | -0.045 ± 0.052 | level | -0.048 |
+| top_heavy (of 100) | 28.654 | 28.274 | -0.380 ± 0.634 | level | -0.289 |
