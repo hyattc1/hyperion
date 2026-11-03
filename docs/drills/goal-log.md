@@ -1248,3 +1248,18 @@ and (in judges) `elite_judge`.
   of its three-handed one. ACCEPT on the screen.
 - climb/s13c-gate merged (3295488; the dials off; identity after the merge: 14 cells identical). S7 queued on H25 (45000-45399) against batch 6, --aim exploit,
   every stage, after the b23 chain (goal/b24/chain2.sh). If accepted it needs the next batch's judges (30800-31199).
+
+## 16:22: S15d's S15e (the stab read gated by lead and free-bet rates) passes the screen; merged (off); queued on H26
+- Audit on tuning fields (seeds 11000-11099, about 6,800 tables): S15c's stab read acted 53 times against ordinary
+  seats (rival 1-3, elite1, elite2, a loose student, F copies), changing 26 folds to calls, mostly against value.
+  Exploiter 3 bets right after F checks but rarely otherwise: its other free bets (lead rate) 0.20 median against
+  0.37-0.65 for ordinary seats; preflop raise rate 0.48 against 0.30-0.42.
+- S15d (raise rate 0.35 or more, lead rate 0.4 or less): ordinary, strong and variant cells identical, but exploit_hu
+  -0.060 ± 0.059 corrected (raw +0.037). S15e adds an overall free-bet rate cap of 0.5 (exploiter 1 bets 0.75 of those
+  chances, exploiter 3 0.40), fixed before its screen: 3 acts against non-exploiters in the re-audit (one elite1 hand).
+- S15e screen (10000-10199, --aim exploit, runout term, twists identical by its hold'em gate): exploit3_hu +0.118 ±
+  0.074 and exploit3_3 +0.027 ± 0.026 UP; exploit_hu -0.001 ± 0.007 and every other exploit and adapt cell level;
+  confirm, guards, elite cells and four plain-table variants level or identical; weighted +0.0007 ± 0.0009. ACCEPT on
+  the screen. Three-handed it keeps about a third of S15c's gain (a heads-up-only rate is untested).
+- climb/s15d-gate merged (be9d8bf; dials off). S15e queued on H26 (46000-46399) after S7's H25 (goal/b25/chain3.sh).
+  S7 and S15e each need their own held-out acceptance, then a combined check and the judges (30800-31199) as batch 7.
