@@ -1310,7 +1310,7 @@ and (in judges) `elite_judge`.
 - V-j merged (9d871f2; dials off): the engine's extras `settle: "street"` and `no_runout`, the catalog entry
   tranche_holdem (our 8..1 points; kit I's in docs/drills/drill11/rules_tonight.json), aware opponents (tranche_tag,
   tranche_pushfold, tranche_mc), F's dials `tranche_twin` and `hero.tranche` (now, sunk, allin). Plain hold'em and
-  every other entry identical on V-j's branch (40 of 40 chunks). Screen: no candidate beyond noise; c6 (twin, now,
+  every other entry identical on V-j's branch (40 of 40 chunks); identity on main after the merge 14 cells identical. Screen: no candidate beyond noise; c6 (twin, now,
   sunk, early claim 0.25, chosen among five weights on the screen) +0.094 / +0.051 / +0.044 (realistic, aware,
   generic aware), kit sim +0.28 over 1,200 unpaired tables. c6 on H29 (49000-49399): tranche cells at 400 seeds,
   hold'em identical (goal/b27/c6_h29.md).
