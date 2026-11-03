@@ -20,6 +20,40 @@ Scratch tools (session scratchpad `goal/s17/`, measuring devices, never shipped)
   what its size counter averages), the answers (fold / call / raise) and F's answer to a raise. Preflop first-in
   raises: size in bb, the hand's percentile (top x of 1,326 combos by Hero's tables.rank), the answers.
 
+## Findings
+
+1. **F's two postflop sizes name the hand** (survey of F's bets by source, seeds 8200-8239, all 12 exploit cells,
+   the five strong tables and night; run 1). The layer's stab is 32-54% of F's heads-up bets, always 0.33 pot, mean
+   tier 1.1-1.4, 48-64% air, never two pair or better (adapt1's own strength measure 0.28-0.32). Hero's bets are one
+   0.5 size, tier 3.0-4.6, 0-28% air, 20-40% two pair or better (0.52-0.69). Exploiter 2 raises 93% of the stabs
+   heads-up and 34% three-handed, exploiter 1 46% heads-up; F folds 71-99% of those raises. Rival 3's core bets only
+   preflop in F (postflop is Hero's).
+2. **The steal's 2.0 bb is not read** (run 3). It always carries a hand rival 3's core folds (mean percentile
+   0.77-0.94), against rival 3's 2.2 / 2.4 / 2.45 bb opens. But the same steals at 2.4 bb meet the same re-raise rates
+   in every spot (strong tables 0.17 / 0.17 small blind, 0.21 / 0.20 button, 0.22 / 0.23 heads-up; adapt1 0.18 /
+   0.18; exploiter 1 0.35 / 0.35): the size only trades calls for folds. Left as it is.
+3. **One size at every table (C1, `exploit.stab_size`) closes the tell and fails a guard** (run 7, screen). With it,
+   97-100% of F's heads-up bets are one size; raises of the stab drop from 93% to 1% (exploiter 2 heads-up), 46% to
+   3% (exploiter 1), 9% to 3% (adapt1); the larger stab is folded to more by price-reading seats (night 0.54 -> 0.61,
+   mirror 0.47 -> 0.67). Screen: exploit2_hu +0.247 ± 0.125, exploit2_3 +0.117 ± 0.107, adapt_hu +0.203 ± 0.126 (all
+   up), exploiter 1 level, night +0.043 ± 0.064, but **realistic -0.078 ± 0.059 (down): REJECT**. realistic's Monte
+   Carlo, loose and push/fold seats fold as often to 0.5 as to 0.33 (run 8), so there the larger stab only costs more.
+4. **The one size at three players or fewer (C3: `exploit.stab_size` + `exploit.stab_alive` 3) keeps the gains and
+   passes** (runs 10-11). A dev set (9000-9199) chose it over a higher fold bar for the larger stab (C2,
+   `stab_min_fold` 0.48, which lost the gains). Screen: exploit2_hu **+0.247 ± 0.125**, exploit2_3 **+0.117 ± 0.107**,
+   adapt_hu **+0.203 ± 0.126** (up, C1's numbers seed for seed); exploit_hu +0.045, exploit_3 +0.017, exploit +0.004
+   (exploiter 1 level); exploit3_hu +0.068; adapt_3 +0.030; night -0.003 ± 0.014; realistic +0.006 ± 0.011; every
+   guard, elite and variant cell level. **ACCEPT** under `--aim exploit`. Recommended for held-out confirmation:
+   `{"dials": {"exploit.stab_size": true, "exploit.stab_alive": 3}}`.
+5. **No value stab** (run 2): the layer only replaces Hero's checks, and Hero bets every value hand at the same 0.5
+   first, so the one size already carries value and air (24-48% air, 9-23% two pair or better).
+6. **F is bit-identical with the dials off**: 14 of 14 confirm and guard chunks (10000-10039) equal main's, at both
+   codes (runs 5, 10). Latency of C3: hand end p99 141.7 µs, act p99 108.3 µs (per-call minimum; F 146.7 / 115.8 at
+   the same load).
+7. What C3 leaves: at a full table the stab is still 0.33 and still air, so a reader there can still use it (the
+   8-max exploit cells were level with C1 as well, -0.111 to +0.127). Exploiter 3's edge (F folding after checking)
+   is untouched here; it is S15's.
+
 ## Runs, as they happened
 
 ### 1. The size survey on main (bb1569f), 02:47-02:51
@@ -335,3 +369,21 @@ Partial at 07:23 (exploit, confirm, guards, elite done; variants running; load 2
 | | mirror_b | 4.466 | 4.475 | +0.009 ± 0.010 | level |
 
 The heads-up and three-handed exploit cells are C1's to the last seed (at most three players have chips there).
+
+Complete at 08:27 (133.8 min, load 23-59). Variants: the 22 twist entries identical (+0.000 ± 0.000); top_heavy
+28.654 -> 28.828 (+0.174 ± 0.213), antes_from_level_3 -0.005 ± 0.011, fast_schedule -0.001 ± 0.009, straddle +0.006 ±
+0.011, all level. No timeouts or errors in any cell. (The p99 column of this run's output reads 8,000-10,000 µs for C3
+against about 400-4,100 for F: F's chunks ran in run 7 at load 11, C3's at load 55-59; the p50 is 85 against 88 µs,
+and run 12's per-call minimum is what measures the bot.)
+
+**Verdict: ACCEPT** (`--aim exploit`): exploit2_hu, exploit2_3 and adapt_hu up; no exploit cell down (exploiter 1
+level in all three); night level (-0.003 ± 0.014); no guard, elite or variant cell down.
+
+### 12. Latency of C3, and the tests (08:27-08:35)
+
+`tools/latency.py --hand-end --reps 3 --p99-us 200 --dials '{"exploit.stab_size": true, "exploit.stab_alive": 3}'`
+from wt_s17_meas, load 23.6: hand_end per-call minimum p50 57.1 / p99 141.7 / max 206.3 µs, act p99 108.3 µs, first
+act p99 145.4 µs: OK. F beside it (load 22.9): hand_end p99 146.7 µs, act p99 115.8 µs.
+`pytest tests/test_s17_stab_size.py tests/test_strategy_exploit_layer.py tests/test_strategy_exploit.py
+tests/test_s11_dials.py tests/test_compose.py tests/test_ship.py tests/test_compose_levels.py
+tests/test_compose_sections.py`: 106 passed.
