@@ -513,6 +513,7 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `mu_call_shift` | 0 |
 | `multi_value_shift` | 0 |
 | `mu_value_shift` | 0 |
+| `mu_short_board` | True |
 | `call_shift_ex` | (factory) |
 | `twin_preflop` | 0.0 |
 | `twin_force` | False |

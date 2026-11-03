@@ -14,6 +14,11 @@ Variants (Hero sets them from Rules / Observation.extras; every default is the p
   read_multi   three or four hole cards, kept whole (8 cards at the river) or Omaha-style must-use-two:
                the same tiers from the same board-relative reading, one tier lower for made pairs and
                two pairs because every hand at the table is stronger
+  read_short   must-use-k on a board shorter than the 5 - k cards the hand must take from it (Solo Hold'em's
+               flop: one hole card and four board cards, three out): no five-card hand exists yet, so the read
+               is what the river can still make of it: each k-card choice of the hole with every board card so
+               far (its pairs, trips and quads, a floor at the river), its flush draw (one board card of the
+               suit short) and straight completers, tiered by heads-up equity against a random hand
   read_low     2-7 lowball: the lowest five of my cards; tiers by the high card of a pairless low
   read_wild    wild cards: each wild becomes the card that makes my best hand (greedy), then the
                normal read on the result, one tier lower when the wild sits on the shared board
@@ -757,6 +762,99 @@ class Postflop:
             tier = 8
         return tier, outs, wet
 
+    def read_short(self, hole, board, k: int, dead=()) -> tuple[int, int, bool]:
+        """(tier, outs, wet) under must-use-k on a board shorter than the 5 - k cards it must supply (module doc;
+        Solo Hold'em's flop: k = 1, three board cards of four). Each k-card choice of the hole plays with every board
+        card so far, and the river fills the rest: its rank groups that hold a card of ours are a floor at the river
+        (pairs, trips, quads; a group only on the board is everyone's), a suit with all k of ours and one board card
+        short of the 5 - k it needs is a flush draw, and with k + board = 4 distinct ranks the completers are a
+        straight draw. Tiers are the hold'em tiers of the same heads-up equity against a random hand to the river
+        (WIDE_EQUITY_FLOP; Solo's flop measured, 200,000 deals, docs/drills/prompt-drill-10.md H6): our trips 7, top
+        pair or two pair over the board's pair 5, middle pair or two pair under it 4, bottom pair 2, the board's
+        trips or pair with a queen-plus kicker 3 or 2 (else 1), an overcard 1. A flush draw or an open-ender lifts a
+        pair of ours to 4 and anything else one tier. Pure arithmetic over ranks and suits."""
+        board = tuple(board)
+        nb = len(board)
+        need = 5 - k  # board cards the hand must use
+        bcnt = [0] * 13
+        suit_cnt = [0, 0, 0, 0]
+        bmask = 0
+        for c in board:
+            bcnt[c >> 2] += 1
+            suit_cnt[c & 3] += 1
+            bmask |= 1 << (c >> 2)
+        branks = sorted({c >> 2 for c in board}, reverse=True)
+        top = branks[0] if branks else -1
+        second = branks[1] if len(branks) > 1 else -1
+        b_pair = max((r for r in range(13) if bcnt[r] >= 2), default=-1)
+        b_trips = any(x >= 3 for x in bcnt)
+        best = 0
+        owned = False
+        flush_draw = False
+        fsuit = 0
+        comp = 0
+        for hs in combinations(hole, k):
+            hr = [c >> 2 for c in hs]
+            cnt = list(bcnt)
+            for r in hr:
+                cnt[r] += 1
+            mine = set(hr)
+            g = max(cnt[r] for r in mine)
+            pairs = sorted((r for r in mine if cnt[r] == 2), reverse=True)
+            own = g >= 2
+            if g >= 4:
+                t = 8
+            elif g == 3:
+                t = 7
+            elif pairs:
+                pr = pairs[0]
+                other = max((r for r in range(13) if cnt[r] >= 2 and r not in mine), default=-1)
+                if other >= 0:
+                    t = 5 if pr > other else 4  # two pair, the other pair the board's
+                elif len(pairs) >= 2:
+                    t = 5  # two pairs of ours (k >= 2)
+                elif pr >= top:
+                    t = 5  # top pair, or an overpair
+                elif pr == second:
+                    t = 4
+                else:
+                    t = 2
+            else:
+                kick = max(hr)
+                if b_trips:
+                    t = 3 if kick >= 10 else 1
+                elif b_pair >= 0:
+                    t = 2 if kick >= 10 else 1
+                else:
+                    t = 1 if kick > top else 0
+            if t > best or (t == best and own):
+                best, owned = t, own
+            s0 = hs[0] & 3
+            if all((c & 3) == s0 for c in hs) and suit_cnt[s0] == need - 1:
+                flush_draw, fsuit = True, s0
+            hm = 0
+            for r in hr:
+                hm |= 1 << r
+            if k + nb == 4 and len(mine) == k and not (hm & bmask) and len(branks) == nb:
+                comp |= COMPLETERS[bmask | hm]
+        n_str = comp.bit_count()
+        oesd = n_str >= 2
+        gutshot = n_str == 1
+        tier = best
+        outs = 0
+        if flush_draw or oesd or gutshot:
+            outs = _draw_outs(flush_draw, fsuit, oesd, gutshot, comp, dead, tuple(hole) + board)
+            if flush_draw or oesd:
+                if owned and 2 <= tier < 4:
+                    tier = 4
+                elif tier < 4:
+                    tier += 1
+            elif tier < 1:
+                tier = 1
+        connected = COMPLETERS[bmask] != 0 or bmask.bit_count() >= 3 and _span3(bmask) <= 4
+        wet = max(suit_cnt) >= 3 or connected
+        return tier, outs, wet
+
     def read_shared(self, hole, board, shared, dead=(), more: bool = False):
         """(tier, outs, wet) against an opponent who holds `shared` (cards of ours that are his too: they cannot
         separate us, so against him they play as board cards): the read of the rest of our hole on board + shared.
@@ -873,6 +971,8 @@ class Postflop:
     def _read(self, hole, board, must_use: int, dead, long: bool = False, more: bool = False) -> tuple[int, int, bool]:
         if self.low:
             return self.read_low(hole, board)
+        if must_use and len(board) < 5 - must_use:
+            return self.read_short(hole, board, must_use, dead)
         if self.wild_rank >= 0:
             return self.read_wild(hole, board, must_use, dead)
         if len(hole) == 2 and not must_use:

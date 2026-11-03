@@ -4,7 +4,13 @@
     python tools/pack.py --entry submission/agent.py --out dist/ [--extra submission/adapter.py ...]
                          [--bot hybrid3_x|hero|cheap] [--dials JSON]
                          [--slim] [--rules rules_tonight.json] [--tables-dir DIR] [--note "what changed"]
-                         [--night NIGHT.md]
+                         [--night NIGHT.md] [--import-budget S] [--max-mb UNZIPPED] [--max-zip-mb ZIPPED]
+
+The kit's own limits, from the rule sheet (prompt 01), every time: `--import-budget` its start budget (kit H: 2 s to
+answer hello from the launch; default 5), `--max-mb` its unzipped cap and `--max-zip-mb` its zipped one (kit H: 20 and
+5; default 100, and the zipped cap defaults to the unzipped one). Drill 10 packed with --max-mb 5, which checks the
+unzipped size: the full 8.4 MB package failed a cap that applied to the 1.1 MB zip. MB here is 10^6 bytes, under a
+kit's MiB.
 
 The bot the package plays is hyperion/ship.py's SHIP with its DIALS (the shipped base, hybrid3_x, unless the file
 says otherwise); --bot and --dials replace them, and pack writes the pair it packed into the package's copy of
@@ -22,7 +28,8 @@ checks that `hyperion` resolved from there, and times the import (fail over --im
 builds the recorded bot there once if the entry imports hyperion (`hyperion.ship.make_bot()`; fail if it raises).
 Packed copies of the red-team rivals lose their `from kit import` (they subclass object, as with no kit), and an
 `imports` line names any module a .py file imports that is neither the stdlib nor in the package (a static
-import check, kit F's, fails on those). Checks the size against --max-mb, zips to <out>/submission.zip with the entry at the top level, prints
+import check, kit F's, fails on those). Checks the size against --max-mb, zips to <out>/submission.zip with the entry at the
+top level, checks the zip against --max-zip-mb, prints
 sha256, size and import time, and appends the same as a row under "## Submissions" in NIGHT.md if that
 file exists (the minute is computed from a `T0: HH:MM` line in NIGHT.md when there is one).
 Exit 1 if any check fails.
@@ -44,9 +51,10 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-# entry_template.py: the player's copy is the entry; the vendored one would only import a sibling `adapter` that is
-# not in the package, which a kit's static import check fails on
-SKIP_NAMES = {"__pycache__", "tests", "docs", ".benchmarks", ".pytest_cache", ".git", "entry_template.py"}
+# entry_template.py, process_entry_template.py: the player's copy is the entry; the vendored one would only import a
+# sibling `adapter` that is not in the package, which a kit's static import check fails on
+SKIP_NAMES = {"__pycache__", "tests", "docs", ".benchmarks", ".pytest_cache", ".git", "entry_template.py",
+              "process_entry_template.py"}
 SLIM_SKIPS = {ROOT / "hyperion" / "drills": {"fakekits"}, ROOT / "hyperion" / "sim": {"bestiary.py", "aware.py", "field"}}
 # --slim leaves the simulator's opponents out: every field bot, judge and test opponent (hyperion/sim/field), the
 # variant-aware opponents (sim/aware.py) and every rival but rival 3, whose core hybrid3_x and the composite's base
@@ -404,8 +412,12 @@ def main(argv=None) -> int:
     p.add_argument("--name", default="submission", help="package directory and zip base name")
     p.add_argument("--note", default="", help="'what changed' for the NIGHT.md row")
     p.add_argument("--night", default="NIGHT.md", help="log file; a row is appended only if it exists")
-    p.add_argument("--import-budget", type=float, default=5.0, help="seconds (default 5)")
-    p.add_argument("--max-mb", type=float, default=100.0)
+    p.add_argument("--import-budget", type=float, default=5.0,
+                   help="seconds for the import and the bot's build in a fresh process: the kit's own start budget "
+                        "(kit H's hello: 2 s from the launch; default 5)")
+    p.add_argument("--max-mb", type=float, default=100.0, help="the kit's cap on the unzipped package, MB (default 100)")
+    p.add_argument("--max-zip-mb", type=float, default=None,
+                   help="the kit's cap on the zip, MB (default: --max-mb; kit H: 5 zipped, 20 unzipped)")
     a = p.parse_args(argv)
 
     entry = Path(a.entry).resolve()
@@ -439,7 +451,8 @@ def main(argv=None) -> int:
     print(f"package  {dest}  ({count} files, {human(size)})")
     print(f"bot      {bot}  dials {dials}  (recorded in the package's hyperion/ship.py; the gate pairs against it)")
     print(f"tables   {tables}  (rules {rules_path or 'none found'})")
-    print(f"import   {'ok' if ok else 'FAIL'} {secs:.2f} s  {detail}")
+    load = os.getloadavg()[0] if hasattr(os, "getloadavg") else 0.0
+    print(f"import   {'ok' if ok else 'FAIL'} {secs:.2f} s  {detail}  (budget {a.import_budget:g} s, load {load:.1f})")
     if foreign:
         where = "; ".join(f"{k} ({', '.join(sorted(set(v))[:3])}{', ...' if len(set(v)) > 3 else ''})"
                           for k, v in sorted(foreign.items()))
@@ -450,15 +463,17 @@ def main(argv=None) -> int:
     if not ok:
         return 1
     if size > a.max_mb * 1e6:
-        print(f"FAIL package is {human(size)}, limit {a.max_mb:g} MB")
+        print(f"FAIL package is {human(size)} unzipped, limit {a.max_mb:g} MB (--max-mb; --slim drops the opponents)")
         return 1
     zip_path = out / f"{a.name}.zip"
     sha = make_zip(dest, zip_path)
     zsize = zip_path.stat().st_size
-    if zsize > a.max_mb * 1e6:
-        print(f"FAIL zip is {human(zsize)}, limit {a.max_mb:g} MB")
+    zcap = a.max_mb if a.max_zip_mb is None else a.max_zip_mb
+    if zsize > zcap * 1e6:
+        print(f"FAIL zip is {human(zsize)}, limit {zcap:g} MB (--max-zip-mb)")
         return 1
-    print(f"zip      {zip_path}  {human(zsize)}")
+    print(f"zip      {zip_path}  {human(zsize)}  (caps: {human(size)} unzipped of {a.max_mb:g} MB, "
+          f"{human(zsize)} zipped of {zcap:g} MB)")
     print(f"sha256   {sha}")
     night = Path(a.night)
     if night.is_file():

@@ -20,7 +20,13 @@ Track A (repo present):
    An event-driven kit (no state snapshot, one call per event): copy `hyperion/drills/event_player_template.py` as the entry instead (EventTracker keeps pot, stacks, bets and the log; worked example `hyperion/drills/event_example.py` on `fakekits/kit_e_style`), and for step 7 `hyperion/drills/gate_seat_template.py` as `submission/gate_seat.py` (hand end untimed).
 2. The zip flattens `submission/`: the entry imports its adapter as a sibling (`from adapter import ...`), never
    `submission.adapter` (drill 8's first package failed the kit's import check on it). A kit that builds a bot object
-   (class Agent and callbacks): copy `hyperion/drills/entry_template.py` as the entry and fill its TODOs.
+   (class Agent and callbacks): copy `hyperion/drills/entry_template.py` as the entry and fill its TODOs. A kit that
+   runs the bot as its OWN PROCESS on lines of stdin/stdout (`python3 -u bot.py`, a reply per message: drill 10's
+   kit H): copy `hyperion/drills/process_entry_template.py` instead (its defaults are kit H's JSON-lines protocol,
+   worked through; TODOs 0-3 are the message names, the answer forms, the translation and the warm-up). It replies
+   unbuffered, answers each request first and does the deferred work after, and skips the bot's hand end when the next
+   request is already waiting on stdin (drill 10: the hand end, with the next message on its 1 ms clock, was most of
+   the timeouts); do not write that loop by hand (drill 10 spent 10 minutes on it).
    The entry pins the package at import (`pin_package()` after the bot is built and warmed, `repin_package()` at the
    top of every method): kit G's loader unloaded our modules before `Agent()` was built (drill 9), kit F's after it.
    The rule sheet's timed hand-end callback (prompt 01) sets the template's `HAND_END`: timed (kits E, F, G: 1 ms, a
@@ -40,7 +46,11 @@ Track A (repo present):
 3. `native_safe` is the kit's check-else-fold, or a legal default when the only legal move is a variant
    move (a discard): fold is illegal there. Every kit call is wrapped so any exception returns it.
 4. Kit's local simulator, 50+ hands, `HYPERION_CHECK=1` (every Observation checked, report at
-   exit); show the output. Required: zero exceptions, zero illegal actions, zero conformance
+   exit); show the output. A kit that launches the bot with a fixed environment (kit H's launcher passes PATH,
+   PYTHONUNBUFFERED, PYTHONDONTWRITEBYTECODE and LANG only: read its runner) never hands HYPERION_CHECK on, and the
+   report comes back empty: `touch submission/check.on` instead (the process template reads it, as drill 10's player
+   did; in another entry, two lines: if the file exists beside the entry, set the variable before the adapter is
+   built). Never pack it (`--extra` names files). Required: zero exceptions, zero illegal actions, zero conformance
    violations, under 0.3% of decisions over 1 ms (a lone spike on a sub-0.1 ms median is the OS: note
    it and go on; if the box load average exceeds the core count, re-run on a quiet box before failing
    the gate; the rate is 0.3% at normal load), and the report's action counts show fold, check-or-call
@@ -53,11 +63,16 @@ Track A (repo present):
    wall-clock tests (budgets, slow-box, hand-end timing) fail on a loaded box and say nothing about the adapter
    (drills 8 and 9 lost minutes reading them); the default `python -m pytest` still runs everything.
 6. `python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py
-   submission/rules_tonight.json --bot cheap --note "cheap bot"`: it vendors `hyperion/`, `tables/` and
+   submission/rules_tonight.json --bot cheap --note "cheap bot" --import-budget <the kit's start budget, s>
+   --max-mb <its unzipped cap> --max-zip-mb <its zipped cap>` (the rule sheet's numbers; kit H: `--import-budget 2
+   --max-mb 20 --max-zip-mb 5`; add `--slim` if a cap fails): it vendors `hyperion/`, `tables/` and
    the variant set `rules_tonight.json` names (read its `tables` line), records the bot (`bot cheap`
-   line) in the package's `hyperion/ship.py`, times a fresh-process import and bot build (fails over
-   5 s), checks 100 MB, zips with the entry at the top level, prints the sha256 and writes the
-   Submissions row in `NIGHT.md`. If the rules name another layout, match it and say so. Tell me to upload.
+   line) in the package's `hyperion/ship.py`, times a fresh-process import and bot build against the budget
+   (default 5 s), checks the unzipped package against `--max-mb` and the zip against `--max-zip-mb` (default 100 MB
+   both; drill 10's `--max-mb 5` checked the 8.4 MB unzipped package against kit H's 5 MB zipped cap), zips with the
+   entry at the top level, prints the sha256 and writes the Submissions row in `NIGHT.md`. An import over budget on a
+   box above one load per core: re-run pack once before moving work to the table start. If the rules name another
+   layout, match it and say so. Tell me to upload.
 7. After the upload, gate that zip once: `python tools/gate.py dist/submission.zip --kit <a|b|c|d>
    --tables 30 --rules rules_tonight.json` (plus `--variant <name>` if the catalog has it). It imports
    the zip as the organisers would and plays it in our sim, paired against the bot the package records,
@@ -68,8 +83,11 @@ Track A (repo present):
    kit's own shape, per street and with the blinds posted: the state's rows carry each action's street and chips and
    `posts` the forced bets; `hyperion/drills/gate_seat_template.py`'s `by_street` groups them, `kit_g_log` is drill
    9's kit worked through), and
-   pass `--kit submission/gate_seat.py --kit-module <their kit.py>` (a subprocess kit unlike c or d:
-   say the gate cannot run). Required: `GATE PASS`. It proves the reverse adapter now, so Stage 4's gate
+   pass `--kit submission/gate_seat.py --kit-module <their kit.py>`. A process kit (the bot is its own process, step
+   2): `hyperion/drills/process_gate_seat_template.py` as `submission/gate_seat.py` (its defaults are kit H's, as the
+   entry's), `--kit submission/gate_seat.py --entry <entry file>` and no `--kit-module`: the seat launches the entry as
+   the kit does and plays the real stdin loop through a pipe, so the gate times the round trip the kit's clock times
+   (drill 10's in-process seat never tested the loop). Another subprocess kit unlike c or d: say the gate cannot run. Required: `GATE PASS`. It proves the reverse adapter now, so Stage 4's gate
    is one command; a FAIL on the delta means the adapter loses something the sim's Hero has.
 
 Track B (blank directory): steps 1 and 4 are "one file, no vendoring". `submission.py` is steps 0 and 1

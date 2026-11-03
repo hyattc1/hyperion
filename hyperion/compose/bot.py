@@ -38,6 +38,14 @@ rank order, or a straddle, a section routed to rival1 or rival3 is played by the
 A strong-route donor that cannot play the table hands the decision to the section's own donor (Hero in Hero's
 sections), so the route never changes play on such a table.
 
+**Tables Hero plays whole** (H6). On a table the base's core cannot play at all (HybridCore._table_why: short deck,
+must-use, three hole cards, wild cards, two boards, fixed limit ...), every decision of the base's is its fallback
+Hero's, a HeroCore with the hero member's Config (checked at build: `_same_hero`), the same seed, and the same
+observations and hand ends. The hero member plays the base's sections there instead (counted under its own name, as
+`<section>:hero`), and the base sleeps (`_whole`): it neither decides nor shadows, its Hero gets no hand end (the ICM
+curve and the profiler's dials, computed twice before; drill 10's kit sim: about 280 us of CPU a hand, the next
+message already waiting), and the variant prompts go to the hero member. Play is the same, seed for seed.
+
 **Errors.** A chosen member that raises or answers None: the base's answer, else check or fold (`fallback:error`). A
 shadow that raises is counted and ignored. `late_us`: if the chosen member has already used this long, the shadows skip
 this decision (counted `shadow:late`); 10^9 in deterministic runs.
@@ -730,6 +738,12 @@ class CompositeCore:
         self._shadows = True
         self._force = None  # (member index, layer) every section goes to at a base / hero level
         self._hero_idx = names.index("hero") if "hero" in names else -1
+        # H6 (module doc): the hero member plays the tables the base's core cannot, when its Config is the base's Hero's
+        hm = self.members[self._hero_idx] if self._hero_idx >= 0 else None
+        bh = getattr(self.base, "hero", None)
+        self._same_hero = hm is not None and bh is not None and getattr(hm, "cfg", None) == getattr(bh, "cfg", 0) \
+            and hasattr(self.base, "sleep")
+        self._whole = False
         # S16: the steal reads' trust weight (module doc); off unless a read_trust dial is on
         core = getattr(self.base, "core", None)
         r3k = getattr(getattr(self.base, "cfg", None), "r3", None)
@@ -773,6 +787,9 @@ class CompositeCore:
         b = self.base
         self.plain = getattr(b, "_table_why", None) is None and not getattr(b, "_straddle", False) \
             and is_identity_order(rules)
+        self._whole = self._same_hero and getattr(b, "_table_why", None) is not None and not getattr(b, "_cheap", False)
+        if self._same_hero:
+            b.sleep(self._whole)
         if any(self._h_only):
             from ..strategy.hero import holdem_table, twist_families, twist_family
 
@@ -911,11 +928,17 @@ class CompositeCore:
                 mi, layer = ri, rl  # a strong-route donor that cannot play this table: the section's own donor (S14)
             else:
                 mi = 0
+        whole = self._whole
+        if whole and not mi:
+            mi = self._hero_idx  # a table Hero plays whole: the base's Hero would play as the hero member does
         members, resync = self.members, self.resync
         nm = len(members)
         states = self._states
         for j in self._rs_idx:
             if j != mi:
+                if whole and not j:  # the base sleeps: nothing of its own to follow
+                    states[j] = None
+                    continue
                 try:
                     states[j] = resync[j][0](members[j])
                 except Exception:  # noqa: BLE001
@@ -948,7 +971,7 @@ class CompositeCore:
                 light, lit = self.light, self._lit
                 full = self._full_shadows
                 for j in range(nm):
-                    if j != mi and j != failed:
+                    if j != mi and j != failed and not (whole and not j):
                         lt = light[j]
                         try:
                             if lt is not None and lt[0](members[j], obs):
@@ -1023,6 +1046,8 @@ class CompositeCore:
         o = self._obs
         if o is not None and "last_obs" not in prompt:
             prompt = {**prompt, "last_obs": o}
+        if self._whole:
+            return self.members[self._hero_idx].variant_decide(prompt)
         return self.base.variant_decide(prompt)
 
     def defer_hand_end(self, on: bool = True) -> None:

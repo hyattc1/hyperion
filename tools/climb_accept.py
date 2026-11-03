@@ -253,9 +253,13 @@ def _variant_tag(variant) -> str:
         return "v" + hashlib.md5(fh.read() + func.encode()).hexdigest()[:10]
 
 
-def cell_path(out: str, key: str, cell) -> str:
+def cell_path(out: str, key: str, cell, n: int = CHUNK) -> str:
+    """A chunk's cache file. A chunk of fewer than CHUNK seeds (a set's last, e.g. 10025-10039 of 10000:10040) is named
+    with its length: before H6 it shared the full chunk's name, and a later run over more seeds read its 15 samples
+    as the chunk's 25 (drill 10's H6 found a 200-seed screen run that had played 190)."""
     field, pay, rules_name, variant, off = cell
-    return os.path.join(out, key, f"{field}.{pay}.{_rules_tag(rules_name)}.{_variant_tag(variant)}.{off}.json")
+    tail = "" if n == CHUNK else f".n{n}"
+    return os.path.join(out, key, f"{field}.{pay}.{_rules_tag(rules_name)}.{_variant_tag(variant)}.{off}{tail}.json")
 
 
 def run_cells(out: str, specs: dict, cells: list, lo: int, hi: int, workers: int) -> None:
@@ -264,10 +268,11 @@ def run_cells(out: str, specs: dict, cells: list, lo: int, hi: int, workers: int
     for name, (key, spec) in specs.items():
         for field, pay, rules_name, variant in cells:
             for off in range(lo, hi, CHUNK):
-                p = cell_path(out, key, (field, pay, rules_name, variant, off))
+                n = min(CHUNK, hi - off)
+                p = cell_path(out, key, (field, pay, rules_name, variant, off), n)
                 if not os.path.exists(p) and p not in seen:  # base == cand (warming the cache) runs once
                     seen.add(p)
-                    jobs.append((key, name, spec, field, pay, rules_name, variant, off, min(CHUNK, hi - off)))
+                    jobs.append((key, name, spec, field, pay, rules_name, variant, off, n))
     if not jobs:
         return
     for name, (key, spec) in specs.items():
@@ -278,7 +283,7 @@ def run_cells(out: str, specs: dict, cells: list, lo: int, hi: int, workers: int
     # process was seen with 25 variants), so each worker is replaced after two jobs; finished chunks are cached anyway
     with Pool(workers, maxtasksperchild=2) as p:
         for key, cell, res in p.imap_unordered(_job, jobs):
-            path = cell_path(out, key, cell)
+            path = cell_path(out, key, cell, len(res["samples"]))  # one sample a table seed: the chunk's length
             with open(path + ".tmp", "w") as fh:
                 json.dump(res, fh)
             os.replace(path + ".tmp", path)
@@ -288,7 +293,7 @@ def gather(out: str, key: str, cell4, lo: int, hi: int) -> dict:
     field, pay, rules_name, variant = cell4
     samples, opp, agg = [], [], {"tmo": 0, "exc": 0, "ill": 0, "safe_err": 0, "calls": 0, "p99": 0.0, "max_us": 0.0}
     for off in range(lo, hi, CHUNK):
-        with open(cell_path(out, key, (field, pay, rules_name, variant, off))) as fh:
+        with open(cell_path(out, key, (field, pay, rules_name, variant, off), min(CHUNK, hi - off))) as fh:
             r = json.load(fh)
         samples += r["samples"]
         opp += r.get("opp_samples") or []
