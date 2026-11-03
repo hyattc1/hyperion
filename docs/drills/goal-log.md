@@ -1164,3 +1164,16 @@ and (in judges) `elite_judge`.
   starts; raw printed beside it; seed counts stay at 400 (the gain is narrower intervals). Merge conflicts with R8,
   S18 and H6 combined (a term run keeps no late-table records).
 - First runs under it: S17's C3 (H21), V-i (H22), O3 (H23), after batch 6's H20 and the judge replicate.
+
+## 11:57: batch 6 as composed fails the judges (addendum 12); batch 6 becomes V-f + V-h; S6 and S15c back to their builders
+- Judge replicate (30400-30799): outside -0.003 ± 0.003 level, outside_b +0.005 UP, the other ten level. Pooled with
+  the judge set's -0.0034 ± 0.0026: -0.0032 ± 0.0021, beyond noise down. Under addendum 12 (written before the
+  replicate) the batch is rejected. The loss is about 0.06% of the score, but the brief's rule is no loss beyond noise
+  on any judge.
+- Not chosen by the judges' numbers: V-f and V-h act only on twist tables, and every judge field is plain hold'em, so
+  they are identical there by construction. Batch 6 is now V-f (H15) + V-h (H18), checked together on H21 (variants
+  and aware, --identical holdem, the first run under addendum 13's runout term). S6 (H16) and S15c (H19) act on plain
+  hold'em and go back to their builders: audit and tighten their gates on tuning fields only so they fire against
+  exploiter-like seats and close to never against others, then screen, a fresh held-out set and the next batch's
+  judges (fresh judge seeds 30800-31199).
+- Batch 6's four-part H20 run was stopped (moot); start-vs-now resumed.
