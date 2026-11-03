@@ -16,7 +16,9 @@ RULE SHEET
 - Board: cards per street, number of boards, any community cards that change.
 - Hand ranking: standard? Any rank permutation, removed ranks, added categories, must-use-two rule?
 - Betting: no-limit / pot-limit / fixed. Min raise rule. Raise amounts as raise-to totals or
-  increments? Antes? Straddles? A non-standard rule with no `Rules` field in CONTRACTS.md: first check the
+  increments? Antes? Straddles? After a blind posted short (all-in), do the others call what it posted or still
+  the full big blind? Full (kit I): `"extras": {"full_bb_call": true}` in `rules_tonight.json`, which the
+  conformance check reads. A non-standard rule with no `Rules` field in CONTRACTS.md: first check the
   variant hooks (`hyperion/drills/variants.py`: on_deal, on_street, score_hand, score_splits, on_payout, on_bust,
   charges and charges_dead; the shape hooks in `hyperion/sim/engine.py`'s header: forced_bets, after_forced,
   next_card, on_fold, settle). Most twists fit them as a file (`hyperion/drills/variant_file_example.py`): a hand
