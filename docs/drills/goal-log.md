@@ -911,3 +911,8 @@ and (in judges) `elite_judge`.
   five anonymous strong targets (F, rival 2, elite 4, rival 3, hybrid3_x; the letter-to-bot map sits outside its
   folder), counters only from observed tendencies, a running notebook. It becomes `adapt_judge*`, never tuned on.
 - Exploit-field replay test marked timing (Hero's panic reads the wall clock under load; R6's note).
+
+## 02:40: identity after the R6 merge (15 cells identical); S17 started
+- S17 (goal/wt_s17, climb/s17-stab-size): one size for the exploit layer's stab (exploit.stab_size), aimed at
+  exploiter 2's raises of small bets and adapt1's finding that F's small bets show weak; survey first; screen against
+  all 12 exploit cells.
