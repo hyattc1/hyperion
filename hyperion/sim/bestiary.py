@@ -1449,6 +1449,49 @@ class OutsideLagBot(PersonaBot):
     MODULE = "outside_lag"
 
 
+class _OutsideBBot(PersonaBot):
+    """The outside judges' second wave (decisions addendum 10): fresh agents with no repo access, each in a style our
+    fields covered least. No clock; each seeds `self.rng` from the seat at new_table, reseeded here from the seat seed
+    so every table draws its own stream and runs replay exactly. Never tuned on (field `outside_b`)."""
+
+    SALT = 0x0B
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self._seed = seed or 0
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self.impl.rng = random.Random(self._seed * 1_000_003 + self.SALT)
+
+
+class OutCfrBot(_OutsideBBot):
+    """Outside `out_cfr`: an ML-student team. CFR+ push/fold for 2-8 players at 1.5-25 bb (half ICM, half chips), deep
+    preflop trained the same way, a heads-up postflop policy over 8 strength buckets with a bust penalty; every decision
+    a table lookup. gc.freeze() at import. Frozen at md5 23e68818."""
+
+    MODULE = "out_cfr"
+    SALT = 0x0C5
+
+
+class OutPressBot(_OutsideBBot):
+    """Outside `out_press`: a hyper-aggressive team, calibrated by its own tests: wide opens, c-bets about 80% heads-up,
+    big value sizes and river overbets with the nuts, light 3-bets and 4-bets at 30 bb or deeper, ICM-priced shoves
+    with a covered-stack model. Pauses the collector inside each decision. Frozen at md5 1d724a69."""
+
+    MODULE = "out_press"
+    SALT = 0x0C6
+
+
+class OutChartsBot(_OutsideBBot):
+    """Outside `out_charts`: a solver-chart team: push/fold Nash by depth and players behind, exact ICM on every all-in
+    call and re-jam, positional open, 3-bet and defend charts, a third-pot c-bet on dry boards and two-thirds on wet,
+    pot-odds calls; reads only stations and frequent bettors. Frozen at md5 7ada9e81."""
+
+    MODULE = "out_charts"
+    SALT = 0x0C7
+
+
 class OutsideQuantsBot(_FixedSpeedInModel, PersonaBot):
     """Outside `out_quants`: two quant interns. An embedded 169x169 all-in equity table and fictitious-play push/fold
     equilibria for 1-7 players behind and 1-30 bb, exact ICM for 10/7/5/4/3/2/1/0 (hard-coded), push/fold at 16 bb or
@@ -1842,6 +1885,9 @@ REGISTRY: dict[str, type] = {
     "out_selfplay": OutsideSelfPlayBot,  # outside field: an agent self-play-tuned for the hour, never tuned on
     "out_lag": OutsideLagBot,  # outside field: loose-aggressive grinders, never tuned on
     "out_quants": OutsideQuantsBot,  # outside field: import-time equilibria and exact ICM, never tuned on
+    "out_cfr": OutCfrBot,  # outside judges, second wave (addendum 10): self-play trained, never tuned on
+    "out_press": OutPressBot,  # outside judges, second wave: hyper-aggressive, never tuned on
+    "out_charts": OutChartsBot,  # outside judges, second wave: solver charts, never tuned on
     "elite1": Elite1Bot,  # elite field (prepared top-team build): tuning fields elite, elite_night
     "elite2": Elite2Bot,  # elite field: tuning fields elite, elite_night
     "elite4": Elite4Bot,  # elite field, second wave: tuning fields elite_b, mirror_b
@@ -1961,6 +2007,9 @@ FIELDS["judge2_night"] = ("hero", "rival5") + _night.seat_names("judge2_night")
 OUTSIDE = ("out_veterans", "out_selfplay", "out_lag", "out_quants")
 FIELDS["outside"] = ("hero",) + OUTSIDE + _night.seat_names("outside_rest")
 FIELDS["outside_strong"] = ("hero",) + OUTSIDE + ("rival4", "rival5", "agent_pushfold")
+# the second wave (addendum 10): the three with the other held-out bots and one night seat; judges only
+OUTSIDE_B = ("out_cfr", "out_press", "out_charts")
+FIELDS["outside_b"] = ("hero",) + OUTSIDE_B + ("rival4", "rival5", "elite5") + _night.seat_names("night")[:1]
 # the elite field (owner's direction): three prepared top-team builds. elite1 and elite2 are a tuning field, alone with
 # the strong tunable bots (`elite`, a top table) or in a night room (`elite_night`); elite3 is held out with both judges
 # and two outside builds (`elite_judge`, the strongest room we have): measured once per batch, never tuned on.
