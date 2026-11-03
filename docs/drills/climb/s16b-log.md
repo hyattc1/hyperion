@@ -283,3 +283,16 @@ down is a REPLICATE on the next held-out set at 400 seeds, not a reject. The rea
 every cell that uses it (realistic -0.034, fast_schedule -0.045, antes -0.060, top_heavy -0.38 of 100), so a
 replication may well confirm the loss: F's steals against realistic's folders pay, and the big blind's prior (0.668,
 pooled) sits far under realistic's 0.80 until 20 or so answers move the table rate.
+
+# S16c: O4, a faster table rate (branch climb/s16c-o4 from main cbaaab6)
+
+The coordinator (10:00): screen O4 = O3 + `"r3.oa_st": 10` (the one value, fixed in advance), every stage at full
+seeds, from a fresh worktree of main, 2 workers. The question: does the realistic room's lean (antes_from_level_3
+-0.060 down; realistic, fast_schedule and top_heavy negative) go while the strong-table gains stay? The layer has no
+table rate of its own: `exploit.open_read` reads rival 3's core's `oa_fold`, so `r3.oa_st` sets both. With the big
+blind's prior worth 10 answers instead of 20, realistic's big blind (0.80 against the prior's 0.668) is read at about
+0.74 after 10 answers instead of 0.71.
+
+Spec: `{"r3.oa_read": true, "exploit.open_read": true, "r3.oa_cap": true, "exploit.open_cap": true,
+"r3.oa_min_alive": 4, "exploit.open_min_alive": 4, "r3.oa_st": 10.0}`. No code change (main 0ed102a6ef carries O3's
+code and other merges since: S18's tooling, H6, V-i); F's identity at main against the cached F checked first.
