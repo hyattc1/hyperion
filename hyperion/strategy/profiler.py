@@ -127,6 +127,11 @@ class Profiler:
         self.ab_bet = z()
         self.rb_opp = z()
         self.rb_raise = z()
+        # S15 (docs/drills/climb/s15-log.md): heads-up pots with me, the seat's free action right after my check on
+        # the same street (a stab: a c-bet, a barrel or a probe, whoever has the initiative), by street [flop, turn,
+        # river]; st_bet counts the bets
+        self.st_opp = [[0, 0, 0] for _ in range(n)]
+        self.st_bet = [[0, 0, 0] for _ in range(n)]
         self.sz_hist = [[[[0] * 9 for _ in range(6)] for _ in range(3)] for _ in range(n)]  # seat, street, bucket, tier
         self.sz_n = [[[0] * 6 for _ in range(3)] for _ in range(n)]
         self.sz_oracle = None  # measurement only: per seat {(street 0..2, bucket): 9 tier weights} or None
@@ -172,6 +177,7 @@ class Profiler:
         self.aggr_seat = -1  # the last seat to raise this hand, any street
         self.prev_aggr = -1  # ... as it stood when street `pa_street` began (its first action consumed)
         self.pa_street = 0
+        self.my_chk = -1  # the street on which I last checked with nothing to call (S15's stab read)
         self.street_aggr = -1  # the last seat to raise on the street being consumed
         self.pot_prev = 0  # chips from earlier streets (track_s12)
         self.sz_pend = []  # (seat, street 0..2, bucket) of this hand's postflop bets and raises (track_s12)
@@ -351,6 +357,15 @@ class Profiler:
                 self.pa_street = self.tstreet
                 self.prev_aggr = self.aggr_seat
                 self.street_aggr = -1
+            if not pre and 0 <= self.me < n and not facing:
+                if seat == self.me:
+                    if kind is _CHECK:
+                        self.my_chk = self.tstreet
+                elif self.my_chk == self.tstreet and self.inhand == (bit | (1 << self.me)):
+                    k = self.tstreet - 1 if self.tstreet <= 3 else 2  # a long board's later streets count as the river
+                    self.st_opp[seat][k] += 1
+                    if kind is _RAISE:
+                        self.st_bet[seat][k] += 1
             if not pre and self.tstreet <= 2 and seat != self.me and 0 <= self.me < n:
                 two = self.inhand == (bit | (1 << self.me))
                 if two:
@@ -614,6 +629,28 @@ class Profiler:
         """How often seat s bets a heads-up flop or turn against me when it has nothing to call, whoever has the
         initiative (probe and aggressor chances together), smoothed toward `prior` with n0 chances."""
         return (self.pb_bet[s] + self.ab_bet[s] + prior * n0) / (self.pb_opp[s] + self.ab_opp[s] + n0)
+
+    def stab_rate(self, s: int, street: int, prior: float = 0.5, n0: float = 3.0, pool: int = 0,
+                  min_n: int = 0) -> float:
+        """How often seat s bets heads-up against me right after my check on the same street (S15): on `street`
+        (1 flop, 2 turn, 3 river), or on the streets of the bit mask `pool` (1 flop, 2 turn, 4 river) pooled when it
+        is not 0, smoothed toward `prior` with n0 chances; 0 while fewer than min_n chances are seen."""
+        b, o = self.st_bet[s], self.st_opp[s]
+        if not pool:
+            k, n = b[street - 1], o[street - 1]
+        else:
+            k = n = 0
+            for i in range(3):
+                if pool >> i & 1:
+                    k += b[i]
+                    n += o[i]
+        if n < min_n:
+            return 0.0
+        return (k + prior * n0) / (n + n0)
+
+    def checked_this_street(self, street: int) -> bool:
+        """I checked on `street` this hand (with nothing to call): valid while the hand's history is consumed."""
+        return self.my_chk == street
 
     def raise_my_bet_rate(self, s: int, prior: float = 0.12, n0: float = 5.0) -> float:
         """How often seat s raises a bet I made in a heads-up flop or turn, smoothed toward `prior` with n0 faced."""

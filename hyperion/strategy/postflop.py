@@ -96,6 +96,8 @@ HS_TIER_CUT = {3: (0.0, 0.34, 0.57, 0.83, 0.90, 0.97, 0.992, 0.998, 1.0),
 # every chance), heads-up, by the cards to come
 WIDE_EQUITY_FLOP = (0.33, 0.45, 0.58, 0.66, 0.75, 0.84, 0.91, 0.95, 0.99)
 WIDE_EQUITY_TURN = (0.25, 0.36, 0.55, 0.64, 0.76, 0.86, 0.93, 0.96, 0.99)
+# ... and on the river (S15: a tier against a random hand, 150,000 deals, made monotone)
+WIDE_EQUITY_RIVER = (0.18, 0.34, 0.57, 0.75, 0.84, 0.91, 0.94, 0.96, 0.99)
 _WEAK_TYPES = frozenset({"dead", "station", "maniac", "random"})  # size_read_skip_weak: seats whose sizes say nothing
 # size_read (S12): a tier race, a higher tier wins this often on the flop / turn / river (an equal tier splits)
 SIZE_WIN = (0.78, 0.86, 0.97)
@@ -245,6 +247,34 @@ class PostflopParams:
     # ... only heads-up against a seat that raises my heads-up flop and turn bets at a smoothed rate (prior 0.12 worth
     # 5) above balance_from: the reader of sizes shows itself by raising the small ones. 1.0 = off
     balance_from: float = 1.0
+    # a stabber (S15, docs/drills/climb/s15-log.md). Facing the street's first bet heads-up right after my check
+    # (nothing of mine in) on a street of stab_streets (bit mask: 1 flop, 2 turn, 4 river), from a seat whose rate of
+    # betting right after my checks (Profiler.stab_rate: on this street, or on the streets of the bit mask stab_pool
+    # pooled; prior stab_prior worth stab_n chances; no read before stab_min chances) is r above stab_from: a seat
+    # that bets nearly every time I check bets most of its range there, and folding my checking range to it pays for
+    # every bet it makes. My equity moves from the tier's proxy toward WIDE_EQUITY (the tier against a whole range) by
+    # the weight (r - from) / (stab_full - from), at most 1, and the call margin toward stab_margin by the same weight
+    # (-1: it stays). stab_bluff: on the streets of stab_bluff_streets, air (tier 0-1) raises it with this chance times
+    # the weight (a check-raise; times the bluff dial when that is under 1). stab_aggr_only: only against the bettor
+    # with the initiative (the last aggressor of the earlier streets: a c-bet or a barrel; a bet after it called mine
+    # holds its calling range). stab_max_alive: only while at most this many players have chips (0 = any; by then a
+    # full table's seats have shown their stabs over many hands). stab_pfr_min: only against a seat that raises
+    # preflop at least this share of its hands (Profiler.pfr_rate): a loose-aggressive seat's frequent stabs are light,
+    # a tight seat's are value. stab_holdem_only: hold'em tables only (hero.holdem_table). 1.0 / -1 / 0 = off
+    stab_from: float = 1.0
+    stab_full: float = 1.0
+    stab_prior: float = 0.5
+    stab_n: float = 3.0
+    stab_streets: int = 6
+    stab_pool: int = 0
+    stab_min: int = 0
+    stab_margin: float = -1.0
+    stab_bluff: float = 0.0
+    stab_bluff_streets: int = 1
+    stab_aggr_only: bool = False
+    stab_max_alive: int = 0
+    stab_pfr_min: float = 0.0
+    stab_holdem_only: bool = False
     # S12 reads (docs/drills/climb/s12-log.md); every one off by default.
     # size_read: facing a single bet heads-up (or a raise of my bet), the bettor's range for a bet of that size (bucket
     # of the pot before the bet, Profiler.SZ_EDGES; a raise is its own bucket) is a tier histogram: the population's
@@ -1066,6 +1096,7 @@ class Postflop:
                     call_down = cd
         raise_tier = p.raise_tier
         wide_w = 0.0
+        eq_pre = eq
         if n_opp == 1 and bettor >= 0 and prof is not None and street <= 2 and not cheap \
                 and (self._tw is None or not self._twist_read_off(spot, bettor)):
             if obs.bets[spot.me] == 0 and (p.probe_from < 1.0 or p.cbet_from < 1.0 or p.wide_from < 1.0):
@@ -1092,6 +1123,24 @@ class Postflop:
                     cd = 1.0 + p.raiser_slope * (r - p.raiser_from)
                     if cd > call_down:
                         call_down = cd
+        stab_w = 0.0
+        if p.stab_from < 1.0 and n_opp == 1 and bettor >= 0 and prof is not None and not cheap and 1 <= street <= 3 \
+                and p.stab_streets >> (street - 1) & 1 and obs.bets[spot.me] == 0 and prof.checked_this_street(street) \
+                and (self._holdem or not p.stab_holdem_only) \
+                and (not p.stab_aggr_only or bettor == prof.prev_aggressor(street)) \
+                and (p.stab_max_alive <= 0 or obs.players_left <= p.stab_max_alive) \
+                and (p.stab_pfr_min <= 0.0 or prof.pfr_rate(bettor) >= p.stab_pfr_min) \
+                and (self._tw is None or not self._twist_read_off(spot, bettor)):
+            r = prof.stab_rate(bettor, street, p.stab_prior, p.stab_n, p.stab_pool, p.stab_min)
+            if r > p.stab_from:
+                w = (r - p.stab_from) / (p.stab_full - p.stab_from) if p.stab_full > p.stab_from else 1.0
+                if w > 1.0:
+                    w = 1.0
+                if w > wide_w:
+                    stab_w = w
+                    we = (WIDE_EQUITY_FLOP, WIDE_EQUITY_TURN, WIDE_EQUITY_RIVER)[street - 1][tier]
+                    if we > eq_pre:
+                        eq = eq_pre + w * (we - eq_pre)
         base_margin = p.call_margin
         if p.vs_cbet_margin >= 0.0 and street == 1 and n_opp == 1 and bettor >= 0 and prof is not None \
                 and prof.pre_raiser == bettor and obs.bets[spot.me] == 0 and obs.pot > 0 \
@@ -1101,6 +1150,8 @@ class Postflop:
             base_margin = p.split_call_margin
         if wide_w > 0.0 and 0.0 <= p.probe_margin < base_margin:
             base_margin += wide_w * (p.probe_margin - base_margin)
+        if stab_w > 0.0 and 0.0 <= p.stab_margin < base_margin:
+            base_margin += stab_w * (p.stab_margin - base_margin)
         margin = base_margin / call_down if call_down > 0 else base_margin
         if p.tight_aggro_margin > 0.0 and street >= 2 and bettor >= 0 and prof is not None and not cheap \
                 and prof.vpip_rate(bettor) < p.tight_vpip and prof.aggression(bettor) > p.tight_agg:
@@ -1119,6 +1170,12 @@ class Postflop:
                 and p.raise_size * (spot.pot_total + spot.to_call) <= p.bluff_max_stack_frac * spot.my_total \
                 and self.rng.random() < p.probe_bluff * wide_w * (bluff_mult if bluff_mult < 1.0 else 1.0):
             self.last = "probe_bluff"
+            return self._bet(spot, p.raise_size, bluff=True)
+        if stab_w > 0.0 and p.stab_bluff > 0.0 and bluff_mult > 0.0 and tier <= 1 \
+                and p.stab_bluff_streets >> (street - 1) & 1 \
+                and p.raise_size * (spot.pot_total + spot.to_call) <= p.bluff_max_stack_frac * spot.my_total \
+                and self.rng.random() < p.stab_bluff * stab_w * (bluff_mult if bluff_mult < 1.0 else 1.0):
+            self.last = "stab_bluff"
             return self._bet(spot, p.raise_size, bluff=True)
         if p.size_read > 0.0 and n_opp == 1 and bettor >= 0 and prof is not None and not cheap and 1 <= street <= 3 \
                 and board2 is None and not must_use and self.wild_rank < 0 and not self.low \
