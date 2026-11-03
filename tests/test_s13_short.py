@@ -39,7 +39,7 @@ def test_the_heads_up_table_loads_and_reads_sensibly():
 
 
 def test_the_three_handed_table_loads_when_present():
-    if not os.path.exists(os.path.join(TABLES_DIR, "short_3.json")):
+    if not os.path.exists(os.path.join(TABLES_DIR, "extra", "short_3.json")):
         pytest.skip("no three-handed table")
     t = SH._load("3")
     assert t is not None and len(t["solve"]) == len(t["grid"]) ** 3

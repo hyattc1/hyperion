@@ -8,7 +8,7 @@ measurements behind every default.
 
 **Preflop** is a lookup in tables solved offline by tools/solve_short.py (CFR+ on an abstracted tree, the module doc
 there): heads-up by effective stack (5 to 100 bb, tables/short_hu.json, chip EV), three-handed by the three stacks at
-ICM (tables/short_3.json). The hand's preflop history is mapped onto the tree's lines (f fold, c call, r the tree's
+ICM (tables/extra/short_3.json). The hand's preflop history is mapped onto the tree's lines (f fold, c call, r the tree's
 raise, j all-in; a raise between the tree's size and all-in maps to either by a log-scale split drawn once per hand); a
 line the tree does not have (a limp-raise, a flat in a three-way pot) is not ours: `wants` says no and F plays. The
 tree's raise sizes follow the actual bet: the 3-bet is 3.5 times the open, the 4-bet 2.2 times the 3-bet.
@@ -73,10 +73,13 @@ _TABLES: dict = {}
 
 
 def _load(kind: str):
-    """tables/short_<kind>.json, decoded once per process (None when missing)."""
+    """tables/short_<kind>.json (or tables/extra/, which tools/pack.py does not ship by default: the three-handed
+    table, 1.5 MB, off), decoded once per process (None when missing)."""
     if kind in _TABLES:
         return _TABLES[kind]
     path = os.path.join(TABLES_DIR, f"short_{kind}.json")
+    if not os.path.exists(path):
+        path = os.path.join(TABLES_DIR, "extra", f"short_{kind}.json")
     t = None
     try:
         with open(path) as fh:
@@ -124,7 +127,7 @@ class ShortParams:
         # on the flop and turn, leads and stabs with the aggressor's bets, smoothed toward 0.4 with 4 chances): the
         # balanced play defends against bettors; against a passive seat F's reads take more (0 = always)
         self.post_aggr = 0.0
-        self.three = False  # play three-handed preflop (tables/short_3.json, loaded only then; route pre_3way too)
+        self.three = False  # play three-handed preflop (tables/extra/short_3.json, loaded only then; route pre_3way too)
         self.three_max = 1000.0  # ... only while the effective stack is at most this many big blinds
         # preflop goes back to F while an opponent alive 3-bets our opens at least this often (rival 3's core's read in
         # the base, v3n / v3o smoothed toward 0.12 with 8 chances): a 3-bettor far above equilibrium (exploiter 1

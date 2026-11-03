@@ -2,7 +2,7 @@
 """The short-handed specialist's preflop tables (S13): our own small solver, offline, stdlib only.
 
     .venv/bin/python tools/solve_short.py hu --iters 600 --workers 2          # tables/short_hu.json
-    .venv/bin/python tools/solve_short.py three --iters 300 --workers 2       # tables/short_3.json
+    .venv/bin/python tools/solve_short.py three --iters 300 --workers 2       # tables/extra/short_3.json
     .venv/bin/python tools/solve_short.py check --depth 10                    # push/fold tree vs pushfold_hu
 
 **The game.** An abstracted preflop tree at one stack configuration (blinds 0.5 / 1 bb, no antes), 169 hand classes
@@ -904,7 +904,7 @@ def cmd_three(a):
             print(f"{key:>12} iters {res['iters']} expl {res['expl_mprize']} mprize/hand ({res['secs']} s)",
                   flush=True)
     out["secs"] = round(time.time() - t0, 1)
-    path = a.out or os.path.join(TABLES_DIR, "short_3.json")
+    path = a.out or os.path.join(TABLES_DIR, "extra", "short_3.json")
     with open(path, "w") as fh:
         json.dump(compact(out), fh, separators=(",", ":"))
     print("wrote", path, os.path.getsize(path), "bytes")
