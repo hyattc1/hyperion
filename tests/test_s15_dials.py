@@ -94,3 +94,12 @@ def test_stab_holdem_only_plays_a_twist_table_exactly_as_f():
 def test_stab_max_alive_plays_heads_up_as_without_it():
     d = {**S, "hero.postflop.stab_max_alive": 3}
     assert all(_digest(d, t, HU, R2)[0] == _digest(S, t, HU, R2)[0] for t in range(3))
+
+
+def test_stab_pfr_min_reaches_the_decisions():
+    """Exploiter 3 raises preflop far more than 0.3 of its hands heads-up: the gate passes it some of the time, and a
+    gate no seat passes plays as F."""
+    d = {**S, "hero.postflop.stab_pfr_min": 0.3}
+    assert any(_digest(d, t, HU, R2)[0] != _digest({}, t, HU, R2)[0] for t in range(10))
+    shut = {**S, "hero.postflop.stab_pfr_min": 1.01}
+    assert all(_digest(shut, t, HU, R2)[0] == _digest({}, t, HU, R2)[0] for t in range(3))

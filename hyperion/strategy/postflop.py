@@ -251,8 +251,9 @@ class PostflopParams:
     # the weight (a check-raise; times the bluff dial when that is under 1). stab_aggr_only: only against the bettor
     # with the initiative (the last aggressor of the earlier streets: a c-bet or a barrel; a bet after it called mine
     # holds its calling range). stab_max_alive: only while at most this many players have chips (0 = any; by then a
-    # full table's seats have shown their stabs over many hands). stab_holdem_only: hold'em tables only
-    # (hero.holdem_table). 1.0 / -1 / 0 = off
+    # full table's seats have shown their stabs over many hands). stab_pfr_min: only against a seat that raises
+    # preflop at least this share of its hands (Profiler.pfr_rate): a loose-aggressive seat's frequent stabs are light,
+    # a tight seat's are value. stab_holdem_only: hold'em tables only (hero.holdem_table). 1.0 / -1 / 0 = off
     stab_from: float = 1.0
     stab_full: float = 1.0
     stab_prior: float = 0.5
@@ -265,6 +266,7 @@ class PostflopParams:
     stab_bluff_streets: int = 1
     stab_aggr_only: bool = False
     stab_max_alive: int = 0
+    stab_pfr_min: float = 0.0
     stab_holdem_only: bool = False
     # S12 reads (docs/drills/climb/s12-log.md); every one off by default.
     # size_read: facing a single bet heads-up (or a raise of my bet), the bettor's range for a bet of that size (bucket
@@ -1050,6 +1052,7 @@ class Postflop:
                 and (self._holdem or not p.stab_holdem_only) \
                 and (not p.stab_aggr_only or bettor == prof.prev_aggressor(street)) \
                 and (p.stab_max_alive <= 0 or obs.players_left <= p.stab_max_alive) \
+                and (p.stab_pfr_min <= 0.0 or prof.pfr_rate(bettor) >= p.stab_pfr_min) \
                 and (self._tw is None or not self._twist_read_off(spot, bettor)):
             r = prof.stab_rate(bettor, street, p.stab_prior, p.stab_n, p.stab_pool, p.stab_min)
             if r > p.stab_from:
