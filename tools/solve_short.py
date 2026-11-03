@@ -945,7 +945,9 @@ def cmd_compact(a):
 #   strategy the solve is for, and its flops use our postflop's fitted share (in position, out of position), the
 #   others' flops a symmetric fit. A configuration is solved once per hero seat and each seat keeps its own nodes.
 # The tree is built by one generic betting-round walk (`_t2_node`), so every line has the same action rules.
-T2_X = (2.5, 3.5)  # 3-bets: small and big, as multiples of the open
+T2_X = (2.3, 3.3)  # 3-bets: small and big, as multiples of the open (three-handed 3-bets seen on the diagnostic seeds
+#                    run 2.0-3.7x the open: exploiter 1 at 2.0-2.5, exploiter 2 and the elite builds 2.6-3.1, F,
+#                    rival 2 and exploiter 3 3.1-3.7; two sizes geometric over that span)
 T2_SQ = 4.0  # the squeeze over one flat, a multiple of the open
 T2_R4 = 2.2  # 4-bets, a multiple of the 3-bet
 T2_ISO = (2.5, 3.0)  # the big blind's raise over a limp, to this many bb (12 bb or less, deeper)
@@ -1004,8 +1006,9 @@ def realize_fit(real, spr, mode, key=""):
     else:
         k, s, c = _coef(real, "hero_ip" if mode == "hero_ip" else "sym", sp)
         r = E + k * ee + s * db + c
-    r = np.clip(r, 0.01, 0.99)
-    m = _RM2[ck] = (W * r, (W * (1.0 - r)).T)
+    lo, hi = real.get("clip", (0.01, 0.99))  # a fitted share may leave [0, 1]: postflop money beyond the pot
+    r = np.clip(r, lo, hi)
+    m = _RM2[ck] = (W * r, W * (1.0 - r).T)  # oop[j][i] = W[j][i] (1 - r[i][j]), as realize_mats
     return m
 
 

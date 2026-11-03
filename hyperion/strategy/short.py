@@ -702,7 +702,9 @@ class ShortMember:
             elif kind is _CALLK or kind is _CHECKK:
                 ch = "c"
             else:
-                ch = self._map_raise2(node, float(a.amount), cur, float(self._start[seat]), obs.hand_no, k)
+                deep = max(self._start[j] for j in alive if j != seat)
+                ch = self._map_raise2(node, float(a.amount), cur, float(self._start[seat]), obs.hand_no, k,
+                                      min(float(self._start[seat]), float(deep)))
                 cur = max(cur, float(a.amount))
             if not ch or ch not in acts:
                 return None
@@ -715,23 +717,28 @@ class ShortMember:
         eff = min(self._start[me], max(self._start[j] for j in alive if j != me))
         return sol, key, node, role[me], eff
 
-    def _map_raise2(self, node, amount: float, cur: float, jam_to: float, hand_no: int, k: int) -> str:
+    def _map_raise2(self, node, amount: float, cur: float, jam_to: float, hand_no: int, k: int,
+                    eff: float = 0.0) -> str:
+        """A raise onto the node's raise actions and the jam: at or over 45% of the raiser's effective stack (`eff`,
+        its stack against the deepest other in the hand; the tree's own raises stop at 40%) it is the jam; under the
+        smallest size, the smallest; between two sizes, either on a log scale (a draw fixed per hand); between the
+        largest size and the 45% line, the largest."""
         z = node.get("z") or {}
+        eff = eff or jam_to
         cands = sorted((m * cur, ch) for ch, m in z.items() if m * cur < jam_to - 1e-9)
         has_j = "j" in node["a"]
-        if amount >= jam_to - 1e-9 or (has_j and not cands and amount >= 0.45 * jam_to):
-            return "j" if has_j else (cands[-1][1] if cands else "")
+        if amount >= jam_to - 1e-9 or amount >= 0.45 * eff:
+            return "j" if has_j else ""
         if not cands:
             return ""  # a small raise where the tree only jams: not a line of ours
         if amount <= cands[0][0]:
             return cands[0][1]
-        pts = cands + ([(jam_to, "j")] if has_j else [])
-        for x in range(1, len(pts)):
-            if pts[x][0] >= amount:
-                lo, hi = pts[x - 1], pts[x]
+        for x in range(1, len(cands)):
+            if cands[x][0] >= amount:
+                lo, hi = cands[x - 1], cands[x]
                 w = (math.log(amount) - math.log(lo[0])) / (math.log(hi[0]) - math.log(lo[0]))
                 return hi[1] if _u(self.seed, hand_no, "map2", k) < w else lo[1]
-        return pts[-1][1]
+        return cands[-1][1]
 
     def _to_action3b(self, ch: str, node, obs: Observation, eff: float) -> Action:
         legal = obs.legal
