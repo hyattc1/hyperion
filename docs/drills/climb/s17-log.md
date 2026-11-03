@@ -269,3 +269,38 @@ stab at 0.33 and 0.09 at 0.5). The research note's risk ("a few stabs that were 
   bet_min_fold's margin (0.4 against a 0.25 break-even at 0.33) over the 0.5 bet's 0.33 break-even.
 
 Tests: tests/test_s17_stab_size.py (both gates; neither touches the stab without the one size).
+
+### 10. Identity again, and the three forms on a dev set (05:36-06:12)
+
+Identity at 4bd9a3c (code bf168db5ac), same command as run 5 (`--out s17/ca_ident2`): **14 of 14 chunks identical**
+to main's.
+
+Scratch `quick.py` (climb_accept's own run_cells / gather / paired on chosen cells, code bf168db5ac), dev seeds
+9000-9199 (not a screen, held-out or judge seed), F and three forms:
+C1 = `{"exploit.stab_size": true}`, C2 = C1 + `"exploit.stab_min_fold": 0.48`, C3 = C1 + `"exploit.stab_alive": 3`.
+
+| cell | F | C1 - F | C2 - F | C3 - F |
+|---|---|---|---|---|
+| realistic | 6.374 | -0.021 ± 0.056 | -0.031 ± 0.061 | +0.000 ± 0.010 |
+| night | 6.096 | -0.050 ± 0.065 | -0.022 ± 0.066 | -0.012 ± 0.014 |
+| exploit2_hu | 7.848 | **+0.172 ± 0.100 UP** | +0.098 ± 0.102 | **+0.172 ± 0.100 UP** |
+| exploit2_3 | 7.348 | **+0.237 ± 0.113 UP** | **+0.260 ± 0.117 UP** | **+0.237 ± 0.113 UP** |
+| adapt_hu | 8.672 | +0.105 ± 0.115 | +0.075 ± 0.130 | +0.105 ± 0.115 |
+| adapt_3 | 7.993 | +0.123 ± 0.142 | -0.098 ± 0.141 | +0.123 ± 0.142 |
+| exploit_hu | 9.250 | +0.007 ± 0.097 | +0.015 ± 0.098 | +0.007 ± 0.097 |
+
+Read: C1's gains repeat on fresh seeds (exploit2 heads-up and three-handed up again; adapt1 up a little). C2's
+higher fold bar costs the gains (it drops stabs against exploiter 2 heads-up and adapt1 three-handed, which fold
+0.55-0.65 to the larger stab) and does not help realistic. C3 plays C1 exactly in every heads-up and three-handed cell
+(at most three players have chips there) and stays within a hundredth of F at full tables: it keeps the gain where the
+tell is read and leaves the 8-max play where the callers are.
+
+**Final candidate, fixed here: C3 = `{"dials": {"exploit.stab_size": true, "exploit.stab_alive": 3}}`.**
+
+### 11. The screen of C3 (from 06:14)
+
+From wt_s17_meas (4bd9a3c, code bf168db5ac): `climb_accept --cand '{"dials": {"exploit.stab_size": true,
+"exploit.stab_alive": 3}}' --base '{"dials": {}}' --aim exploit --set screen --stages
+exploit,confirm,guards,elite,variants --workers 3 --out s17/ca --json s17/res/screen_c3.json`, launched detached.
+F's 400 screen chunks are pinned: copied from run 7's cache (code cc3e60d954) under F's key at bf168db5ac, since F
+plays bit-identically at both codes (runs 5 and 10) and the code between them only adds branches behind `stab_size`.
