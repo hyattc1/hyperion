@@ -678,3 +678,16 @@ and (in judges) `elite_judge`.
   99 -> 136; omaha_four 101 -> 110 / 100 -> 112; wild_deuces 113 -> 128 / 93 -> 131. Load 9. The cost is elite1's
   light shadow and the size read: about 15 us at p99.
 - Waiting on H13 (the combined check).
+
+## 20:19: V-f merged (per-family twist dials, off); V-f's spec on H15 against batch 5
+- V-f (climb/vf-twist-carry): `hero.twist_family(rules)` names a hold'em table with one twist step (discard,
+  bounty, knockout, buy, swap, exposed); one dial per gain lists the families it reaches (size_read_twists,
+  s11_twists, r3.v3_bvb_twists, strong_route_twists), off by default. On a twist table the reads skip a bettor holding
+  a bought card, a bettor whose bounty rank shows, and a bet that would put us all-in under knockout. Screen (base F,
+  generic aware, hand-built aware, realistic): size read knockout +0.069 and +0.087 UP, swap_holdem +0.042 UP,
+  swap_one_turn +0.045 UP, exposed +0.031 UP; strong route on mirror under knockout +0.194, bonus +0.070, auction
+  +0.062 UP; nothing down. Merge conflicts kept both sides (S13's short_route, V-f's strong_route_twists).
+- Identity after the merge: 15 cells identical.
+- Candidate {size_read_twists discard,bounty,knockout,swap,exposed; s11_twists knockout,buy,swap,exposed;
+  strong_route_twists bounty,knockout,buy} on H15 (35000-35399), base batch 5's dials, stages aware (9 generic + 2
+  hand-built) and variants.
