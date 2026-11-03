@@ -518,6 +518,10 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `twin_force` | False |
 | `twin_multi` | 0.0 |
 | `known_cards` | '' |
+| `voi` | 0.0 |
+| `voi_parts` | 'bid,buy,swap,keep,discard' |
+| `sd_tax` | False |
+| `sd_tax_gate` | 0.05 |
 | `cheap` | False |
 | `deadline_ms` | 0.5 |
 | `panic_after` | 5 |

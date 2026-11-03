@@ -52,6 +52,7 @@ from .tables import CLASSES, Tables, load as load_tables, quick, tables_for
 
 _CHECK = Action(ActionKind.CHECK)
 _FOLD = Action(ActionKind.FOLD)
+_NO_TAX: dict = {}  # Postflop.act's showdown-tax keywords when the read is off (their defaults: no change)
 PLAIN_NAMES = ("", "holdem", "hold'em", "plain", "nlhe", "default")  # rules.extras["variant"] values that are no twist
 
 ICM_BUCKETS = 100  # default Config.icm_buckets: opponents' stacks are rounded to 1/100 of the chips in play before the (memoised) exact ICM call
@@ -441,6 +442,26 @@ class Config:
     #         plain read for those who share nothing) is the hand's
     # With it on, every known card that is not ours comes off the draw outs (as exposed cards always did)
     known_cards: str = ""
+    # twist decisions priced as value of information (V-i, docs/drills/climb/vi-log.md). `voi` is the one multiplier on
+    # an option's worth in chips where a price stands against it: the auction bids voi x the indifference price
+    # (d x pot_eff / (1 - d), d = e_win - e_lose from tables/auction_bid.json: what the card is worth to me plus what
+    # denying it to a rival is worth), the bonus card is bought when voi x (e3 - e2) x pot_eff >= (1 - e3) x price (my pot
+    # share with and without it against opponents holding three, tables/voi.json "buy"). The choices with no price take
+    # the option worth most: keep and discard on the flop by my pot share against opponents who kept their best two of
+    # as many cards (tables/voi.json flop<N>), the blind discard by the kept class's hold'em equity against the opponents
+    # in, the swap by the mean share over every replacement card (tables/voi.json "turn", one card to come) against
+    # keeping. `voi_parts`: the decisions it prices (comma list of bid, buy, swap, keep, discard). 0 = off (the play
+    # before 2026-11-03: the bid at voi 1, a bonus card at a tenth of the stack, the swap rule, keep and discard by the
+    # flop read)
+    voi: float = 0.0
+    voi_parts: str = "bid,buy,swap,keep,discard"
+    # the showdown tax (V-g's read): a twist whose prepared table (tables/generic/, hyperion/sim/generic.py's prepare)
+    # pays a showdown f = mean share / hold'em's (0.5004) of what hold'em pays, by more than sd_tax_gate either way:
+    # facing a bet the equity is read x f (a won showdown pays f of the pot), and the value thresholds (value_tier and the
+    # station tiers) move up by the tiers that cover a called bet's need, 1 / (2f) instead of 1/2 (Ghost: f 0.683, two
+    # tiers). Not where Hero prices the payoff itself (bounty, knockout). The table needs rules.extras["variant"]. Off: no read
+    sd_tax: bool = False
+    sd_tax_gate: float = 0.05  # (fixed in advance: every catalog twist with hold'em's payoff measures 0.4996-0.5015)
     cheap: bool = False  # cheapest paths everywhere (also what panic mode switches on)
     deadline_ms: float = 0.5
     panic_after: int = 5
@@ -756,6 +777,12 @@ class HeroCore:
         self._known_pre = self._known_post = False
         self._known_ladder = None
         self.known_pre_n = self.known_post_n = 0  # decisions the known cards reached (diagnostics)
+        # V-i: the decisions priced as value of information (Config.voi, voi_parts), the showdown tax read for this
+        # table ((call scale, thin-value tiers) or None), and my last observation (the pot and the opponents in, which
+        # a prompt does not carry; a wrapper that sees every decision passes its own as prompt["last_obs"])
+        self._voi = voi_parts(cfg.voi_parts) if cfg.voi > 0.0 else frozenset()
+        self._tax = None
+        self._last_obs = None
 
     # ------------------------------------------------------------------ Bot protocol
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
@@ -769,6 +796,7 @@ class HeroCore:
         self.last_stacks = [rules.starting_stack] * n_players
         self.panic = False
         self._pre_aggr = False  # (the first act of the table resets it too: hand_no -1 above)
+        self._last_obs = None  # (V-i: another table's hand numbers would match this one's)
         self._cap_var = None
         if self.cfg.cap_vol_bb > 0.0 and rules.max_hands > 0:
             # suffix sums of big blind^2 over the hands still to play: var[h] = sum_{t >= h} bb_t^2
@@ -914,6 +942,29 @@ class HeroCore:
                 self._known_pre = self._known_ladder is not None
                 if self._known_pre:
                     _known.preload(rules.hole_cards)  # the tables' first read is a table start's, not a decision's
+        self._tax = None
+        if cfg.sd_tax and self._bounty is None and not self._ko:
+            share = self._sd_share(rules)
+            if share is not None and abs(share - SD_SHARE_HOLDEM) > cfg.sd_tax_gate:
+                f = share / SD_SHARE_HOLDEM
+                self._tax = (f, tax_tiers(f, self.postflop.p.value_tier))
+        if self._voi:
+            voi_table()  # read at a table start, never inside a decision
+
+    def _sd_share(self, rules: Rules) -> float | None:
+        """The variant's prepared table's mean value share against one hand (Config.sd_tax), read once per variant and
+        rules; None without a table (no variant name, none prepared) or inside a decision's table start."""
+        import json as _json
+
+        from .tables import generic_doc
+
+        key = ("sd_share", str((rules.extras or {}).get("variant")),
+               _json.dumps(rules.extras or {}, sort_keys=True, default=str), rules.hole_cards)
+        if key not in _TWINS:
+            if quick():
+                return None
+            _TWINS[key] = mean_share(generic_doc(rules))
+        return _TWINS[key]
 
     def _twins(self, rules: Rules) -> dict | None:
         """The variant's twin map (Config.twin_preflop), read once per variant and rules; None when the variant has
@@ -1001,6 +1052,7 @@ class HeroCore:
             stacks, bets = obs.stacks, obs.bets
             self.hand_start = [stacks[s] + bets[s] for s in range(len(stacks))]
             self._pre_aggr = False
+        self._last_obs = obs  # (V-i's option prices read the hand's state from it: the prompts do not carry it)
         prof = self.prof
         if prof is not None:
             try:
@@ -1136,6 +1188,8 @@ class HeroCore:
         if cfg.call_shift_ex and self._gate:
             call_shift += int(cfg.call_shift_ex.get(self._gate, 0) or 0)
         self.last_path = "postflop"
+        tx = self._tax  # the showdown tax read (Config.sd_tax): calls priced x f, thin value up n tiers
+        tax = _NO_TAX if tx is None else {"call_scale": tx[0], "thin_shift": tx[1]}
         nb = len(board)
         if cfg.long_board and (nb > 5 or (self._run and nb >= 5)) and nh == 2 and not mu:
             # a long board, or the last size with a run still possible (river_of_blood): one more card comes after a
@@ -1148,7 +1202,8 @@ class HeroCore:
                 a = pf.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
                            value_shift=value_shift + cfg.long_value_per_card * extra,
                            call_shift=call_shift + cfg.long_call_per_card * extra,
-                           street=2 if more else 3, to_come=cfg.long_to_come if more else 0, long=True, more=more)
+                           street=2 if more else 3, to_come=cfg.long_to_come if more else 0, long=True, more=more,
+                           **tax)
                 if xl is not None and not cheap:
                     a = self._exploit(xl, raw, a)
                 return a
@@ -1165,11 +1220,11 @@ class HeroCore:
                                                          and not self._revealed_dead and not self._toss) else 0)
             a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
                                   value_shift=value_shift, call_shift=call_shift, shared=sh, shared_call_shift=cs2,
-                                  shared_all=sh_all)
+                                  shared_all=sh_all, **tax)
             self.known_post_n += 1
         else:
             a = self.postflop.act(spot, hole, prof, aggressor, cheap, board, board2=board2, must_use=mu, dead=dead,
-                                  value_shift=value_shift, call_shift=call_shift)
+                                  value_shift=value_shift, call_shift=call_shift, **tax)
         if cfg.bounty_bet_frac > 0.0 and bounty and a.kind is ActionKind.CHECK and spot.to_call == 0 \
                 and spot.n_opps <= 2 and not cheap and ActionKind.RAISE in obs.legal and self._bounty_hit(obs):
             a = self.postflop._bet(spot, cfg.bounty_bet_frac, bluff=True)
@@ -1442,33 +1497,184 @@ class HeroCore:
         rm = self._remap
         if rm is not None:
             hole, board = remap(hole, rm), remap(board, rm)
+        voi = self._voi
         if kind == "discard":
             dead = ()
             if self._toss and self.cfg.toss_dead:
                 dc = prompt.get("discards")
                 dead = self._tossed(dc) if dc else ()
+            if "discard" in voi:
+                return self._discard_voi(hole, board, dead, prompt)
             return self._discard(hole, board, dead)
         if kind == "swap":
+            if "swap" in voi:
+                return self._swap_voi(hole, board, prompt)
             return self._swap(hole, board)
         if kind == "buy_card":
             price = int(prompt.get("price", 0) or 0)
             stacks = prompt.get("stacks")
             seat = int(prompt.get("seat", self.seat))
             mine = stacks[seat] if stacks and 0 <= seat < len(stacks) else 0
+            if "buy" in voi:
+                b = self._buy_voi(hole, board, price, prompt, mine)
+                if b is not None:
+                    return b
             return price <= 0.1 * mine
         if kind == "bid":
-            return self._bid(hole, board, prompt)
+            return self._bid(hole, board, prompt, self.cfg.voi if "bid" in voi else 1.0)
         if kind == "keep":
             rv = prompt.get("revealed") or {}
+            if "keep" in voi:
+                return self._keep_voi(hole, board, self._revealed(rv) if rv else (), prompt)
             return self._keep(hole, board, self._revealed(rv) if rv else ())
         return None
 
-    def _bid(self, hole, board, prompt: dict) -> int:
+    # -- V-i: the options priced as value of information (Config.voi)
+    def _hand_obs(self, prompt: dict):
+        """My last observation of this hand: the prompt's "last_obs" (the composite's, which sees every decision),
+        else my own; None when it is from another hand."""
+        o = prompt.get("last_obs") or self._last_obs
+        if o is None or o.hand_no != prompt.get("hand_no", o.hand_no):
+            return None
+        return o
+
+    def _opps_in(self, prompt: dict) -> int:
+        """Opponents still in this hand, 1..4 (the option tables' columns): at my last decision of this hand."""
+        o = self._hand_obs(prompt)
+        if o is None:
+            return 1
+        k = sum(1 for s, x in enumerate(o.in_hand) if x and s != o.seat)
+        return 1 if k < 1 else 4 if k > 4 else k
+
+    def _option_value(self, tab: dict, keep, board, dead) -> float:
+        """A two-card option's pot share by the option table (tier, outs bucket), the flop read's score breaking ties
+        inside a cell; the score alone when the table has no such cell."""
+        tier, outs, _ = self.postflop._read(keep, board, 0, dead)
+        s = max(TIER_EQUITY[tier], outs * 0.04) + 0.01 * self.tables.rank[hole_class(keep)]
+        v = tab.get((tier, outs_bucket(outs)))
+        return s if v is None else v + 0.001 * s
+
+    def _flop_tab(self, prompt: dict) -> dict:
+        n = self.rules.hole_cards
+        return voi_table()["flop5" if n >= 5 else "flop3" if n >= 3 else "flop2"][self._opps_in(prompt)]
+
+    def _discard_voi(self, hole, board, dead: tuple = (), prompt: dict | None = None):
+        """The toss: keep the two worth most. On the flop by my pot share against opponents who kept their best two of
+        three (tables/voi.json flop3), the card thrown and the tosses before mine dead; before the flop (the blind
+        discard) by the kept class's hold'em equity against the opponents in, the preflop rank breaking ties."""
+        n = len(hole)
+        if n != 3:
+            return self._discard(hole, board, dead)
+        prompt = prompt or {}
+        if len(board) >= 3:
+            tab = self._flop_tab(prompt)
+            vals = [self._option_value(tab, hole[:k] + hole[k + 1:], board, dead + (hole[k],)) for k in range(n)]
+        else:
+            k_opp = self._opps_in(prompt)
+            eq, rank = self.tables.equity, self.tables.rank
+            vals = []
+            for k in range(n):
+                keep = hole[:k] + hole[k + 1:]
+                if len(keep) != 2:
+                    vals.append(-1.0)
+                    continue
+                c = hole_class(keep)
+                e = eq[c]
+                vals.append(e[min(k_opp, len(e)) - 1] + 0.001 * rank[c])
+        return max(range(n), key=lambda k: (vals[k], -k))
+
+    def _keep_voi(self, hole, board, dead: tuple = (), prompt: dict | None = None):
+        """deal 5 keep 2: the pair worth most by my pot share against opponents who kept their best two of five
+        (tables/voi.json flop5), every revealed discard and the three I throw dead. Before a flop, as _keep."""
+        n = len(hole)
+        if n <= 2 or len(board) < 3:
+            return self._keep(hole, board, dead)
+        tab = self._flop_tab(prompt or {})
+        best, best_v = None, -2.0
+        for i in range(n):
+            for j in range(i + 1, n):
+                own = tuple(hole[m] for m in range(n) if m != i and m != j)
+                v = self._option_value(tab, (hole[i], hole[j]), board, dead + own)
+                if v > best_v:
+                    best_v, best = v, (i, j)
+        return best
+
+    def _swap_voi(self, hole, board, prompt: dict | None = None):
+        """The swap: replace card i when my mean pot share over every card that could replace it beats keeping
+        (tables/voi.json: "turn" with one card to come, "flop2" on a flop), the card thrown dead. -1 keeps."""
+        if len(hole) != 2 or len(board) not in (3, 4):
+            return self._swap(hole, board)
+        tab = voi_table()["turn" if len(board) == 4 else "flop2"][self._opps_in(prompt or {})]
+        read = self.postflop._read
+        tier, outs, _ = read(hole, board, 0, ())
+        v_keep = tab.get((tier, outs_bucket(outs)), TIER_EQUITY[tier])
+        seen = set(hole) | set(board)
+        n_unseen = 52 - len(seen)
+        best, best_v = -1, v_keep
+        for i in (0, 1):
+            other, gone = hole[1 - i], (hole[i],)
+            # a replacement's suit matters only where the board and the card kept hold three or more of it (a flush
+            # draw is four of the six cards): the other suits of a rank read alike, so one read stands for them all
+            cnt = [0, 0, 0, 0]
+            for c in board:
+                cnt[c & 3] += 1
+            cnt[other & 3] += 1
+            groups: dict = {}
+            for r in range(52):
+                if r in seen:
+                    continue
+                key = r if cnt[r & 3] >= 3 else -1 - (r >> 2)
+                g = groups.get(key)
+                if g is None:
+                    groups[key] = [r, 1]
+                else:
+                    g[1] += 1
+            acc = 0.0
+            for r, w in groups.values():
+                t2, o2, _ = read((other, r), board, 0, gone)
+                acc += w * tab.get((t2, outs_bucket(o2)), TIER_EQUITY[t2])
+            v = acc / n_unseen
+            if v > best_v + 1e-9:
+                best, best_v = i, v
+        return best
+
+    def _pot_now(self, prompt: dict) -> int | None:
+        """The pot as a street's prompt finds it (a prompt without "pot"): the middle at my last decision of this hand
+        plus the chips that have left the stacks since (the prompt's "stacks"). None when I have not seen the hand."""
+        o = self._hand_obs(prompt)
+        stacks = prompt.get("stacks")
+        if o is None or not stacks or len(stacks) != len(o.stacks):
+            return None
+        return o.total_pot + sum(max(0, o.stacks[s] - stacks[s]) for s in range(len(stacks)))
+
+    def _buy_voi(self, hole, board, price: int, prompt: dict, stack: int):
+        """The bonus card: buy when voi x (e3 - e2) x pot_eff >= (1 - e3) x price. e3 / e2: my pot share with and
+        without a third card against opponents holding three (tables/voi.json "buy"; a hook's default is to buy).
+        The price is dead money in a pot I may win, so a buy costs (1 - e3) of it. pot_eff grows the pot for the
+        betting to come as the auction's bid does. None (the plain rule) without a flop or the pot."""
+        if price <= 0:
+            return True
+        pot = self._pot_now(prompt)
+        if pot is None or pot <= 0 or len(hole) < 2 or len(board) < 3 or price > stack:
+            return None
+        tier, outs, _ = self.postflop._read(hole[:2], board, 0, ())
+        cell = voi_table()["buy"][self._opps_in(prompt)].get((tier, outs_bucket(outs)))
+        if cell is None:
+            return None
+        e3, e2 = cell
+        cfg = self.cfg
+        spr = stack / pot
+        pot_eff = pot * (1.0 + cfg.auction_implied * (spr if spr < cfg.auction_spr_cap else cfg.auction_spr_cap))
+        return cfg.voi * (e3 - e2) * pot_eff >= (1.0 - e3) * price
+
+    def _bid(self, hole, board, prompt: dict, mult: float = 1.0) -> int:
         """The auction (MIT 2024's second-price sealed bid for a third card): bid the price at which winning and losing
         come out level. Winning at price x is worth e_win (pot + x) - x, losing (a rival pays x) e_lose (pot + x), so
         x = d pot / (1 - d) with d = e_win - e_lose, the pot share winning the card is worth (tables/auction_bid.json,
-        by flop read and the number of other bidders). The pot is grown by the stack still to bet (`auction_implied`),
-        and the bid is capped at a share of the stack and of the pot. A tie pays the bid too."""
+        by flop read and the number of other bidders): e_win - e_two what the card adds to my hand, e_two - e_lose
+        what denying it to a rival is worth. The pot is grown by the stack still to bet (`auction_implied`), the price
+        scaled by `mult` (Config.voi; 1 = the indifference price), and the bid is capped at a share of the stack and
+        of the pot. A tie pays the bid too."""
         cfg = self.cfg
         stack = int(prompt.get("max_bid", prompt.get("stack", 0)) or 0)
         pot = int(prompt.get("pot", 0) or 0)
@@ -1489,6 +1695,8 @@ class HeroCore:
         spr = stack / pot
         pot_eff = pot * (1.0 + cfg.auction_implied * (spr if spr < cfg.auction_spr_cap else cfg.auction_spr_cap))
         x = d * pot_eff / (1.0 - d) if d < 0.95 else pot_eff * 19.0
+        if mult != 1.0:
+            x *= mult
         cap = min(cfg.auction_stack_frac * stack, cfg.auction_pot_frac * pot)
         b = int(x if x < cap else cap)
         return b if b < stack else stack
@@ -1596,6 +1804,81 @@ def auction_table(path=None) -> dict:
     if path is None:
         _AUCTION = out
     return out
+
+
+VOI_PARTS = ("bid", "buy", "swap", "keep", "discard")
+
+
+def voi_parts(spec) -> frozenset:
+    """Config.voi_parts as a set; an unknown name is an error, not a silent no-op."""
+    names = {x.strip() for x in (spec.split(",") if isinstance(spec, str) else spec or ()) if str(x).strip()}
+    bad = names - set(VOI_PARTS)
+    if bad:
+        raise KeyError(f"unknown voi part {sorted(bad)[0]!r}; known: {', '.join(VOI_PARTS)}")
+    return frozenset(names)
+
+
+_VOI: dict | None = None
+
+
+def voi_table(path=None) -> dict:
+    """tables/voi.json (tools/gen_voi.py) as {table: {opponents (1..4): {(tier, outs bucket): value}}}; "buy" cells
+    are (e3, e2). Read once per process."""
+    global _VOI
+    if _VOI is not None and path is None:
+        return _VOI
+    import json
+    from pathlib import Path
+
+    from .tables import TABLES_DIR
+
+    with open(Path(path) if path else Path(TABLES_DIR) / "voi.json") as f:
+        raw = json.load(f)["tables"]
+    out: dict = {}
+    for name, by_k in raw.items():
+        t = out[name] = {}
+        for k, cells in by_k.items():
+            m = t[int(k)] = {}
+            for key, c in cells.items():
+                tier, ob = (int(x) for x in key.split(","))
+                m[(tier, ob)] = (float(c["e3"]), float(c["e2"])) if "e3" in c else float(c["e"])
+    if path is None:
+        _VOI = out
+    return out
+
+
+def outs_bucket(outs: int) -> int:
+    """The option tables' outs buckets (tools/gen_auction.py, tools/gen_voi.py): 0 / 1-4 / 5-8 / 9+."""
+    return 0 if outs <= 0 else 1 if outs <= 4 else 2 if outs <= 8 else 3
+
+
+# the showdown tax (Config.sd_tax): hold'em's prepared table's mean value share against one hand
+# (tables/generic/holdem-3eb02749.json; a showdown pays the pot, ties split)
+SD_SHARE_HOLDEM = 0.5004
+
+
+def mean_share(doc: dict | None) -> float | None:
+    """A prepared table's (tables/generic/) combo-weighted mean value share against one hand, or None."""
+    if not doc:
+        return None
+    try:
+        labels = doc.get("labels") or {}
+        tot = sum(float(v[1]) for v in labels.values())
+        return sum(float(v[0]) * float(v[1]) for v in labels.values()) / tot if tot > 0 else None
+    except (TypeError, ValueError, IndexError, AttributeError):
+        return None
+
+
+def tax_tiers(f: float, value_tier: int) -> int:
+    """The thin-value shift for a showdown that pays f of the pot: a called value bet needs 1 / (2f) of the showdowns
+    instead of a half, so the tiers above (or below, f > 1) value_tier whose TIER_EQUITY gain is nearest that need."""
+    need = 0.5 / f - 0.5
+    top = len(TIER_EQUITY) - 1
+    vt = max(0, min(top, value_tier))
+    base = TIER_EQUITY[vt]
+    if need >= 0.0:
+        return min(range(top - vt + 1), key=lambda n: abs(TIER_EQUITY[vt + n] - base - need))
+    return -min(range(vt + 1), key=lambda n: abs(base - TIER_EQUITY[vt - n] + need))
 
 
 class Hero:

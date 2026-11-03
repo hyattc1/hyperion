@@ -230,6 +230,7 @@ class HybridCore:
         self.n = 8
         self._remap = None
         self._table_why: str | None = None
+        self._obs = None  # the last decision's observation (variant_decide passes it to Hero)
         self._bounty = None
         self._straddle = False
         self._start: list = []  # exact chips per seat at the start of the current hand
@@ -241,6 +242,7 @@ class HybridCore:
         cfg = self.cfg
         self.rules, self.seat, self.n = rules, seat, n_players
         self.panic = False
+        self._obs = None
         self._remap = None if is_identity_order(rules) else rules
         self._table_why = table_reason(rules, cfg)
         self._straddle = bool(rules.straddle)
@@ -294,6 +296,7 @@ class HybridCore:
         self.set_lean(n >= 1)
 
     def act(self, obs: Observation) -> Action:
+        self._obs = obs  # the last decision's observation, for the variant decisions (variant_decide)
         ex = self.ex
         if ex is None:
             return self._decide(obs)
@@ -426,6 +429,10 @@ class HybridCore:
 
     # ------------------------------------------------------------------ variant decisions
     def variant_decide(self, prompt: dict):
+        # Hero makes it, and sees only the decisions the core declines: it gets ours (V-i's option prices)
+        o = self._obs
+        if o is not None and "last_obs" not in prompt:
+            prompt = {**prompt, "last_obs": o}
         return self.hero.variant_decide(prompt)
 
     def stats(self) -> dict:
