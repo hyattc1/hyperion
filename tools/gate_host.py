@@ -31,7 +31,10 @@ Build the kit's log in its own shape (per street, chips added, the blinds posted
 a seat that sends one street's log never tests the adapter's per-street parsing (drills 8 and 9 did).
 A seat's `end(hand_no, delta, result)` gets the hand's `result` dict (deltas of every seat, board, showdown
 {seat: cards}, the tagged history rows, posts): pass on what the kit's own hand end carries, never more. An
-event-driven kit (no state snapshot): hyperion/drills/gate_seat_template.py.
+event-driven kit (no state snapshot): hyperion/drills/gate_seat_template.py. A process kit (the bot is its own process on
+JSON lines, drill 10's kit H): hyperion/drills/process_gate_seat_template.py, whose module-level `PROCESS = True` makes
+this host hand the seat the entry's path instead of importing it; the seat launches the entry and plays the real stdin
+loop through a pipe, and its `close()` (called at the gate's close) ends the bot process.
 """
 from __future__ import annotations
 
@@ -41,6 +44,7 @@ import os
 import runpy
 import sys
 import time
+import types
 
 
 def _setup_path(pkg: str, kit_dir: str) -> None:
@@ -214,13 +218,19 @@ def serve(kind: str, pkg: str, entry: str, kit_dir: str, seat_file: str | None) 
         if kind == "direct":
             seat = Direct(None, kit)
         else:
-            module = _load_file(os.path.join(pkg, entry), "submission")
+            seat_mod = _load_file(seat_file, "gate_seat") if kind == "seat" else None
+            if seat_mod is not None and getattr(seat_mod, "PROCESS", False):
+                # a process kit's seat (hyperion/drills/process_gate_seat_template.py) launches the entry itself, as
+                # the kit does: it gets the entry's path, never an in-process import
+                module = types.SimpleNamespace(__file__=os.path.join(pkg, entry), __name__="submission")
+            else:
+                module = _load_file(os.path.join(pkg, entry), "submission")
             if kind == "a":
                 seat = KitA(module, kit)
             elif kind == "b":
                 seat = KitB(module, kit)
             elif kind == "seat":
-                seat = _load_file(seat_file, "gate_seat").Seat(module, kit)
+                seat = seat_mod.Seat(module, kit)
             else:
                 raise ValueError(f"unknown kind {kind!r}")
     except BaseException as e:  # noqa: BLE001 - the import failing is the finding
@@ -274,6 +284,13 @@ def serve(kind: str, pkg: str, entry: str, kit_dir: str, seat_file: str | None) 
                 errors += 1
                 note(f"hand end raised {type(e).__name__}: {e}")
         elif op == "close":
+            fn = getattr(seat, "close", None)  # a process seat ends the table and its bot process
+            if fn is not None:
+                try:
+                    fn()
+                except Exception as e:  # noqa: BLE001
+                    errors += 1
+                    note(f"close raised {type(e).__name__}: {e}")
             send({"errors": errors, "notes": notes})
             break
     return 0
