@@ -19,4 +19,5 @@ packages = ["hyperion"]
 testpaths = ["tests"]
 markers = [
     "timing: wall-clock budget and latency tests that fail on a loaded host (the night runs pytest -m \"not timing\"; the default runs everything)",
+    "night: the one-minute subset for the night on a loaded box (`pytest -m night`: the adapter, conformance, pack, ship switch and template tests); the full suite is for the day",
 ]
