@@ -1,0 +1,1315 @@
+{
+ "version": "19ce4b12b8",
+ "set": "H14",
+ "seeds": [
+  34000,
+  34400
+ ],
+ "base": {
+  "dials": {
+   "route": "post=hero,pre_raised_short=hero",
+   "exploit.bet_min_fold": 0.4,
+   "hero.postflop.call_margin": 0.2,
+   "deadline_ms": 0.8,
+   "panic_window": 60,
+   "panic_ladder": true,
+   "panic_recover": 40,
+   "degrade": "noshadow,lean,hero",
+   "hero.variant_preflop": {
+    "call_raise_frac": 0.15,
+    "three_bet_frac": 0.05
+   },
+   "hero.toss_value_shift": 2,
+   "hero.toss_dead": true,
+   "base.hero_on_bounty": false,
+   "r3.v3_defend": true,
+   "hero.long_board": true,
+   "hero.keep_call_shift": 2,
+   "hero.toss_call_shift": 1,
+   "strong_route": "pre_open_10=elite1x",
+   "strong_rr": 0.2,
+   "hero.twin_preflop": 0.05,
+   "hero.twin_multi": 0.07,
+   "hero.multi_call_shift": 2,
+   "hero.mu_call_shift": 1,
+   "hero.mu_value_shift": 1,
+   "hero.call_shift_ex": {
+    "wild": 2,
+    "deck": 1
+   },
+   "hero.postflop.size_read": 1.0,
+   "hero.postflop.size_read_rank": 5.0,
+   "hero.postflop.size_read_min_alive": 4,
+   "hero.postflop.size_read_holdem_only": true,
+   "hero.postflop.size_read_min_bets": 2,
+   "hero.postflop.size_read_min_share": 0.15,
+   "hero.postflop.size_read_min_buckets": 2,
+   "hero.postflop.size_read_skip_weak": true,
+   "hero.postflop.size_read_streets": 3,
+   "hero.postflop.size_read_min_cbet": 0.55,
+   "r3.v3_bvb_prior": 0.15,
+   "hero.postflop.probe_from": 0.75,
+   "hero.postflop.probe_n": 2,
+   "hero.postflop.probe_margin": 0.03,
+   "hero.postflop.probe_raise_tier": 5,
+   "hero.postflop.probe_bluff": 0.4,
+   "hero.postflop.balance_sizes": true,
+   "hero.postflop.s11_holdem_only": true,
+   "r3.v3_bvb_holdem_only": true
+  }
+ },
+ "cand": {
+  "dials": {
+   "route": "post=hero,pre_raised_short=hero",
+   "exploit.bet_min_fold": 0.4,
+   "hero.postflop.call_margin": 0.2,
+   "deadline_ms": 0.8,
+   "panic_window": 60,
+   "panic_ladder": true,
+   "panic_recover": 40,
+   "degrade": "noshadow,lean,hero",
+   "hero.variant_preflop": {
+    "call_raise_frac": 0.15,
+    "three_bet_frac": 0.05
+   },
+   "hero.toss_value_shift": 2,
+   "hero.toss_dead": true,
+   "base.hero_on_bounty": false,
+   "r3.v3_defend": true,
+   "hero.long_board": true,
+   "hero.keep_call_shift": 2,
+   "hero.toss_call_shift": 1,
+   "strong_route": "pre_open_10=elite1x",
+   "strong_rr": 0.2,
+   "hero.twin_preflop": 0.05,
+   "hero.twin_multi": 0.07,
+   "hero.multi_call_shift": 2,
+   "hero.mu_call_shift": 1,
+   "hero.mu_value_shift": 1,
+   "hero.call_shift_ex": {
+    "wild": 2,
+    "deck": 1
+   },
+   "hero.postflop.size_read": 1.0,
+   "hero.postflop.size_read_rank": 5.0,
+   "hero.postflop.size_read_min_alive": 4,
+   "hero.postflop.size_read_holdem_only": true,
+   "hero.postflop.size_read_min_bets": 2,
+   "hero.postflop.size_read_min_share": 0.15,
+   "hero.postflop.size_read_min_buckets": 2,
+   "hero.postflop.size_read_skip_weak": true,
+   "hero.postflop.size_read_streets": 3,
+   "hero.postflop.size_read_min_cbet": 0.55,
+   "r3.v3_bvb_prior": 0.15,
+   "hero.postflop.probe_from": 0.75,
+   "hero.postflop.probe_n": 2,
+   "hero.postflop.probe_margin": 0.03,
+   "hero.postflop.probe_raise_tier": 5,
+   "hero.postflop.probe_bluff": 0.4,
+   "hero.postflop.balance_sizes": true,
+   "hero.postflop.s11_holdem_only": true,
+   "r3.v3_bvb_holdem_only": true,
+   "short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short",
+   "short.pre_roles": "bb",
+   "short.post_aggr": 0.5,
+   "short.pre_open_min": 0.65
+  }
+ },
+ "stages": {
+  "confirm": [
+   {
+    "cell": "night",
+    "base": 6.174867233982702,
+    "cand": 6.172281120701451,
+    "delta": -0.0025861132812500156,
+    "ci": 0.005482486690127645,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     4129.0,
+     423.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   }
+  ],
+  "guards": [
+   {
+    "cell": "night_hard",
+    "base": 5.655818747086585,
+    "cand": 5.650903922867835,
+    "delta": -0.004914824218749991,
+    "ci": 0.004864347143930208,
+    "flag": "DOWN",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     433.0,
+     423.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "realistic",
+    "base": 6.4627314869919665,
+    "cand": 6.457413108085716,
+    "delta": -0.005318378906250003,
+    "ci": 0.004732289886653825,
+    "flag": "DOWN",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     404.0,
+     406.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "top",
+    "base": 5.178775980641491,
+    "cand": 5.1774066251727415,
+    "delta": -0.0013693554687500154,
+    "ci": 0.004532992607740465,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     422.0,
+     437.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "night @10/7/5/4/3/2/1/0",
+    "base": 6.479939775059872,
+    "cand": 6.4661385445911215,
+    "delta": -0.013801230468749995,
+    "ci": 0.014740583750003356,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     464.0,
+     432.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "night @50/25/12/6/3/2/1/1",
+    "base": 25.783086181146118,
+    "cand": 25.704819579583617,
+    "delta": -0.07826660156250005,
+    "ci": 0.11559444303514217,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     439.0,
+     388.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "night +double",
+    "base": 5.9225,
+    "cand": 5.9234375,
+    "delta": 0.0009375,
+    "ci": 0.0047096954053742705,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     436.0,
+     336.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   }
+  ],
+  "elite": [
+   {
+    "cell": "elite",
+    "base": 4.845097511748538,
+    "cand": 4.843756496123538,
+    "delta": -0.001341015624999995,
+    "ci": 0.005111731951803114,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     356.0,
+     271.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "elite_night",
+    "base": 5.498541071617886,
+    "cand": 5.500957419274137,
+    "delta": 0.002416347656249994,
+    "ci": 0.006123456922152275,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     358.0,
+     245.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "mirror",
+    "base": 4.68046915168095,
+    "cand": 4.68470969855595,
+    "delta": 0.004240546875000001,
+    "ci": 0.005876573767392638,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     329.0,
+     337.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   }
+  ],
+  "aware": [
+   {
+    "cell": "toss_or_holdem (toss_or_holdem_aware)",
+    "base": 6.4016393156640765,
+    "cand": 6.4016393156640765,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     4078.0,
+     1114.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "bounty (bounty_aware)",
+    "base": 6.2475352730923905,
+    "cand": 6.2475352730923905,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     4080.0,
+     4087.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "short_deck (short_deck_aware)",
+    "base": 6.076162910231303,
+    "cand": 6.076162910231303,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     555.0,
+     624.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "river_of_blood (river_of_blood_aware)",
+    "base": 6.313553394301377,
+    "cand": 6.313553394301377,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     4077.0,
+     2210.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   }
+  ],
+  "exploit": [
+   {
+    "cell": "exploit @10/7/5/4/3/2/1/0",
+    "base": 5.679082895608342,
+    "cand": 5.680156684670842,
+    "delta": 0.0010737890624999936,
+    "ci": 0.017752073263376758,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     394.0,
+     4100.0
+    ],
+    "opp": [
+     4.6066271564439525,
+     4.598685359568953
+    ]
+   },
+   {
+    "cell": "exploit_hu +hu",
+    "base": 9.31,
+    "cand": 9.3625,
+    "delta": 0.0525,
+    "ci": 0.08877226629504226,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     326.0,
+     4105.0
+    ],
+    "opp": [
+     7.69,
+     7.6375
+    ]
+   },
+   {
+    "cell": "exploit_3 +three",
+    "base": 8.541666666666666,
+    "cand": 8.541666666666666,
+    "delta": -1.7763568394002505e-17,
+    "ci": 0.05550659831173545,
+    "flag": "level",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     348.0,
+     4101.0
+    ],
+    "opp": [
+     6.996571666666666,
+     6.951571666666666
+    ]
+   },
+   {
+    "cell": "exploit2 @10/7/5/4/3/2/1/0",
+    "base": 5.800508360581002,
+    "cand": 5.821833497299752,
+    "delta": 0.021325136718750012,
+    "ci": 0.02043452832636216,
+    "flag": "UP",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     396.0,
+     4105.0
+    ],
+    "opp": [
+     5.049394778637884,
+     5.0165716731691345
+    ]
+   },
+   {
+    "cell": "exploit2_hu +hu",
+    "base": 7.8925,
+    "cand": 8.335,
+    "delta": 0.4425,
+    "ci": 0.10795479317020182,
+    "flag": "UP",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     493.0,
+     4103.0
+    ],
+    "opp": [
+     9.1075,
+     8.665
+    ]
+   },
+   {
+    "cell": "exploit2_3 +three",
+    "base": 7.384166666666666,
+    "cand": 7.506666666666666,
+    "delta": 0.12250000000000001,
+    "ci": 0.05948323809305516,
+    "flag": "UP",
+    "n": 400,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     385.0,
+     4101.0
+    ],
+    "opp": [
+     8.295833333333334,
+     8.163333333333334
+    ]
+   }
+  ],
+  "variants": [
+   {
+    "cell": "permuted_ranks (realistic)",
+    "base": 6.805374326362754,
+    "cand": 6.805374326362754,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     4094.0,
+     373.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "short_deck (realistic)",
+    "base": 6.338307332270412,
+    "cand": 6.338307332270412,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     350.0,
+     181.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "lowball (realistic)",
+    "base": 7.838384635530274,
+    "cand": 7.838384635530274,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     635.0,
+     222.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "wild_deuces (realistic)",
+    "base": 7.382747824718205,
+    "cand": 7.382747824718205,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     524.0,
+     315.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "flush_over_full_house (realistic)",
+    "base": 6.207768544652029,
+    "cand": 6.207768544652029,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     291.0,
+     287.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "toss_or_holdem (realistic)",
+    "base": 6.4844412864334355,
+    "cand": 6.4844412864334355,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     291.0,
+     353.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "three_card_blind_discard (realistic)",
+    "base": 6.424482361296121,
+    "cand": 6.424482361296121,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     294.0,
+     340.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "three_card_keep (realistic)",
+    "base": 6.4709032887554345,
+    "cand": 6.4709032887554345,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     337.0,
+     313.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "omaha_four (realistic)",
+    "base": 6.807003293586969,
+    "cand": 6.807003293586969,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     361.0,
+     345.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "swap_holdem (realistic)",
+    "base": 6.376813345452392,
+    "cand": 6.376813345452392,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     365.0,
+     401.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "swap_one_turn (realistic)",
+    "base": 6.624816698491586,
+    "cand": 6.624816698491586,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     358.0,
+     496.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "exposed_card (realistic)",
+    "base": 6.161936623257868,
+    "cand": 6.161936623257868,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     308.0,
+     940.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "two_boards (realistic)",
+    "base": 6.244965058101181,
+    "cand": 6.244965058101181,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     314.0,
+     3158.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "bonus_card (realistic)",
+    "base": 6.010933245878578,
+    "cand": 6.010933245878578,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     336.0,
+     4089.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "auction (realistic)",
+    "base": 6.635382455958735,
+    "cand": 6.635382455958735,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     354.0,
+     1531.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "deal5_keep2 (realistic)",
+    "base": 6.8744665754003575,
+    "cand": 6.8744665754003575,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     725.0,
+     589.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "bounty (realistic)",
+    "base": 6.423937001060335,
+    "cand": 6.423937001060335,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     4119.0,
+     4124.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "knockout_bounty (realistic)",
+    "base": 8.412654094159983,
+    "cand": 8.412654094159983,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     4077.0,
+     764.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "top_heavy (realistic)",
+    "base": 30.337071411472326,
+    "cand": 30.089920044284828,
+    "delta": -0.24715136718749992,
+    "ci": 0.1650844000501946,
+    "flag": "DOWN",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     4109.0,
+     4116.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "hi_lo (realistic)",
+    "base": 6.2139587741792255,
+    "cand": 6.2139587741792255,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     440.0,
+     575.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "pot_limit (realistic)",
+    "base": 6.501118306954204,
+    "cand": 6.501118306954204,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     936.0,
+     747.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "antes_from_level_3 (realistic)",
+    "base": 6.585883526824595,
+    "cand": 6.575542237762096,
+    "delta": -0.010341289062500016,
+    "ci": 0.0070262845139590375,
+    "flag": "DOWN",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     440.0,
+     814.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "fixed_raise (realistic)",
+    "base": 6.29429818732811,
+    "cand": 6.29429818732811,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     308.0,
+     982.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "fast_schedule (realistic)",
+    "base": 6.122969274482126,
+    "cand": 6.115676032294626,
+    "delta": -0.0072932421874999905,
+    "ci": 0.008409041581059873,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     377.0,
+     4123.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "straddle (realistic)",
+    "base": 6.4691451171875,
+    "cand": 6.4691451171875,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     368.0,
+     4118.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   },
+   {
+    "cell": "river_of_blood (realistic)",
+    "base": 6.3867256378787705,
+    "cand": 6.3867256378787705,
+    "delta": 0.0,
+    "ci": 0.0,
+    "flag": "level",
+    "n": 200,
+    "tmo": [
+     0,
+     0
+    ],
+    "exc": [
+     0,
+     0
+    ],
+    "p99": [
+     238.0,
+     4132.0
+    ],
+    "opp": [
+     null,
+     null
+    ]
+   }
+  ]
+ },
+ "checks": [
+  [
+   "confirm: night not beyond noise down",
+   true
+  ],
+  [
+   "exploit (addendum 6): an exploit field beyond noise up (exploit2 @10/7/5/4/3/2/1/0, exploit2_hu +hu, exploit2_3 +three)",
+   true
+  ],
+  [
+   "exploit: none beyond noise down",
+   true
+  ],
+  [
+   "guards: none beyond noise down (down: night_hard, realistic)",
+   false
+  ],
+  [
+   "elite: none beyond noise down",
+   true
+  ],
+  [
+   "variants: none beyond noise down (down: top_heavy (realistic), antes_from_level_3 (realistic))",
+   false
+  ],
+  [
+   "aware: none beyond noise down",
+   true
+  ]
+ ],
+ "accept": false,
+ "replicate": null,
+ "secs": 8103.133202791214
+}
