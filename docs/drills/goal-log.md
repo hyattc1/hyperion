@@ -719,3 +719,13 @@ and (in judges) `elite_judge`.
 - Exploiter 3 (goal/exploiter3): a fresh red-team agent, black box against batch 5 pinned at 3aac34d
   (goal/wt_target5), arena with swap.setup_process("model") so the target replays exactly; 8-max, heads-up,
   three-handed. No access to exploiters 1-2's findings (an independent look).
+
+## 21:46: S5 (the short-handed specialist) rejected on H14: up against exploiter 2, small losses on ordinary fields
+- H14 (34000-34399), base batch 5, --aim exploit: exploit2_hu +0.443 ± 0.108, exploit2_3 +0.123 ± 0.059, exploit2
+  8-max +0.021 ± 0.020 UP (heads-up F 8.34 vs 8.67: nearly level with exploiter 2); exploiter 1 cells, night, top,
+  elite, elite_night, mirror level. Down: night_hard -0.005 ± 0.005, realistic -0.005 ± 0.005 (guards), top_heavy
+  -0.247 ± 0.165 and antes_from_level_3 -0.010 ± 0.007 (variants). REJECT (guards down; two variant cells). H14 used
+  once.
+- Likely cause: the specialist takes heads-up spots against ordinary bots, where F's exploitative play does better,
+  and under a top-heavy table that is where first place is decided. Back to S13's builder: find where it loses and
+  gate it to opponents that play like the exploiters, on the screen set; then a fresh held-out set.
