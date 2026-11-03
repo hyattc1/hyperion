@@ -703,3 +703,10 @@ and (in judges) `elite_judge`.
   kept, no kit import); gate pass, 0 exceptions, 0 illegal, -0.317 ± 0.559, 0.33% timeouts at load 9-10.
 - Decisions entry "The climb: batch 5", leaderboard ship row. Re-ranking every seat at elite, elite_night and mirror
   (150 x 8, seed 41) for batch 4 and batch 5. S5 (H14) and V-f (H15) now measure against batch 5 = main's F.
+
+## 20:59: two more prepared top teams (elite 4 and 5), roles fixed before any result
+- Two fresh agents, no repo access, elite 1-3's brief (goal/elite/e4, e5; about 2.5 hours each). Elite 4: a
+  solver-minded team (solve what can be solved offline, play near equilibrium). Elite 5: a reads-minded team (a sound
+  base, then model each opponent at the table and punish leaks as the evidence comes in).
+- Fixed now, before either is measured: elite 4 joins the tuning field (the `elite` stage's room and the mirror
+  table); elite 5 stays held out as a judge (never tuned on, measured once per batch like elite_judge).
