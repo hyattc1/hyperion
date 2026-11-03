@@ -1036,3 +1036,13 @@ and (in judges) `elite_judge`.
   end-of-hand 1 ms), players as stable handles, cards 0-51, actions "f", "c", "r<N>" (raise-by), legal actions
   implied, a compact history string. Points 13/8/5/3/2/1/0/-2 (last place loses points).
 - Player: a fresh agent on main at 077b95f (batch 5's ship), the handout without the organiser's notes.
+
+## 06:51: acceptance-rule review in; addendum 11 (a weighted second route) fixed; R8 builds it into climb_accept
+- Review (docs/research/acceptance-rule-review.md): keep the main rule. 13 of 14 small-loss rejections were real
+  side effects; 10 were followed by a gated version that kept the gain without the loss (9 accepted: S5 -> S6, Z/Z2
+  -> Z3, C7/D1 -> D3, the strong route H4 -> H6, V-b -> V-b fixed, FIN -> the 3-bet defence). The strict rule cost
+  about 20 hours and seven held-out sets, not lost gains. The weighted screen verdict predicted the held-out verdict
+  better (12 of 15 pairs vs 9 of 15); two current accepts (Z3, V-f) have net value at the night level too small to see.
+- Addendum 11: route 2 on fresh held-out sets only (W-min lower bound above zero, a cap on any one cell's loss, judges
+  not down, each down cell explained); the weighted score printed on every run, deciding nothing yet; screens run
+  every stage at full seeds. R8 (goal/wt_r8) builds tools/accept_weights.json and the print, with tests.
