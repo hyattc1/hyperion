@@ -269,4 +269,5 @@ Read:
   seeds' paired term is exactly zero). Per spec: F 33.6 over 27 (1 beyond: fast_schedule, the same realization as in
   the batch 5 run), S5 32.4 over 27 (2 beyond).
 - **Interval ratio:** median 1.33, 0.98-1.54; realistic 1.00 and top_heavy 0.98 are the two cells where it did not
-  help (S5's divergences there are not decided by a runout), exploit3_hu 1.47, adapt_3 1.54.
+  help (why is not measured here; a ratio from 100-200 seeds is itself uncertain by about ±10%), exploit3_hu 1.47,
+  adapt_3 1.54.
