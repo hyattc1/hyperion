@@ -213,3 +213,187 @@ are identical (the specialist plays only once two are left), so the changes are 
 
 (F reaches heads-up at 21.5% of elite tables and 19.0% of mirror tables; under 8..1 a heads-up win is one point, so a
 few points of heads-up win rate move a seat's mean by about 0.01.)
+
+### Dropped: the counter to a wide opener, the gated button, and S3a itself (variants)
+
+- S3b = S3a + `wide_open` 0.72: equal to S3a within noise on all six exploit cells (exploit2_hu +0.930 ± 0.155, the
+  same mean; exploit_hu +0.083, exploit_3 +0.048, exploit2_3 +0.290, exploit2 +0.055, exploit -0.002). Off.
+- S4 = R3 with both roles, `post_aggr` 0.5 and the button back to F against an over-folding big blind (`sb_ftb_max`
+  0.4): exploit2_hu +0.885 ± 0.162, exploit_hu -0.150 ± 0.190, worse than S3a on both. Off.
+- S3a + Z (Z = S11's dials, `r3.v3_bvb_prior` 0.15 and the probe / one-size postflop dials) on the exploit stage:
+  exploit_hu **+0.285 ± 0.145**, exploit2_hu **+0.863 ± 0.159**, exploit_3 +0.110 ± 0.147, exploit2_3 **+0.362 ±
+  0.141**, exploit2 +0.101 ± 0.117, exploit +0.100 ± 0.140: nothing down, they compose.
+- Where S3a still trails exploiter 2 heads-up (diagnostic seeds 9700-9739, chips a hand by our role and whether the
+  hand saw a flop; F / S3a): big blind preflop -13.9 / +8.3, big blind postflop -34.6 / -11.9, button postflop -22.7 /
+  +19.6, button preflop -19.9 / -20.7. What is left is F's own button preflop (its opens folding to exploiter 2's
+  3-bets, S11's leak), which the specialist's button fixes (S2b wins heads-up, 8.688 to 8.312) at a cost against
+  exploiter 1.
+- **S3a's variants** (realistic, the screen set's first 100 seeds): top_heavy **-0.381 ± 0.312**, antes_from_level_3
+  **-0.018 ± 0.016**, fast_schedule +0.001 ± 0.013. Heads-up the specialist is chip-EV exact under any payout table
+  (with two left the payout is linear in chips), so top-heavy points amplify a small heads-up loss against the
+  realistic field's weaker bots: the big blind's equilibrium preflop played every opponent. And the trees have no
+  antes, so with antes the big blind defends too tight.
+
+The fix (b0b7dbc), both principled limits rather than tuned values:
+- **no specialist preflop with antes** in the pot (unconditional: the trees have none);
+- **`short.pre_open_min`**: the big blind's preflop is the specialist's only against a seat that opens at least that
+  share of its buttons (F's profiler, open_rate late, smoothed toward 0.5 with 6). Survey at our heads-up big blind
+  (diagnostic seeds 9750+, median of the read): exploiter 2 0.86, exploiter 1 0.85; night's bots 0.09-0.62 (rival3
+  0.78), realistic's 0.12-0.58, elite and mirror builds 0.43-0.61. The value 0.65 sits between the exploiters and
+  everyone else but rival 3: the equilibrium big blind defends against a wide opener, and F's big blind (its reads)
+  plays the rest.
+
+S5 = S3a + `short.pre_open_min` 0.65 (and the ante rule) is the candidate; S5 + Z the stacked one. Both run every
+stage from here (code b0b7dbc).
+
+## The recommended candidate: S5, full screen (code b0b7dbc, screen seeds 10000-10199)
+
+S5 = `{"dials": {"short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short", "short.pre_roles": "bb",
+"short.post_aggr": 0.5, "short.pre_open_min": 0.65}}` on top of SHIP_DIALS (F as it ships). What it does: with two
+players left, the big blind's preflop against a wide opener comes from the heads-up equilibrium tables, and every
+heads-up pot postflop against a seat that bets into us is played by the balanced postflop; with dead seats or stations
+alive, with antes, on twist tables, and everywhere else, F plays.
+
+`tools/climb_accept.py --set screen --stages exploit,elite,confirm,guards,variants --variants
+top_heavy,antes_from_level_3,fast_schedule --variant-seeds 100 --aim exploit` (through scratch `accept.py`, which only
+pins F's cache key; every chunk was computed by the same cells): **ACCEPT**.
+
+| stage | cell | F | S5 | S5 - F | | exploiter F / S5 |
+|---|---|---|---|---|---|---|
+| exploit | exploit (8-max, 10/7/5/4/3/2/1/0) | 5.619 | 5.608 | -0.010 ± 0.026 | level | 4.727 / 4.725 |
+| | exploit_hu (10/7) | 9.115 | 9.220 | +0.105 ± 0.137 | level | 7.885 / 7.780 |
+| | exploit_3 (10/7/5) | 8.354 | 8.419 | +0.065 ± 0.072 | level | 6.993 / 6.903 |
+| | exploit2 (8-max) | 5.754 | 5.815 | **+0.061 ± 0.027** | UP | 5.175 / 5.107 |
+| | exploit2_hu | 7.540 | 8.387 | **+0.848 ± 0.144** | UP | 9.460 / 8.613 |
+| | exploit2_3 | 7.142 | 7.392 | **+0.250 ± 0.094** | UP | 8.573 / 8.298 |
+| confirm | night | 5.968 | 5.970 | +0.002 ± 0.007 | level | |
+| guards | night_hard | 5.486 | 5.493 | **+0.007 ± 0.006** | UP | |
+| | realistic | 6.346 | 6.340 | -0.006 ± 0.007 | level | |
+| | top | 5.035 | 5.036 | +0.001 ± 0.005 | level | |
+| | night @10/7/5/4/3/2/1/0 | 6.149 | 6.134 | -0.014 ± 0.021 | level | |
+| | night @50/25/12/6/3/2/1/1 | 24.406 | 24.366 | -0.040 ± 0.190 | level | |
+| | night, doubling blinds | 5.830 | 5.826 | -0.004 ± 0.006 | level | |
+| elite | elite | 4.681 | 4.679 | -0.002 ± 0.007 | level | |
+| | elite_night | 5.328 | 5.334 | +0.006 ± 0.008 | level | |
+| | mirror | 4.414 | 4.418 | +0.004 ± 0.008 | level | |
+| variants | top_heavy (realistic, 100 seeds) | 27.175 | 27.117 | -0.058 ± 0.228 | level | |
+| | antes_from_level_3 | 6.489 | 6.480 | -0.008 ± 0.010 | level | |
+| | fast_schedule | 5.986 | 5.993 | +0.007 ± 0.007 | level | |
+
+0 timeouts and 0 errors in every cell. The other 23 catalog variants play exactly as F by construction (the route
+requires a plain hold'em table: hero.holdem_table, identity rank order, no straddle; tested on short_deck).
+
+Heads-up win rates from the points (10 / 7): against exploiter 2, F 18.0% -> S5 46.2%; against exploiter 1, 70.5% ->
+74.0%. Three-handed against exploiter 2, F 7.142 -> 7.392 points against its 8.573 -> 8.298.
+
+Finish positions (our seat, 200 seeds x 8; F / S5; reach heads-up and three-handed are identical by construction):
+
+| field | 1st | heads-up win | win from three-handed |
+|---|---|---|---|
+| elite | 11.6% / 11.3% | 51.7% / 50.3% | 30.6% / 29.7% |
+| elite_night | 18.3% / 19.0% | 53.6% / 55.7% | 36.2% / 37.5% |
+| mirror | 8.9% / 9.3% | 44.1% / 46.1% | 26.0% / 27.1% |
+| night | 37.4% / 37.9% | 75.2% / 76.2% | 60.5% / 61.3% |
+| night_hard | 28.3% / 28.7% | 72.0% / 73.0% | 53.0% / 53.7% |
+| realistic | 50.4% / 49.7% | 83.0% / 81.7% | 74.0% / 72.9% |
+| top | 18.8% / 19.1% | 60.0% / 60.9% | 41.3% / 41.8% |
+
+Latency (tools/latency.py --hand-end --tables 20 --reps 3, per-call minimum, load 12.7-13.3, F / S5, µs):
+
+| field | act p99 | act max | hand_end p99 | hand_end max | first decision mean |
+|---|---|---|---|---|---|
+| exploit2_hu (rules hu.json) | 70.3 / 86.1 | 96.2 / 112.3 | 53.2 / 58.3 | 58.1 / 65.6 | 82.3 / 91.5 |
+| mirror | 106.2 / 101.5 | 8,202.9 / 150.0 | 102.1 / 101.3 | 197.3 / 136.0 | 105.5 / 104.0 |
+| night | 100.3 / 102.8 | 129.3 / 139.5 | 99.4 / 102.0 | 136.3 / 137.9 | 105.5 / 105.7 |
+
+(F's one 8.2 ms call on mirror is its own, in all three passes of that call: a host stall or F's slow path, not the
+specialist's, which F does not build.) Nothing near
+1 ms. Tables: short_hu.json 127 KB (33 KB zipped), short_hu_t3.json 127 KB (18 KB), short_hu_lock.json 153 KB (17 KB),
+short_3.json 1.5 MB (1.16 MB; loaded only with `short.three`). tools/pack.py --slim: F 3.8 MB / 846 KB zip, with the
+new tables 5.8 MB / 2.1 MB zip; import 0.29 s; the member builds in 48 ms (114 ms with the lock and three-handed tables).
+## S5 stacked with Z (code b0b7dbc, screen seeds; climb_accept --aim exploit: ACCEPT)
+
+S5 + Z = S5's dials plus S11's Z (`r3.v3_bvb_prior` 0.15, `hero.postflop.probe_from` 0.75, `probe_n` 2,
+`probe_margin` 0.03, `probe_raise_tier` 5, `probe_bluff` 0.4, `balance_sizes`). Z alone against the same F (S11's log,
+same base means): exploit_hu +0.113, exploit_3 +0.105, exploit2_hu +0.307, exploit2_3 +0.237, night -0.015, elite
++0.082, elite_night +0.064, mirror +0.002.
+
+| cell | F | S5 + Z | - F | | exploiter F / S5+Z |
+|---|---|---|---|---|---|
+| exploit (8-max) | 5.619 | 5.733 | +0.115 ± 0.139 | level | 4.727 / 4.769 |
+| exploit_hu | 9.115 | 9.385 | **+0.270 ± 0.139** | UP | 7.885 / 7.615 |
+| exploit_3 | 8.354 | 8.498 | **+0.145 ± 0.144** | UP | 6.993 / 6.850 |
+| exploit2 (8-max) | 5.754 | 5.856 | +0.102 ± 0.118 | level | 5.175 / 5.066 |
+| exploit2_hu | 7.540 | 8.447 | **+0.907 ± 0.164** | UP | 9.460 / 8.553 |
+| exploit2_3 | 7.142 | 7.498 | **+0.357 ± 0.135** | UP | 8.573 / 8.035 |
+| night (confirm) | 5.968 | 5.951 | -0.017 ± 0.072 | level | |
+| night_hard / realistic / top | | | -0.041 ± 0.074 / +0.000 ± 0.057 / -0.009 ± 0.074 | level | |
+| night @10/7/5... / @50/25/12... / doubling | | | +0.023 ± 0.129 / +0.199 ± 0.769 / +0.017 ± 0.065 | level | |
+| elite / elite_night / mirror | | | +0.077 ± 0.085 / +0.067 ± 0.067 / +0.013 ± 0.076 | level | |
+| top_heavy / antes_from_level_3 / fast_schedule (100 seeds) | | | -0.091 ± 1.138 / -0.033 ± 0.088 / +0.018 ± 0.091 | level | |
+
+They compose: against exploiter 1 heads-up S5 and Z add up (+0.105, +0.113 -> +0.270); against exploiter 2 heads-up
+they overlap (+0.848, +0.307 -> +0.907: both reach the same postflop spots). Heads-up win rates: against exploiter 2
+48.2% (F 18.0%), against exploiter 1 79.5% (F 70.5%). Finish positions (F / S5 + Z): elite 1st 11.6% / 12.4%, heads-up
+win 51.7% / 51.1%, reaching heads-up 21.5% / 23.3% (Z's play before the endgame); elite_night 18.3% / 19.4%; mirror
+8.9% / 9.1%, heads-up win 44.1% / 46.1%; night 37.4% / 36.4%, heads-up win 75.2% / 72.6%.
+
+## Test suite (b0b7dbc)
+
+Full suite at a1fc6c7 (the code before the last two gates, which touch only short.py's routing check; load 11-15):
+1,218 passed, 9 skipped, 11 failed. Re-run alone: the drill on swap_holdem (two wall-clock timeouts), hybrid3's strict
+timeout order, the kit-D round trip, both outside-field model-mode replays (Hero's seat diverged between the two runs;
+it fails the same way on main's tree at that load) and slowbox's paired run pass; test_sim_bestiary's under-budget
+check fails for a different bot on each run (five, then one: rob_mc), a wall-clock budget at load 12 from other runs.
+At b0b7dbc: tests/test_s13_short.py (14), test_compose, test_ship, test_apicard, test_sim_mirror, test_s11_dials pass
+(82). F plays identically behind the new dials (test_ship / test_compose replay it; seven S3a table digests are equal
+at 6e8b62f and a1fc6c7).
+
+## Summary
+
+**The specialist.** `hyperion/strategy/short.py`, member `short` behind `short_route` (off by default; F builds no such
+member). Preflop by lookup in tables our own CFR+ solver computed offline (`tools/solve_short.py`): heads-up chip-EV
+tables at 26 depths 5-100 bb (exploitability 0.02-3.7 mbb/hand in the abstract game), three-handed ICM tables on 512
+stack configurations (median 0.026 milli-prizes a hand), and two node-locked re-solves (a counter to a wide opener;
+small 3-bets). Postflop in heads-up pots: one size per street and minimum-defence continuing by the hand's place in its
+range. Deviations: back to F against dead seats and stations, preflop against a seat 3-betting far above equilibrium,
+and the gates below.
+
+**Recommended: S5** = `{"short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short", "short.pre_roles": "bb",
+"short.post_aggr": 0.5, "short.pre_open_min": 0.65}` (code b0b7dbc or later), ACCEPT on the screen set with --aim
+exploit: up on exploit2 (+0.061), exploit2_hu (+0.848) and exploit2_3 (+0.250); every other exploit, confirm, guard,
+elite and variant cell level (night +0.002 ± 0.007, night_hard +0.007 UP). With Z also ACCEPT, and up against
+exploiter 1 too (exploit_hu +0.270, exploit_3 +0.145). For the coordinator's held-out confirmation: stages exploit,
+confirm, guards, elite, variants (top_heavy, antes_from_level_3, fast_schedule are the only catalog entries it can
+play).
+
+Against the brief's targets:
+1. **Win heads-up against exploiter 2: not met by an accepted candidate.** F 7.540 to 9.460 (18% of matches); S5
+   8.387 to 8.613 (46%); S5 + Z 8.447 to 8.553 (48%). Two of the three named leaks are closed: the big blind no longer
+   folds 70% to its c-bet (minimum defence) and the layer's 0.33 bluff is gone from heads-up pots (the specialist bets
+   one size and never sizes by strength); the light blind-vs-blind 4-bet is the button's, still F's. A candidate that
+   wins (S2b: the specialist on both blinds, 8.688 to 8.312, 56%) loses to exploiter 1 heads-up (-0.383 ± 0.191) and
+   three-handed (-0.127 ± 0.101).
+2. **Not lose to exploiter 1: met.** S5 heads-up 9.220 to 7.780 (+0.105, level), three-handed 8.419 (+0.065, level),
+   8-max level; with Z both up.
+3. **First place at strong tables: barely moved, and night held.** 1st 11.6% -> 11.3% (elite), 18.3% -> 19.0%
+   (elite_night), 8.9% -> 9.3% (mirror); heads-up win 51.7% -> 50.3%, 53.6% -> 55.7%, 44.1% -> 46.1%; night level.
+   The specialist plays only once two are left (21% of elite tables, 19% of mirror), against wide openers preflop
+   (the elite builds open 0.43-0.61 of buttons: F plays their big blinds) and postflop against bettors.
+
+**What remains.**
+- The button's preflop heads-up. The specialist's button wins against exploiter 2 and loses against exploiter 1, in
+  the pots exploiter 1 calls or 3-bets (as the preflop raiser our postflop does worse than F's against it). F's own
+  button against exploiter 2 is the last leak (-20.7 chips a hand on the diagnostic seeds: its opens folding to
+  3-bets). Next: a read that separates the two from play (S11's probe read, 0.99 against 0.61, does), or a better
+  postflop as the raiser in called pots.
+- The three-handed preflop tables lose against both exploiters (C3, C7): the tree has no small-blind flat, no 4-bet
+  from the big blind, and maps small 3-bets onto 3.5x; three-handed pots postflop are Hero's. The heads-up size
+  re-solve (`sizes`) is the template. Off (`short.three`), the table kept (1.16 MB of the zip; 2.1 MB in all).
+- Strong tables: the HU route reaches 20% of tables and under 8..1 a heads-up win is one point; a three-handed
+  specialist that works is where first places at strong tables would come from.
+- Postflop strength is Hero's nine tiers read as a percentile of random holdings (coarse); a finer per-board strength
+  would sharpen minimum defence. The size read (S12's showdown histograms) is the natural deviation against a seat
+  whose sizes name its hand (exploiter 2's 0.70 / 0.80), not tried.
+- The gates' values (0.5 bets per chance, 0.65 opens) were set from surveys of the screen fields before measuring,
+  not tuned; held-out sets decide.
