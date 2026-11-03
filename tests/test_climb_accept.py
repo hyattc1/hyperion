@@ -60,7 +60,7 @@ def _fake_run(monkeypatch, effects):
     monkeypatch.setattr(CA, "code_version", lambda: "test")
     base_key = CA.spec_key(CA.resolve({"dials": {}}), "test")
 
-    def gather(out, key, c, lo, hi):
+    def gather(out, key, c, lo, hi, rt=False):
         n = hi - lo
         shift = 0.0 if key == base_key else next((v for k, v in effects.items() if CA.label(c).startswith(k)), 0.0)
         xs = [5.0 + shift + (0.01 if i % 2 else -0.01) * (1 + i % 3) for i in range(n)]

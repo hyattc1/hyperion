@@ -54,6 +54,14 @@ interval is the 95% interval of the per-seed paired difference. UP / DOWN = beyo
 
 Results are cached per (spec, code version, field, rules, variant, seed chunk) under --out, so the base of a batch runs
 once. The code version is the tree of hyperion/ at HEAD plus a hash of uncommitted changes under hyperion/ and tools/.
+
+--runout-term (R7, docs/drills/climb/r7-log.md; off by default): every cell is also scored with the all-in runout term
+subtracted (tools/runout_term.py: each seat's ICM points on the post-hand stacks of the actual runout, minus their mean
+over every runout the unseen cards could have made, at each hand whose last decision left board cards to come). The
+verdict is then read on the corrected paired delta; the raw delta, the term's mean per spec (zero within noise: the
+check that it is unbiased) and the raw / corrected interval ratio print beside it. Its cells are cached apart
+(`.rt-<term version>.json`, raw samples included) and a term cell's raw samples must equal the plain cell's when that
+is cached: the term never changes play.
 """
 from __future__ import annotations
 
@@ -76,6 +84,9 @@ sys.path.insert(0, ROOT)
 _spec = importlib.util.spec_from_file_location("climb_swap_tool", os.path.join(_HERE, "swap.py"))
 SW = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(SW)
+_spec = importlib.util.spec_from_file_location("climb_runout_term", os.path.join(_HERE, "runout_term.py"))
+RT = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(RT)
 
 RULES_DIR = os.path.join(ROOT, "docs", "drills", "climb", "rules")
 CONFIRM = [("night", "lin", None)]
@@ -205,7 +216,8 @@ def _rules_tag(rules_name) -> str:
 
 
 def _job(args):
-    key, name, spec, field, pay, rules_name, variant, off, n = args
+    key, name, spec, field, pay, rules_name, variant, off, n = args[:9]
+    rt = len(args) > 9 and args[9]
     SW.setup_process("model")
     from hyperion.compose import bot as CB
     from hyperion.drills import variants as V
@@ -218,16 +230,24 @@ def _job(args):
     v = V.get(variant, seed=SW.SEED) if variant else None
     t0 = time.time()
     l0 = os.getloadavg()[0]
-    rep = run_tournament(B.field_names(f"{field}@{nm}"), n, seed=SW.SEED, rotate=True, mode="model", rules=rules,
-                         hero_config=B.HERO_CONFIG, table_offset=off, variant=v)
+    kw = dict(seed=SW.SEED, rotate=True, mode="model", rules=rules, hero_config=B.HERO_CONFIG, table_offset=off,
+              variant=v)
+    names = B.field_names(f"{field}@{nm}")
+    if rt:
+        rep, corrected, events = RT.run_tournament_rt(names, n, **kw)
+    else:
+        rep = run_tournament(names, n, **kw)
     b = rep.bots[nm]
     st = b.stats
     ex = next((rep.bots[x] for x in EXPLOIT_BOTS if x in rep.bots), None)
-    return key, (field, pay, rules_name, variant, off), {
-        "samples": b.samples, "opp_samples": ex.samples if ex is not None else None, "tmo": st.over_budget,
-        "exc": st.exceptions, "ill": st.illegal,
-        "safe_err": st.safe_err, "calls": st.calls, "p50": st.percentile_us(0.5), "p99": st.percentile_us(0.99),
-        "max_us": st.max_ns / 1000, "secs": time.time() - t0, "load": (l0, os.getloadavg()[0])}
+    res = {"samples": b.samples, "opp_samples": ex.samples if ex is not None else None, "tmo": st.over_budget,
+           "exc": st.exceptions, "ill": st.illegal,
+           "safe_err": st.safe_err, "calls": st.calls, "p50": st.percentile_us(0.5), "p99": st.percentile_us(0.99),
+           "max_us": st.max_ns / 1000, "secs": time.time() - t0, "load": (l0, os.getloadavg()[0])}
+    if rt:  # the corrected samples, and the term's events touching our seats per table seed (8 rotations)
+        res.update({"samples_rt": corrected[nm], "rt_events": events[nm], "rt_version": RT.version(),
+                    "opp_samples_rt": corrected[ex.name] if ex is not None else None})
+    return key, (field, pay, rules_name, variant, off), res
 
 
 def _variant_tag(variant) -> str:
@@ -241,21 +261,32 @@ def _variant_tag(variant) -> str:
         return "v" + hashlib.md5(fh.read() + func.encode()).hexdigest()[:10]
 
 
-def cell_path(out: str, key: str, cell) -> str:
+def cell_path(out: str, key: str, cell, rt: bool = False) -> str:
+    """A chunk's cache file; with the runout term its own file, tagged by the term's version (tools/runout_term.py)."""
     field, pay, rules_name, variant, off = cell
-    return os.path.join(out, key, f"{field}.{pay}.{_rules_tag(rules_name)}.{_variant_tag(variant)}.{off}.json")
+    tail = f".rt-{RT.version()}.json" if rt else ".json"
+    return os.path.join(out, key, f"{field}.{pay}.{_rules_tag(rules_name)}.{_variant_tag(variant)}.{off}{tail}")
 
 
-def run_cells(out: str, specs: dict, cells: list, lo: int, hi: int, workers: int) -> None:
+def _check_rt_raw(path: str, res: dict) -> None:
+    """A term cell's raw samples against the plain cell of the same key, when cached: the term never changes play."""
+    plain = path.rsplit(".rt-", 1)[0] + ".json"
+    if os.path.exists(plain):
+        with open(plain) as fh:
+            if json.load(fh)["samples"] != res["samples"]:
+                raise RuntimeError(f"runout term: raw samples differ from the plain cell {plain}")
+
+
+def run_cells(out: str, specs: dict, cells: list, lo: int, hi: int, workers: int, rt: bool = False) -> None:
     """Run every (spec, cell, chunk) not yet cached."""
     jobs, seen = [], set()
     for name, (key, spec) in specs.items():
         for field, pay, rules_name, variant in cells:
             for off in range(lo, hi, CHUNK):
-                p = cell_path(out, key, (field, pay, rules_name, variant, off))
+                p = cell_path(out, key, (field, pay, rules_name, variant, off), rt)
                 if not os.path.exists(p) and p not in seen:  # base == cand (warming the cache) runs once
                     seen.add(p)
-                    jobs.append((key, name, spec, field, pay, rules_name, variant, off, min(CHUNK, hi - off)))
+                    jobs.append((key, name, spec, field, pay, rules_name, variant, off, min(CHUNK, hi - off), rt))
     if not jobs:
         return
     for name, (key, spec) in specs.items():
@@ -266,20 +297,26 @@ def run_cells(out: str, specs: dict, cells: list, lo: int, hi: int, workers: int
     # process was seen with 25 variants), so each worker is replaced after two jobs; finished chunks are cached anyway
     with Pool(workers, maxtasksperchild=2) as p:
         for key, cell, res in p.imap_unordered(_job, jobs):
-            path = cell_path(out, key, cell)
+            path = cell_path(out, key, cell, rt)
+            if rt:
+                _check_rt_raw(path, res)
             with open(path + ".tmp", "w") as fh:
                 json.dump(res, fh)
             os.replace(path + ".tmp", path)
 
 
-def gather(out: str, key: str, cell4, lo: int, hi: int) -> dict:
+def gather(out: str, key: str, cell4, lo: int, hi: int, rt: bool = False) -> dict:
     field, pay, rules_name, variant = cell4
     samples, opp, agg = [], [], {"tmo": 0, "exc": 0, "ill": 0, "safe_err": 0, "calls": 0, "p99": 0.0, "max_us": 0.0}
+    srt, ev = [], []
     for off in range(lo, hi, CHUNK):
-        with open(cell_path(out, key, (field, pay, rules_name, variant, off))) as fh:
+        with open(cell_path(out, key, (field, pay, rules_name, variant, off), rt)) as fh:
             r = json.load(fh)
         samples += r["samples"]
         opp += r.get("opp_samples") or []
+        if rt:
+            srt += r["samples_rt"]
+            ev += r["rt_events"]
         for k in ("tmo", "exc", "ill", "safe_err", "calls"):
             agg[k] += r[k]
         agg["p99"] = max(agg["p99"], r["p99"])
@@ -287,7 +324,16 @@ def gather(out: str, key: str, cell4, lo: int, hi: int) -> dict:
     agg["samples"] = samples
     agg["mean"] = sum(samples) / len(samples)
     agg["opp_mean"] = sum(opp) / len(opp) if opp else None
+    if rt:
+        agg["samples_raw"], agg["samples"] = samples, srt  # the verdict reads the corrected samples
+        agg["mean_raw"], agg["mean"] = agg["mean"], sum(srt) / len(srt)
+        agg["rt_events"] = sum(ev) / len(ev)
     return agg
+
+
+def term_mean(g: dict) -> tuple[float, float]:
+    """The runout term's mean per table seed for one spec (raw - corrected) and its 95% interval: zero within noise."""
+    return paired(g["samples"], g["samples_raw"])
 
 
 def paired(a: list, b: list) -> tuple[float, float]:
@@ -349,6 +395,10 @@ def main(argv=None) -> int:
     p.add_argument("--rules", default=None, help="a Rules JSON (the night's rules_tonight.json) for the window, "
                                                  "confirm, guards and elite cells")
     p.add_argument("--variant", default=None, help="a catalog variant's hooks for the same cells")
+    p.add_argument("--runout-term", action="store_true",
+                   help="score every cell with the all-in runout term subtracted (tools/runout_term.py): the verdict "
+                        "reads the corrected delta; the raw delta, the term's mean per spec and the interval ratio "
+                        "print beside it")
     p.add_argument("--aim", choices=("night", "exploit", "strong"), default="night",
                    help="what the change is for: night (confirm beyond noise up), exploit (addendum 6: an exploit "
                         "field up, night not down) or strong (addendum 8: elite, elite_night or mirror up, night "
@@ -361,8 +411,9 @@ def main(argv=None) -> int:
     stages = [s.strip() for s in a.stages.split(",") if s.strip()]
     a.set = a.set or ("screen" if stages == ["window"] else "H1")
     lo, hi = seed_range(a.set)
+    rt = a.runout_term
     rows, verdict = [], {"version": version, "set": a.set, "seeds": [lo, hi], "base": base, "cand": cand,
-                         "stages": {}}
+                         "stages": {}, "runout_term": RT.version() if rt else None}
     t0 = time.time()
     from hyperion.drills import variants as V
 
@@ -415,16 +466,23 @@ def main(argv=None) -> int:
                      min(hi, lo + a.variant_seeds)))
     for stage, cells, s_lo, s_hi in plan:
         cells4 = [c if len(c) == 4 else (*c, None) for c in cells]
-        run_cells(a.out, specs, cells4, s_lo, s_hi, a.workers)
+        run_cells(a.out, specs, cells4, s_lo, s_hi, a.workers, rt)
         out = []
         for c in cells4:
-            gb = gather(a.out, specs["base"][0], c, s_lo, s_hi)
-            gc_ = gather(a.out, specs["cand"][0], c, s_lo, s_hi)
+            gb = gather(a.out, specs["base"][0], c, s_lo, s_hi, rt)
+            gc_ = gather(a.out, specs["cand"][0], c, s_lo, s_hi, rt)
             m, h = paired(gb["samples"], gc_["samples"])
-            out.append({"cell": label(c), "base": gb["mean"], "cand": gc_["mean"], "delta": m, "ci": h,
-                        "flag": flag(m, h), "n": len(gb["samples"]), "tmo": (gb["tmo"], gc_["tmo"]),
-                        "exc": (gb["exc"] + gb["ill"] + gb["safe_err"], gc_["exc"] + gc_["ill"] + gc_["safe_err"]),
-                        "p99": (gb["p99"], gc_["p99"]), "opp": (gb["opp_mean"], gc_["opp_mean"])})
+            row = {"cell": label(c), "base": gb["mean"], "cand": gc_["mean"], "delta": m, "ci": h,
+                   "flag": flag(m, h), "n": len(gb["samples"]), "tmo": (gb["tmo"], gc_["tmo"]),
+                   "exc": (gb["exc"] + gb["ill"] + gb["safe_err"], gc_["exc"] + gc_["ill"] + gc_["safe_err"]),
+                   "p99": (gb["p99"], gc_["p99"]), "opp": (gb["opp_mean"], gc_["opp_mean"])}
+            if rt:
+                mr, hr = paired(gb["samples_raw"], gc_["samples_raw"])
+                row.update({"raw_base": gb["mean_raw"], "raw_cand": gc_["mean_raw"], "raw_delta": mr, "raw_ci": hr,
+                            "raw_flag": flag(mr, hr), "term_base": term_mean(gb), "term_cand": term_mean(gc_),
+                            "ratio": hr / h if h > 0 else None,
+                            "events": (gb["rt_events"], gc_["rt_events"])})
+            out.append(row)
         verdict["stages"][stage] = out
     if "timing" in stages:
         verdict["stages"]["timing"] = {"base": latency(base), "cand": latency(cand)}
@@ -488,9 +546,22 @@ def main(argv=None) -> int:
             print(f"| {r['cell']} | {r['base']:.3f} | {r['cand']:.3f} | {r['delta']:+.3f} ± {r['ci']:.3f} | "
                   f"{r['flag']} | {r['n']} | {r['tmo'][0]}/{r['tmo'][1]} | {r['exc'][0]}/{r['exc'][1]} | "
                   f"{r['p99'][0]:.0f}/{r['p99'][1]:.0f} |")
+    if rt:
+        print("\n## runout term (the tables above are corrected)\n\n| cell | raw cand - base | | corrected | | ratio "
+              "| term base | term cand | events b/c |")
+        print("|---|---|---|---|---|---|---|---|---|")
+        for s in ("window", "confirm", "guards", "elite", "judges", "exploit", "variants", "aware"):
+            for r in st.get(s, []):
+                (tb, hb), (tc, hc) = r["term_base"], r["term_cand"]
+                ratio = "-" if r["ratio"] is None else f"{r['ratio']:.2f}"
+                print(f"| {r['cell']} | {r['raw_delta']:+.3f} ± {r['raw_ci']:.3f} | {r['raw_flag']} | "
+                      f"{r['delta']:+.3f} ± {r['ci']:.3f} | {r['flag']} | {ratio} | {tb:+.3f} ± {hb:.3f} | "
+                      f"{tc:+.3f} ± {hc:.3f} | {r['events'][0]:.1f}/{r['events'][1]:.1f} |")
+        print("\nterm = raw - corrected per table seed (zero within noise if unbiased); ratio = raw interval / "
+              "corrected interval; events = term events touching our seats per table seed (8 rotations).")
     if "timing" in st:
         print(f"\n## timing\n- base: {st['timing']['base']['raw']}\n- cand: {st['timing']['cand']['raw']}")
-    print("\n## verdict")
+    print("\n## verdict" + (" (on the corrected deltas)" if rt else ""))
     for txt, ok in checks:
         print(f"- [{'x' if ok else ' '}] {txt}")
     if verdict["replicate"]:
