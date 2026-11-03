@@ -245,3 +245,47 @@ def test_s14_r2s_lazy_curve_is_the_eager_one(monkeypatch):
     monkeypatch.setattr(CB, "_lazy_curve_class", lambda: build_curve)
     eager = _decisions(monkeypatch, "s14_lz1", {"strong_route": secs, "strong_rr": 0.0}, fields=("elite",))
     assert len(lazy) > 1000 and lazy == eager
+
+
+def test_s14_strong_route_members_play_exactly_as_f_on_every_twist(monkeypatch):
+    """r2s and the elite builds are plain hold'em only: with the gate open and all of them routed, every catalogued twist
+    (not hold'em by Hero's test) plays exactly as F."""
+    from hyperion.drills import variants as V
+    from hyperion.strategy.hero import holdem_table
+
+    _model(monkeypatch)
+    CB.register("s14_tw_f", dials=dict(CB.SHIP_DIALS))
+    CB.register("s14_tw_c", dials={**CB.SHIP_DIALS, "strong_rr": 0.0,
+                                   "strong_route": "pre_open_10=elite1x,pre_3way=elite1x,pre_hu=elite2x,"
+                                                   "pre_raised_short=r2sx,pre_raised_deep=r2sx,pre_open_40=elite4x"})
+    twists = [n for n in V.catalog_names() if not holdem_table(V.get(n, seed=7).rules)]
+    assert len(twists) >= 18
+    for name in twists:
+        res = []
+        for nm in ("s14_tw_f", "s14_tw_c"):
+            rep = R.run_tournament(B.field_names(f"realistic@{nm}"), 1, seed=7, rotate=False, mode="model",
+                                   hero_config=dict(MODEL_HERO), table_offset=10000, variant=V.get(name, seed=7))
+            res.append(rep.bots[nm].samples)
+        assert res[0] == res[1], name
+
+
+def test_s14_strong_bvb_by_section(monkeypatch):
+    """strong_bvb may name sections: blind-vs-blind unopened pots go to the strong route there only. Naming every routed
+    section plays as True; naming none plays as False; naming pre_hu routes heads-up unopened pots (the small blind's
+    open) and nothing else that False keeps."""
+    _model(monkeypatch)
+    secs = "pre_open_10=elite1x,pre_3way=elite1x,pre_hu=elite1x"
+    core = CB.ship({"strong_route": secs, "strong_bvb": "pre_hu,pre_3way"}, seed=1).core
+    assert [CB.SECTIONS[i] for i, x in enumerate(core._sbvb) if x] == ["pre_3way", "pre_hu"]
+
+    def dec(nm, bvb):
+        CB.COUNTS.clear()
+        out = _decisions(monkeypatch, nm, {"strong_route": secs, "strong_rr": 0.0, "strong_bvb": bvb},
+                         fields=("elite",), n=2, offset=9310)
+        return out, CB.COUNTS["pre_hu:elite1"]
+
+    (on, _), (off, hu_off) = dec("s14_b_on", True), dec("s14_b_off", False)
+    assert dec("s14_b_all", "pre_open_10,pre_3way,pre_hu")[0] == on
+    assert dec("s14_b_none", "")[0] == off
+    one, hu_one = dec("s14_b_hu", "pre_hu")
+    assert one != on and one != off and hu_one > hu_off

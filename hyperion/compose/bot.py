@@ -34,7 +34,9 @@ table, not one per member: the layer reads only the table, so copies would read 
 
 **Raw rivals play plain hold'em only.** On a table the base's core cannot play (Hero's 14 variant tables), a permuted
 rank order, or a straddle, a section routed to rival1 or rival3 is played by the base instead (counted
-`fallback:plain`). Hero and the hybrid members play every table.
+`fallback:plain`). Hero and the hybrid members play every table (r2s, the strong route's rival 2, only plain hold'em).
+A strong-route donor that cannot play the table hands the decision to the section's own donor (Hero in Hero's
+sections), so the route never changes play on such a table.
 
 **Errors.** A chosen member that raises or answers None: the base's answer, else check or fold (`fallback:error`). A
 shadow that raises is counted and ignored. `late_us`: if the chosen member has already used this long, the shadows skip
@@ -61,7 +63,8 @@ table reads strong. The read is the share of our first-in, not all-in preflop ra
 before the flop, smoothed toward `strong_prior` with the weight of `strong_prior_n` raises; the table reads strong
 while it is at least `strong_rr` (0: always). At night's tables about 14% of F's opens are re-raised, at tables of
 strong general bots and copies of F 24-26% (docs/drills/climb/s9-log.md). Never in a blind-vs-blind unopened pot unless
-`strong_bvb`. Its donors' members run (and shadow) on every decision, like any routed member's.
+`strong_bvb` (True: every section; or the sections it names, S14). Its donors' members run (and shadow) on every
+decision, like any routed member's.
 
 **The short-handed route** (S13, `short_route`, off by default): sections played by another donor (the specialist
 `short`, hyperion/strategy/short.py) while at most `short_alive` players have chips and that member `wants` the decision
@@ -568,7 +571,7 @@ class ComposeConfig:
     strong_prior_n: float = 10.0
     # ... and in an unopened pot with one opponent left in the hand (the small blind against the big, or folded round to
     # the button with the small blind out): off = never there (blind-vs-blind play is S11's, climb/s11-exploiter2-fixes)
-    strong_bvb: bool = False
+    strong_bvb: object = False  # True = every section; or section names ("pre_hu,pre_3way": those only; S14)
     # the short-handed route (S13, module doc of hyperion/strategy/short.py): these sections go to these donors while at
     # most `short_alive` players have chips and the donor's member wants the decision (the hand maps onto its tables,
     # no opponent alive reads as a clear leak). Empty (the default): every section as `route` / `strong_route` say
@@ -650,6 +653,10 @@ class CompositeCore:
         self.route = [(idx[DONORS[d][0]], DONORS[d][1]) for d in donors]  # per section: (member index, layer on)
         sr = cfg.strong_route
         self.strong = [(idx[DONORS[sr[s]][0]], DONORS[sr[s]][1]) if s in sr else None for s in SECTIONS] if sr else None
+        bvb = cfg.strong_bvb
+        if isinstance(bvb, str):
+            bvb = set(parse_route({k.strip(): "1" for k in bvb.split(",") if k.strip()}))
+        self._sbvb = [bool(bvb is True or (isinstance(bvb, set) and s in bvb)) for s in SECTIONS]
         hr = cfg.short_route
         self.short = [(idx[DONORS[hr[s]][0]], DONORS[hr[s]][1]) if s in hr else None for s in SECTIONS] if hr else None
         self._rr_reset()
@@ -772,7 +779,7 @@ class CompositeCore:
                     self._rr_k += 1  # we act again before the flop, facing a bet: our raise was re-raised
                 self._rr_open = False
             sr = strong[sec]
-            if sr is not None and self.strong_table() and (self.cfg.strong_bvb or obs.street or not _bvb(obs)):
+            if sr is not None and self.strong_table() and (self._sbvb[sec] or obs.street or not _bvb(obs)):
                 mi, layer = sr
                 counts["strong"] += 1
         short = self.short
@@ -802,7 +809,11 @@ class CompositeCore:
             mi, layer = 0, True
         elif mi and self.plain_only[mi] and (not self.plain or self._no_h[mi]):
             counts["fallback:plain"] += 1
-            mi = 0
+            ri, rl = self.route[sec]
+            if ri and ri != mi and not (self.plain_only[ri] and (not self.plain or self._no_h[ri])):
+                mi, layer = ri, rl  # a strong-route donor that cannot play this table: the section's own donor (S14)
+            else:
+                mi = 0
         members, resync = self.members, self.resync
         nm = len(members)
         states = self._states
