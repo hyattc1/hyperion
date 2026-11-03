@@ -780,6 +780,10 @@ class CompositeCore:
             self._no_h = [x and not h for x in self._h_only]
         if self.ex is not None:
             self.ex.new_table(n_players, seat)
+            if self.ex.p.stab_size:  # S17: the stab takes the one size of the member that plays postflop (Hero)
+                hi = self._hero_idx
+                h = self.members[hi] if hi >= 0 else getattr(self.base, "hero", None)
+                self.ex.size_from(getattr(h, "postflop", None))
         if self._trust_prof is not None:
             from ..strategy.hero import holdem_table
 

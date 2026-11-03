@@ -179,6 +179,9 @@ The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"
 | `exploit.raise_n` | 4.0 |
 | `exploit.read_trust` | 0.0 |
 | `exploit.read_trust_min_n` | 10.0 |
+| `exploit.stab_size` | False |
+| `exploit.stab_alive` | 0 |
+| `exploit.stab_min_fold` | 0.0 |
 | `exploit.isolate` | False |
 | `exploit.iso_min_fold` | 0.85 |
 | `exploit.iso_max_bb` | 6.0 |
@@ -453,6 +456,9 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `exploit.raise_n` | 4.0 |
 | `exploit.read_trust` | 0.0 |
 | `exploit.read_trust_min_n` | 10.0 |
+| `exploit.stab_size` | False |
+| `exploit.stab_alive` | 0 |
+| `exploit.stab_min_fold` | 0.0 |
 | `exploit.isolate` | False |
 | `exploit.iso_min_fold` | 0.85 |
 | `exploit.iso_max_bb` | 6.0 |
