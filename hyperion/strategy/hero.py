@@ -603,8 +603,9 @@ def wild_map(wild_rank: int) -> dict[str, str]:
 
 
 # S12's size read (postflop.size_read_holdem_only): a table is hold'em when only its structure differs (payouts,
-# blinds, antes, a straddle); an unknown key in Rules.extras or any other variant entry turns the read off
-_HOLDEM_EXTRAS = frozenset({"variant", "ante_rule"})
+# blinds, antes, a straddle, chip-count places at the hand cap); an unknown key in Rules.extras or any other variant
+# entry turns the read off
+_HOLDEM_EXTRAS = frozenset({"variant", "ante_rule", "cap_places"})
 _HOLDEM_VARIANTS = frozenset({None, "top_heavy", "antes_from_level_3", "fast_schedule", "straddle"})
 
 

@@ -28,6 +28,10 @@ street)` runs after each fold, and the observations after it carry the recompute
 `free_fold_checks = True` plays a fold with nothing to call as a check; `settle(table, hand)` runs after the main
 award, before the deltas (a side game's payout); `result_extras(hand) -> dict` goes into HandResult.extras.
 
+Scoring at the hand cap (2026-11-02, branch climb/vg-ghost): survivors get ICM equity on their stacks, unless
+Rules.extras["cap_places"] == "chips": then they are placed by chip count, exactly equal counts sharing the places'
+points (kit F's rule). Default play never reads the key.
+
 Conventions, also recorded in docs/decisions.md:
 - Button: moves to the next live seat each hand. Small blind is the next live seat after it, big
   blind the next after that; heads-up the button posts the small blind. No dead button, so a seat
@@ -914,11 +918,14 @@ class Table:
                     self._place(s, 0)
             self.done = True
         elif self.hand_no >= rules.max_hands:
-            eq = icm_equity(stacks, rules.payouts)
             survivors = sorted((s for s in range(n) if stacks[s] > 0), key=lambda s: (-stacks[s], s))
-            for place, s in enumerate(survivors):
-                self.places[s] = place
-                self.points[s] = eq[s] + self.bonus[s]
+            if (rules.extras or {}).get("cap_places") == "chips":
+                self._place_by_chips(survivors)
+            else:
+                eq = icm_equity(stacks, rules.payouts)
+                for place, s in enumerate(survivors):
+                    self.places[s] = place
+                    self.points[s] = eq[s] + self.bonus[s]
             self.done = True
         if self.done:
             self._harvest_safe()
@@ -936,6 +943,22 @@ class Table:
                 st = self.stats[s]
                 st.safe_err += int(getattr(safe, "errors", 0) or 0)
                 st.safe_over += int(getattr(safe, "overruns", 0) or 0)
+
+    def _place_by_chips(self, survivors: list) -> None:
+        """Rules.extras["cap_places"] == "chips": survivors at the hand cap take places by chip count (`survivors` is
+        sorted by chips, most first), and exactly equal counts share their places' points evenly (kit F's rule; the
+        default is ICM equity on the stacks)."""
+        payouts, stacks = self.rules.payouts, self.stacks
+        i = 0
+        while i < len(survivors):
+            j = i
+            while j + 1 < len(survivors) and stacks[survivors[j + 1]] == stacks[survivors[i]]:
+                j += 1
+            pts = sum(float(payouts[p]) if p < len(payouts) else 0.0 for p in range(i, j + 1)) / (j + 1 - i)
+            for s in survivors[i:j + 1]:
+                self.places[s] = i
+                self.points[s] = pts + self.bonus[s]
+            i = j + 1
 
     def _place(self, seat: int, place: int) -> None:
         payouts = self.rules.payouts

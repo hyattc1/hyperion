@@ -22,6 +22,30 @@ ALL_IN_WORDS = {"allin", "all_in", "all-in", "all in", "shove", "jam", "push"}
 CHECK_OR_CALL_WORDS = {"check/call", "check_call", "checkcall", "call/check", "check_or_call", "checkorcall", "c"}
 _NAME_KEYS = ("type", "action", "kind", "name", "move", "act", "id")
 
+# Kit F's loader (drill 8) deletes every module a bot imported from its own folder from sys.modules once Agent()
+# returns (so two bots can each ship a utils.py), and takes the folder off sys.path. Each import inside a function then
+# fails with "No module named 'hyperion'" (Hero's twin tables at table start, the latency governor, ...), and the
+# callers that swallow errors play on misconfigured. The Adapter remembers this copy's modules when it is built (inside
+# Agent(), before the loader unloads them) and puts them back at each call when they are gone.
+_PKG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # this copy's hyperion/
+_PINNED: dict = {}
+
+
+def pin_package() -> None:
+    """Remember the modules of this copy of the package imported so far."""
+    pre = _PKG_DIR + os.sep
+    for k, m in list(sys.modules.items()):
+        if (k == "hyperion" or k.startswith("hyperion.")) and m is not None:
+            f = getattr(m, "__file__", None)
+            if f and os.path.abspath(f).startswith(pre):
+                _PINNED.setdefault(k, m)
+
+
+def repin_package() -> None:
+    """Put this copy's modules back into sys.modules when a loader took them out (or another copy took the name)."""
+    if _PINNED and sys.modules.get("hyperion") is not _PINNED.get("hyperion"):
+        sys.modules.update(_PINNED)
+
 
 class Adapter:
     """Base class. Subclasses implement the three translation hooks; decide() does the rest safely.
@@ -46,6 +70,7 @@ class Adapter:
     def __init__(self, bot: Bot, rules: Rules | None = None):
         from hyperion.drills.infer_history import HistoryInference
 
+        pin_package()
         self.bot = bot
         self.rules = rules or Rules()
         self.seat = 0
@@ -73,6 +98,7 @@ class Adapter:
 
     # -- lifecycle ---------------------------------------------------------------------
     def start(self, seat: int, n_players: int, rules: Rules | None = None) -> None:
+        repin_package()
         if rules is not None:
             self.rules = rules
         self.seat = seat
@@ -102,6 +128,7 @@ class Adapter:
         return out
 
     def decide(self, native: Any) -> Any:
+        repin_package()
         try:
             obs = self.to_observation(native)
             if not self.started:
@@ -146,6 +173,7 @@ class Adapter:
         hand end inside it; `defer_hand_end = False` keeps it at the kit's hand end, untimed, without those
         folds). Rival 3's core (hybrid3_x, the composite) replays the hand's history here, as
         the simulator gives it."""
+        repin_package()
         try:
             if self._pending is not None:  # two hand ends with no decision between them (a walk in our big blind)
                 self._deliver(None)
