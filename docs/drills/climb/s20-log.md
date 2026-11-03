@@ -237,3 +237,26 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
   exploit -0.114 ± 0.063 DOWN, exploit_3 -0.323 ± 0.195 DOWN, exploit2 -0.038 ± 0.027 DOWN, adapt -0.039 ± 0.045,
   exploit3_3 +0.135, the rest level. W +0.0000 ± 0.0172, W-min -0.0133 ± 0.0236. The archetype reads do not separate
   exploiter 1 from the strong builds three-handed; dropped.
+- 17:00 **GK** (G + keep the defence), seeds 10000-10099, exploit + elite (`q/024_GK100.out`, code ff07018): **REJECT**
+  on two cells. elite +0.027 ± 0.021 UP, elite_b +0.027 ± 0.022 UP, mirror_b +0.034 ± 0.019 UP, mirror +0.002,
+  elite_night +0.003; exploit3 +0.057 ± 0.049 UP, exploit3_3 +0.164 ± 0.126 UP; exploit_3 -0.122 ± 0.203 (level; G
+  -0.310), exploit2_3 +0.038, adapt -0.029, adapt_3 -0.025 (level); **exploit -0.102 ± 0.064 DOWN** (exploiter 1
+  4.687 -> 4.738), **exploit2 -0.047 ± 0.030 DOWN** (exploiter 2 level). W +0.0063 ± 0.0168, W-min -0.0014 ± 0.0229.
+  Keeping F's defence fixes most of exploit_3; what is left is the 8-max endgames.
+- 17:05 Where GK loses at 8-max exploit (`d3.py`, F and GK on exploit, diagnostic seeds 11000-11079, 640 tables
+  each, 364 reach three-handed in both): our seat's three-handed bb a hand with exploiter 1 alive GK -0.108 (1,751
+  hands) against F +0.228 (2,119); with two pool seats GK +0.378 against F +0.401. Against exploiter 1 F opens 73% of
+  its buttons (+1.0 bb each; exploiter 1's big blind folds 64% to it) where the tables fold 55%, and F's small blind
+  opens 84% (+0.70 a hand) where the tables limp 18% and jam 25% (-0.29): F's reads take what exploiter 1 gives, which
+  an equilibrium does not.
+- 17:10 Surveys at our three-handed preflop decisions (F as shipped, diagnostic seeds 11100-11115, `survey_*.py`):
+  per-seat re-raises of our first-in raises do not separate strong builds from the night pool (mirror's strong bots
+  median 1, night pool median 1); fold to preflop raises does not separate exploiter 1 (0.70) from the elite builds
+  (0.69-0.79). **S13's 3-bet read does**: exploiter 1 median 0.33 [p10 0.27, p90 0.39] at 8-max, 0.36 [0.12, 0.47]
+  three-handed; every other bot (elite1, elite2, elite4, rivals 1-3, F's copies, hybrid3_x, agent bots, exploiter 2,
+  adapt1, the night pool) has a median of 0.04-0.12 and a p90 of at most 0.23 (adapt1); 0.4 caught exploiter 1 at
+  only 5% of its 8-max decisions. So `short.defer_3bet` **0.25** (fixed from this table before any screen: above every
+  other bot's p90, below exploiter 1's 8-max p10). Candidate GK25 = GK with 0.25.
+- 17:15 **GX** (G with table 3c, the pessimistic fit), partial (exploit3_3 and adapt cells still running): elite
+  +0.017, elite_b +0.047 UP, mirror +0.022 UP, mirror_b +0.041 UP, elite_night -0.011; exploit_3 -0.434 ± 0.206 DOWN,
+  exploit -0.126 ± 0.071 DOWN. The pessimistic realization alone does not hold exploiter 1.
