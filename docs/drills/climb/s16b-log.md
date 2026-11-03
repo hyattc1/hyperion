@@ -313,3 +313,38 @@ by construction). The faster table rate does not remove the realistic lean.
 O4's confirm and guards: night -0.032 ± 0.068 (O3 -0.031), night_hard +0.064 ± 0.081 (O3 +0.085 UP), realistic
 -0.026 ± 0.051 (-0.034), top +0.004 ± 0.076 (-0.021), night @10/7/5... -0.000 ± 0.121, @50/25/12... -0.560 ± 0.822 (of
 100), doubling +0.002 ± 0.074: all level.
+
+O4's exploit stage: exploit -0.103 ± 0.129, exploit2 +0.022 ± 0.131, exploit3 +0.091 ± 0.125, adapt +0.008 ± 0.123,
+all level; the eight heads-up and three-handed cells +0.000 ± 0.000 (identical by construction, at full seeds).
+
+**O4's verdict (climb_accept on main, --aim strong): REJECT**, antes_from_level_3 and fast_schedule down. Addendum
+11's weighted score, printed beside it: W +0.0030 ± 0.0315 (lower bound -0.0286); W-min -0.0086 ± 0.0318 (lower
+bound -0.0404); the cap holds; the twist-aware family and the 22 twist variants not run (identical by construction).
+Latency (per-call minimum): act p99 115.1 / 125.7 µs (realistic / elite), hand end p99 146.9 / 146.3.
+
+| cell | O3 - F | O4 - F |
+|---|---|---|
+| elite | +0.030 ± 0.087 | +0.030 ± 0.086 |
+| elite_night | +0.026 ± 0.073 | +0.062 ± 0.072 |
+| mirror | **+0.105 ± 0.083 UP** | **+0.095 ± 0.080 UP** |
+| elite_b | +0.075 ± 0.082 | +0.075 ± 0.080 |
+| mirror_b | **+0.197 ± 0.092 UP** | **+0.177 ± 0.089 UP** |
+| night | -0.031 ± 0.070 | -0.032 ± 0.068 |
+| night_hard | **+0.085 ± 0.084 UP** | +0.064 ± 0.081 |
+| realistic | -0.034 ± 0.048 | -0.026 ± 0.051 |
+| top | -0.021 ± 0.074 | +0.004 ± 0.076 |
+| night @10/7/5... / @50/25/12... / doubling | -0.011 / -0.229 / +0.001 | -0.000 / -0.560 / +0.002 |
+| exploit / exploit2 / exploit3 / adapt | -0.082 / +0.047 / **+0.131 UP** / -0.024 | -0.103 / +0.022 / +0.091 / +0.008 |
+| the eight short-handed exploit cells | identical (one 25-seed chunk each) | identical (200 seeds) |
+| **antes_from_level_3** | **-0.060 ± 0.051 DOWN** | **-0.056 ± 0.050 DOWN** |
+| fast_schedule | -0.045 ± 0.052 | **-0.060 ± 0.047 DOWN** |
+| top_heavy (of 100) | -0.380 ± 0.634 | -0.040 ± 0.668 |
+| straddle | identical (chunk) | identical (200 seeds) |
+
+The faster table rate answers no: the realistic room's lean stays (realistic -0.026, antes -0.056, fast_schedule now
+down), and the strong-table gain is a little smaller on the mirrors. O3 is the better of the two (one cell down, not
+two), so it is the one for a held-out set under addendum 7. Why the faster rate does not help, likely: realistic's
+folders are a handful of seats (tag 0.94, pushfold 0.91, timeout_then_recover 0.90), the table rate by position mixes
+them with its callers, and the cap only ever lowers a read, so a faster table rate cannot raise a tight seat's fold
+above F's own read; what costs there is the cap dropping steals into seats that read lower at the table level than
+they are. A seat's own excess (weight 23) is what would fix it, and it is slow by design.
