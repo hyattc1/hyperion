@@ -135,6 +135,33 @@ def v3_scan(hist, me: int, others_w: float, chances: list, threes: list, faced4:
             return
 
 
+def oa_scan(hist, me: int, my_chips: float, sbs, bbs) -> list:
+    """One hand's answers to my first-in raise (S16b; kit shape (seat, (kind, amount)), preflop first), as (seat,
+    position 0 other / 1 small blind / 2 big blind, folded, re-raised): every action before mine a fold and mine a
+    raise to under 95% of my chips at the hand's start; then each other seat's first action, until one re-raises or I
+    act again."""
+    out = []
+    opened = False
+    seen = set()
+    for s, a in hist:
+        k = a[0]
+        if not opened:
+            if s == me:
+                if k != 'raise' or (a[1] or 0) >= 0.95 * my_chips:
+                    return out
+                opened = True
+            elif k != 'fold':
+                return out
+            continue
+        if s == me or s in seen:
+            return out
+        seen.add(s)
+        out.append((s, 1 if s == sbs else 2 if s == bbs else 0, k == 'fold', k == 'raise'))
+        if k == 'raise':
+            return out
+    return out
+
+
 def o3_scan(hist, opened: list, folded: list) -> None:
     """Add one hand's fold-to-3-bet read (kit shape (seat, (kind, amount)), preflop first): the hand's first raise is
     the open; the first raise after it by another seat is a 3-bet; the opener's next action is its reply to it."""
@@ -189,6 +216,7 @@ class Rival3Core(R3.Bot):
                         "n_players": n_players, "blinds": rules.blind_levels}, seat, n_players)
         self.payouts = tuple(rules.payouts)
         self.holdem = holdem_table(rules)  # v3_bvb_holdem_only reads it
+        self._oa_h = self.holdem  # S16b: the open-answer read plays hold'em tables only
         lin = _linear_from([float(p) for p in self.payouts])
         self.exact_icm = lin is None or lin[2] > 2
         self.soft_us = float(cfg.soft_us)
@@ -213,6 +241,14 @@ class Rival3Core(R3.Bot):
         self.o3n = [0.0] * 12
         self.o3f = [0.0] * 12
         self.o3_oracle = None
+        # the open-answer read (r3.oa_read; oa_scan): per seat, answers to my first-in raises, their excess folds over
+        # this table's rate from the position they answered from, their re-raises; per position (other, small blind,
+        # big blind), this table's answers and folds
+        self.oan = [0.0] * 12
+        self.oax = [0.0] * 12
+        self.oar = [0.0] * 12
+        self.oa_tn = [0.0, 0.0, 0.0]
+        self.oa_tf = [0.0, 0.0, 0.0]
 
     def start_hand(self, kit_hand_no: int, totals) -> None:
         """Nothing to precompute: rival 3 prices each all-in from the stacks it sees."""
@@ -238,8 +274,28 @@ class Rival3Core(R3.Bot):
                     best_p, best = p, (hole[i], hole[j])
         return best
 
+    oa_count = False  # count the open-answer read without r3.oa_read (the layer's exploit.open_read, set by the composite)
+    _oa_h = False
+
     def end(self, result: HandResult) -> None:
         hist = [(s, (a.kind.value, a.amount)) for s, a in result.history]
+        start = self.start  # this hand's starting chips (hand_end clears them)
+        if (self.k.oa_read or self.oa_count) and start is not None:
+            try:
+                n = len(start)
+                sbs, bbs = self._blind_seats([s for s in range(n) if start[s] > 0], self.button, n)
+                ans = oa_scan(hist, self.seat, start[self.seat], sbs, bbs)
+                ms = [self._oa_table(p) for p in range(3)]  # this table's rates before this hand
+                for s, p, f, r in ans:
+                    if 0 <= s < len(self.oan):
+                        self.oan[s] += 1.0
+                        self.oax[s] += (1.0 if f else 0.0) - ms[p]
+                        self.oar[s] += 1.0 if r else 0.0
+                for s, p, f, r in ans:
+                    self.oa_tn[p] += 1.0
+                    self.oa_tf[p] += 1.0 if f else 0.0
+            except Exception:  # noqa: BLE001 - a malformed history leaves the reads as they were
+                pass
         self.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas, "history": hist})
         if self.k.v3_defend:
             self._v3_end(result.hand_no + 1, hist)
@@ -345,6 +401,10 @@ class Rival3Core(R3.Bot):
                     return self._raise(legal, o, o.max_raise)
                 return self._fold(legal) if to_call > 0 else self._call_or_check(legal)
             # deeper: raise-first-in / isolate
+            if kn.oa_read and self._oa_h and not limpers:  # S16b: the open-answer read, not fold-to-any-raise
+                pf = 1.0
+                for s in behind:
+                    pf *= 1.0 if self._rates(s)[7] else self.oa_fold(s, 1 if s == sbs else 2 if s == bbs else 0)
             base = {0: 1.0, 1: 0.48, 2: 0.36, 3: 0.27, 4: 0.21, 5: 0.17, 6: 0.14, 7: 0.12}.get(len(behind), 0.11)
             if limpers:
                 base = 0.14 + 0.03 * sum(1 for s in limpers if self._rates(s)[0] > 0.5)
@@ -593,6 +653,24 @@ class Rival3Core(R3.Bot):
         cont = min(w3, cont)
         fo4 = (self.v4f[agg] + kn.v3_f4_n * min(f4_cap, 1.0 - cont / w3)) / (self.v4o[agg] + kn.v3_f4_n)
         return w3, fo4
+
+    # ------------------------------------------------------------------ S16b: the open-answer read
+    def _oa_table(self, p: int) -> float:
+        """This table's fold rate to my first-in raises from position p (all seats), shrunk to the position's prior."""
+        kn = self.k
+        mu = (kn.oa_mu_other, kn.oa_mu_sb, kn.oa_mu_bb)[p]
+        return (self.oa_tf[p] + mu * kn.oa_st) / (self.oa_tn[p] + kn.oa_st)
+
+    def oa_fold(self, s: int, blind: int) -> float:
+        """Seat s's fold to my first-in raise from position `blind` (0 not a blind, 1 the small blind, 2 the big):
+        this table's rate from that position plus the seat's excess folds over the table's rates, shrunk by oa_s."""
+        kn = self.k
+        f = self._oa_table(blind)
+        if 0 <= s < len(self.oan):
+            n = self.oan[s]
+            if n > 0.0 and n >= kn.oa_min_n:
+                f += self.oax[s] / (n + kn.oa_s)
+        return 0.05 if f < 0.05 else (0.97 if f > 0.97 else f)
 
     # ------------------------------------------------------------------ S16: the trust weight on the steal's fold read
     def _fold_trust(self, s, short):

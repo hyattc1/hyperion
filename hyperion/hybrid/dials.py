@@ -118,3 +118,16 @@ class Rival3Knobs:
                                    "seat's fold-to-a-raise read is at most prior + (observed - prior) x n / (n + this), "
                                    "n its raises faced, prior 0.6; 0 = off")
     read_trust_min_n: float = _dial(10.0, "... and only the prior (0.6) below this many raises faced")
+    # the open-answer read (S16b, docs/drills/climb/s16b-log.md): how each seat answers my own first-in raises (folds
+    # per answer, against a prior by position), in place of its fold-to-any-raise in the steal price. Off: as built
+    oa_read: bool = _dial(False, "unopened pot, no limper, deeper than short_bb: the steal price and the open clauses "
+                                 "read each seat behind from the answers to my first-in raises this table (not "
+                                 "all-in): fold = this table's rate from its position (all seats pooled, shrunk to "
+                                 "the position's prior with oa_st answers) + the seat's own excess folds over those "
+                                 "rates / (its answers + oa_s); a dead seat still folds; off = fold-to-any-raise")
+    oa_mu_other: float = _dial(0.866, "prior fold of a seat that is not a blind, facing my first-in raise (S16b survey)")
+    oa_mu_sb: float = _dial(0.815, "... of the small blind")
+    oa_mu_bb: float = _dial(0.668, "... of the big blind")
+    oa_st: float = _dial(20.0, "weight of a position's prior against this table's answers from that position")
+    oa_s: float = _dial(23.0, "weight of a seat's prior (no excess) against its own answers")
+    oa_min_n: float = _dial(0.0, "answers a seat must have given before its own excess counts (0: from the first)")
