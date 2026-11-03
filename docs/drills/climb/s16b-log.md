@@ -150,3 +150,52 @@ three-handed (-0.205 ± 0.131) cells came in beyond noise down while its strong 
 `{"r3.oa_min_alive": 4, "exploit.open_min_alive": 4}`: the read only while four or more players have chips, so the
 heads-up and three-handed steal prices stay F's (S12's C6 did the same for the size read). Code 7959538, cherry-picked
 after O2's run. Exploit stage first, then elite, confirm and guards, variants (host at load 45: 2 workers from here).
+
+## 07:18-08:30: O2's full screen (code e54c827, version 409c5ced04; screen 10000-10199 x 8)
+
+`climb_accept --cand '{"dials": {"r3.oa_read": true, "exploit.open_read": true, "r3.oa_cap": true, "exploit.open_cap":
+true}}' --set screen --stages confirm,guards,elite,exploit,variants --variants
+top_heavy,antes_from_level_3,fast_schedule,straddle --variant-seeds 200 --aim strong --workers 3`. O2 - F, paired;
+0 errors, 0 timeouts (the candidate's p99 column, 8-10 ms, is the host at load 30-45; F's cells were played earlier).
+
+| stage | cell | F | O2 | O2 - F | |
+|---|---|---|---|---|---|
+| confirm | night | 5.972 | 5.929 | -0.043 ± 0.072 | level |
+| guards | night_hard | 5.499 | 5.591 | **+0.093 ± 0.084** | UP |
+| | realistic | 6.370 | 6.334 | -0.036 ± 0.048 | level |
+| | top | 5.058 | 5.039 | -0.019 ± 0.075 | level |
+| | night @10/7/5..., @50/25/12..., doubling | | | -0.034 ± 0.130, -0.140 ± 0.886, -0.006 ± 0.075 | level |
+| elite | elite | 4.865 | 4.918 | +0.052 ± 0.090 | level |
+| | elite_night | 5.422 | 5.456 | +0.034 ± 0.074 | level |
+| | **mirror** | 4.498 | 4.634 | **+0.137 ± 0.082** | UP |
+| | elite_b | 4.638 | 4.709 | +0.071 ± 0.084 | level |
+| | **mirror_b** | 4.466 | 4.669 | **+0.202 ± 0.091** | UP |
+| exploit | exploit / exploit2 | 5.839 / 5.844 | 5.781 / 5.882 | -0.058 ± 0.133 / +0.038 ± 0.132 | level |
+| | **exploit_hu** | 9.227 | 9.062 | **-0.165 ± 0.102** | DOWN |
+| | **exploit_3** | 8.458 | 8.253 | **-0.205 ± 0.131** | DOWN |
+| | exploit2_hu / exploit2_3 | 7.848 / 7.378 | 7.840 / 7.327 | -0.007 ± 0.064 / -0.052 ± 0.091 | level |
+| | **exploit3** | 5.471 | 5.607 | **+0.136 ± 0.127** | UP |
+| | exploit3_hu / exploit3_3 | 8.268 / 7.528 | 8.252 / 7.583 | -0.015 ± 0.059 / +0.055 ± 0.111 | level |
+| | adapt / adapt_hu / adapt_3 | 5.889 / 8.605 / 8.007 | 5.878 / 8.545 / 7.948 | -0.010 ± 0.125 / -0.060 ± 0.080 / -0.058 ± 0.114 | level |
+| variants | top_heavy (of 100) | 28.654 | 28.365 | -0.289 ± 0.640 | level |
+| | **antes_from_level_3** | 6.496 | 6.434 | **-0.062 ± 0.052** | DOWN |
+| | fast_schedule | 6.122 | 6.074 | -0.048 ± 0.051 | level |
+| | **straddle** | 6.412 | 6.285 | **-0.127 ± 0.053** | DOWN |
+
+**O2: REJECT** (exploit_hu, exploit_3, antes_from_level_3, straddle down). It does what the brief asked at strong
+tables: mirror +0.137 and mirror_b +0.202 (the `prior` arm's +0.147 and +0.210), every strong point estimate positive,
+night_hard up, realistic and top level, where the `prior` arm and T3 lost. The losses are elsewhere:
+- Exploiter 1 heads-up and three-handed: there the blinds are most of the table and the button's raise-first-in is the
+  hand's main source of chips; a capped read gives some of it up to a bot that defends.
+- straddle: the straddle is posted outside the history, so the scan sees no first-in raise there and the layer (the
+  only part that plays a straddle table's preflop; Hero plays the rest) reads every seat at the priors.
+- antes_from_level_3: antes make a steal worth more, so the same drop in fold equity costs more.
+
+Latency (per-call minimum, e54c827): act p99 108.6 / 113.6 µs (realistic / elite), hand end p99 143.8 / 143.4, mean
++1 to +2 µs over F. Targeted tests (s16b, API card, ship): 33 passed.
+
+**O3 amended before it ran (08:35):** O2 + four or more alive + the read off on straddle tables (code aafe5b9: the
+first two by construction leave the heads-up and three-handed cells and straddle exactly F's; a test each). Screened
+at 2 workers, in this order: elite; the four 8-max exploit cells; antes_from_level_3, fast_schedule, top_heavy;
+confirm and guards; then one 25-seed chunk of each cell that should be F's exactly (the eight short-handed exploit
+cells and straddle), compared sample for sample.
