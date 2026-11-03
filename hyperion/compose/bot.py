@@ -10,10 +10,15 @@ decisions there. Members are built once per bot and play every table:
            Donor `base` (the layer on) is hybrid3_x; donor `hybrid3` (the layer off) is hybrid3.
   hero     Hero's HeroCore, its own layer off. Donor `hero` (the layer on) is Hero as it ships; `hero_nl` without it.
   r2       rival 2's core behind the same shell (core "rival2"). Donor `r2x` is hybrid_x; `r2` is hybrid.
+  r2s      rival 2's core for the strong-table route (S14): as r2, but its generator seeded per decision, a light
+           shadow (no Monte Carlo when not chosen), its ICM curve built at its first read, plain hold'em only.
+           Donors `r2s`, `r2sx` (the layer on).
   rival1   red-team rival 1 as built, through the kit adapter the bestiary uses. Donor `rival1`; `rival1x` with the layer.
   rival3   red-team rival 3 as built (brief's payouts in its ICM, no shell). Donor `rival3`; `rival3x` with the layer.
-  elite1, elite2   the climb's elite builds as built (PersonaMember: payouts and history as the bestiary passes them,
-           the generator seeded per table). Donors `elite1`, `elite2`; `elite1x`, `elite2x` with the layer (S9).
+  elite1, elite2, elite4   the climb's elite builds as built (PersonaMember: payouts and history as the bestiary passes
+           them, the generator seeded per decision). Donors `elite1`, `elite2`, `elite4`; `elite1x`, `elite2x`,
+           `elite4x` with the layer (S9; elite4, the second wave's tuning build, S14). elite3 and elite5 are held-out
+           judges and are never members.
 More can be registered at run time (`register_member`); scratch runners use that for black-box opponents.
 
 **Every member sees everything.** Each member in the route acts on every observation and gets every hand_end, so its
@@ -29,7 +34,9 @@ table, not one per member: the layer reads only the table, so copies would read 
 
 **Raw rivals play plain hold'em only.** On a table the base's core cannot play (Hero's 14 variant tables), a permuted
 rank order, or a straddle, a section routed to rival1 or rival3 is played by the base instead (counted
-`fallback:plain`). Hero and the hybrid members play every table.
+`fallback:plain`). Hero and the hybrid members play every table (r2s, the strong route's rival 2, only plain hold'em).
+A strong-route donor that cannot play the table hands the decision to the section's own donor (Hero in Hero's
+sections), so the route never changes play on such a table.
 
 **Errors.** A chosen member that raises or answers None: the base's answer, else check or fold (`fallback:error`). A
 shadow that raises is counted and ignored. `late_us`: if the chosen member has already used this long, the shadows skip
@@ -56,7 +63,12 @@ table reads strong. The read is the share of our first-in, not all-in preflop ra
 before the flop, smoothed toward `strong_prior` with the weight of `strong_prior_n` raises; the table reads strong
 while it is at least `strong_rr` (0: always). At night's tables about 14% of F's opens are re-raised, at tables of
 strong general bots and copies of F 24-26% (docs/drills/climb/s9-log.md). Never in a blind-vs-blind unopened pot unless
-`strong_bvb`. Its donors' members run (and shadow) on every decision, like any routed member's.
+`strong_bvb` (True: every section; or the sections it names, S14). Its donors' members run (and shadow) on every
+decision, like any routed member's.
+
+**The second strong-table route** (S14, `strong2_route`, off by default): more sections on the same read, played while
+it is in [`strong2_rr`, `strong2_rr_max`): a table where nearly every open of ours is re-raised holds an exploiter, and
+F's own play (its 3-bet defence) is kept there. Blind-vs-blind as `strong_bvb` says.
 
 **The short-handed route** (S13, `short_route`, off by default): sections played by another donor (the specialist
 `short`, hyperion/strategy/short.py) while at most `short_alive` players have chips and that member `wants` the decision
@@ -234,7 +246,7 @@ def _rival_member(module: str, history_at_end: bool):
 
 
 class PersonaMember(KitMember):
-    """An elite build from hyperion.sim.field (elite1, elite2: our own agents' prepared top-team bots) as a member,
+    """An elite build from hyperion.sim.field (elite1, elite2, elite4: our own agents' prepared top-team bots) as a member,
     through the adapter the bestiary's PersonaBot plays it with: the payouts in the rules dict, the hand's history at
     hand_end, and its generator (each was written with an unseeded random.Random()) reseeded from the member's seed at
     every table start, as the bestiary's _EliteBot does, so a table replays exactly. Plain hold'em only, like every raw
@@ -291,6 +303,173 @@ def _elite1_resync(m, before, obs: Observation, taken: Action) -> None:
         b.pend = None
 
 
+def _fold(*args, **kw):
+    return ("fold", 0)
+
+
+# elite2 keeps its reads in the hand's replay (`rp`, fed from the history at each decision and at hand_end) and the
+# per-seat counters the replay updates; its decision writes only scratch values it sets again before reading them
+# (`_fc`, `_raw`). Its light shadow runs its act with the decision taken out (preflop / postflop answer a fold, which
+# its act then legalizes), so the replay is fed exactly as a full decision feeds it (S14).
+def _elite2_light(m, obs: Observation) -> None:
+    b = m.impl
+    b.preflop = b.postflop = _fold  # instance attributes hide the methods: the replay runs, the decision does not
+    try:
+        b.act(m.kit(obs, obs.hole, obs.board))
+    finally:
+        del b.preflop, b.postflop
+
+
+# elite4 keeps its reads from the history it ingests at each decision and at hand_end (`_ingest`: per-seat counters,
+# the hand's street and raise state); its preflop and postflop decisions write nothing it keeps (they draw from its
+# generator, which PersonaMember seeds per decision). Its light shadow runs `_act` with the decision taken out (S14).
+def _elite4_light(m, obs: Observation) -> None:
+    b = m.impl
+    b._preflop = b._postflop = _none
+    try:
+        b._act(m.kit(obs, obs.hole, obs.board))
+    finally:
+        del b._preflop, b._postflop
+
+
+# r2s (S14): rival 2's core behind the same shell as the `r2` member, for the strong-table route. Four changes from r2,
+# none to rival 2's code: (1) its generator is seeded per decision (from the member's seed, the hand, the street and the
+# history's length), as the elite members' are, so a decision's draws never depend on which earlier decisions it made
+# in full; (2) a light shadow: its decision is not computed (preflop: nothing; postflop: its own code up to the Monte
+# Carlo, about 260 us a decision as built, so its first-sight range cuts are set as a full decision sets them), while
+# its read of the hand (the history replay, the per-seat counters) runs as in full; (3) what its own decision would
+# have written ("we re-raised preflop", "we were the aggressor this street") always follows the action taken when it
+# was not chosen (RESYNC_ALWAYS), so a light shadow and a full one leave the same state; (4) the hand's ICM curve
+# (hybrid.core.build_curve, ~20 us at a hand end) is built from the same hand-start chips at the first decision that
+# reads it, not at every hand end: the same values, paid only on hands where rival 2 decides. Plain hold'em only
+# (plain_only, holdem_only), like the elite members.
+_NO = object()
+
+
+class _Stop(Exception):
+    """Raised in place of rival 2's postflop Monte Carlo in a light shadow: the decision stops there."""
+
+
+def _stop(*args, **kw):
+    raise _Stop()
+
+
+_LAZY_CURVE = None
+
+
+def _lazy_curve_class():
+    global _LAZY_CURVE
+    if _LAZY_CURVE is None:
+        from ..hybrid.core import R2, build_curve
+
+        class LazyCurve(R2.Curve):
+            """rival 2's Curve, built (hybrid.core.build_curve) at its first read: every read goes through u()."""
+            __slots__ = ("_args",)
+
+            def __init__(self, totals, me, payouts):  # noqa: D107 - the parent's slots are filled at the first read
+                self._args = (totals, me, payouts)
+
+            def u(self, x):
+                a = self._args
+                if a is not None:
+                    c = build_curve(*a)
+                    self.xs, self.us = c.xs, c.us
+                    self._args = None
+                return R2.Curve.u(self, x)
+
+        _LAZY_CURVE = LazyCurve
+    return _LAZY_CURVE
+
+
+def _r2s_member(cfg, seed):
+    m = _hybrid_member("rival2", cfg, seed)
+    m.plain_only = True
+    m.holdem_only = True
+    core = m.core
+    s0 = 0 if seed is None else int(seed)
+    real_pf, real_post = core._preflop, core._postflop
+    core._r2_pre = None  # (hand, street, we_raised_pre, street_aggr[street]) when its decision started
+    core._r2_light = False
+
+    def pf(obs, *rest):
+        core._r2_pre = (core.cur, 0, core.we_raised_pre, core.street_aggr.get(0, _NO))
+        return None if core._r2_light else real_pf(obs, *rest)
+
+    def post(obs, *rest):
+        st = obs.street
+        core._r2_pre = (core.cur, st, core.we_raised_pre, core.street_aggr.get(st, _NO))
+        if not core._r2_light:
+            return real_post(obs, *rest)
+        core.equity_mc = _stop  # the instance attribute hides the method: the decision stops at the Monte Carlo
+        try:
+            return real_post(obs, *rest)
+        except _Stop:
+            return None
+        finally:
+            del core.equity_mc
+
+    lazy = _lazy_curve_class()
+
+    def prime(kit_hand_no, totals):
+        t = list(totals)
+        core._pending = (kit_hand_no, t, lazy(t, core.me, core.payouts))
+
+    core._preflop, core._postflop, core.prime = pf, post, prime
+    act = m.act
+
+    def seeded_act(obs):
+        core.rng.seed(((s0 * 1_000_003 + obs.hand_no) * 4 + obs.street) * 1024 + len(obs.history))
+        return act(obs)
+
+    m.act = seeded_act
+    return m
+
+
+def _r2s_light_ok(m, obs: Observation) -> bool:
+    """The shell would hand this decision to the core (HybridCore._decide), not to its fallback Hero."""
+    return not m.panic and not m._cheap and m._table_why is None and len(obs.hole) == 2 \
+        and not (obs.street == 0 and m._straddle) and len(obs.board) <= 5
+
+
+def _r2s_light(m, obs: Observation) -> None:
+    hole, board = obs.hole, obs.board
+    rm = m._remap
+    if rm is not None:
+        from ..core.cards import remap
+
+        hole, board = remap(hole, rm), remap(board, rm)
+    m._core_hand = obs.hand_no
+    core = m.core
+    core._r2_light = True
+    try:
+        core.decide(m.kit(obs, hole, board), perf_counter())
+    finally:
+        core._r2_light = False
+
+
+def _r2s_state(m):
+    m.core._r2_pre = None
+    return True
+
+
+def _r2s_resync(m, before, obs: Observation, taken: Action) -> None:
+    core = m.core
+    p = core._r2_pre
+    core._r2_pre = None
+    if p is None or p[0] != core.cur:  # the core did not decide here (its shell's Hero did)
+        return
+    _, st, wrp, sa = p
+    is_raise = taken.kind is _RAISE
+    if st == 0:  # rival 2 marks its preflop re-raises (not its opens: those it reads from the history)
+        core.we_raised_pre = bool(wrp or (is_raise and max(obs.bets) > obs.blinds[1]))
+    elif is_raise and taken.amount < obs.max_raise:  # ... and its postflop bets and raises that are not all-in
+        core.street_aggr[st] = core.me
+    elif sa is _NO:
+        core.street_aggr.pop(st, None)
+    else:
+        core.street_aggr[st] = sa
+
+
 def _short_member(cfg, seed):
     from ..strategy.short import short_member
 
@@ -302,10 +481,12 @@ MEMBERS: dict[str, Callable] = {
     "base": lambda cfg, seed: _hybrid_member("rival3", cfg, seed),
     "hero": _hero_member,
     "r2": lambda cfg, seed: _hybrid_member("rival2", cfg, seed),
+    "r2s": _r2s_member,  # S14: rival 2's core, seeded per decision, light shadow, plain hold'em only
     "rival1": _rival_member("rival1", False),
     "rival3": _rival_member("rival3", True),
     "elite1": _persona_member("elite1"),
     "elite2": _persona_member("elite2"),
+    "elite4": _persona_member("elite4"),  # S14: the second wave's solver-minded build (a tuning bot; elite3/5 judge)
     "short": _short_member,
 }
 # member name -> (state(member) captured before act, resync(member, state, obs, taken) when its answer was not taken)
@@ -314,28 +495,37 @@ RESYNC: dict[str, tuple] = {
     "rival3": (lambda m: _r3_state(m.impl), lambda m, st, obs, a: _resync_r3(m.impl, st, obs, a)),
     "hero": (_hero_state, _resync_hero),
     "elite1": (lambda m: True, _elite1_resync),
+    "r2s": (_r2s_state, _r2s_resync),
 }
+# members whose record of their own actions follows the action taken whenever they were not chosen, even when their own
+# answer was the same (r2s: so that a full shadow and a light one leave the same state)
+RESYNC_ALWAYS: set = {"r2s"}
 # member name -> (can a light shadow stand in for its decision on this observation, the light shadow)
 LIGHT: dict[str, tuple] = {
     "hero": (_hero_light_ok, _hero_light),
     "base": (_base_light_ok, _base_light),
     "elite1": (lambda m, obs: True, _elite1_light),
+    "elite2": (lambda m, obs: True, _elite2_light),  # S14
+    "elite4": (lambda m, obs: True, _elite4_light),  # S14
+    "r2s": (_r2s_light_ok, _r2s_light),  # S14
     "short": (lambda m, obs: True, lambda m, obs: m.light_observe(obs)),  # S13: it keeps only the hand's start chips
 }
 # members whose light shadow is used even without `light` (the deterministic runs, tools/climb_accept.py's seats): it
 # plays exactly as the full one (tests/test_sim_mirror.py), so a full shadow only adds cost, and the simulator's timing
 # columns should show what the shipped bot pays. elite1's full shadow decided on every one of our decisions (about 30 us,
 # a tail past 1 ms on a loaded host); its light one scans the history (about 6 us)
-ALWAYS_LIGHT: set = {"elite1", "short"}
+ALWAYS_LIGHT: set = {"elite1", "elite2", "elite4", "r2s", "short"}
 # donor name -> (member, the exploit layer acts on its decisions)
 DONORS: dict[str, tuple[str, bool]] = {
     "base": ("base", True), "hybrid3": ("base", False),
     "hero": ("hero", True), "hero_nl": ("hero", False),
     "r2x": ("r2", True), "r2": ("r2", False),
+    "r2sx": ("r2s", True), "r2s": ("r2s", False),
     "rival1": ("rival1", False), "rival1x": ("rival1", True),
     "rival3": ("rival3", False), "rival3x": ("rival3", True),
     "elite1": ("elite1", False), "elite1x": ("elite1", True),
     "elite2": ("elite2", False), "elite2x": ("elite2", True),
+    "elite4": ("elite4", False), "elite4x": ("elite4", True),
     "short": ("short", False), "shortx": ("short", True),
 }
 
@@ -385,7 +575,17 @@ class ComposeConfig:
     strong_prior_n: float = 10.0
     # ... and in an unopened pot with one opponent left in the hand (the small blind against the big, or folded round to
     # the button with the small blind out): off = never there (blind-vs-blind play is S11's, climb/s11-exploiter2-fixes)
-    strong_bvb: bool = False
+    strong_bvb: object = False  # True = every section; or section names ("pre_hu,pre_3way": those only; S14)
+    # a second strong-table route (S14) on the same read with its own band: these sections go to these donors while the
+    # read is at least `strong2_rr` and under `strong2_rr_max`. A table where our opens are re-raised nearly every time
+    # holds an exploiter, not strong general bots, and F's own play (its 3-bet defence) is the one to keep there.
+    # Blind-vs-blind unopened pots as `strong_bvb` says. Empty (the default): no second route
+    strong2_route: dict = field(default_factory=dict)
+    strong2_rr: float = 0.0
+    strong2_rr_max: float = 1.01
+    # ... and a preflop decision where our own raise this hand has been re-raised stays the section's own donor's (F's
+    # 3-bet defence, batch 4): the second route's donor opens and answers others' raises only
+    strong2_keep_defence: bool = False
     # the short-handed route (S13, module doc of hyperion/strategy/short.py): these sections go to these donors while at
     # most `short_alive` players have chips and the donor's member wants the decision (the hand maps onto its tables,
     # no opponent alive reads as a clear leak). Empty (the default): every section as `route` / `strong_route` say
@@ -404,8 +604,9 @@ def compose_config(route=None, seed=None, **kw) -> ComposeConfig:
     cfg = ComposeConfig(seed=seed, **kw)
     cfg.route = parse_route(route)
     cfg.strong_route = parse_route(cfg.strong_route)
+    cfg.strong2_route = parse_route(cfg.strong2_route)
     cfg.short_route = parse_route(cfg.short_route)
-    for r in (cfg.route, cfg.strong_route, cfg.short_route):
+    for r in (cfg.route, cfg.strong_route, cfg.strong2_route, cfg.short_route):
         for sec, d in r.items():
             if sec not in SECTIONS:
                 raise KeyError(f"unknown section {sec!r}")
@@ -454,6 +655,7 @@ class CompositeCore:
         donors = [cfg.route.get(s, cfg.base_donor) for s in SECTIONS]
         names = ["base"]  # index 0 is always the base
         for d in donors + [cfg.strong_route[s] for s in SECTIONS if s in cfg.strong_route] \
+                + [cfg.strong2_route[s] for s in SECTIONS if s in cfg.strong2_route] \
                 + [cfg.short_route[s] for s in SECTIONS if s in cfg.short_route]:
             m = DONORS[d][0]
             if m not in names:
@@ -467,6 +669,13 @@ class CompositeCore:
         self.route = [(idx[DONORS[d][0]], DONORS[d][1]) for d in donors]  # per section: (member index, layer on)
         sr = cfg.strong_route
         self.strong = [(idx[DONORS[sr[s]][0]], DONORS[sr[s]][1]) if s in sr else None for s in SECTIONS] if sr else None
+        s2 = cfg.strong2_route
+        self.strong2 = [(idx[DONORS[s2[s]][0]], DONORS[s2[s]][1]) if s in s2 else None for s in SECTIONS] if s2 else None
+        self._rr_on = self.strong is not None or self.strong2 is not None  # keep the read
+        bvb = cfg.strong_bvb
+        if isinstance(bvb, str):
+            bvb = set(parse_route({k.strip(): "1" for k in bvb.split(",") if k.strip()}))
+        self._sbvb = [bool(bvb is True or (isinstance(bvb, set) and s in bvb)) for s in SECTIONS]
         hr = cfg.short_route
         self.short = [(idx[DONORS[hr[s]][0]], DONORS[hr[s]][1]) if s in hr else None for s in SECTIONS] if hr else None
         self._rr_reset()
@@ -478,6 +687,7 @@ class CompositeCore:
         self._no_h = [False] * len(self.members)  # per member: plays the base here (this table is not hold'em)
         self.resync = [RESYNC.get(n) for n in names]
         self._rs_idx = [j for j, r in enumerate(self.resync) if r is not None]
+        self._rs_always = [n in RESYNC_ALWAYS for n in names]
         self.light = [LIGHT.get(n) if cfg.light or n in ALWAYS_LIGHT else None for n in names]
         self._lit = [False] * len(names)
         self._states: list = [None] * len(names)
@@ -509,6 +719,7 @@ class CompositeCore:
 
     # ------------------------------------------------------------------ Bot protocol
     def _rr_reset(self) -> None:
+        self._raised_hand = -1  # the hand in which we last raised preflop (strong2_keep_defence)
         self._rr_n = 0  # our first-in preflop raises (not all-in) this table
         self._rr_k = 0  # ... that faced a re-raise before the flop
         self._rr_hand = -1
@@ -520,6 +731,11 @@ class CompositeCore:
         if c.strong_rr <= 0.0:
             return True
         return (self._rr_k + c.strong_prior * c.strong_prior_n) / (self._rr_n + c.strong_prior_n) >= c.strong_rr
+
+    def rr_read(self) -> float:
+        """The share of our first-in raises re-raised this table, smoothed toward strong_prior."""
+        c = self.cfg
+        return (self._rr_k + c.strong_prior * c.strong_prior_n) / (self._rr_n + c.strong_prior_n)
 
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
         self.panic = False
@@ -580,17 +796,30 @@ class CompositeCore:
         mi, layer = self.route[sec]
         counts = self.counts
         strong = self.strong
-        if strong is not None:
+        rr_on = self._rr_on
+        if rr_on:
             if obs.hand_no != self._rr_hand:
                 self._rr_hand, self._rr_open = obs.hand_no, False
             elif self._rr_open and (obs.street or obs.to_call > 0):
                 if not obs.street:
                     self._rr_k += 1  # we act again before the flop, facing a bet: our raise was re-raised
                 self._rr_open = False
-            sr = strong[sec]
-            if sr is not None and self.strong_table() and (self.cfg.strong_bvb or obs.street or not _bvb(obs)):
-                mi, layer = sr
-                counts["strong"] += 1
+            if strong is not None:
+                sr = strong[sec]
+                if sr is not None and self.strong_table() and (self._sbvb[sec] or obs.street or not _bvb(obs)):
+                    mi, layer = sr
+                    counts["strong"] += 1
+            strong2 = self.strong2
+            if strong2 is not None:
+                s2 = strong2[sec]
+                if s2 is not None and (self._sbvb[sec] or obs.street or not _bvb(obs)) and not (
+                        self.cfg.strong2_keep_defence and not obs.street and obs.to_call > 0
+                        and self._raised_hand == obs.hand_no):
+                    c2 = self.cfg
+                    r = self.rr_read()
+                    if (c2.strong2_rr <= 0.0 or r >= c2.strong2_rr) and r < c2.strong2_rr_max:
+                        mi, layer = s2
+                        counts["strong2"] += 1
         short = self.short
         if short is not None and short[sec] is not None and not self.panic and self.plain:
             si, sl = short[sec]
@@ -618,7 +847,11 @@ class CompositeCore:
             mi, layer = 0, True
         elif mi and self.plain_only[mi] and (not self.plain or self._no_h[mi]):
             counts["fallback:plain"] += 1
-            mi = 0
+            ri, rl = self.route[sec]
+            if ri and ri != mi and not (self.plain_only[ri] and (not self.plain or self._no_h[ri])):
+                mi, layer = ri, rl  # a strong-route donor that cannot play this table: the section's own donor (S14)
+            else:
+                mi = 0
         members, resync = self.members, self.resync
         nm = len(members)
         states = self._states
@@ -687,7 +920,7 @@ class CompositeCore:
                 # a member whose answer was not the action taken (or that did not answer: a light shadow): its record
                 # of its own actions follows the one taken
                 pj = props[j]
-                if j != mi and states[j] is not None and (lit[j] or (pj is not None and pj != a)):
+                if j != mi and states[j] is not None and (lit[j] or (pj is not None and pj != a) or self._rs_always[j]):
                     try:
                         resync[j][1](members[j], states[j], obs, a)
                     except Exception:  # noqa: BLE001
@@ -699,7 +932,9 @@ class CompositeCore:
                 tap(self, obs, sec, mi, own, a, props, ex)
         for j in range(nm):
             props[j] = None
-        if strong is not None and not obs.street and a.kind is _RAISE and max(obs.bets) <= obs.blinds[1] \
+        if rr_on and not obs.street and a.kind is _RAISE:
+            self._raised_hand = obs.hand_no
+        if rr_on and not obs.street and a.kind is _RAISE and max(obs.bets) <= obs.blinds[1] \
                 and a.amount < obs.max_raise:
             self._rr_n += 1  # a first-in raise that is not all-in: will it be re-raised?
             self._rr_open = True

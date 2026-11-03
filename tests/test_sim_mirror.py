@@ -187,3 +187,147 @@ def test_the_strong_route_plays_exactly_as_f_on_every_twist(monkeypatch):
                                    hero_config=dict(MODEL_HERO), table_offset=10000, variant=V.get(name, seed=7))
             res.append(rep.bots[nm].samples)
         assert res[0] == res[1], name
+
+
+# S14: rival 2's core (r2s) and the elite builds 2 and 4 as strong-route members, each with a light shadow
+def _decisions(monkeypatch, nm, dials, fields=("mirror_b", "elite"), n=2, offset=9310):
+    """Every decision of the composite seat over `n` tables (8 rotations) of each field."""
+    log = []
+    orig = CB.Composite.act
+
+    def act(self, obs):
+        a = orig(self, obs)
+        log.append((obs.hand_no, obs.street, len(obs.history), a.kind.value, a.amount))
+        return a
+
+    monkeypatch.setattr(CB.Composite, "act", act)
+    CB.register(nm, dials={**CB.SHIP_DIALS, **dials})
+    for field in fields:
+        R.run_tournament(B.field_names(f"{field}@{nm}"), n, seed=1, rotate=True, mode="model",
+                         hero_config=dict(MODEL_HERO), table_offset=offset)
+    monkeypatch.setattr(CB.Composite, "act", orig)
+    return log
+
+
+def test_s14_members_are_registered():
+    assert {"elite4", "elite4x", "r2s", "r2sx"} <= set(CB.DONORS)
+    assert "elite3" not in CB.MEMBERS and "elite5" not in CB.MEMBERS  # the held-out judges are never members
+    core = CB.ship({"strong_route": "pre_raised_deep=r2sx,pre_3way=elite4x,pre_hu=elite2x"}, seed=3).core
+    assert core.names == ["base", "hero", "r2s", "elite4", "elite2"]
+    r2s = core.members[2]
+    assert r2s.plain_only and r2s.holdem_only and core._rs_always == [False, False, True, False, False]
+    assert CB.ship({}, seed=3).core.names == ["base", "hero", "elite1"]  # F builds none of them
+
+
+def test_s14_light_shadows_play_as_the_full_ones(monkeypatch):
+    """r2s, elite2 and elite4: with the light shadow on and off (ALWAYS_LIGHT), every decision of the composite is the
+    same, with each member routed to preflop and postflop sections (so its state after a shadow is read later)."""
+    _model(monkeypatch)
+    base = set(CB.ALWAYS_LIGHT)
+    for mem in ("r2s", "elite2", "elite4"):
+        d = mem + "x"
+        secs = (f"pre_open_10=elite1x,pre_raised_deep={d},pre_raised_short={d},pre_3way={d},pre_hu={d},"
+                f"post_mw={d},post_hu_chk={d}")
+        out = []
+        for light in (False, True):
+            monkeypatch.setattr(CB, "ALWAYS_LIGHT", (base | {mem}) if light else (base - {mem}))
+            out.append(_decisions(monkeypatch, f"s14_l_{mem}{int(light)}", {"strong_route": secs, "strong_rr": 0.0}))
+        assert len(out[0]) > 3000 and out[0] == out[1], mem
+
+
+def test_s14_r2s_lazy_curve_is_the_eager_one(monkeypatch):
+    """r2s builds the hand's ICM curve at its first read instead of at the hand end: the same play."""
+    from hyperion.hybrid.core import build_curve
+
+    _model(monkeypatch)
+    secs = "pre_raised_deep=r2sx,pre_raised_short=r2sx,pre_3way=r2sx,post_hu_bet=r2sx"
+    lazy = _decisions(monkeypatch, "s14_lz0", {"strong_route": secs, "strong_rr": 0.0}, fields=("elite",))
+    monkeypatch.setattr(CB, "_lazy_curve_class", lambda: build_curve)
+    eager = _decisions(monkeypatch, "s14_lz1", {"strong_route": secs, "strong_rr": 0.0}, fields=("elite",))
+    assert len(lazy) > 1000 and lazy == eager
+
+
+def test_s14_strong_route_members_play_exactly_as_f_on_every_twist(monkeypatch):
+    """r2s and the elite builds are plain hold'em only: with the gate open and all of them routed, every catalogued twist
+    (not hold'em by Hero's test) plays exactly as F."""
+    from hyperion.drills import variants as V
+    from hyperion.strategy.hero import holdem_table
+
+    _model(monkeypatch)
+    CB.register("s14_tw_f", dials=dict(CB.SHIP_DIALS))
+    CB.register("s14_tw_c", dials={**CB.SHIP_DIALS, "strong_rr": 0.0,
+                                   "strong_route": "pre_open_10=elite1x,pre_3way=elite1x,pre_hu=elite2x,"
+                                                   "pre_raised_short=r2sx,pre_raised_deep=r2sx,pre_open_40=elite4x"})
+    twists = [n for n in V.catalog_names() if not holdem_table(V.get(n, seed=7).rules)]
+    assert len(twists) >= 18
+    for name in twists:
+        res = []
+        for nm in ("s14_tw_f", "s14_tw_c"):
+            rep = R.run_tournament(B.field_names(f"realistic@{nm}"), 1, seed=7, rotate=False, mode="model",
+                                   hero_config=dict(MODEL_HERO), table_offset=10000, variant=V.get(name, seed=7))
+            res.append(rep.bots[nm].samples)
+        assert res[0] == res[1], name
+
+
+def test_s14_strong_bvb_by_section(monkeypatch):
+    """strong_bvb may name sections: blind-vs-blind unopened pots go to the strong route there only. Naming every routed
+    section plays as True; naming none plays as False; naming pre_hu routes heads-up unopened pots (the small blind's
+    open) and nothing else that False keeps."""
+    _model(monkeypatch)
+    secs = "pre_open_10=elite1x,pre_3way=elite1x,pre_hu=elite1x"
+    core = CB.ship({"strong_route": secs, "strong_bvb": "pre_hu,pre_3way"}, seed=1).core
+    assert [CB.SECTIONS[i] for i, x in enumerate(core._sbvb) if x] == ["pre_3way", "pre_hu"]
+
+    def dec(nm, bvb):
+        CB.COUNTS.clear()
+        out = _decisions(monkeypatch, nm, {"strong_route": secs, "strong_rr": 0.0, "strong_bvb": bvb},
+                         fields=("elite",), n=2, offset=9310)
+        return out, CB.COUNTS["pre_hu:elite1"]
+
+    (on, _), (off, hu_off) = dec("s14_b_on", True), dec("s14_b_off", False)
+    assert dec("s14_b_all", "pre_open_10,pre_3way,pre_hu")[0] == on
+    assert dec("s14_b_none", "")[0] == off
+    one, hu_one = dec("s14_b_hu", "pre_hu")
+    assert one != on and one != off and hu_one > hu_off
+
+
+def test_s14_second_strong_route(monkeypatch):
+    """strong2_route reads the same re-raise share with its own band: always open, it plays as the same sections in
+    strong_route at an open gate; never open (max 0), as no second route; the band's top closes it."""
+    _model(monkeypatch)
+    one = {"strong_route": "pre_open_10=elite1x,pre_3way=elite1x,pre_hu=elite1x", "strong_rr": 0.0}
+    two = {"strong_route": "pre_open_10=elite1x", "strong_rr": 0.0, "strong2_route": "pre_3way=elite1x,pre_hu=elite1x"}
+    assert _play("s14_s2_one", one) == _play("s14_s2_two", two)
+    alone = _play("s14_s2_alone", {"strong_route": "pre_open_10=elite1x", "strong_rr": 0.0})
+    assert _play("s14_s2_shut", {**two, "strong2_rr_max": 0.0}) == alone
+    core = CB.ship({"strong2_route": "pre_hu=elite1x", "strong2_rr": 0.2, "strong2_rr_max": 0.6}, seed=5).core
+    assert core.strong is not None and core.strong2[CB.SECTIONS.index("pre_hu")] is not None and core._rr_on
+    core._rr_n, core._rr_k = 10, 3
+    assert abs(core.rr_read() - 0.225) < 1e-9  # (3 + 1.5) / 20: in the band
+    core._rr_n, core._rr_k = 30, 27
+    assert core.rr_read() > 0.6  # an exploiter's table: out of the band
+
+
+def test_s14_strong2_keep_defence(monkeypatch):
+    """strong2_keep_defence: no preflop decision where our own raise this hand was re-raised goes to the second route's
+    donor (F's 3-bet defence keeps them); without it some do."""
+    _model(monkeypatch)
+    orig = CB.CompositeCore.act
+    seen = {"guarded": 0, "routed": 0}
+
+    def act(self, obs):
+        guarded = not obs.street and obs.to_call > 0 and self._raised_hand == obs.hand_no
+        before = self.counts["strong2"]
+        a = orig(self, obs)
+        if guarded:
+            seen["guarded"] += 1
+            seen["routed"] += self.counts["strong2"] - before
+        return a
+
+    monkeypatch.setattr(CB.CompositeCore, "act", act)
+    two = {"strong2_route": "pre_3way=elite1x,pre_hu=elite1x"}
+    _play("s14_kd_off", two, field="mirror")
+    assert seen["guarded"] > 20 and seen["routed"] > 0
+    seen.update(guarded=0, routed=0)
+    _play("s14_kd_on", {**two, "strong2_keep_defence": True}, field="mirror")
+    assert seen["guarded"] > 20 and seen["routed"] == 0
