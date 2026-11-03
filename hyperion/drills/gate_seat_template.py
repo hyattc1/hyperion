@@ -113,8 +113,8 @@ class Seat:
 
     def end_payload(self, hand_no: int, delta: int, r: dict) -> dict:
         # TODO 6  what the kit's hand end carries, from the gate's result: here every seat's net (a kit with only
-        #   our own: {seat: delta} for ours alone; a kit whose `won` is chips collected, as kit I's: delta + what the
-        #   seat paid this hand, module_gate_seat_template.py's end)
+        #   our own: {seat: delta} for ours alone). A `won` field, won: chips collected or net change? Collected (kit
+        #   I): delta + what the seat paid this hand (module_gate_seat_template.py's end); net (kit G): the delta.
         deltas = r.get("deltas") or []
         return {"hand": hand_no + self.KIT_HAND_BASE, "net": {str(s): int(d) for s, d in enumerate(deltas)}}
 

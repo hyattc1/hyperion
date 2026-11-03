@@ -241,8 +241,9 @@ class Seat:
 
     # ---------------------------------------------------------------- the hand end
     def end(self, hand_no: int, delta: int, result: dict | None) -> None:
-        """TODO 7  the kit's hand end from the gate's result. Kit I's `won` is chips collected: each seat's net change
-        plus what it paid (a kit whose `won` is the net change: the deltas as they are)."""
+        """TODO 7  the kit's hand end from the gate's result. won: chips collected or net change? Kit I's is chips
+        collected: each seat's net change plus what it paid (a kit whose `won` is the net change: the deltas as they
+        are)."""
         r = result or {}
         n, me = self.n, self.me
         deltas = [int(x) for x in (r.get("deltas") or [0] * n)]

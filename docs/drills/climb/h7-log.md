@@ -191,3 +191,6 @@ the kit's simulator, and the drill's adapter has twin_hole.
   --workers 2`, this branch against a detached worktree of main (f5c49bb, which differs from the base 8310cc0 by a
   RESUME edit only): 14 chunks, 280 samples, 374,461 decisions; every chunk's sample list and its decision, timeout,
   exception, illegal and SafeBot-error counts identical.
+- Item 1, finished: the literal question "won: chips collected or net change?" now stands in all eight templates (the
+  three entry templates, the event player, the adapter, the three gate seats; the entry templates with both
+  formulas), and a test holds every `*template*.py` in hyperion/drills to it.

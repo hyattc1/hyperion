@@ -496,6 +496,20 @@ def test_module_entry_counts_a_won_read_as_net(tmp_path, clean_path):
     assert m.ERRORS["deltas_sum"] >= 10, m.ERRORS
 
 
+@pytest.mark.night
+def test_every_template_asks_how_to_read_won():
+    """Every entry, adapter and gate seat template's hand end asks "won: chips collected or net change?"; the entry
+    templates give both formulas."""
+    names = sorted(p.name for p in DRILLS.glob("*template*.py"))
+    assert len(names) == 8, names
+    for name in names:
+        text = (DRILLS / name).read_text()
+        assert "chips collected or net change?" in text, name
+    for name in ("entry_template.py", "module_entry_template.py"):
+        text = (DRILLS / name).read_text()
+        assert "deltas = [int(w) for w in" in text and "deltas = [int(w) - int(sum(p)) for w, p in zip(" in text, name
+
+
 def _tiny_bot(folder: Path, lazy: bool) -> None:
     folder.mkdir()
     (folder / "helper.py").write_text("def answer(v):\n    return v.to_call\n")
