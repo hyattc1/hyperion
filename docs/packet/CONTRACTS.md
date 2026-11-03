@@ -385,6 +385,7 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `postflop.stab_bluff` | 0.0 |
 | `postflop.stab_bluff_streets` | 1 |
 | `postflop.stab_aggr_only` | False |
+| `postflop.stab_max_alive` | 0 |
 | `postflop.stab_holdem_only` | False |
 | `postflop.size_read` | 0.0 |
 | `postflop.size_read_n0` | 8.0 |

@@ -89,3 +89,8 @@ def test_stab_holdem_only_plays_a_twist_table_exactly_as_f():
         rules = V.get(name).rules
         d = {**S, "hero.postflop.stab_bluff": 0.5, "hero.postflop.stab_streets": 7}
         assert all(_digest(d, t, rules=rules)[0] == _digest({}, t, rules=rules)[0] for t in range(2)), name
+
+
+def test_stab_max_alive_plays_heads_up_as_without_it():
+    d = {**S, "hero.postflop.stab_max_alive": 3}
+    assert all(_digest(d, t, HU, R2)[0] == _digest(S, t, HU, R2)[0] for t in range(3))
