@@ -273,6 +273,14 @@ class HybridCore:
         """HeroCore.defer_hand_end, for a kit that times the hand end; idle() then does the pending work."""
         self.hero.defer_hand_end(on)
 
+    # The composite's base on a table its core cannot play (`_table_why`): the composite's hero member, a Hero with the
+    # same Config, plays every decision there (CompositeCore._whole), so this fallback Hero would only repeat its
+    # reads and its ICM curve. Asleep, it gets no hand end; the chip chain and the core's end still run.
+    asleep = False
+
+    def sleep(self, on: bool) -> None:
+        self.asleep = bool(on)
+
     def idle(self) -> None:
         self.hero.idle()
 
@@ -411,7 +419,8 @@ class HybridCore:
             except Exception:  # noqa: BLE001
                 pass
         try:
-            self.hero.hand_end(result)
+            if not self.asleep:
+                self.hero.hand_end(result)
         finally:
             self.core.end(result)
             if not chained and result.hand_no >= self._start_hand:
