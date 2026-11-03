@@ -93,13 +93,22 @@ caption every line "on hold'em tables" and expect the patch to do nothing. Patch
   measured -0.56 ± 0.34 a table (Hero, realistic_auction, 200 seeds). A first-price auction (pay your own bid)
   wants the bid shaded, by (n - 1) / n for n bidders on the textbook uniform-value rule: not measured here.
 - Pots settled by street (each betting round's chips a pot of their own, won by the best hand as it stood on that
-  street; drill 11's Tranche Hold'em: two cards preflop, a preflop all-in has no board). If the catalog has a
-  street-settled entry (`python -m hyperion.drills.variants --list`), name it with `--variant` and measure there; its
-  Rules fields say how the pots settle. Without one, our sim cannot play it: the kit's simulator measures, and the
-  first move is drill 11's kept patch, in the adapter: on every preflop decision show the bot the hold'em class at the
-  same combo percentile as our hand's two-card rank (a pair over any non-pair, then the higher card, then the lower;
-  22 as ATs, KQ as A3s), the real cards from the flop on (`twin_hole` in docs/drills/drill11/adapter.py). Kept there
-  by the keep rule: +0.35 over 1,000 kit-sim tables, every run up (the same twin only at 20 bb or less: level).
+  street; drill 11's Tranche Hold'em: two cards preflop, a preflop all-in has no board). Our engine plays it from two
+  Rules extras keys, each usable alone: `"settle": "street"` and `"no_runout": true` (no cards once the betting is
+  over); the catalog's `tranche_holdem` is kit I's twist (`--variant tranche_holdem`; aware field
+  `tranche_holdem_aware`, and `generic:tranche_holdem`). Tonight: put the keys and `"variant"` in rules_tonight.json's
+  extras, and have the adapter pass the earlier streets' pots, `make_observation(..., extras={"tranches": (T0, T1,
+  ...)})` (kit I: `v.tranches[:v.street]`). The dials read the rule, not the adapter: `{"tranche_twin": "all",
+  "hero.tranche": "now,sunk", "hero.tranche_claim_early": 0.25}`. The twin is drill 11's kept patch as a dial (every
+  preflop decision, for every member of F, sees the hold'em class at the same combo percentile as our hand's two-card
+  rank: a pair over any non-pair, then the higher card, then the lower; 22 as ATs, KQ as A3s; with `no_runout` alone
+  only the all-in decisions). `now` reads the hand as it is after the flop (draws count for nothing); `sunk` prices a
+  call against this street's pot, (call - claim) / (this street's chips + call), where the claim is the earlier pots
+  times our chance of holding each. It counts in full where the call ends the betting and a quarter before (all of it
+  before measured -0.18). Our sim, 200 seeds x 8 (realistic / tranche aware / generic aware): the twin alone +0.03 /
+  -0.02 / +0.01, all three dials +0.09 / +0.05 / +0.04, each level (docs/drills/climb/vj-log.md). Kit sim: the twin
+  (in the adapter, `twin_hole` in docs/drills/drill11/adapter.py) +0.35 over 1,000 tables, every run up; that is the
+  fallback for a twist of this family the two keys cannot express.
 - Point tables: `Rules.payouts` in `rules_tonight.json` is the whole patch; Hero's ICM curve and the core's
   all-in prices are both built from it (print the payouts of the `Rules` passed to `new_table` to confirm).
   No ICM-premium key exists; `preflop.shove_call_margin` (Hero) and `r3.push_margin` / `r3.call_margin` (the

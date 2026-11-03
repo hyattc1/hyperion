@@ -137,7 +137,12 @@ entry. The runout term has no events on the entry (no_runout), so corrected = ra
 | candidate | realistic | tranche_holdem_aware | generic_aware | verdict |
 |---|---|---|---|---|
 | c1 `{"tranche_twin": "all"}` | +0.027 ± 0.095 | -0.019 ± 0.106 | +0.014 ± 0.102 | level (25.2 min with base, 2 workers) |
-| c3 `{"tranche_twin": "all", "hero.tranche": "now,sunk"}` (claim_early 0.5) | +0.045 ± 0.100 | -0.025 ± 0.110 | +0.024 ± 0.108 | level |
+| c2 c1 + `"hero.tranche": "now"` | +0.040 ± 0.098 | -0.007 ± 0.103 | +0.005 ± 0.104 | level |
+| c3 c1 + `"hero.tranche": "now,sunk"` (claim_early 0.5) | +0.045 ± 0.100 | -0.025 ± 0.110 | +0.024 ± 0.108 | level |
+| c4 c3 with `"hero.tranche_claim_early": 0.0` | -0.014 ± 0.108 | -0.049 ± 0.112 | -0.036 ± 0.108 | level (all three below zero) |
+| c5 c3 with `"hero.tranche_claim_early": 1.0` | -0.151 ± 0.108 | -0.252 ± 0.109 | -0.147 ± 0.124 | **DOWN** in all three (the whole claim counted before the betting ends: overcalls) |
+| c6 c3 with `"hero.tranche_claim_early": 0.25` | +0.094 ± 0.101 | +0.051 ± 0.106 | +0.044 ± 0.106 | level, all three up (pooled +0.063) |
+| c7 c3 with `"hero.tranche_claim_scale": 0.5` (closing calls 0.5, early 0.25) | +0.063 ± 0.103 | +0.023 ± 0.106 | +0.028 ± 0.104 | level, all three up (pooled +0.038) |
 
 How often the parts change Hero's decision (`goal/vj_work/flips.py`: F + dials in tranche_holdem_aware, diagnostic
 seeds 12000-12019 x 8; at each tranche-path decision the plain read is asked too, from the same rng state):
@@ -147,4 +152,21 @@ seeds 12000-12019 x 8; at each tranche-path decision the plain read is asked too
 | now | 5,149 | 4.2% | turn bets checked (100: semi-bluffs gone), flop bets checked (58), flop calls folded (47: draws) |
 | now,sunk (claim_early 0.5) | 5,237 | 9.9% | flop folds called (229: half the preflop claim makes a flop call cheap), turn/flop bets checked (180), river folds called (42) |
 | now,sunk (claim_early 0.0) | 4,804 | 9.3% | flop calls folded (239: this street's pot alone prices the call), bets checked (149), river folds called (29) |
-| c2 `{"tranche_twin": "all", "hero.tranche": "now"}` | +0.040 ± 0.098 | -0.007 ± 0.103 | +0.005 ± 0.104 | level |
+
+Kit I's own scoring in our sim: `climb_accept --stages window --rules goal/vj_work/rules_kitI_tranche.json` (the
+drill's rules_tonight.json, points 16/10/6/3/1/0/-1/-3, places by chips at hand 200, kit I's schedule, plus the
+extras `variant`, `settle`, `no_runout`), the night field, screen seeds: F 8.456, c1 8.678, **+0.222 ± 0.376**, level
+(on a scale 2.7 times ours; the drill's kit-sim +0.35 is inside it).
+
+Merge: main d9e26d2 (H7, S7, S15e; F plays identically per the coordinator) merged into the branch at 270810a after
+c4 and the kit-rules cell finished (a pool worker spawned mid-run would have imported the merged code under the old
+cache key). The screen numbers above are at code b3ae54d3e7 (branch c1ccbdd/b39d1ee); c5 below ran in a detached
+worktree at b39d1ee to share that cached base. Identity is proved at the merged head (section 5).
+
+The claim's weight before the betting ends is the one lever that moves: 0.0 -0.03, 0.25 +0.063, 0.5 +0.015, 1.0
+-0.18 (pooled over the three cells), and halving it on the closing calls too (c7) gives back half of c6's gain. A call
+that does not end the betting keeps the earlier pots only by paying the later bets as well, and our opponents' bets
+on later streets are mostly made hands: about a quarter of the claim is what a flop or turn call keeps. **Candidate:
+c6** = `{"tranche_twin": "all", "hero.tranche": "now,sunk", "hero.tranche_claim_early": 0.25}`
+(`goal/vj_work/cand_vj_tranche.json`). It was picked among five claim weights on the screen set, so its screen numbers
+carry that selection; the held-out run is the test.
