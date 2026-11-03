@@ -491,6 +491,7 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `twin_preflop` | 0.0 |
 | `twin_force` | False |
 | `twin_multi` | 0.0 |
+| `known_cards` | '' |
 | `cheap` | False |
 | `deadline_ms` | 0.5 |
 | `panic_after` | 5 |

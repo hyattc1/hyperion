@@ -53,7 +53,20 @@ caption every line "on hold'em tables" and expect the patch to do nothing. Patch
   hybrid3 +0.59 ± 0.38 over Hero on swap_holdem): no dial on a core-based ship bot. With `--bot hero`: a made hand
   on the flop is worth less; multiply value thresholds on streets before the last swap by 1.15 and prefer
   checking back medium hands; after the last swap, standard.
-- Exposed cards (Hero's table): feed them into the dead-card set for draws; nothing else.
+- Exposed cards (Hero's table): feed them into the dead-card set for draws (heads-up, the known-cards dial below prices
+  them too).
+- Cards we know an opponent holds (a twist shows us some of his cards, or deals cards several players share, as
+  Chain Hold'em's links in drill 9): in the adapter, pass them as `make_observation(..., extras={"known": {seat:
+  (cards,)}})`, seats as the observation numbers them, our own cards included when he holds them too (a shared card
+  is in both hands); face-up cards may stay in `{"exposed": {seat: card}}`. Then `{"hero.known_cards": "pre"}`
+  (Hero's tables): heads-up before the flop Hero reads its hand as the class whose equity is ours against him, a
+  shared card counting for both hands (`hyperion/strategy/known.py`; prepared for Chain heads-up, Chain against one
+  neighbour and one face-up card; `python -m hyperion.strategy.known --build M,S,X,U` adds a shape in about a minute
+  at two workers). Measured on Chain in our sim: +1.06 ± 0.58 against realistic, +0.73 ± 0.48 against generic
+  aware; kit G's own simulator +0.28 ± 0.83 (2,400 tables, level); exposed_card +0.19 realistic, +0.15 generic aware. `"pre,post"` also reads
+  the hand after the flop with the shared cards on the board: no better. For the generic aware check, the variant
+  file's `extras` hook reports them keyed by viewer, `{"known": {viewer: {seat: cards}}}`
+  (`docs/drills/drill9/chain_variant.py`).
 - Two boards (Hero's table): evaluate each; bet when ahead on both, check-call when split, fold when behind
   on both. Use `Config.postflop` sizes halved, since pots split.
 
