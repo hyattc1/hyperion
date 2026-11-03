@@ -187,3 +187,61 @@ def test_the_strong_route_plays_exactly_as_f_on_every_twist(monkeypatch):
                                    hero_config=dict(MODEL_HERO), table_offset=10000, variant=V.get(name, seed=7))
             res.append(rep.bots[nm].samples)
         assert res[0] == res[1], name
+
+
+# S14: rival 2's core (r2s) and the elite builds 2 and 4 as strong-route members, each with a light shadow
+def _decisions(monkeypatch, nm, dials, fields=("mirror_b", "elite"), n=2, offset=9310):
+    """Every decision of the composite seat over `n` tables (8 rotations) of each field."""
+    log = []
+    orig = CB.Composite.act
+
+    def act(self, obs):
+        a = orig(self, obs)
+        log.append((obs.hand_no, obs.street, len(obs.history), a.kind.value, a.amount))
+        return a
+
+    monkeypatch.setattr(CB.Composite, "act", act)
+    CB.register(nm, dials={**CB.SHIP_DIALS, **dials})
+    for field in fields:
+        R.run_tournament(B.field_names(f"{field}@{nm}"), n, seed=1, rotate=True, mode="model",
+                         hero_config=dict(MODEL_HERO), table_offset=offset)
+    monkeypatch.setattr(CB.Composite, "act", orig)
+    return log
+
+
+def test_s14_members_are_registered():
+    assert {"elite4", "elite4x", "r2s", "r2sx"} <= set(CB.DONORS)
+    assert "elite3" not in CB.MEMBERS and "elite5" not in CB.MEMBERS  # the held-out judges are never members
+    core = CB.ship({"strong_route": "pre_raised_deep=r2sx,pre_3way=elite4x,pre_hu=elite2x"}, seed=3).core
+    assert core.names == ["base", "hero", "r2s", "elite4", "elite2"]
+    r2s = core.members[2]
+    assert r2s.plain_only and r2s.holdem_only and core._rs_always == [False, False, True, False, False]
+    assert CB.ship({}, seed=3).core.names == ["base", "hero", "elite1"]  # F builds none of them
+
+
+def test_s14_light_shadows_play_as_the_full_ones(monkeypatch):
+    """r2s, elite2 and elite4: with the light shadow on and off (ALWAYS_LIGHT), every decision of the composite is the
+    same, with each member routed to preflop and postflop sections (so its state after a shadow is read later)."""
+    _model(monkeypatch)
+    base = set(CB.ALWAYS_LIGHT)
+    for mem in ("r2s", "elite2", "elite4"):
+        d = mem + "x"
+        secs = (f"pre_open_10=elite1x,pre_raised_deep={d},pre_raised_short={d},pre_3way={d},pre_hu={d},"
+                f"post_mw={d},post_hu_chk={d}")
+        out = []
+        for light in (False, True):
+            monkeypatch.setattr(CB, "ALWAYS_LIGHT", (base | {mem}) if light else (base - {mem}))
+            out.append(_decisions(monkeypatch, f"s14_l_{mem}{int(light)}", {"strong_route": secs, "strong_rr": 0.0}))
+        assert len(out[0]) > 3000 and out[0] == out[1], mem
+
+
+def test_s14_r2s_lazy_curve_is_the_eager_one(monkeypatch):
+    """r2s builds the hand's ICM curve at its first read instead of at the hand end: the same play."""
+    from hyperion.hybrid.core import build_curve
+
+    _model(monkeypatch)
+    secs = "pre_raised_deep=r2sx,pre_raised_short=r2sx,pre_3way=r2sx,post_hu_bet=r2sx"
+    lazy = _decisions(monkeypatch, "s14_lz0", {"strong_route": secs, "strong_rr": 0.0}, fields=("elite",))
+    monkeypatch.setattr(CB, "_lazy_curve_class", lambda: build_curve)
+    eager = _decisions(monkeypatch, "s14_lz1", {"strong_route": secs, "strong_rr": 0.0}, fields=("elite",))
+    assert len(lazy) > 1000 and lazy == eager
