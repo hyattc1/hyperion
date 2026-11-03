@@ -134,3 +134,13 @@ another process; this queue's shell went with it), after 12 of its 28 cells. Its
 **O1: REJECT** (top and elite_night beyond noise down; the strong fields' point estimates negative). Not re-run: two
 cells are already down at 200 seeds. The more accurate read makes F worse at strong tables, where the brief wanted the
 gain. The intervals (± 0.08-0.10, against T2's ± 0.04-0.05) show it changes many decisions.
+
+O1's latency (`tools/latency.py --hand-end --reps 3 --tables 20`, per-call minimum, bc8f723, load 16-24): act p99
+107.1 / 121.9 µs (realistic / elite; F 115.6 / 113.0), hand end p99 148.6 / 141.0 (F 143.3 / 140.6); mean +0.4 to +2
+µs. The targeted suites at bc8f723 (the S16 and S16b tests, s11-s15, ship, compose x4, hybrid3, exploit x2, profiler,
+API card, mirror, adapt, climb_accept): 244 passed.
+
+## 06:55-07:18: O2's code (the cap, cherry-picked as the branch's next commit) and identity again
+
+Identity at the new code (idcheck3.py, the same 31 cells): **all 31 identical** to main 64b466a and to 724cc7f; F's
+cells copied to version 409c5ced04 (key 044e841c99e0). O2's screen follows (from 07:18; same stages).
