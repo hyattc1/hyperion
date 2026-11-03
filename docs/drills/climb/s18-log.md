@@ -132,3 +132,40 @@ tables, the same deals, 95% interval clustered by seed):
 - The dial moves none of it beyond noise. The largest late-table shifts are under the two non-linear payout tables
   (brief +0.050 ± 0.128, top-heavy +0.27 ± 0.93; F's busts after hand 150 there 28.4 -> 27.9% and 32.1 -> 29.6%),
   the direction the report expected, but inside the noise.
+
+### 3.2 Elite and exploit (part of `--stages confirm,guards,elite,exploit,variants --late --aim night`)
+
+Printed from the cache with `--stages elite,exploit --late` once both specs' chunks were in (goal/s18/s3a.md).
+
+| cell | F | horizon | horizon - F | | exploiter F/hz |
+|---|---|---|---|---|---|
+| exploit (exploiter 1, 8-max, 10/7/5/...) | 5.839 | 5.731 | **-0.107 ± 0.104** | **DOWN** | 4.608/4.676 |
+| exploit_hu | 9.227 | 9.175 | -0.052 ± 0.070 | level | 7.772/7.825 |
+| exploit_3 | 8.458 | 8.418 | -0.040 ± 0.076 | level | 6.900/6.890 |
+| exploit2 | 5.844 | 5.882 | +0.038 ± 0.082 | level | 5.086/5.056 |
+| exploit2_hu | 7.848 | 7.862 | +0.015 ± 0.047 | level | 9.152/9.137 |
+| exploit2_3 | 7.378 | 7.348 | -0.030 ± 0.076 | level | 8.165/8.162 |
+| exploit3 | 5.471 | 5.433 | -0.038 ± 0.081 | level | 5.306/5.324 |
+| exploit3_hu | 8.268 | 8.275 | +0.007 ± 0.053 | level | 8.732/8.725 |
+| exploit3_3 | 7.528 | 7.572 | +0.043 ± 0.091 | level | 7.952/7.895 |
+| adapt (adapt1, 8-max, 10/7/5/...) | 5.889 | 5.808 | **-0.081 ± 0.077** | **DOWN** | 5.106/5.136 |
+| adapt_hu | 8.605 | 8.605 | +0.000 ± 0.055 | level | 8.395/8.395 |
+| adapt_3 | 8.007 | 7.987 | -0.020 ± 0.075 | level | 7.657/7.677 |
+| elite | 4.865 | 4.839 | -0.026 ± 0.052 | level | |
+| elite_night | 5.422 | 5.434 | +0.012 ± 0.042 | level | |
+| mirror | 4.498 | 4.533 | +0.035 ± 0.056 | level | |
+| elite_b | 4.638 | 4.676 | +0.038 ± 0.060 | level | |
+| mirror_b | 4.466 | 4.490 | +0.024 ± 0.057 | level | |
+
+Late tables at elite (hand 150, 3+ alive; hz - F on F's late tables): elite -0.041 ± 0.079, elite_night +0.012 ±
+0.072, mirror -0.005 ± 0.088, elite_b +0.050 ± 0.087, mirror_b +0.039 ± 0.078, all level. F is out of about half of
+these tables by hand 150 and busts 56-73% of the rest in the last 50 hands.
+
+**Two exploit cells are beyond noise down, so the candidate is rejected under every aim** (climb_accept's rule since
+S14). Both are the 8-max cells under the brief's payouts (exploiter 1 and adapt1); both are just past the edge of the
+interval (-0.107 against ± 0.104, -0.081 against ± 0.077), and the heads-up and three-handed cells of the same bots are
+level. Two downs in twelve cells at that margin could be partly chance, but the rule counts them and I did not
+re-run them on other seeds (that would be choosing seeds after the fact).
+
+The run was then reordered (goal/s18/screen3.sh, detached): the 150-hand cap on confirm and guards, then the three
+named variants, then the whole catalog.
