@@ -1093,3 +1093,17 @@ and (in judges) `elite_judge`.
   +0.080 ± 0.072 UP; nothing down. Ghost (named) sd_tax +0.27 ± 0.21 UP on 400 seeds (not a catalog entry).
 - Identity after the merge: 15 cells identical. Candidate {"hero.voi": 1.5, "hero.sd_tax": true} to H22
   (42000-42399, aware and variants) against batch 6 once it is decided.
+
+## 09:25: H6 merged (drill 10's fixes); the batch 6 branch is ready
+- Process-kit (JSON lines) entry and gate-seat templates (the gate drives the real stdin loop through a pipe); on
+  tables Hero plays whole the hero member now plays the sections the base's Hero used to, so the base sleeps (no
+  doubled hand end: omaha/short_deck/wild_deuces hand-end p99 121-158 -> 80-87 us, decisions 25-30% cheaper,
+  identical play); the must-use path reads short boards (Config mu_short_board, on: only Solo-like twists change;
+  omaha_four identical; Solo against generic aware +0.934 ± 0.397, kit H at 50 ms 10.16 -> 11.03); --preset loaded
+  and --resume for table generation; pack --max-zip-mb; "kill by PID" in the prompts and PLAYBOOK. climb_accept fix:
+  a short last chunk is cached under its own name (no past run affected: identity runs used fresh --out dirs, held-out
+  and screen sets have no short chunk).
+- The conflict with V-i kept both. Identity after the merge running (plain, and five Hero-whole and twist variants
+  against 9acc160).
+- climb/batch6 (SHIP_DIALS + BATCH6_OFF + tests) rebased and green (166 tests); BATCH6_OFF's digests equal batch 5's
+  on plain and 13 variants, exploit2_hu and adapt_hu. Merges when H20 and the judges report.
