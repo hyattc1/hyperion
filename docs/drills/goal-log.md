@@ -1271,7 +1271,7 @@ and (in judges) `elite_judge`.
   153 tests, 16-52 s); extras.full_bb_call for kit I's blind rule; a latency recipe kept only on the kit's own sim;
   one keep rule for a variant patch (prompt 05; floor 600 paired tables, pooled above zero, no paired check down
   beyond its interval); the Stage 0 clause skipped on a solo night; ship --set keeps the line's comment. Identity:
-  14 chunks identical. Full suite: 7 wall-clock failures, the same on main.
+  14 chunks identical (H7's own, and again on main after the merge). Full suite: 7 wall-clock failures, the same on main.
 - Coordinator's edit on merge: under the new checker rule both our zip and the drill player's failed the timeout half
   on today's box (1.2-2.0% against the kit bot's 0.4-0.5%), so the cheap bot uploads on layout, caps, loading and 0
   errors alone (insurance; the next upload replaces it) and the timeout gap goes to prompt 04 step 4.
