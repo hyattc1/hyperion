@@ -196,3 +196,24 @@ F's reads take more from weak seats than an equilibrium does, as S13 found heads
   `fit3.py`; 7,979 flops each way). At E = 0.5 our share - E in position -0.008 / -0.108 / +0.146 at SPR 2 / 6 / 15
   (mix +0.069 / +0.028 / +0.243), out of position -0.144 / -0.238 / -0.203 (mix -0.040 / -0.044 / -0.180). Solving
   (`real_ex.json`, same grid and iterations) for a candidate GX = G with table 3c.
+- 16:36 **G, seeds 10000-10099**, stages exploit, elite (`q/020_G100.out`, `r_G100.json`, code 4bac2cf): **REJECT**.
+
+| cell | F | G | G - F | |
+|---|---|---|---|---|
+| elite | 4.876 | 4.904 | +0.028 ± 0.021 | UP |
+| elite_night | 5.389 | 5.387 | -0.002 ± 0.019 | level |
+| mirror | 4.534 | 4.549 | +0.015 ± 0.020 | level |
+| elite_b | 4.507 | 4.540 | +0.032 ± 0.021 | UP |
+| mirror_b | 4.496 | 4.536 | +0.040 ± 0.019 | UP |
+| exploit (8-max) | 5.675 | 5.512 | -0.163 ± 0.071 | DOWN (exploiter 1 4.687 -> 4.798) |
+| exploit_3 | 8.356 | 8.045 | -0.310 ± 0.207 | DOWN (exploiter 1 7.007 -> 7.187) |
+| exploit2 (8-max) | 5.931 | 5.882 | -0.049 ± 0.029 | DOWN (exploiter 2 level: the pool seats) |
+| exploit2_3 | 7.322 | 7.238 | -0.084 ± 0.112 | level |
+| exploit3 (8-max) | 5.341 | 5.401 | +0.060 ± 0.054 | UP |
+| exploit3_3 | 7.495 | 7.701 | **+0.206 ± 0.149** | UP (exploiter 3 7.877 -> 7.713) |
+| adapt (8-max) | 5.945 | 5.891 | -0.053 ± 0.049 | DOWN |
+| adapt_3 | 7.805 | 7.797 | -0.008 ± 0.101 | level |
+
+Weighted: W +0.0008 ± 0.0184, W-min -0.0121 ± 0.0259. The gate halves the 8-max pool losses (exploit2 -0.129 ->
+-0.049, adapt -0.187 -> -0.053) and keeps most of the strong-table gain, and the tables now beat exploiter 3 (three-
+handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (exploit_3 -0.31, exploit -0.16).
