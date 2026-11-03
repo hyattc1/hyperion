@@ -85,10 +85,19 @@ SD_COMPLETERS = _build_sd_completers()
 SD_OUT_SCALE = 1.45  # an out is worth this much more than hold'em's rule of 4 and 2: 31 unseen cards, not 47
 warm(7)  # hold'em's 6/7-card lookups (about 25 ms): pay at import, never in act()
 TIER_EQUITY = (0.10, 0.20, 0.32, 0.42, 0.58, 0.72, 0.84, 0.92, 0.98)
+# the shared-card read of a single separating card (read_shared: heads-up in Chain Hold'em, where both links are his
+# too): the share of his possible cards our hand beats now, ties half, read as the hold'em tier whose hands beat that
+# share of random holdings (2026-11-02, 1,500 random hold'em hands a street: a tier's median share, cut at midpoints;
+# draws aside). By real board length: tier t needs a share of at least HS_TIER_CUT[n][t]
+HS_TIER_CUT = {3: (0.0, 0.34, 0.57, 0.83, 0.90, 0.97, 0.992, 0.998, 1.0),
+               4: (0.0, 0.28, 0.50, 0.76, 0.83, 0.94, 0.975, 0.99, 1.0),
+               5: (0.0, 0.25, 0.47, 0.70, 0.83, 0.90, 0.95, 0.985, 1.0)}
 # a tier's rough equity against a seat's whole range rather than its betting range (S11: facing a seat that bets nearly
 # every chance), heads-up, by the cards to come
 WIDE_EQUITY_FLOP = (0.33, 0.45, 0.58, 0.66, 0.75, 0.84, 0.91, 0.95, 0.99)
 WIDE_EQUITY_TURN = (0.25, 0.36, 0.55, 0.64, 0.76, 0.86, 0.93, 0.96, 0.99)
+# ... and on the river (S15: a tier against a random hand, 150,000 deals, made monotone)
+WIDE_EQUITY_RIVER = (0.18, 0.34, 0.57, 0.75, 0.84, 0.91, 0.94, 0.96, 0.99)
 _WEAK_TYPES = frozenset({"dead", "station", "maniac", "random"})  # size_read_skip_weak: seats whose sizes say nothing
 # size_read (S12): a tier race, a higher tier wins this often on the flop / turn / river (an equal tier splits)
 SIZE_WIN = (0.78, 0.86, 0.97)
@@ -238,6 +247,34 @@ class PostflopParams:
     # ... only heads-up against a seat that raises my heads-up flop and turn bets at a smoothed rate (prior 0.12 worth
     # 5) above balance_from: the reader of sizes shows itself by raising the small ones. 1.0 = off
     balance_from: float = 1.0
+    # a stabber (S15, docs/drills/climb/s15-log.md). Facing the street's first bet heads-up right after my check
+    # (nothing of mine in) on a street of stab_streets (bit mask: 1 flop, 2 turn, 4 river), from a seat whose rate of
+    # betting right after my checks (Profiler.stab_rate: on this street, or on the streets of the bit mask stab_pool
+    # pooled; prior stab_prior worth stab_n chances; no read before stab_min chances) is r above stab_from: a seat
+    # that bets nearly every time I check bets most of its range there, and folding my checking range to it pays for
+    # every bet it makes. My equity moves from the tier's proxy toward WIDE_EQUITY (the tier against a whole range) by
+    # the weight (r - from) / (stab_full - from), at most 1, and the call margin toward stab_margin by the same weight
+    # (-1: it stays). stab_bluff: on the streets of stab_bluff_streets, air (tier 0-1) raises it with this chance times
+    # the weight (a check-raise; times the bluff dial when that is under 1). stab_aggr_only: only against the bettor
+    # with the initiative (the last aggressor of the earlier streets: a c-bet or a barrel; a bet after it called mine
+    # holds its calling range). stab_max_alive: only while at most this many players have chips (0 = any; by then a
+    # full table's seats have shown their stabs over many hands). stab_pfr_min: only against a seat that raises
+    # preflop at least this share of its hands (Profiler.pfr_rate): a loose-aggressive seat's frequent stabs are light,
+    # a tight seat's are value. stab_holdem_only: hold'em tables only (hero.holdem_table). 1.0 / -1 / 0 = off
+    stab_from: float = 1.0
+    stab_full: float = 1.0
+    stab_prior: float = 0.5
+    stab_n: float = 3.0
+    stab_streets: int = 6
+    stab_pool: int = 0
+    stab_min: int = 0
+    stab_margin: float = -1.0
+    stab_bluff: float = 0.0
+    stab_bluff_streets: int = 1
+    stab_aggr_only: bool = False
+    stab_max_alive: int = 0
+    stab_pfr_min: float = 0.0
+    stab_holdem_only: bool = False
     # S12 reads (docs/drills/climb/s12-log.md); every one off by default.
     # size_read: facing a single bet heads-up (or a raise of my bet), the bettor's range for a bet of that size (bucket
     # of the pot before the bet, Profiler.SZ_EDGES; a raise is its own bucket) is a tier histogram: the population's
@@ -573,10 +610,12 @@ class Postflop:
             tier = 8
         return tier, outs, wet
 
-    def read_multi(self, hole, board, must_use: int = 0, dead=()) -> tuple[int, int, bool]:
+    def read_multi(self, hole, board, must_use: int = 0, dead=(), more: bool | None = None) -> tuple[int, int, bool]:
         """(tier, outs, wet) for three or four hole cards: kept whole (best five of all, 8 cards at most)
         or must-use-k (Omaha when k = 2). The same board-relative tiers as `read`, then
-        `multi_tier_penalty` off made pairs and two pairs because everyone holds more cards."""
+        `multi_tier_penalty` off made pairs and two pairs because everyone holds more cards. `more` (the shared-card
+        read, `read_shared`): the board may be longer than the real one; draws count while more cards come, and playing
+        the board is read on a board of five or more. None: the board's own length says (the play before)."""
         p = self.p
         hole = tuple(hole)
         board = tuple(board)
@@ -619,6 +658,7 @@ class Postflop:
         flush_possible = bsm >= 3
         four_flush = bsm >= 4
         n_board = len(board)
+        drawing = n_board < 5 if more is None else more
         need_hole = 2 if must_use == 2 else 1
         # flush draw / one-card flush: per suit, how many of mine
         my_suit = [0, 0, 0, 0]
@@ -631,13 +671,13 @@ class Postflop:
             if my_suit[s] >= need_hole:
                 tot = my_suit[s] + suit_cnt[s]
                 if must_use == 2:
-                    if my_suit[s] >= 2 and suit_cnt[s] == 2 and n_board < 5:  # Omaha: two in hand, two on board
+                    if my_suit[s] >= 2 and suit_cnt[s] == 2 and drawing:  # Omaha: two in hand, two on board
                         flush_draw, fsuit = True, s
-                elif tot == 4 and n_board < 5:
+                elif tot == 4 and drawing:
                     flush_draw, fsuit = True, s
                 if tot >= 5 and my_suit[s] == 1 and suit_cnt[s] >= 4:
                     one_card_flush = True
-        mine = COMPLETERS[full_mask] & ~COMPLETERS[board_mask] if n_board < 5 else 0
+        mine = COMPLETERS[full_mask] & ~COMPLETERS[board_mask] if drawing else 0
         n_str_outs = mine.bit_count()
         oesd = n_str_outs >= 2
         gutshot = n_str_outs == 1
@@ -655,7 +695,8 @@ class Postflop:
                 tier = 6 if (self.flush_over_full and flush_possible) else 7
             else:
                 tier = 8
-            if n_board == 5 and not must_use and evaluate(board) == strength:
+            if (n_board == 5 or (more is not None and 5 < n_board <= 8)) and not must_use \
+                    and evaluate(board) == strength:
                 tier = 1  # playing the board
             if cat == 4 and four_flush:
                 tier = 4
@@ -714,6 +755,53 @@ class Postflop:
             tier = 0
         elif tier > 8:
             tier = 8
+        return tier, outs, wet
+
+    def read_shared(self, hole, board, shared, dead=(), more: bool = False):
+        """(tier, outs, wet) against an opponent who holds `shared` (cards of ours that are his too: they cannot
+        separate us, so against him they play as board cards): the read of the rest of our hole on board + shared.
+        Two separating cards: `read` on the longer board (draws while `more` cards come). One: the share of his
+        possible cards it beats now (HS_TIER_CUT; the board and `dead` cards out), draws from `read_multi`. None when
+        nothing separates us or the cards are too many to read."""
+        h2 = tuple(c for c in hole if c not in shared)
+        b2 = tuple(board) + tuple(c for c in shared if c not in board)
+        nh = len(h2)
+        if nh == 2:
+            p = self.p
+            return self.read(h2, b2, dead, p.flush_tier_shift, p.straight_tier_shift, self.flush_over_full,
+                             self.short, True, more)
+        if nh == 1 and len(b2) <= 7 and 3 <= len(board) <= 5:
+            return self._read_one(h2, b2, dead, more, len(board))
+        if nh >= 3 and nh + len(b2) <= 8:
+            return self.read_multi(h2, b2, 0, dead, more=more)
+        return None
+
+    def _read_one(self, h2, b2, dead, more: bool, n_real: int) -> tuple[int, int, bool]:
+        mine = evaluate(h2 + b2)
+        out = set(h2)
+        out.update(b2)
+        out.update(dead)
+        ahead = 0.0
+        n = 0
+        for c in range(52):
+            if c in out:
+                continue
+            v = evaluate((c,) + b2)
+            n += 1
+            if mine > v:
+                ahead += 1.0
+            elif mine == v:
+                ahead += 0.5
+        hs = ahead / n if n else 0.5
+        cut = HS_TIER_CUT[n_real]
+        tier = 0
+        for t in range(8, 0, -1):
+            if hs >= cut[t] - 1e-9:
+                tier = t
+                break
+        _, outs, wet = self.read_multi(h2, b2, 0, dead, more=more)
+        if outs >= 8 and tier < 3 and more:
+            tier = 3  # a strong draw (flush draw, open-ender): as `read` calls one
         return tier, outs, wet
 
     def read_low(self, hole, board) -> tuple[int, int, bool]:
@@ -839,13 +927,18 @@ class Postflop:
     # ------------------------------------------------------------------ decision
     def act(self, spot: Spot, hole, prof: Profiler | None, i_was_aggressor: bool, cheap: bool = False,
             board=None, board2=None, must_use: int = 0, dead=(), value_shift: int = 0, call_shift: int = 0,
-            street: int | None = None, to_come: int | None = None, long: bool = False, more: bool = False) -> Action:
+            street: int | None = None, to_come: int | None = None, long: bool = False, more: bool = False,
+            shared: tuple = (), shared_call_shift: int | None = None, shared_all: bool = False) -> Action:
         """`hole` and `board` are canonical cards (Hero remaps under a permuted rank order); the
         displayed obs.board is only the fallback when no board is passed. `board2` is the second board of
         a two-board game, `must_use` the Omaha rule, `dead` the exposed cards, `value_shift` raises the
         value thresholds (streets before a swap), `call_shift` reads a made hand this many tiers lower when
         facing a bet. `street` / `to_come` replace the observation's street and the cards still to come (a long
-        board: Hero plays a street that may not be the last as a turn); `long` / `more`: see `read`."""
+        board: Hero plays a street that may not be the last as a turn); `long` / `more`: see `read`. `shared`: one
+        tuple of our cards per opponent in the hand who holds them too (Hero's known cards); against each, the hand is
+        read with them on the board (`read_shared`) and the lowest read is the hand's (`shared_all`: every opponent
+        in the hand is one of them, so the plain read, which prices our shared cards as ours alone, is left out);
+        facing a bet a shared read is shifted by `shared_call_shift` (None: call_shift)."""
         p = self.p
         obs = spot.obs
         if board is None:
@@ -861,6 +954,20 @@ class Postflop:
         ip = spot.behind == 0
         self._mult = 1.0
         t_eq = tier - call_shift if call_shift and spot.to_call > 0 else tier
+        if shared and board2 is None and not must_use and not self.low and self.wild_rank < 0:
+            cs2 = call_shift if shared_call_shift is None else shared_call_shift
+            reads = [self.read_shared(hole, board, sh, dead, cards_to_come > 0) for sh in shared]
+            if shared_all and all(r is not None for r in reads):
+                tier = t_eq = 99  # every opponent holds cards of ours: his read is the only one that applies to him
+            for r in reads:
+                if r is None:
+                    continue
+                t2, o2 = r[0], r[1]
+                if t2 < tier:
+                    tier, outs = t2, o2
+                te2 = t2 - cs2 if cs2 and spot.to_call > 0 else t2
+                if te2 < t_eq:
+                    t_eq = te2
         eq = self._equity(t_eq if t_eq > 0 else 0, outs, cards_to_come, n_opp)
         if board2 is not None:
             t2, o2, w2 = self._read(hole, board2, must_use, dead)
@@ -989,6 +1096,7 @@ class Postflop:
                     call_down = cd
         raise_tier = p.raise_tier
         wide_w = 0.0
+        eq_pre = eq
         if n_opp == 1 and bettor >= 0 and prof is not None and street <= 2 and not cheap \
                 and (self._tw is None or not self._twist_read_off(spot, bettor)):
             if obs.bets[spot.me] == 0 and (p.probe_from < 1.0 or p.cbet_from < 1.0 or p.wide_from < 1.0):
@@ -1015,6 +1123,24 @@ class Postflop:
                     cd = 1.0 + p.raiser_slope * (r - p.raiser_from)
                     if cd > call_down:
                         call_down = cd
+        stab_w = 0.0
+        if p.stab_from < 1.0 and n_opp == 1 and bettor >= 0 and prof is not None and not cheap and 1 <= street <= 3 \
+                and p.stab_streets >> (street - 1) & 1 and obs.bets[spot.me] == 0 and prof.checked_this_street(street) \
+                and (self._holdem or not p.stab_holdem_only) \
+                and (not p.stab_aggr_only or bettor == prof.prev_aggressor(street)) \
+                and (p.stab_max_alive <= 0 or obs.players_left <= p.stab_max_alive) \
+                and (p.stab_pfr_min <= 0.0 or prof.pfr_rate(bettor) >= p.stab_pfr_min) \
+                and (self._tw is None or not self._twist_read_off(spot, bettor)):
+            r = prof.stab_rate(bettor, street, p.stab_prior, p.stab_n, p.stab_pool, p.stab_min)
+            if r > p.stab_from:
+                w = (r - p.stab_from) / (p.stab_full - p.stab_from) if p.stab_full > p.stab_from else 1.0
+                if w > 1.0:
+                    w = 1.0
+                if w > wide_w:
+                    stab_w = w
+                    we = (WIDE_EQUITY_FLOP, WIDE_EQUITY_TURN, WIDE_EQUITY_RIVER)[street - 1][tier]
+                    if we > eq_pre:
+                        eq = eq_pre + w * (we - eq_pre)
         base_margin = p.call_margin
         if p.vs_cbet_margin >= 0.0 and street == 1 and n_opp == 1 and bettor >= 0 and prof is not None \
                 and prof.pre_raiser == bettor and obs.bets[spot.me] == 0 and obs.pot > 0 \
@@ -1024,6 +1150,8 @@ class Postflop:
             base_margin = p.split_call_margin
         if wide_w > 0.0 and 0.0 <= p.probe_margin < base_margin:
             base_margin += wide_w * (p.probe_margin - base_margin)
+        if stab_w > 0.0 and 0.0 <= p.stab_margin < base_margin:
+            base_margin += stab_w * (p.stab_margin - base_margin)
         margin = base_margin / call_down if call_down > 0 else base_margin
         if p.tight_aggro_margin > 0.0 and street >= 2 and bettor >= 0 and prof is not None and not cheap \
                 and prof.vpip_rate(bettor) < p.tight_vpip and prof.aggression(bettor) > p.tight_agg:
@@ -1042,6 +1170,12 @@ class Postflop:
                 and p.raise_size * (spot.pot_total + spot.to_call) <= p.bluff_max_stack_frac * spot.my_total \
                 and self.rng.random() < p.probe_bluff * wide_w * (bluff_mult if bluff_mult < 1.0 else 1.0):
             self.last = "probe_bluff"
+            return self._bet(spot, p.raise_size, bluff=True)
+        if stab_w > 0.0 and p.stab_bluff > 0.0 and bluff_mult > 0.0 and tier <= 1 \
+                and p.stab_bluff_streets >> (street - 1) & 1 \
+                and p.raise_size * (spot.pot_total + spot.to_call) <= p.bluff_max_stack_frac * spot.my_total \
+                and self.rng.random() < p.stab_bluff * stab_w * (bluff_mult if bluff_mult < 1.0 else 1.0):
+            self.last = "stab_bluff"
             return self._bet(spot, p.raise_size, bluff=True)
         if p.size_read > 0.0 and n_opp == 1 and bettor >= 0 and prof is not None and not cheap and 1 <= street <= 3 \
                 and board2 is None and not must_use and self.wild_rank < 0 and not self.low \

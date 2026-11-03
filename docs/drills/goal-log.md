@@ -869,3 +869,90 @@ and (in judges) `elite_judge`.
   flagged risk did not show), elite, elite_night, elite_b, mirror_b level; variants and aware level. ACCEPT (addendum
   6). H16 used once. (Its tree predates exploiter 3's cells; batch 6's combined check covers them.)
 - Batch 6 so far: V-f (H15), S6 (H16).
+
+## 01:31: research synthesis committed; round 1 of its plan started
+- docs/research/Edges against strong opponents.md ranks 18 techniques against what F already does. The notes' top pick
+  (exact two-stack ICM on all-ins) is already in rival 3's core, which plays F's preflop; one suggestion (sweep
+  cap_vol_bb) conflicts with the official ICM split at the cap and stays off.
+- S15's answer: exploiter 3's edge is not the layer's 0.33 stab; it is F folding heads-up after checking, facing its
+  0.6-0.66-pot bets (F folds 71% flop, 85% turn, 67% river; break-even about 40%), mostly turn and river. S15's fix is
+  a stab read (call wider on turns and rivers against a seat that bets most times F checks).
+- Decisions addendum 9 fixes the roles of the second elite wave, exploiter 3 and the adaptive opponents before any
+  result.
+- Started: S16 (goal/wt_s16: a trust weight on risk-taking preflop reads at strong tables, diagnostic first), R6
+  (goal/wt_r6: an online adaptive test opponent, the tuning copy; the held-out copy follows once R6 shows it adapts).
+  S14 told to cover pre_3way and pre_hu. Queued: S17 (one size for the layer's stab, aimed at exploiter 2's raises),
+  S18 (blinds owed before the cap in ICM), R7 (an all-in runout term to cut seeds per test), V-i (twist decisions as
+  value of information).
+
+## 02:20: V-h merged (known opponent cards, shared ones included; off); candidate on H18
+- Hero's exposed path assumed every known card was the opponent's alone: a shared card would shrink our steals, a pair
+  of Chain's links read as a premium pair, top pair made with a shared card read as top pair. New `extras["known"]`
+  ({seat: cards}, ours included when shared) and dial `hero.known_cards`: "pre" re-reads our heads-up preflop class
+  from prepared equity tables (tables/known_*.json, three shapes, 72 KB each); "post" reads shared cards as board
+  cards against that neighbour. Kit G's adapter and the Chain deal file feed the links in.
+- Screen: Chain in our sim pre +1.06 ± 0.58 (realistic) and +0.73 ± 0.48 (generic aware) UP; exposed_card +0.186 ±
+  0.066 (realistic) and +0.148 ± 0.078 (generic aware) UP. In kit G's own sim, level (+0.28 ± 0.83 at 5 ms; host at
+  load 13-25). With the dial on, plain hold'em and 25 of 26 catalog variants identical; only exposed_card moves.
+- Identity after the merge: 15 cells identical.
+- Candidate {"hero.known_cards": "pre"} on H18 (38000-38399): variants exposed_card at 400 seeds and generic aware
+  exposed_card (the only catalog entry it changes).
+
+## 02:37: V-h accepted on H18; R6 merged (adapt1); the held-out adaptive copy commissioned
+- V-h on H18 (38000-38399), base batch 5, exposed_card at 400 seeds: realistic +0.162 ± 0.048, generic aware +0.213 ±
+  0.057 UP. ACCEPT (no other catalog entry changes with the dial; plain hold'em identical). H18 used once. Batch 6 so
+  far: V-f (H15), S6 (H16), V-h (H18).
+- R6 merged (adapt1: a sound bot that counts each seat's tendencies and switches counters on from hand 31). Against F
+  on the screen set, the counters gain +0.48 (8-max), +0.41 (heads-up), +0.52 (three-handed) over its counters-off
+  twin; F still wins all three (5.89 vs 5.11, 8.61 vs 8.40, 8.01 vs 7.66). It found: F folds 80-90% to a bet after
+  checking (S15's target), and F's small bets show weak (0.28-0.32 strength at showdown against 0.75-0.78 for large
+  ones) and fold 80-100% to a raise (S17's target). tools/adapt_curve.py measures any adapter's learning curve.
+- Held-out adaptive copy (addendum 9): a fresh agent with no repo access (goal/adapt2) builds an adaptive bot against
+  five anonymous strong targets (F, rival 2, elite 4, rival 3, hybrid3_x; the letter-to-bot map sits outside its
+  folder), counters only from observed tendencies, a running notebook. It becomes `adapt_judge*`, never tuned on.
+- Exploit-field replay test marked timing (Hero's panic reads the wall clock under load; R6's note).
+
+## 02:40: identity after the R6 merge (15 cells identical); S17 started
+- S17 (goal/wt_s17, climb/s17-stab-size): one size for the exploit layer's stab (exploit.stab_size), aimed at
+  exploiter 2's raises of small bets and adapt1's finding that F's small bets show weak; survey first; screen against
+  all 12 exploit cells.
+
+## 03:21: S15 merged (a stab read against exploiter 3's edge); S15c to H19
+- The leak: heads-up, F folds 71/85/67% (flop/turn/river) to a bet after checking, against a break-even of 38-40%;
+  its check never holds a strong hand and it folds every tier-2 hand to a turn or river bet. Exploiter 3 estimates
+  that rate and bets air where it beats break-even by 0.05; its turn and river counters carry +0.19 of its +0.20
+  heads-up edge. Not the layer's 0.33 stab (exploiter 3 folds 53% to it, raises 4%).
+- The fix (hero.postflop.stab_*, off): per seat, how often it bets right after F checks in a heads-up pot; on the turn
+  and river a high rate moves F's equity toward its equity against the whole range and lowers the call margin. Gated
+  to three or fewer alive, seats raising 30%+ preflop, hold'em tables (without the preflop gate it fired against
+  night's tight seats and night fell). F's turn/river folds after checking: 85/67% -> 53/34%.
+- Screen (S15c, base batch 5): exploit3_hu +0.128 ± 0.110, exploit3_3 +0.080 ± 0.058 UP; every other cell level
+  (exploit_hu -0.060 ± 0.108 to watch). A long-board counter bug fixed along the way (river_of_blood played differently
+  with the dials off).
+- Identity after the merge: 15 cells identical. S15c on H19 (39000-39399), --aim exploit, every stage (12 exploit cells).
+
+## 04:04: adapt2 (the held-out adaptive opponent) wired in as a judge
+- A fresh agent with no repo access (goal/adapt2, about 81 minutes, a running notebook) built an adaptive bot
+  against five anonymous strong targets. Its counters (on minus off, fresh seeds) gained against all five at 8-max
+  and most heads-up; the target it took most from was F (8-max +1,326 chips a table, +0.19 points; heads-up +292
+  chips, +0.07 points), mostly from F folding 71% to postflop bets heads-up. Base game weaker than the targets at 8-max
+  (5.2-5.3 points against 5.3-5.9).
+- Registry `adapt2`, judge cells adapt_judge, adapt_judge_hu, adapt_judge_3 (judges stage); md5 ee30b9a6; tests keep
+  it in adapt_judge* fields only and check exact replay with Hero's panic off.
+
+## 04:20: S14 merged (no candidate met the rule); climb_accept's exploit check fixed
+- S14's profile (elite, elite_b, mirror, mirror_b, fresh diagnostic seeds): the strong bots beat F in four preflop
+  sections. Re-shove or fold under 20 bb (rival 2 +0.48-0.50 bb a decision, F +0.23-0.28); facing a raise at 20+ bb
+  (rival 2 only); three-handed and heads-up preflop (F 0.0-0.1 bb, elite1, elite2, rival 2 +0.2-0.4: F min-raises
+  38-39% and folds 40-42% of those to a re-raise). After the flop F is the best bot at these tables. Rival 2 tops the
+  fields by reaching three-handed more often (43-46% against 37-41%); the elites win from three-handed (46-57% first
+  against 22-31%). Elite4 is best in no section.
+- Every donor's short-handed preflop loses to exploiter 1 (it 3-bets every open). Best candidate K18 (elite1 three-
+  handed and heads-up at strong tables, keeping F's 3-bet defence): elite, mirror, elite_b, mirror_b +0.036-0.044 UP,
+  night_hard and top UP, night level, but exploit_3 -0.238 ± 0.159 DOWN. Not accepted. Built and merged, all off:
+  members r2s (rival 2's core with a cheap shadow, plays as the full one) and elite4, strong2_route, and a routing fix
+  (a strong-route donor that cannot play a twist hands back to the section's own donor).
+- Tool fix: climb_accept counted exploit cells only under --aim exploit; with --aim strong it printed ACCEPT with
+  exploit cells down. Now an exploit cell down rejects under every aim. Checked: no accepted run had one (G2 on H4 and
+  H6, C7, D1, D3, batch 5 on H13: all exploit cells level or up). S16 told.
+- Identity after the merge: running.

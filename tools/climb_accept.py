@@ -40,7 +40,8 @@ Stages (comma-separated; default confirm,guards,variants):
 - exploit: the S2 exploiter (`exploiter1`, docs/drills/exploiter/) at 8-max (`exploit`, payouts 10/7/5/4/3/2/1/0),
   heads-up (`exploit_hu`, rules hu.json: 10/7) and three-handed (`exploit_3`, three.json: 10/7/5), and the second
   exploiter (`exploiter2`, docs/drills/exploiter2/) in the same three formats (`exploit2`, `exploit2_hu`,
-  `exploit2_3`); the exploiter's own points are printed too. Part of the rule only with `--aim exploit` (addendum 6:
+  `exploit2_3`), the third (`exploit3*`), and the adaptive opponent's tuning copy (`adapt1`, R6: `adapt`, `adapt_hu`,
+  `adapt_3`; it learns each seat inside the table, tools/adapt_curve.py); the exploiter's own points are printed too. Part of the rule only with `--aim exploit` (addendum 6:
   an exploit field up, night not down); `--aim strong` is addendum 8 (elite, elite_night or mirror up, night not down).
 - timing: tools/latency.py p99 for both specs (20,000 calls).
 - window: night alone, the check a window needs (prompt 06): the candidate not beyond noise down. With --rules (the
@@ -82,13 +83,15 @@ GUARDS = [("night_hard", "lin", None), ("realistic", "lin", None), ("top", "lin"
           ("night", "th", None), ("night", "lin", "double")]
 JUDGES = [("judge", "lin", None), ("judge2", "lin", None), ("judge2_night", "lin", None), ("judge_top", "lin", None),
           ("outside", "lin", None), ("outside_strong", "lin", None), ("elite_judge", "lin", None),
-          ("elite_judge_b", "lin", None)]  # elite5 held out (second wave, 2026-11-02)
+          ("elite_judge_b", "lin", None),  # elite5 held out (second wave, 2026-11-02)
+          ("adapt_judge", "brief", None), ("adapt_judge_hu", "lin", "hu"), ("adapt_judge_3", "lin", "three")]  # adapt2
 ELITE = [("elite", "lin", None), ("elite_night", "lin", None), ("mirror", "lin", None),
          ("elite_b", "lin", None), ("mirror_b", "lin", None)]  # elite4 joined 2026-11-02 (second wave)
 EXPLOIT = [("exploit", "brief", None), ("exploit_hu", "lin", "hu"), ("exploit_3", "lin", "three"),
            ("exploit2", "brief", None), ("exploit2_hu", "lin", "hu"), ("exploit2_3", "lin", "three"),
-           ("exploit3", "brief", None), ("exploit3_hu", "lin", "hu"), ("exploit3_3", "lin", "three")]  # of batch 5
-EXPLOIT_BOTS = ("exploiter1", "exploiter2", "exploiter3")  # the one seated in a cell's field is printed beside us
+           ("exploit3", "brief", None), ("exploit3_hu", "lin", "hu"), ("exploit3_3", "lin", "three"),  # of batch 5
+           ("adapt", "brief", None), ("adapt_hu", "lin", "hu"), ("adapt_3", "lin", "three")]  # R6, addendum 9
+EXPLOIT_BOTS = ("exploiter1", "exploiter2", "exploiter3", "adapt1", "adapt2")  # the one seated in a cell is printed beside us
 VARIANT_FIELD = "realistic"
 VARIANT_SEEDS = 200
 CHUNK = 25
@@ -446,7 +449,9 @@ def main(argv=None) -> int:
     if a.aim == "strong":  # addendum 8
         ups = [r["cell"] for r in st.get("elite", []) if r["flag"] == "UP"]
         checks.append((f"elite (addendum 8): a strong field beyond noise up ({', '.join(ups) or 'none'})", bool(ups)))
-    for s in ("guards", "elite", "variants", "judges", "aware"):
+    # the exploit stage counts under every aim when it runs: a loss to a bot built to beat F is a loss (S14 found
+    # --aim strong printing ACCEPT with exploit cells down; no accepted batch had one)
+    for s in ("guards", "elite", "variants", "judges", "aware") + (() if a.aim == "exploit" else ("exploit",)):
         if s in st:
             downs = [r["cell"] for r in st[s] if r["flag"] == "DOWN"]
             checks.append((f"{s}: none beyond noise down" + (f" (down: {', '.join(downs)})" if downs else ""),
@@ -467,7 +472,7 @@ def main(argv=None) -> int:
     print(f"base {json.dumps(base_raw, sort_keys=True)} -> {json.dumps(base, sort_keys=True)}")
     print(f"cand {json.dumps(cand_raw, sort_keys=True)} -> {json.dumps(cand, sort_keys=True)}")
     if "exploit" in st:
-        print("\n## exploit (diagnostic)\n\n| cell | base | cand | cand - base | | n | exploiter b/c | p99 b/c |")
+        print("\n## exploit\n\n| cell | base | cand | cand - base | | n | exploiter b/c | p99 b/c |")
         print("|---|---|---|---|---|---|---|---|")
         for r in st["exploit"]:
             ob, oc = r["opp"]

@@ -155,11 +155,21 @@ def _cards_in(v, out: set) -> None:
 
 def public_cards(extras: dict, me: int, in_hand=None) -> tuple[set, dict]:
     """(dead cards, {seat: cards known to be in that seat's hand}) from a variant's public extras (or a decision
-    prompt). Exposed / face-up cards of a seat still in the hand stay in its hand; everything else card-like is dead."""
+    prompt). Exposed / face-up cards of a seat still in the hand stay in its hand; everything else card-like is dead.
+    `known` ({seat: cards} from where `me` sits, or {viewer: {seat: cards}}: hyperion/strategy/known.py) is cards a
+    seat holds, ours included (a card two players share is in both hands): held while that seat is in the hand."""
     dead: set = set()
     held: dict = {}
     for key, val in (extras or {}).items():
         k = str(key).lower()
+        if k == "known":
+            if isinstance(val, dict):
+                from ..strategy.known import parse
+
+                for s, cards in parse({"known": val}, me).items():
+                    if in_hand is None or (0 <= s < len(in_hand) and in_hand[s]):
+                        held[s] = tuple(sorted(set(held.get(s, ())) | set(cards)))
+            continue
         if any(w in k for w in _NOT_CARDS):
             continue
         if any(w in k for w in _HELD_WORDS) and isinstance(val, dict):
@@ -169,7 +179,7 @@ def public_cards(extras: dict, me: int, in_hand=None) -> tuple[set, dict]:
                 if s == me:
                     continue
                 if isinstance(s, int) and (in_hand is None or (0 <= s < len(in_hand) and in_hand[s])):
-                    held[s] = tuple(sorted(got))
+                    held[s] = tuple(sorted(got | set(held.get(s, ()))))
                 else:
                     dead |= got
         elif any(w in k for w in _DEAD_WORDS):
