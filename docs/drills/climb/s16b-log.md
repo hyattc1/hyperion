@@ -70,7 +70,8 @@ predicted - actual fold) per field:
   best at strong tables and worst on the guards; the pooled read adds little once position is in (P4).
 - T5b is the only estimator better than F's read on every field, realistic included (0.1430 against 0.1433), and
   within 0.002 of the best at each strong field: the table's own answers by position move its prior to the field
-  (realistic's big blind 0.80, mirror's 0.57), which is the gate a fixed prior lacks.
+  (realistic's big blind 0.80, mirror's 0.57), which is the gate a fixed prior lacks. At the strong fields it is
+  within 0.0025 of the best estimator there (P3, built on the strong fields' own priors).
 - **The floor does not help**: with 7-15 answers a seat a table, nothing below 10 throws away half of each table's
   evidence (T5d, P2, E2f are each a little worse than their versions without it). The trust weight is kept as the
   shrinkage itself (a seat's excess counts n / (n + 23), a table position's rate n / (n + 20)); the floor is off.
@@ -90,3 +91,12 @@ all answers, 0.748 at the strong fields); a table position's weight `oa_st` 20; 
 - Gate: hold'em tables only (hero.holdem_table: the 22 twist variants play exactly as F, tested). No strong-table
   gate: the survey supports none, because the table's own position rates adapt the read to the field.
 - One candidate; no other value is screened.
+
+## 05:43-06:06: identity (idcheck3.py)
+
+`climb_accept --cand '{"dials": {}}' --set 10000:10040 --stages confirm,guards` and `--set 10000:10025 --stages
+elite,exploit` (now 12 exploit cells), in the detached main worktree (64b466a) and on the branch (bc8f723), separate
+caches: **all 31 cells identical sample for sample**, and the 28 that existed then identical to F at 724cc7f too. With
+the dials off nothing is counted (the scan runs only with `r3.oa_read` or the layer's `open_read`) and the deep branch
+keeps its `pf`. F's cells at main's version were copied to the branch's (7dd316b7d4, key 6c18820fd9c6). (A first
+launch of the queue died at 05:53 with this session's command; relaunched under setsid.)
