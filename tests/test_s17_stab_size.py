@@ -74,3 +74,20 @@ def test_the_dial_reaches_the_decisions_heads_up_against_exploiter2():
     on = {"exploit.stab_size": True}
     assert any(_digest(on, t, HU, R2)[0] != _digest({}, t, HU, R2)[0] for t in range(6))
     assert _digest(on, 1, HU, R2)[0] == _digest(on, 1, HU, R2)[0]  # and replays exactly
+
+
+def test_the_one_size_can_wait_for_a_short_table_and_ask_for_more_folds():
+    ex = Exploit(ExploitParams(bet_checked=True, stab_size=True, stab_alive=2))
+    ex.size_from(_post(True))
+    a = _stab(ex)  # three players have chips: the old size
+    assert a.kind is RAISE and a.amount == int(0.33 * 180)
+    ex = Exploit(ExploitParams(bet_checked=True, stab_size=True, stab_alive=3))
+    ex.size_from(_post(True))
+    assert _stab(ex).amount == int(0.5 * 180)
+    # both seats fold 6 of 6: each reads 0.95, the product 0.91; asking 0.7 stabs, 0.95 does not
+    for need, fires in ((0.7, True), (0.95, False)):
+        ex = Exploit(ExploitParams(bet_checked=True, stab_size=True, stab_min_fold=need))
+        ex.size_from(_post(True))
+        assert (_stab(ex) is not None) is fires
+    ex = Exploit(ExploitParams(bet_checked=True, stab_min_fold=0.95))  # no one size: bet_min_fold as before
+    assert _stab(ex).amount == int(0.33 * 180)
