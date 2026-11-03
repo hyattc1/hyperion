@@ -248,8 +248,9 @@ class PostflopParams:
     # makes: my equity moves from the tier's proxy toward WIDE_EQUITY (the tier against a whole range) by the weight
     # (r - from) / (stab_full - from), at most 1, and the call margin toward stab_margin by the same weight (-1: it
     # stays). stab_bluff: on the streets in stab_bluff_streets, air (tier 0-1) raises it with this chance times the
-    # weight (a check-raise; times the bluff dial when that is under 1). stab_holdem_only: hold'em tables only
-    # (hero.holdem_table). 1.0 / -1 / 0 = off
+    # weight (a check-raise; times the bluff dial when that is under 1). stab_aggr_only: only when the bettor has the
+    # initiative (the last aggressor of the earlier streets: a c-bet or a barrel after my check; a bet after it called
+    # mine holds its calling range). stab_holdem_only: hold'em tables only (hero.holdem_table). 1.0 / -1 / 0 = off
     stab_from: float = 1.0
     stab_full: float = 1.0
     stab_prior: float = 0.5
@@ -259,6 +260,7 @@ class PostflopParams:
     stab_margin: float = -1.0
     stab_bluff: float = 0.0
     stab_bluff_streets: int = 1
+    stab_aggr_only: bool = False
     stab_holdem_only: bool = False
     # S12 reads (docs/drills/climb/s12-log.md); every one off by default.
     # size_read: facing a single bet heads-up (or a raise of my bet), the bettor's range for a bet of that size (bucket
@@ -1042,6 +1044,7 @@ class Postflop:
         if p.stab_from < 1.0 and n_opp == 1 and bettor >= 0 and prof is not None and not cheap and 1 <= street <= 3 \
                 and p.stab_streets >> (street - 1) & 1 and obs.bets[spot.me] == 0 and prof.checked_this_street(street) \
                 and (self._holdem or not p.stab_holdem_only) \
+                and (not p.stab_aggr_only or bettor == prof.prev_aggressor(street)) \
                 and (self._tw is None or not self._twist_read_off(spot, bettor)):
             r = prof.stab_rate(bettor, street, p.stab_prior, p.stab_n, p.stab_pool)
             if r > p.stab_from:
