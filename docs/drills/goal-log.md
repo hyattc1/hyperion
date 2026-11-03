@@ -816,3 +816,9 @@ and (in judges) `elite_judge`.
   the kit times its callback; street-tagged history and blind posts in the gate seat's state; a conformance reset
   after warm-up; a `timing` pytest marker; no table build inside a decision; PLAYBOOK's --cand syntax.
 - Variants lead (V-h, not started): cards that are also the opponents' (Chain's links, exposed_card) priced as such.
+
+## 22:53: V-h started: cards an opponent is known to hold, ours too
+- Hero's exposed-card path (extras "exposed" -> _exposed -> the Spot's exposed and dead cards) was built for an
+  opponent's own card. Chain's links are both ours and a neighbour's. V-h (goal/wt_vh, climb/vh-known-cards): make
+  the path correct for known opponent cards that overlap our hole, map Chain's links into it, measure on Chain (our
+  sim with drill 9's deal file, then kit G's sim) and exposed_card; off by default; held-out twists never run.
