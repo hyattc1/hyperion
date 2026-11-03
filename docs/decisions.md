@@ -3304,3 +3304,12 @@ Fixed before any of these bots is measured:
   beyond noise up and nothing down counts as exploit resistance; the held-out copy is read once per batch.
 - Red-team and builder briefs ask for a running notebook (each run's command, seeds and numbers, appended as it
   happens), so a final write-up is never the only record.
+
+## The climb: addendum 10 (a second wave of outside judges) (2026-11-03, builder: the climb's coordinator)
+
+The owner asked whether F is being fitted to the few opponents we built. To widen what F is judged against, three
+more fresh agents with no repo access each build a bot in a style our fields cover least: a team that trains its
+strategy offline by self-play, a hyper-aggressive team that maximises pressure, and a team that plays memorised
+solver charts. Fixed before any of them is measured: all three are held out. They form the judge field
+`outside_b` (the three with rival 4, rival 5, elite 5 and one night seat), measured once per batch in the judges
+stage, never tuned on, never in a night pool.
