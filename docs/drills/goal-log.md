@@ -1144,3 +1144,11 @@ and (in judges) `elite_judge`.
 - Timing (per-call minimum, act p99, batch 5 -> 6): plain 115 -> 119 us, exposed_card 94 -> 115, omaha_four 118 -> 131,
   swap_holdem 115 -> 119, knockout_bounty 118 -> 118; hand end p99 121-153 -> 134-154. All under 200.
 - Batch 6's combined check on H20 still running.
+
+## 11:21: O4 rejected on the screen; O3 queued last for a held-out set
+- O4 (O3 + oa_st 10) added a second variant cell down (fast_schedule -0.060 ± 0.047) and kept antes_from_level_3
+  down; strong cells similar. The cap means the read can only lower a seat's fold estimate, so a faster table rate
+  cannot restore steals against realistic's tight folders.
+- Addendum 11's weighted score (now printed): O3 +0.000 ± 0.032 (W-min lower bound -0.042), O4 +0.003 ± 0.032: the
+  strong-table gains are cancelled at the night level by the realistic room's small losses. O3 (goal/b21/o3.json)
+  goes to a held-out set after S17's C3 (H21) and V-i (H22), whose screens were clean.
