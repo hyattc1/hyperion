@@ -421,7 +421,7 @@ def drop_blind_posts(history, big_blind: int, street: int = 0) -> tuple[list, in
 
 
 def make_observation(*, hole, board, street, seat, button, stacks, bets, in_hand, pot, to_call=None, min_raise=None,
-                     max_raise=None, legal: Iterable, hand_no, blinds, history=None) -> Observation:
+                     max_raise=None, legal: Iterable, hand_no, blinds, history=None, extras=None) -> Observation:
     """Assemble an Observation from already-translated pieces. `legal`: our names fold / check / call / raise, or the
     kit's own words, dicts or objects (legal_kinds). Raise bounds are raise-to totals; missing ones (None) are derived,
     swapped or impossible ones put right (raise_bounds); to_call None is max(bets) - my bet, capped by my stack.
@@ -429,7 +429,9 @@ def make_observation(*, hole, board, street, seat, button, stacks, bets, in_hand
     No `history` (or an empty one) while somebody has bet above the blind: raises are rebuilt from the bets, and
     `extras["history_from_bets"]` says so (the shipped bot's core then reads no history: a replay of raises alone
     would book every raiser as a seat that raises every hand). What was put right is listed in
-    `extras["kit_fixes"]` (conformance counts it), absent when nothing was."""
+    `extras["kit_fixes"]` (conformance counts it), absent when nothing was. `extras`: the twist's own entries, as the
+    variant hooks would put them (cards an opponent is known to hold: {"known": {seat: cards}}, our own cards
+    included when he holds them too; face-up cards: {"exposed": {seat: card}}; hyperion/strategy/known.py)."""
     stacks, bets, seat = list(stacks), list(bets), int(seat)
     me_ok = 0 <= seat < len(stacks) and len(bets) == len(stacks)
     my_stack = stacks[seat] if me_ok else 0
@@ -439,7 +441,7 @@ def make_observation(*, hole, board, street, seat, button, stacks, bets, in_hand
     kinds = legal_kinds(legal, to_call, my_stack)
     lo, hi, fixed = raise_bounds(min_raise, max_raise, stacks, bets, seat, int(blinds[1]), ActionKind.RAISE in kinds)
     hist = list(history or [])
-    extras = {}
+    extras = dict(extras) if extras else {}
     if hist:
         hist, dropped = drop_blind_posts(hist, int(blinds[1]), int(street))
         if dropped:
