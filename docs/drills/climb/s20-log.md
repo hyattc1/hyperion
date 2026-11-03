@@ -217,3 +217,18 @@ F's reads take more from weak seats than an equilibrium does, as S13 found heads
 Weighted: W +0.0008 ± 0.0184, W-min -0.0121 ± 0.0259. The gate halves the 8-max pool losses (exploit2 -0.129 ->
 -0.049, adapt -0.187 -> -0.053) and keeps most of the strong-table gain, and the tables now beat exploiter 3 (three-
 handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (exploit_3 -0.31, exploit -0.16).
+- 16:40 Why G loses to exploiter 1 (`d3.py` with G's dials on exploit_3, diagnostic seeds 11000-11059; the recorder
+  now marks each decision the specialist made): the tables make 33-47% of our preflop decisions at every stage of the
+  table, because the 3-bet guard never fires: exploiter 1 3-bets the tables' opens far less than F's (one table's read
+  at hand 43: 1 of 19.5 and 2 of 7.5 opens 3-bet), so the read stays under 0.4. Our seat's three-handed bb a hand,
+  G against F on the same seeds: +0.205 against +0.388. The difference is in the answers to exploiter 1's small
+  3-bets: G folds 15%, calls 41% (-1.6 bb each) and 4-bets 38% (+0.84 a hand), F folds 25%, calls 7% and 4-bets 65%
+  (+1.81); and the small blind first in (G +0.58, F +0.92: F opens 88% and 4-bets the big blind's 3-bets). The mix
+  fit prices our calls of 2.3x 3-bets as fine, but against exploiter 1 our flops lose (its column in step 1).
+- Two fixes, both principled rather than retuned thresholds, queued as candidates: **keep the defence**
+  (`short.three2_keep_defence`, S14's `strong2_keep_defence` for this route: once our own raise this hand has been
+  re-raised, F's 3-bet defence plays the rest of the hand's preflop; the tables open and answer opens), and the
+  **pessimistic table** (3c, the fit against the exploiters: at 18 bb it folds 33% / calls 32% / jams 35% as the big
+  blind against the button's open instead of 0 / 82 / 18%, and calls 2.3x 3-bets 16-52% instead of 51-77%).
+  Candidates GK (G + keep the defence), GX (G with table 3c), GXK (both). Also G2 (G with `short.defer` widened to
+  every leak archetype F's profiler names: dead, station, maniac, random, nit), running.
