@@ -1668,6 +1668,40 @@ class Exploiter2Bot(PersonaBot):
         self.impl.rng = random.Random(self._seed * 1_000_003 + 0xE2)
 
 
+class Adapt1Bot(PersonaBot):
+    """Test opponent `adapt1` (R6, decisions "The climb: addendum 9"): the tuning copy of the adaptive opponent, written
+    from scratch with repo access (hyperion/sim/field/adapt1.py). It starts as a sound general bot, counts each seat's
+    folds to bets, raises and 3-bets, c-bets, check-folds, all-in calls and the strength its bet sizes show at
+    showdown, and from hand 31 switches on fixed counters for every seat whose counts pass a threshold. It reads only
+    the public table: the observation, and at hand end the history, the board and the cards shown (all a kit's
+    result may carry). No clock. Its RNG is seeded from the seat seed at every table, so model-mode runs replay
+    exactly. `adapt1_off` is the same bot with its counters off (the twin). Never in a night pool (fields `adapt`,
+    `adapt_hu`, `adapt_3`)."""
+
+    MODULE = "adapt1"
+    COUNTERS = True
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self._seed = seed or 0
+        self.impl.COUNTERS = self.COUNTERS
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self.impl.rng = random.Random(self._seed * 1_000_003 + 0xAD)
+
+    def hand_end(self, result: HandResult) -> None:
+        self.impl.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas,
+                            "history": [(s, (a.kind.value, a.amount)) for s, a in result.history],
+                            "showdown": dict(result.showdown), "board": tuple(result.board)})
+
+
+class Adapt1OffBot(Adapt1Bot):
+    """`adapt1_off`: `adapt1` with every counter off (the twin its learning is measured against). It still counts."""
+
+    COUNTERS = False
+
+
 # ----- the hybrid candidate: rival 2's decision core behind Hero's shell ---------------------------------------
 
 
@@ -1799,6 +1833,8 @@ REGISTRY: dict[str, type] = {
     "exploiter1": Exploiter1Bot,  # the S2 exploiter of F (black-box attacker): a test opponent, never in a night pool
     "exploiter2": Exploiter2Bot,  # the second exploiter (S11), of F with FIN: a test opponent, never in a night pool
     "exploiter3": Exploiter3Bot,  # the third exploiter, of batch 5: a test opponent, never in a night pool
+    "adapt1": Adapt1Bot,  # the adaptive opponent (R6), tuning copy: a test opponent, never in a night pool
+    "adapt1_off": Adapt1OffBot,  # adapt1 with its counters off (its twin): a test opponent, never in a night pool
     "hybrid": HybridBot,  # candidate: rival 2's decision core behind Hero's shell (hyperion.hybrid)
     "hybrid3": Hybrid3Bot,  # candidate: rival 3's decision core behind the same shell
     "hybrid_x": HybridXBot,  # `hybrid` with the exploit layer as Hero ships it
@@ -1943,9 +1979,15 @@ FIELDS["exploit2_3"] = ("hero", "exploiter2") + _night.seat_names("night")[:1]
 FIELDS["exploit3"] = ("hero", "exploiter3") + _night.seat_names("night")[:6]
 FIELDS["exploit3_hu"] = ("hero", "exploiter3")
 FIELDS["exploit3_3"] = ("hero", "exploiter3") + _night.seat_names("night")[:1]
+# the adaptive opponent's (R6, addendum 9: the tuning copy), seated as the exploiters are: with six night-pool seats at
+# 8-max, heads-up, and with the first night-pool seat three-handed
+ADAPTERS = ("adapt1", "adapt1_off")
+FIELDS["adapt"] = ("hero", "adapt1") + _night.seat_names("night")[:6]
+FIELDS["adapt_hu"] = ("hero", "adapt1")
+FIELDS["adapt_3"] = ("hero", "adapt1") + _night.seat_names("night")[:1]
 # fields of fewer than eight seats, with the player count their Rules must carry (every other field seats eight)
 FIELD_PLAYERS: dict[str, int] = {"exploit_hu": 2, "exploit_3": 3, "exploit2_hu": 2, "exploit2_3": 3,
-                                  "exploit3_hu": 2, "exploit3_3": 3}
+                                  "exploit3_hu": 2, "exploit3_3": 3, "adapt_hu": 2, "adapt_3": 3}
 
 # fields that seat an optional bot: present in FIELDS only when every bot in them is registered
 OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {
