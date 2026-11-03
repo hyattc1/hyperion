@@ -710,3 +710,12 @@ and (in judges) `elite_judge`.
   base, then model each opponent at the table and punish leaks as the evidence comes in).
 - Fixed now, before either is measured: elite 4 joins the tuning field (the `elite` stage's room and the mirror
   table); elite 5 stays held out as a judge (never tuned on, measured once per batch like elite_judge).
+
+## 21:19: leaderboard and HANDOFF after batch 5; exploiter 3 started against batch 5
+- Leaderboard re-ranked (150 x 8, seed 41, diagnostic): elite room F 1st 4.84 (batch 4 was 2nd, 4.75), night room
+  with two elites 1st 5.34; mirror about 3rd of six (4.52-4.54, rival 2 4.75; batch 4 was 5th). The batch 5 mirror
+  run hit the governor 22 times at load 12 (hyperion.sim's model mode keeps SafeBot's wall-clock deadline; climb_accept
+  turns it off), so its ranks are noisy; the paired H13 number (+0.241) stands.
+- Exploiter 3 (goal/exploiter3): a fresh red-team agent, black box against batch 5 pinned at 3aac34d
+  (goal/wt_target5), arena with swap.setup_process("model") so the target replays exactly; 8-max, heads-up,
+  three-handed. No access to exploiters 1-2's findings (an independent look).
