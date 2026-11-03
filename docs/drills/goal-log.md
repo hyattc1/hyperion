@@ -1004,3 +1004,11 @@ and (in judges) `elite_judge`.
   (goal/drill10/kit): a fresh organiser, a kit whose bot is its own process speaking JSON lines over stdin/stdout,
   Ghost and Chain added to the excluded twists.
 - Outside judges o6 (aggressive, md5 1d724a69) and o7 (solver charts, md5 7ada9e81) built; o5 still building.
+
+## 06:07: the outside judges' second wave wired in (outside_b)
+- out_cfr (o5, self-play trained: CFR+ push/fold for 2-8 players, deep preflop, a heads-up postflop policy over
+  strength buckets; md5 23e68818), out_press (o6, hyper-aggressive, calibrated by its own tests; md5 1d724a69),
+  out_charts (o7, solver charts, exact ICM on all-ins; md5 7ada9e81). Field outside_b = hero, the three, rival 4,
+  rival 5, elite 5, one night seat, in the judges stage; tests keep the three in outside* fields only.
+- Judges now: judge, judge2, judge2_night, judge_top, outside, outside_strong, elite_judge, elite_judge_b,
+  adapt_judge (three formats), outside_b. Batch 6's judge run is the first to see the new ones.
