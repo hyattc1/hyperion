@@ -419,3 +419,23 @@ seeds 12200-12999.
   separate change to F's open logic, not a variant of O6.
 - Suite (`pytest -q -m "not timing"`, at ab4602a, load 12-14): 1,418 passed, 2 skipped, 5 failed (two drill
   checkpoints and the seeded drill pick, two night-of kit round trips, the adapt twin); each passes re-run alone.
+
+# O7: the open priced by what F wins when called (branch climb/s21-o7 from 50835a0)
+
+Brief (coordinator, 07:30): O6's diagnosis taken forward. Replace rival 3's fixed call cost (0.55 of the raise lost
+whenever the open does not take the blinds) by F's measured result when called or re-raised, by hand, position,
+seats behind and depth, so the calibrated fold reads (O5's big blind, O6's non-blind seats, F's small blind) can be
+used without opening junk. Measure from F's own play on diagnostic tables (13000-13999), pool the fields with a
+shrinkage chosen on held-out tables, report how the rooms differ, fix the table before any screen, and decide
+offline whether the rule beats F's.
+
+- 07:35 The data (goal/s21o7/o7_explore.py): F's open is measured only where F opens, and the hands that matter
+  are the ones it does not (junk from early position). So the collector plays O5 and, at each first-in decision with
+  four or more alive deeper than 10 bb on plain hold'em, replaces F's non-raise by an open (2.5 bb; 2.2 with one
+  seat behind) with probability 0.15, through the layer's override so every member follows it as the action taken.
+  Per decision: rival 3's clause inputs (hand percentile p and class, seats behind, depth, pot, size, its base, the
+  fold product under F's reads, O5's and O6's), its decision and a replica of it (0 mismatches on the smoke run),
+  who decided, F's own action, explored or not; at hand end F's result relative to folding (chip delta + its posted
+  blind, in big blinds; the nine fields have no antes) and whether everyone folded. The exploration makes F a little
+  looser at those tables (opponents' reads of F move with it); stated, not corrected. Fit seeds 13000-13099, check
+  13100-13179, nine fields.
