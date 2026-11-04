@@ -1413,3 +1413,5 @@ and (in judges) `elite_judge`.
   too), and the specialist's new_table kept the last table's hand stacks and, on a table paying fewer than three
   places, its payout ratio (no measured cell changes: refilled at the first observation; same ratio on every table
   we measure). Tests written against batch 6 start from BATCH7_OFF. It merges when H31 and the judges pass.
+- S21's worker on O5 (climb/s21-o5): the big blind's fold read from its answers to everyone's opens (about 42-74 a
+  table against 10 to F's), estimator chosen offline by Brier score before any screen; diagnostics 12000-12999.
