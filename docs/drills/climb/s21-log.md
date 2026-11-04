@@ -342,3 +342,7 @@ fit; realistic alone -0.156 ± 0.188 on the fit seeds, so a leak is not excluded
     and not at 0.9, `veto_t` closing it); off by default nothing counted; on (O5 + O8) it counts, replays exactly
     and moves play on a test table; switch never on (`veto_t` 0) = O5 exactly; twist and straddle tables as F;
     SHIP_DIALS leave it off. With the O5 and S16b tests: 23 passed.
+- 09:51 **Identity** (goal/s21o8/idchk.sh: F, confirm and guards, 10000-10039, from this worktree at e400aaf):
+  **14 of 14 chunks identical** to goal/idchk34/post (batch 7's F). SHIP_DIALS are batch 7's, unchanged here.
+- Candidate (docs/drills/climb/s21-o8-candidate.json): O5's dials + `r3.veto_read`, `r3.veto_t` 0.8,
+  `r3.veto_prior` 0.8, `r3.veto_prior_n` 10, `r3.open_veto`.
