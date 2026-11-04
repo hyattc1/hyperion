@@ -1539,3 +1539,8 @@ and (in judges) `elite_judge`.
   (not chip-valued) check of a preflop rule predicts its screen; run it before building.
 - The structural round so far: S20 (R6 accepted, H32), V-j (c6 accepted, H29), the open-read line (O3 parked, O5 on
   H33, O6 rejected, O7 stopped offline).
+
+## 08:39: batch 7's gate passes on the quieter box
+- With only O5 running (load 3.6-3.8), the same zip: GATE PASS on plain, auction, bonus_card and tranche_holdem, 0
+  exceptions, 0 illegal, timeouts 0.04-0.05%. Batch 7 (frozen/B7-038c3f0, 51c37f02) is the known-good upload.
+  Decisions "The climb: batch 7's gate on a quieter box"; leaderboard, HANDOFF, RESUME.

@@ -5,7 +5,7 @@ in all eight seat rotations; "margin" is F minus the other bot on the same deals
 
 ## Where we stand (2026-11-04 08:40 ET, batch 7)
 
-Batch 7 (frozen, its gate to re-run on a quiet box) changes plain hold'em only with three or fewer alive against
+Batch 7 (frozen, gate pass; the known-good upload) changes plain hold'em only with three or fewer alive against
 exploiter-like seats (its 8-max, judge and strong-table cells within ±0.002 of batch 6), so the judge, night and
 elite-room numbers below are batch 5's and hold for batches 6 and 7. Batch 7 on held-out H31 against batch 6:
 exploiter 2 heads-up +0.307, three-handed +0.086, exploiter 3 heads-up +0.096, auction +0.060, tranche_holdem +0.180.
@@ -84,6 +84,6 @@ On ordinary rooms F was already first, and it has not measurably moved there.
 | 2026-11-02 08:59 (batch 4) | + 3-bet defence, keep2/toss calls, kit fixes | e3cec13 | bb5820cc...6197fe | beats exploiter 1 in every format; keep2 +0.29; adapter reads 20 kit shapes; no test bots in the zip |
 | 2026-11-02 20:56 (batch 5) | + strong-table route, size read, S11 fixes, twist play | 3aac34d | cbf2ccb3...95fa4803 | held-out night +0.096, mirror +0.241, every exploit cell up (heads-up vs exploiter 2 +0.30), wild/short deck/omaha/keep up |
 | 2026-11-03 13:37 (batch 6) | + per-family twist dials, known opponent cards | 91014ae | a66eb4b3...d6666f77 | twist tables only: exposed card +0.22, knockout bounty +0.11, bounty-aware +0.03 (held-out H21); plain hold'em identical |
-| 2026-11-04 08:40 (batch 7) | + heads-up specialist (gated), stab read, value of information, street-settled twin | 038c3f0 | 51c37f02...9848bdc4 | exploiter 2 heads-up +0.31, three-handed +0.09, exploiter 3 heads-up +0.10, auction +0.06, tranche +0.18 (H31); judges level; gate to re-run on a quiet box (timeouts at load 8-12) |
+| 2026-11-04 08:40 (batch 7) | + heads-up specialist (gated), stab read, value of information, street-settled twin | 038c3f0 | 51c37f02...9848bdc4 | exploiter 2 heads-up +0.31, three-handed +0.09, exploiter 3 heads-up +0.10, auction +0.06, tranche +0.18 (H31); judges level; gate pass on plain, auction, bonus_card, tranche (load 4) |
 
 Zips live in `frozen/` (git-ignored); each is rebuilt from its commit with `tools/pack.py --slim`.

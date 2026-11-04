@@ -3463,3 +3463,10 @@ batch 6, then together, then the judges.
   (a66eb4b3) stays known-good.
 - Already accepted for batch 8: C3h (H28: exploiter 2 heads-up +0.225, three-handed +0.157, 8-max +0.041, adapt1
   heads-up +0.155) and S20's R6 (H32: elite +0.015, mirror +0.019, elite_b +0.018, mirror_b +0.019, realistic level).
+
+## The climb: batch 7's gate on a quieter box (2026-11-04 08:39, builder: the climb's coordinator)
+
+Re-run with only one held-out run beside it (load 3.6-3.8 on 8 cores), the same zip (sha256 51c37f02...9848bdc4),
+40 tables strict each: GATE PASS on plain (+0.145 ± 0.493 against the sim's composite), auction (-0.597 ± 0.702),
+bonus_card (+0.020 ± 0.494) and tranche_holdem (-0.241 ± 0.598); 0 exceptions, 0 illegal; timeouts 0.04-0.05% (1.1%
+at load 8-12 before). Batch 7's zip (frozen/B7-038c3f0) is the known-good upload from now on.

@@ -17,7 +17,7 @@ heads-up (V-h). Held-out: batch 5 against batch 4 night +0.096, mirror +0.241, e
 batch 5 exposed card +0.22, knockout bounty +0.11, plain hold'em identical. Batch 7 (S7's heads-up specialist behind
 its looseness gate, S15e's stab read, V-i's value of information on twist decisions, V-j's street-settled twin):
 exploiter 2 heads-up +0.31 and three-handed +0.09, exploiter 3 heads-up +0.10, auction +0.06, tranche +0.18 on H31,
-judges level; its gate re-runs on a quiet box before it replaces batch 6's zip as known-good. F is first on every
+judges level, gate pass (frozen/B7-038c3f0, zip 51c37f02: the known-good upload). F is first on every
 judge field and first in the elite room. Open gap: exploiter 2 still leads heads-up (about 8.9 to 8.1). Accepted for
 batch 8: C3h (exploiter 2 heads-up +0.23) and S20's R6 (solved three-handed play on the button at strong tables:
 elite, mirror, elite_b, mirror_b +0.015 to +0.019). `BATCH7_OFF` plays batch 6, `BATCH6_OFF` batch 5 and `BATCH5_OFF`
