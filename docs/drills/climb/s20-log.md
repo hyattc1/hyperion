@@ -514,3 +514,5 @@ tables/*.json).
   strong builds (the realistic field's few open tables).
 - 4- and 5-alive jam/fold under ~15 bb (S14's pre_open_short gap, F +0.11-0.14 bb a decision against elite1's
   +0.27-0.43) was not built: step 1 recorded only two- and three-handed hands, and time went to the gates.
+- 22:12 Final checks on the branch code 77634e3 (main merged, every S20 dial): identity 14 of 14 chunks equal to
+  main's (`goal/s20/idchk4`); full suite `pytest -q -m "not timing"`: **1,416 passed, 5 skipped, 0 failed** (6:41).
