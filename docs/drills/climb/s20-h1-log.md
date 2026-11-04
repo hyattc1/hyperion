@@ -55,3 +55,9 @@ realization fit by SPR, where F loses heads-up at strong tables by line. No scre
   elite2 folds 11% and re-shoves 61% (+0.60). Under 10 bb F pushes 95% of buttons, like the elites, and at 20-40 bb
   F's button is level with them. So the heads-up target is 10-20 bb, where a jam-or-fold button and a re-shove-heavy
   big blind beat F's min-raise-and-fold; that is also where a flop's realization matters least (SPR under ~4).
+- 09:42 **For comparison, S13's heads-up equilibrium** (tables/short_hu.json, chip EV, the old fixed flop model):
+  at 10-20 bb its button folds 1-22%, *limps* 35-88% (more as stacks deepen), never min-raises, and jams 42% at 10
+  bb, 15% at 16, 3% at 20; its big blind against an open folds 2-9%, calls 54-72%, jams 21-36%. Neither F nor the
+  strong builds limp (F's big blind faced a limp 73 times in 26,328 heads-up hands), so the limped pot's realization,
+  on which that limp-heavy button rests, cannot be measured from our own play; the re-solve should either drop the
+  button's limp below ~25 bb or price it from the big blind's side of limped pots, and say which.
