@@ -1,6 +1,6 @@
 # Resume here (the climb, if the session or usage stops)
 
-Updated 2026-11-03 22:15 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
+Updated 2026-11-03 23:10 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
 through 13, then "The climb: batch 6"). Main is pushed after every merge. F as it ships is batch 6 (91014ae,
 frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BATCH6_OFF plays batch 5).
 
@@ -9,12 +9,13 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
   +0.026 up, none down). Gate pass plain, exposed_card, knockout_bounty. Nothing left to do for it.
 
 ## Held-out results this round (goal-log 22:15)
-- V-i (H23) ACCEPT, c6 (H29) ACCEPT: both twist-only, both join batch 7. O3 (H24) REJECT. C3 rejected (H27).
+- V-i (H23) ACCEPT, c6 (H29) ACCEPT: both twist-only, both join batch 7. S7 (H25) ACCEPT (plain hold'em, heads-up
+  and three-handed against exploiter 2 only). O3 (H24) REJECT. C3 rejected (H27).
+- If S20's R5 passes too: scope short_strong, short.defer and short.defer_3bet per route first (goal-log 23:10).
 - Batch 7 needs judges on fresh judge seeds 60000-60399 (addendum 12) only if a plain hold'em part joins it.
 
 ## Queued or running, detached (each against batch 6, --runout-term)
-- S7 on H25: goal/b24/chain2.sh, output goal/b24/s7_h25.md (ends "done"), CHAIN2_DONE.
-- S15e on H26 after S7: goal/b25/chain3.sh, output goal/b25/s15e_h26.md, CHAIN3_DONE.
+- S15e on H26 (running since 23:09): goal/b25/chain3.sh, output goal/b25/s15e_h26.md, CHAIN3_DONE.
 - C3h on H28 after S15e: goal/b26/chain4.sh, output goal/b26/c3h_h28.md, CHAIN4_DONE.
 - S20's R5 on H30, in parallel: goal/b28/run.sh (worktree goal/wt_measure9 at d046fef), output goal/b28/s20_h30.md,
   RUN_DONE. Merging it brings tables/extra/short_3b.json (pack.py copies tables/*.json only: the ship must carry it).
@@ -33,7 +34,7 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
   entry the same day. Our regional is Pittsburgh, Nov 12; the climb stops by Nov 11 18:00 ET.
 
 ## Held-out sets used
-H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); H22-H24 used (C3, V-i, O3); H25 queued for S7, H26 for S15e, H27 for
+H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); H22-H24 used (C3, V-i, O3); H25 used (S7), H26 for S15e, H27 for
 C3's bonus_card replicate (down: C3 rejected), H28 for C3h (goal/b26/chain4.sh, output
 goal/b26/c3h_h28.md, CHAIN4_DONE), H29 used by V-j's c6, H30 (50000-50399) for S20's R5; next fresh H31 = 51000-51399
 (worker briefs say held-out is 20000-49999: widen it to 20000-59999 in the next brief). Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 60000-60399 (30800-31199 would overlap H11's 31000-31399), then 60400-60799 for a replicate.

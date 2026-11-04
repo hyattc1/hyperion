@@ -1345,3 +1345,17 @@ and (in judges) `elite_judge`.
   screen is 10000-10199, --aim strong, every stage.
 - Judge seeds for batch 7 move to 60000-60399: the planned 30800-31199 overlaps H11 (31000-31399). Worker briefs
   reserve 20000-60399.
+
+## 23:10: S7 accepted on H25
+- S7 (S6's heads-up specialist routes with S13c's looseness gate: VPIP 0.50-0.88, PFR 0.30 or more; dials in
+  goal/b24/s7.json) on H25 (45000-45399) against batch 6, --aim exploit, every stage, runout term: **ACCEPT**.
+  exploit2 heads-up +0.328 ± 0.078 and exploit2 three-handed +0.105 ± 0.034 UP; every other cell identical (0 ±
+  0: the gate never opened on night, realistic, the guards, the strong tables, the other exploiters, adapt1, the
+  variants or the aware fields). Weighted +0.0018 ± 0.0007 (lower bound +0.0011), W-min lower bound +0.0004. H25
+  used. It joins batch 7 (a plain hold'em part: batch 7's judges on 60000-60399 decide whether it opens on bots we
+  never tuned on).
+- Composition note for batch 7: S7 and S20's R5 both set `short_route` (pre_hu/post_hu_* and pre_3way), and S20's
+  `short_strong`, `short.defer` and `short.defer_3bet` apply to the whole specialist (hyperion/compose/bot.py, the
+  short section check; hyperion/strategy/short.py). Combined as they are, S20's strong-read gate would shut S7's
+  heads-up routes against exploiter 2. If R5 passes H30, scope those three per route so each part plays as it was
+  accepted, and prove it by play digests before the combined check.
