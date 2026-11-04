@@ -37,7 +37,17 @@ Nothing is lost: everything decided is committed and pushed; the scratchpad (goa
    15:10, so it replays from cache in seconds; then the judges 60400-60799, then timing), goal/b35/run.sh (O8, H35),
    goal/b36/run.sh (S22, H36). Workers: 3 + 2 + 2, more with the new cores. The batch 8 freeze staging worker
    (climb/batch8-freeze, goal/wt_b8f) was stopped: resume from its branch's last WIP commit (SHIP_DIALS + BATCH8_OFF,
-   identity both ways goal/idchk38 and idchk39, suite, setup time); the brief is goal/b8f_brief.md. The
+   identity both ways goal/idchk38 and idchk39, suite, setup time); the brief is goal/b8f_brief.md. Its WIP commit
+   9bc51e8 (pushed): SHIP_DIALS + BATCH8_OFF done, identity (a) PASS (9 of 9 rows, base and cand both BATCH8_OFF as
+   idchk33 did). Left: identity (b) (re-run goal/idchk38.sh: the wt_b8ref half with --cand goal/b32/b8.json into
+   goal/idchk39ref, then the wt_b8f half with --cand {} into goal/idchk39; compare cand columns), remove wt_b8ref,
+   the suite (expected to fail and move onto BATCH8_OFF: test_s20_three.py:202, test_s13_short.py's route set,
+   test_s17_stab_size.py, test_s21_o5.py and test_s16b_open.py's {} reference), setup time, a final commit.
+   **Pack caveat (found 15:25):** tools/pack.py ships only the top level of tables/*.json, so it leaves out
+   tables/extra/short_3b.json (3.0 MB, R6's three-handed table); the specialist's loader then returns None and R6
+   silently does not play in the package. Batch 7's zip is unaffected (it uses no extra table). At batch 8's pack:
+   include the file, and make a missing table that a shipped dial names fail loudly (pack or gate), not silently;
+   measure setup time and size with it included. The
    backup (~/dev/hyperion-goal-backup/goal) now holds the result caches too (accept_*); /tmp is not cleared at boot
    (no systemd in this WSL).
 3. Batch 8 on climb/batch8 (goal/wt_b8, ac1f18c: O5 merged, candidate C3h + R6 scoped + O5, identity 14/14): ACCEPTED on
