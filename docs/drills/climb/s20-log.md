@@ -363,3 +363,12 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
   of its 8 rotations (±0.01-0.25); 16 of R4's 26 are negative (a sign test cannot tell). The cell's interval is narrow
   because 87% of its seeds are identical by construction. A real, small cost at the few realistic tables whose read
   opens the route, or a handful of position swaps: the protocol counts it as down either way.
+- 19:16 **R4** exploit + elite at 100 seeds (`q/046_R4.out`): elite +0.033 ± 0.019 UP, elite_b +0.029 ± 0.020 UP,
+  mirror_b +0.038 ± 0.017 UP, mirror +0.014, elite_night +0.008; exploit3 +0.058 ± 0.044 UP; exploit -0.026, exploit_3
+  -0.086, exploit2 -0.023, exploit2_3 -0.008, exploit3_3 +0.066, adapt +0.006, adapt_3 -0.001 (level). Weighted (all
+  stages run so far): W +0.0115 ± 0.0138, W-min +0.0038 ± 0.0180. R3 and GK25R read the same within noise on every
+  cell; R4 is the final candidate (night up, realistic the least down, the narrowest gate):
+  `{"short_route": "pre_3way=short", "short.three2": true, "short.three2_file": "3b", "short.defer_3bet": 0.25,
+  "short_strong": true, "short.three2_keep_defence": true, "short.three2_roles": "btn,sb", "short.defer":
+  "dead,station,maniac,random,nit"}`. Its full screen (exploit and elite to 200 seeds, all 26 variants with F's base)
+  is queued after the final identity check.
