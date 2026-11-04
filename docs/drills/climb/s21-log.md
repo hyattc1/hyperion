@@ -378,3 +378,14 @@ seeds 12200-12999.
   opening. The layer (steal_min_fold 0.7) rarely reaches its threshold with such seats behind. So O6 is a looser open
   from early and middle position, on reads that are calibrated; whether rival 3's crude call-cost term (0.55 of the
   raise lost when called) prices those extra opens right is what the screen tests.
+- 06:55 Code (607a152): `r3.oa_other` (with `r3.oa_bb_only`: the seats that are not a blind take `oa_fold(s, 0)`,
+  O3's estimator, in the open clause; the small blind keeps `_fold_prob`) and `exploit.open_other` (the same in the
+  layer's steal_min_fold); off by default; CONTRACTS.md regenerated. Tests added to tests/test_s21_o5.py (the layer
+  reads the big blind and the non-blind seats but not the small blind; off = O5 exactly; on, it moves play and
+  replays; twist and straddle tables as F; SHIP_DIALS off).
+- **Identity** (goal/s21o6/idchk.sh from this worktree at 607a152): **14 of 14** identical to goal/idchk26/post; and
+  this code's F chunk 10000 equals the S21 screen's cached F sample for sample on all seven cells (the check O5's
+  pin used), so F's 448 cached chunks are pinned again (key 02b03d100fcc).
+- Candidate O6 (docs/drills/climb/s21-o6-candidate.json) = O5's dials + `r3.oa_other` + `exploit.open_other`.
+  Screen started: 10000-10199, every stage, `--aim strong --runout-term`, 2 workers, nice 5 (goal/s21o6/screen_O6.sh,
+  output goal/s21o6/screen_O6.md).
