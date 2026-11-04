@@ -3485,3 +3485,18 @@ field `outside_c` (hero, out_reads, the three second-wave outside judges, elite 
 measured once per batch in the judges stage from batch 8's judge run on. In model mode it plays at a fixed speed
 (its sampler's clock advances 15 µs per read, the median measured on this box at load 8: about 13 reads in its 200 µs
 budget) and its module-level generator is seeded from the seat seed at every table, so runs replay exactly.
+
+## The climb: addendum 15 (exploiter 4 joins the exploit stage) (2026-11-04, builder: the climb's coordinator)
+
+Batch 7 changed F short-handed, so a fresh red-team agent played batch 7's ship (038c3f0) as a black box through
+exploiter 3's arena (no access to exploiters 1-3's findings) and built exploiter 4 (goal/exploiter4, md5
+fc1fdc77d71300fdb8f2c23d20634849). On its own arena it trails F at 8-max (5.13 against 5.59 over 450 tables), wins
+heads-up 56-59% and ties three-handed; its notebook lists F's leaks (the river over-fold first).
+
+Fixed before it is measured by climb_accept: exploiter 4 joins the exploit stage as a tuning opponent, never in a
+night pool, with cells `exploit4` (8-max, with six night seats), `exploit4_hu` and `exploit4_3` (one night seat),
+as exploiter 3's. In the weighted score's adapter family (addendum 11's weights, tools/accept_weights.json) the five
+adapter bots take a fixed fifth each inside a format (a quarter each before); the family's weight and range are
+unchanged. In model mode it plays at a fixed speed (its equity sampler's clock advances a measured step per read)
+and its generator is reseeded from the seat seed at every table. From the first climb_accept run started after its
+wiring merges; runs already started (batch 8's combined check on H34) keep the protocol they started under.

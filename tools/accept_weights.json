@@ -34,14 +34,15 @@
    "name": "adapters",
    "weight": 0.15, "range": [0.05, 0.30],
    "formats": {"8max": 0.3333333333333333, "three": 0.3333333333333333, "hu": 0.3333333333333333},
-   "bot_share": 0.25,
+   "bot_share": 0.2,
    "bots": {
     "exploiter1": {"8max": "exploit", "hu": "exploit_hu", "three": "exploit_3"},
     "exploiter2": {"8max": "exploit2", "hu": "exploit2_hu", "three": "exploit2_3"},
     "exploiter3": {"8max": "exploit3", "hu": "exploit3_hu", "three": "exploit3_3"},
+    "exploiter4": {"8max": "exploit4", "hu": "exploit4_hu", "three": "exploit4_3"},
     "adapt1": {"8max": "adapt", "hu": "adapt_hu", "three": "adapt_3"}
    },
-   "rule": "8-max, three-handed and heads-up a third each; inside a format each adapter bot a fixed quarter; a bot not run counts 0 +- 0"
+   "rule": "8-max, three-handed and heads-up a third each; inside a format each adapter bot a fixed fifth (a quarter before addendum 15); a bot not run counts 0 +- 0"
   },
   "twist_realistic": {
    "name": "twist, twist-blind field",

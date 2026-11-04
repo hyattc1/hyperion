@@ -1,6 +1,6 @@
 # Resume here (the climb, if the session or usage stops)
 
-Updated 2026-11-04 11:40 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
+Updated 2026-11-04 14:05 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
 through 13, then "The climb: batch 6" and "The climb: batch 7"). Main is pushed after every merge. F as it ships is batch 7 (038c3f0,
 frozen/B7-038c3f0, kit B zip 51c37f02; SHIP_DIALS in hyperion/compose/bot.py; BATCH7_OFF plays batch 6). Gate pass
 (re-run at load 4): batch 7's zip is the known-good upload.
@@ -24,17 +24,19 @@ Nothing is lost: everything decided is committed and pushed; the scratchpad (goa
 (without the result caches accept_* and the git worktrees wt_*, which are rebuilt from branches).
 1. Check: `nproc`, `free -g` (WSL takes half the RAM unless C:\Users\Connor\.wslconfig sets memory=); `git -C
    ~/dev/hyperion status`; `ls goal/` still there (else copy back from the backup and re-add worktrees).
-2. O8's screen (goal/s21o8/screen_O8.sh, output screen_O8.md, done-file screen_O8.done): if no done-file, re-run
-   it as is (its cached chunks in goal/s21o8/screen stand; check no chunk file there is empty or cut: a JSON that
-   fails to load is deleted first). Workers can rise with the new cores.
-3. Batch 8 on climb/batch8 (goal/wt_b8): merge climb/s21-o5 (2de5070), add O5's dials to
-   docs/drills/climb/batch8-candidate.json (C3h + R6 scoped + O5); combined check on H34 (54000-54399) against
+2. O8 passed its screen (14:00; goal-log 14:05) and is on H35 on top of batch 8: climb/b8-o8 (goal/wt_b8o8 = batch 8 +
+   main + climb/s21-o8), goal/b35/run.sh (identity first, goal/idchk36.md against idchk34, goal/b35/identity.txt; then
+   o8_h35.md; RUN_DONE). If no RUN_DONE, re-run it as is (cached chunks in goal/idchk36 and goal/accept_b8o8 stand;
+   delete any chunk JSON that fails to load). If it passes, O8 joins batch 9 (not batch 8).
+3. Batch 8 on climb/batch8 (goal/wt_b8, ac1f18c: O5 merged, candidate C3h + R6 scoped + O5, identity 14/14): its
+   combined check runs as goal/b34/run.sh (outputs b8_h34.md, judges.md, lat_*; RUN_DONE): if no RUN_DONE, re-run it
+   as is (cached chunks in goal/accept_b8 stand; delete any chunk JSON that fails to load). It is the check on H34 (54000-54399) against
    batch 7, every stage, --aim strong, runout term; judges 60400-60799 (13 cells now, outside_c included); timing;
    then SHIP_DIALS + BATCH8_OFF, identity, suite, pack, gate, freeze, docs (batch 7's entry is the template).
    If O8 passes its screen, it goes to its own held-out set (H35) and joins batch 9, not batch 8.
 4. Workers to resume (agents, by their logs on their branches): H1 (climb/s20-h1: settle the S7 coexistence rule
-   and R6's exploiter-1 guards, full solve, screen); exploiter 4 to wire in as a tuning field (goal/exploiter4,
-   NOTEBOOK.md; as exploiter 3); S22 = exploiter 4's river over-fold (goal-log 10:47 entry).
+   and R6's exploiter-1 guards, full solve, screen); exploiter 4 is wired in (addendum 15); S22 (climb/s22-river,
+   goal/wt_s22, log docs/drills/climb/s22-log.md): exploiter 4's river over-fold, resume from its log.
 5. Re-time on the quiet new box (latency.py, gate) and keep the rehearsal on the final ship for the end.
 
 ## Batch 8 (being composed)
@@ -62,7 +64,7 @@ Nothing is lost: everything decided is committed and pushed; the scratchpad (goa
 
 ## Held-out sets used
 H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); H22-H24 used (C3, V-i, O3); H25 used (S7), H26 used (S15e), H27 for
-C3's bonus_card replicate (down: C3 rejected), H28 used (C3h), H29 used by V-j's c6, H30 used by S20's R5, H31 for batch 7's combined check, H32 used (R6), H33 used (O5); next fresh H34 = 54000-54399
+C3's bonus_card replicate (down: C3 rejected), H28 used (C3h), H29 used by V-j's c6, H30 used by S20's R5, H31 for batch 7's combined check, H32 used (R6), H33 used (O5), H34 for batch 8's combined check, H35 for O8 (on batch 8); next fresh H36 = 56000-56399
 (worker briefs say held-out is 20000-49999: widen it to 20000-59999 in the next brief). Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 60000-60399 (30800-31199 would overlap H11's 31000-31399), then 60400-60799 for a replicate.
 
 ## End deliverables (goal.md)
