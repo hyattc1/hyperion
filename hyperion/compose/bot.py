@@ -96,7 +96,8 @@ steal_min_fold reads the same (`Exploit.open_fold`, wired here to the base's cor
 **The short-handed route** (S13, `short_route`, off by default): sections played by another donor (the specialist
 `short`, hyperion/strategy/short.py) while at most `short_alive` players have chips and that member `wants` the decision
 (the hand maps onto its tables, no opponent alive reads as a clear leak); otherwise the section's donor as above. The
-member's dials are `short.<name>` (short_params). Plain hold'em tables only (holdem_only, plain_only), like the elite
+member's dials are `short.<name>` (short_params); with `short.hu2` (S20 H1) the composite hands the member its
+strong-table read before each `wants` (the member's second heads-up path plays only while it is open). Plain hold'em tables only (holdem_only, plain_only), like the elite
 builds; its light shadow records only the hand's starting chips.
 """
 from __future__ import annotations
@@ -713,6 +714,8 @@ class CompositeCore:
         s2 = cfg.strong2_route
         self.strong2 = [(idx[DONORS[s2[s]][0]], DONORS[s2[s]][1]) if s in s2 else None for s in SECTIONS] if s2 else None
         self._rr_on = self.strong is not None or self.strong2 is not None  # keep the read
+        if any(getattr(m, "needs_strong", False) for m in self.members):  # S20 H1: a member reads it too
+            self._rr_on = True
         bvb = cfg.strong_bvb
         if isinstance(bvb, str):
             bvb = set(parse_route({k.strip(): "1" for k in bvb.split(",") if k.strip()}))
@@ -968,8 +971,11 @@ class CompositeCore:
                 if alive <= self.cfg.short_alive:
                     hi = self._hero_idx
                     prof = getattr(self.members[hi], "prof", None) if hi >= 0 else None
+                    mem = self.members[si]
+                    if getattr(mem, "needs_strong", False):  # S20 H1: the member's second heads-up path reads it
+                        mem.strong_open = self.strong_table()
                     try:
-                        ok = self.members[si].wants(obs, prof, self.base)
+                        ok = mem.wants(obs, prof, self.base)
                     except Exception:  # noqa: BLE001 - a slip in the read keeps F's route
                         ok = False
                         counts["short:error"] += 1

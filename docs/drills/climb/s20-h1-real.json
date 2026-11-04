@@ -319,5 +319,9 @@
    }
   },
   "note": "S20 H1 step 1: heads-up flops only (hands that start heads-up), F = batch 7 (main f028f50), diagnostic seeds 14000-14799; groups strong (elite, mirror, elite_b, mirror_b), exploit (exploit_hu, exploit2_hu, exploit3_hu, adapt_hu), night (night, elite_night), equal weight; our seat = F and f_copy"
- }
+ },
+ "clip": [
+  -0.3,
+  1.3
+ ]
 }

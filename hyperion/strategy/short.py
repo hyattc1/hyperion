@@ -182,6 +182,17 @@ class ShortParams:
         self.bet_bluff = {"agg_ip": (0.26, 0.20, 0.15), "agg_oop": (0.18, 0.16, 0.13),
                           "stab": (0.22, 0.16, 0.12), "lead": (0.0, 0.0, 0.0)}
         self.mdf_slack = 0.0  # defend this much less than minimum defence (0 = exactly MDF)
+        # S20 H1: a second heads-up preflop (tables/short_<hu2_file>.json, tools/solve_short.py hu2: no button limp under
+        # 25 bb, two 3-bet sizes, flops at our own postflop's fitted share, solved per seat), for decisions S7 never
+        # takes: only against a seat the `like_*` gates refuse (S7's decisions stay S7's), while the composite's strong
+        # read is open (it sets `strong_open` before `wants`), heads-up, no antes. Off by default
+        self.hu2 = False
+        self.hu2_file = "hu2"
+        self.hu2_roles = "sb,bb"  # ... the seats it plays (sb = the button)
+        self.hu2_defer_3bet = 1.0  # ... back to F against a seat 3-betting our opens at least this often (1.0 = off)
+        self.hu2_keep_defence = False  # ... once our own raise this hand is re-raised, F's 3-bet defence plays
+        self.hu2_min = 0.0  # ... only at this effective depth (bb) or deeper
+        self.hu2_max = 1000.0  # ... and at most this
         for k, v in kw.items():
             if not hasattr(self, k):
                 raise KeyError(f"unknown short dial {k!r}")
@@ -207,6 +218,11 @@ class ShortMember:
         self.hul = _load("hu_lock") if self.p.wide_open < 1.0 else None
         self.hut3 = _load("hu_t3") if self.p.t3_sizes else None
         self.t3 = _load("3") if self.p.three else None
+        self.hu2 = _load(str(self.p.hu2_file)) if self.p.hu2 else None
+        self._roles2 = frozenset({"sb": 0, "bb": 1}[x.strip()] for x in str(self.p.hu2_roles).split(",") if x.strip())
+        self.needs_strong = self.hu2 is not None  # the composite passes its strong-table read (`strong_open`)
+        self.strong_open = False
+        self._hu2_mode = False  # the last `wants` gave the decision to the second heads-up path
         self.payouts = (1.0, 0.0)
         self.rho = 0.4
         self.n = 0
@@ -265,28 +281,49 @@ class ShortMember:
     # ------------------------------------------------------------------ routing
     def wants(self, obs: Observation, prof, base=None) -> bool:
         """This decision is ours: the hand maps onto our tables / heads-up postflop, and no opponent alive reads as a
-        clear leak (module doc). `base`: the composite's base member, whose rival 3 core keeps the 3-bet read."""
+        clear leak (module doc). `base`: the composite's base member, whose rival 3 core keeps the 3-bet read. With
+        `hu2` (S20 H1) a decision S7's gates refuse may go to the second heads-up path; every decision S7's own path
+        wants stays S7's."""
+        self._hu2_mode = False
+        if self._wants_s7(obs, prof, base):
+            return True
+        if self.hu2 is not None and self._wants_hu2(obs, prof, base):
+            self._hu2_mode = True
+            return True
+        return False
+
+    def _like_on(self) -> bool:
+        p = self.p
+        return p.like_probe > 0 or p.like_bet > 0 or p.like_pfr > 0 or p.like_vpip_min > 0 or p.like_vpip_max > 0
+
+    def _like_ok(self, obs: Observation, prof, alive) -> bool:
+        """S13b's / S13c's exploiter-2 gate: every opponent alive reads like one (the like_* dials)."""
+        p = self.p
+        for j in alive:
+            if j == obs.seat:
+                continue
+            try:
+                probe = (prof.pb_bet[j] + 0.9) / (prof.pb_opp[j] + 2.0)
+                bet = (prof.pb_bet[j] + prof.ab_bet[j] + 1.6) / (prof.pb_opp[j] + prof.ab_opp[j] + 4.0)
+                pfr = prof.pfr_rate(j)
+                vpip = prof.vpip_rate(j) if (p.like_vpip_min > 0 or p.like_vpip_max > 0) else 0.5
+            except Exception:  # noqa: BLE001
+                return False
+            if probe < p.like_probe or bet < p.like_bet or pfr < p.like_pfr:
+                return False
+            if vpip < p.like_vpip_min or (p.like_vpip_max > 0 and vpip > p.like_vpip_max):
+                return False
+        return True
+
+    def _wants_s7(self, obs: Observation, prof, base=None) -> bool:
+        """The specialist's own routes (S13, S7): `wants` before H1, unchanged."""
         self.light_observe(obs)
         self._prof = prof
         stacks, bets, in_hand = obs.stacks, obs.bets, obs.in_hand
         alive = [j for j in range(len(stacks)) if stacks[j] + bets[j] > 0 or in_hand[j]]
-        if prof is not None and (self.p.like_probe > 0 or self.p.like_bet > 0 or self.p.like_pfr > 0
-                                 or self.p.like_vpip_min > 0 or self.p.like_vpip_max > 0):
-            p = self.p
-            for j in alive:
-                if j == obs.seat:
-                    continue
-                try:
-                    probe = (prof.pb_bet[j] + 0.9) / (prof.pb_opp[j] + 2.0)
-                    bet = (prof.pb_bet[j] + prof.ab_bet[j] + 1.6) / (prof.pb_opp[j] + prof.ab_opp[j] + 4.0)
-                    pfr = prof.pfr_rate(j)
-                    vpip = prof.vpip_rate(j) if (p.like_vpip_min > 0 or p.like_vpip_max > 0) else 0.5
-                except Exception:  # noqa: BLE001
-                    return False
-                if probe < p.like_probe or bet < p.like_bet or pfr < p.like_pfr:
-                    return False
-                if vpip < p.like_vpip_min or (p.like_vpip_max > 0 and vpip > p.like_vpip_max):
-                    return False
+        if prof is not None and self._like_on():
+            if not self._like_ok(obs, prof, alive):
+                return False
         if obs.street == 0 and base is not None and self.p.defer_3bet < 1.0:
             core = getattr(base, "core", None)
             v3o, v3n = getattr(core, "v3o", None), getattr(core, "v3n", None)
@@ -339,6 +376,135 @@ class ShortMember:
             if rate < self.p.post_aggr:
                 return False
         return bool(self._start) and self._replay(obs) is not None
+
+    # ------------------------------------------------------------------ preflop: heads-up, the second tree (S20 H1)
+    def _wants_hu2(self, obs: Observation, prof, base=None) -> bool:
+        if obs.street != 0 or not self.strong_open or obs.pot > 0:
+            return False
+        alive = [j for j in range(len(obs.stacks)) if obs.stacks[j] + obs.bets[j] > 0 or obs.in_hand[j]]
+        if len(alive) != 2:
+            return False
+        if prof is not None and self._like_on() and self._like_ok(obs, prof, alive):
+            return False  # a seat S7's gates admit: S7's decision (or F's), never H1's
+        if base is not None and self.p.hu2_defer_3bet < 1.0:
+            core = getattr(base, "core", None)
+            v3o, v3n = getattr(core, "v3o", None), getattr(core, "v3n", None)
+            if v3o is not None:
+                for j in alive:
+                    if j != obs.seat and j < len(v3o) and (v3n[j] + 0.96) / (v3o[j] + 8.0) >= self.p.hu2_defer_3bet:
+                        return False
+        if prof is not None and self.defer:
+            for j in alive:
+                if j != obs.seat:
+                    try:
+                        if prof.archetype(j) in self.defer:
+                            return False
+                    except Exception:  # noqa: BLE001
+                        return False
+        if self.p.hu2_keep_defence and obs.to_call > 0 and any(
+                seat == obs.seat and a.kind is _RAISE for seat, a in obs.history):
+            return False
+        got = self._hu2_node(obs)
+        if got is None or got[3] not in self._roles2:
+            return False
+        S = got[4] / (obs.blinds[1] or 1)
+        return self.p.hu2_min <= S <= self.p.hu2_max
+
+    def _hu2_node(self, obs: Observation):
+        """(depth solve, node key, node, my role, eff chips) in the second heads-up tree, or None. Raises map onto each
+        node's stored sizes (`_map_raise2`)."""
+        t = self.hu2
+        if t is None or not self._start:
+            return None
+        n = len(obs.stacks)
+        alive = [j for j in range(n) if self._start[j] > 0]
+        if len(alive) != 2:
+            return None
+        sb = obs.button
+        if sb not in alive:
+            return None
+        bbs = alive[0] if alive[1] == sb else alive[1]
+        bb = obs.blinds[1] or 1
+        eff = min(self._start[sb], self._start[bbs])
+        d = self._depth(t, eff / bb, obs.hand_no, "d2b")
+        sol = t["solve"][d]
+        nodes = sol["nodes"]
+        role = {sb: 0, bbs: 1}
+        key = ""
+        cur = float(bb)
+        k = 0
+        for seat, a in obs.history:
+            node = nodes.get(key)
+            if node is None or role.get(seat) != node["p"]:
+                return None
+            kind = a.kind
+            if kind is _FOLDK:
+                return None
+            if kind is _CALLK or kind is _CHECKK:
+                ch = "c"
+            else:
+                ch = self._map_raise2(node, float(a.amount), cur, float(self._start[seat]), obs.hand_no, k, float(eff))
+                cur = max(cur, float(a.amount))
+            if not ch or ch not in node["a"]:
+                return None
+            k += 1
+            key += ch
+        node = nodes.get(key)
+        if node is None or role.get(obs.seat) != node["p"]:
+            return None
+        return sol, key, node, role[obs.seat], eff
+
+    def _map_raise2(self, node, amount: float, cur: float, jam_to: float, hand_no: int, k: int,
+                    eff: float = 0.0) -> str:
+        """A raise onto the node's raise actions and the jam: at or over 45% of the raiser's effective stack it is the
+        jam; under the smallest size, the smallest; between two sizes, either on a log scale (a draw fixed per hand);
+        between the largest size and the 45% line, the largest."""
+        z = node.get("z") or {}
+        eff = eff or jam_to
+        cands = sorted((m * cur, ch) for ch, m in z.items() if m * cur < jam_to - 1e-9)
+        has_j = "j" in node["a"]
+        if amount >= jam_to - 1e-9 or amount >= 0.45 * eff:
+            return "j" if has_j else ""
+        if not cands:
+            return ""  # a small raise where the tree only jams: not a line of ours
+        if amount <= cands[0][0]:
+            return cands[0][1]
+        for x in range(1, len(cands)):
+            if cands[x][0] >= amount:
+                lo, hi = cands[x - 1], cands[x]
+                w = (math.log(amount) - math.log(lo[0])) / (math.log(hi[0]) - math.log(lo[0]))
+                return hi[1] if _u(self.seed, hand_no, "map2", k) < w else lo[1]
+        return cands[-1][1]
+
+    def _to_action_z(self, ch: str, node, obs: Observation, eff: float) -> Action:
+        """A node's action as chips: its raise sizes are multiples of the bet faced (the jam over 40% of eff)."""
+        legal = obs.legal
+        if ch in ("f", "c"):
+            return self._to_action(ch, "", {}, obs, eff)
+        if _RAISE not in legal:
+            return _CALL if _CALLK in legal else _CHECK
+        if ch == "j":
+            return Action(_RAISE, obs.max_raise)
+        m = (node.get("z") or {}).get(ch)
+        if m is None:
+            return Action(_RAISE, obs.max_raise)
+        amt = m * float(max(obs.bets))
+        if amt > 0.4 * eff:
+            return Action(_RAISE, obs.max_raise)
+        amt = int(round(amt))
+        return Action(_RAISE, max(obs.min_raise, min(obs.max_raise, amt)))
+
+    def _preflop_hu2(self, obs: Observation):
+        got = self._hu2_node(obs)
+        if got is None:
+            return None
+        sol, key, node, role, eff = got
+        cls = CLASS_INDEX.get(hole_class(obs.hole))
+        if cls is None:
+            return None
+        ch = self._pick(node, cls, obs, self.hu2["q"], "pre2" + key)
+        self.counts["hu2:" + key + ch] = self.counts.get("hu2:" + key + ch, 0) + 1
+        return self._to_action_z(ch, node, obs, eff)
 
     # ------------------------------------------------------------------ preflop: heads-up
     def _depth(self, table, S: float, hand_no: int, salt: str) -> float:
@@ -515,6 +681,8 @@ class ShortMember:
         return Action(_RAISE, amt)
 
     def _preflop(self, obs: Observation):
+        if self._hu2_mode:
+            return self._preflop_hu2(obs)
         alive = sum(1 for s, b, h in zip(obs.stacks, obs.bets, obs.in_hand) if s + b > 0 or h)
         if alive == 2:
             got = self._hu_node(obs)

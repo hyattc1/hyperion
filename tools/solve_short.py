@@ -4,6 +4,7 @@
     .venv/bin/python tools/solve_short.py hu --iters 600 --workers 2          # tables/short_hu.json
     .venv/bin/python tools/solve_short.py three --iters 300 --workers 2       # tables/extra/short_3.json
     .venv/bin/python tools/solve_short.py check --depth 10                    # push/fold tree vs pushfold_hu
+    .venv/bin/python tools/solve_short.py hu2 --real FIT.json --workers 2     # tables/short_hu2.json (S20 H1)
 
 **The game.** An abstracted preflop tree at one stack configuration (blinds 0.5 / 1 bb, no antes), 169 hand classes
 per player with card-removal weights (hyperion.strategy.pushfold.removal_weights) and the all-in equity matrix
@@ -136,7 +137,7 @@ def matvec(M, v):
 
 # ------------------------------------------------------------------------------------------------ tree
 class Node:
-    __slots__ = ("player", "acts", "kids", "key", "term", "reg", "avg", "n", "lock")
+    __slots__ = ("player", "acts", "kids", "key", "term", "reg", "avg", "n", "lock", "sizes")
 
     def __init__(self, player=-1, key=""):
         self.player = player
@@ -147,6 +148,7 @@ class Node:
         self.reg = None
         self.avg = None
         self.lock = None  # a fixed strategy (per action, per class): a node-locked opponent (cmd_lock)
+        self.sizes = None  # the raise sizes of the node's raise actions (hu2_tree)
 
 
 def dec(player, key, children):
@@ -933,6 +935,223 @@ def cmd_compact(a):
     print("wrote", a.dst, os.path.getsize(a.dst), "bytes")
 
 
+# ------------------------------------------------------------------------------------------------ heads-up, v2 (S20 H1)
+# The second heads-up tree (docs/drills/climb/s20-h1-log.md), pure Python like `hu`. What changed from `hu` and why:
+# - the button limps only at H2_LIMP_MIN bb or deeper: no bot we measured limps heads-up, so the limped pot's
+#   realization is unmeasured (S13's tree limped 35-88% of buttons at 10-20 bb on the old flop model);
+# - the big blind 3-bets an open at two sizes (H2_X, multiples of the open: a size between maps on a log scale), and the
+#   button answers each with fold / call / 4-bet / jam; the big blind's re-shove stays (the jam at every node);
+# - the flop's share comes from our own postflop's fit (`--real`: offsets over the old model by SPR, our seat in position
+#   and out of position, as tools/solve_short.py three2 reads them; default the old fixed model), and the solve is per
+#   hero seat: in the solve for hero h every flop is priced at our seat's share for h's position (heads-up every flop has
+#   the hero in it), and the table keeps each seat's nodes from its own solve.
+# Every node records its raise sizes ("z": {action: raise-to as a multiple of the bet it faces}).
+H2_X = (2.3, 3.3)
+H2_R4 = 2.2
+H2_LIMP_MIN = 25.0
+REAL_H2_DEFAULT = {"spr": [0.0, 6.0, 8.0, 40.0],
+                   "hero_ip": {"k": [0.0, 0.1875, 0.25, 0.25], "s": [0.0, 1.0, 1.0, 1.0], "c": [0.0, 0.0, 0.0, 0.0]},
+                   "hero_oop": {"k": [-0.0, -0.1875, -0.25, -0.25], "s": [0.0, 1.0, 1.0, 1.0],
+                                "c": [0.0, 0.0, 0.0, 0.0]}}
+
+
+def _h2_interp(xs, ys, x):
+    if x <= xs[0]:
+        return ys[0]
+    if x >= xs[-1]:
+        return ys[-1]
+    for i in range(1, len(xs)):
+        if xs[i] >= x:
+            w = (x - xs[i - 1]) / (xs[i] - xs[i - 1])
+            return ys[i - 1] + w * (ys[i] - ys[i - 1])
+    return ys[-1]
+
+
+_H2R: dict = {}
+
+
+def realize_h2(real, spr, mode, key=""):
+    """(IP matrix, OOP matrix) as lists, W x share, rows the player's own class, the button (class i) in position
+    against the big blind (class j). mode "hero_ip": the hero is the button, its share E + k E (1 - E) + s (b_i - b_j)
+    + c from real["hero_ip"]; "hero_oop": the hero is the big blind, its own share (1 - E) + k E (1 - E) - s (b_i -
+    b_j) + c from real["hero_oop"] (k negative there for the old model), the button's share 1 minus it."""
+    g = _globals()
+    sp = round(min(spr, 40.0) * 2) / 2
+    ck = (key, sp, mode)
+    m = _H2R.get(ck)
+    if m is not None:
+        return m
+    E, W, b = g["E"], g["W"], g["bonus"]
+    co = real[mode]
+    xs = real["spr"]
+    k, s, c = (_h2_interp(xs, co[x], sp) for x in ("k", "s", "c"))
+    lo, hi = real.get("clip", (0.01, 0.99))
+    ip = [[0.0] * N for _ in range(N)]
+    oop = [[0.0] * N for _ in range(N)]
+    for i in range(N):
+        Ei, Wi, bi = E[i], W[i], b[i]
+        for j in range(N):
+            e = Ei[j]
+            ee = e * (1.0 - e)
+            db = bi - b[j]
+            if mode == "hero_ip":
+                r = e + k * ee + s * db + c
+            else:
+                r = 1.0 - ((1.0 - e) + k * ee - s * db + c)
+            r = lo if r < lo else hi if r > hi else r
+            ip[i][j] = Wi[j] * r
+            oop[j][i] = W[j][i] * (1.0 - r)
+    _H2R[ck] = m = (ip, oop)
+    return m
+
+
+def hu2_tree(S: float, real=None, hero: int = 0, x_sizes=H2_X, limp_min: float = H2_LIMP_MIN):
+    """The second heads-up tree at effective stack S (bb), chip EV, players 0 = the button (small blind), 1 = the big
+    blind; flops at our seat's fitted share for `hero`'s position. Keys are the action strings from the root (f c j; r
+    the node's one raise; s / t the small / big 3-bet)."""
+    real = real or REAL_H2_DEFAULT
+    rkey = json.dumps(real, sort_keys=True)
+    mode = "hero_ip" if hero == 0 else "hero_oop"
+
+    def util_of(c, winner):
+        u = [-c[0], -c[1]]
+        u[winner] += c[0] + c[1]
+        return u
+
+    r1 = 2.0 if S <= 25 else 2.25 if S <= 60 else 2.5
+    iso = 3.0 if S > 12 else 2.5
+
+    def fold(c, loser):
+        return term(("fold", util_of(c, 1 - loser)))
+
+    def showdown(c):
+        return term(("sd2", 0, 1, util_of(c, 0), util_of(c, 1), None))
+
+    def flop(c):
+        pot = c[0] + c[1]
+        spr = (S - c[0]) / pot
+        return term(("sd2", 0, 1, util_of(c, 0), util_of(c, 1), realize_h2(real, spr, mode, rkey)))
+
+    def jam_vs(p, c, key):
+        return dec(p, key, [("f", fold(c, p)), ("c", showdown([S, S]))])
+
+    def node(p, key, kids, sizes):
+        n = dec(p, key, kids)
+        n.sizes = sizes
+        return n
+
+    root = []
+    root.append(("f", fold([0.5, 1.0], 0)))
+    sizes0 = {}
+    if S >= limp_min:
+        bbl = [("c", flop([1.0, 1.0]))]
+        sz = {}
+        if iso <= 0.4 * S:
+            ci = [1.0, iso]
+            bbl.append(("r", node(0, "cr", [("f", fold(ci, 0)), ("c", flop([iso, iso])),
+                                            ("j", jam_vs(1, [S, iso], "crj"))], {})))
+            sz["r"] = iso
+        bbl.append(("j", jam_vs(0, [1.0, S], "cj")))
+        root.append(("c", node(1, "c", bbl, sz)))
+    if r1 <= 0.4 * S:
+        co = [r1, 1.0]
+        bbo = [("f", fold(co, 1)), ("c", flop([r1, r1]))]
+        szo = {}
+        for ch, mult in zip("st", x_sizes):
+            t3 = round(mult * r1 * 4) / 4
+            if t3 > 0.4 * S:
+                continue
+            c3 = [r1, t3]
+            sb3 = [("f", fold(c3, 0)), ("c", flop([t3, t3]))]
+            sz3 = {}
+            t4 = round(H2_R4 * t3 * 2) / 2
+            if t4 <= 0.45 * S:
+                c4 = [t4, t3]
+                sb3.append(("r", node(1, "r" + ch + "r", [("f", fold(c4, 1)), ("c", flop([t4, t4])),
+                                                         ("j", jam_vs(0, [t4, S], "r" + ch + "rj"))], {})))
+                sz3["r"] = H2_R4
+            sb3.append(("j", jam_vs(1, [S, t3], "r" + ch + "j")))
+            bbo.append((ch, node(0, "r" + ch, sb3, sz3)))
+            szo[ch] = mult
+        bbo.append(("j", jam_vs(0, [r1, S], "rj")))
+        root.append(("r", node(1, "r", bbo, szo)))
+        sizes0["r"] = r1
+    root.append(("j", jam_vs(1, [S, 1.0], "j")))
+    n0 = node(0, "", root, sizes0)
+    return n0, {"S": S, "r1": r1, "iso": iso, "x": list(x_sizes), "r4": H2_R4, "limp_min": limp_min, "hero": hero}
+
+
+def encode2(root, players=None):
+    """`encode` with each node's raise sizes ("z"), only the nodes of `players` (all when None)."""
+    out = {}
+    for n in nodes_of(root):
+        if n.lock is not None or (players is not None and n.player not in players):
+            continue
+        s = _avg_strategy(n)
+        na = len(n.acts)
+        chars = []
+        for i in range(N):
+            qs = [int(round(s[a][i] * Q)) for a in range(na)]
+            k = max(range(na), key=lambda a: s[a][i])
+            qs[k] += Q - sum(qs)
+            chars.append("".join(chr(48 + x) for x in qs))
+        rec = {"p": n.player, "a": "".join(n.acts), "s": "".join(chars)}
+        if n.sizes:
+            rec["z"] = n.sizes
+        out[n.key] = rec
+    return out
+
+
+def solve_hu2_depth(args):
+    """One depth, solved once per hero seat (each seat's nodes from its own solve)."""
+    S, iters, every, real, heroes = args
+    t0 = time.time()
+    nodes, expl, hist = {}, {}, {}
+    meta = None
+    for hero in heroes:
+        root, meta = hu2_tree(S, real, hero)
+        h = solve(root, 2, iters, _norm2(), check_every=every)
+        nodes.update(encode2(root, {hero}))
+        expl[str(hero)] = h[-1][1] if h else None
+        hist[str(hero)] = h
+    meta = dict(meta, hero=None)
+    return S, {"meta": meta, "nodes": nodes, "iters": iters, "expl_bb": expl,
+               "expl_mbb": {k: (round(1000 * sum(v), 2) if v else None) for k, v in expl.items()},
+               "history": hist, "secs": round(time.time() - t0, 1)}
+
+
+def cmd_hu2(a):
+    depths = [float(x) for x in a.depths.split(",")] if a.depths else HU_DEPTHS
+    real = None
+    if a.real:
+        with open(a.real) as fh:
+            real = json.load(fh)
+    heroes = [0, 1]
+    jobs = [(S, a.iters, a.every, real, heroes) for S in depths]
+    out = {"version": 2, "kind": "hu2", "q": Q, "classes": list(CLASSES), "depths": list(depths), "real": real,
+           "solve": {}}
+    t0 = time.time()
+    with Pool(a.workers) as p:
+        for S, res in p.imap_unordered(solve_hu2_depth, jobs):
+            out["solve"]["%g" % S] = res
+            print(f"S={S:>5g} iters {res['iters']} expl {res['expl_mbb']} mbb/hand ({res['secs']} s)", flush=True)
+    out["secs"] = round(time.time() - t0, 1)
+    path = a.out or os.path.join(TABLES_DIR, "short_hu2.json")
+    with open(path, "w") as fh:
+        json.dump(out, fh, separators=(",", ":"))
+    print("wrote", path, os.path.getsize(path), "bytes")
+
+
+def cut_push_fold(root):
+    """The root cut to fold / jam (the push/fold sanity check)."""
+    keep = [i for i, x in enumerate(root.acts) if x in ("f", "j")]
+    root.acts = [root.acts[i] for i in keep]
+    root.kids = [root.kids[i] for i in keep]
+    root.reg = [[0.0] * N for _ in keep]
+    root.avg = [[0.0] * N for _ in keep]
+    return root
+
+
 # ------------------------------------------------------------------------------------------------ jobs
 def _norm2():
     return _globals()["total"]
@@ -1141,6 +1360,13 @@ def main(argv=None):
     sz.add_argument("--depths", default=None)
     sz.add_argument("--mult", default=None)
     sz.add_argument("--out", default=None)
+    h2 = sub.add_parser("hu2")
+    h2.add_argument("--iters", type=int, default=500)
+    h2.add_argument("--every", type=int, default=100)
+    h2.add_argument("--workers", type=int, default=2)
+    h2.add_argument("--depths", default=None)
+    h2.add_argument("--real", default=None, help="the realization fit (JSON with hero_ip / hero_oop; default the old model)")
+    h2.add_argument("--out", default=None)
     k = sub.add_parser("compact")
     k.add_argument("src")
     k.add_argument("dst")
@@ -1149,7 +1375,7 @@ def main(argv=None):
     c.add_argument("--iters", type=int, default=300)
     a = p.parse_args(argv)
     {"hu": cmd_hu, "three": cmd_three, "check": cmd_check, "compact": cmd_compact, "lock": cmd_lock,
-     "sizes": cmd_sizes}[a.cmd](a)
+     "sizes": cmd_sizes, "hu2": cmd_hu2}[a.cmd](a)
 
 
 if __name__ == "__main__":
