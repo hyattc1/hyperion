@@ -50,3 +50,8 @@ Survey first (diagnostic seeds 11200-11399), then a screen (10000-10199, `--aim 
   re-raised to lift the read over 0.2 (prior 0.15 with weight 10). So the gated O3 keeps at best a quarter to a third
   of O3's strong-table decisions; whether the gain lives in them is what the screen tells. Not a reason to stop:
   screen as briefed.
+- 22:42 **Identity** (goal/s21/idchk_s21.sh, idchk26.sh's command from this worktree at 74511af: F, confirm and guards,
+  10000-10039): **14 of 14 chunks identical** to goal/idchk26/post (each chunk's samples). SHIP_DIALS unchanged.
+- 22:43 Screen of G (the gated O3, goal/s21/cand_G.json = docs/drills/climb/s21-candidate.json) started: base F
+  (`{"dials": {}}`), 10000-10199, `--aim strong --runout-term`, stages confirm, guards, elite, exploit, aware,
+  variants, 2 workers, nice 5 (goal/s21/screen_G.sh, output goal/s21/screen_G.md).
