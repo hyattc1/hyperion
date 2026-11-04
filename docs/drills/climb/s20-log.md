@@ -608,3 +608,51 @@ R6 in the scoped terms (`docs/drills/climb/s20-r6-candidate.json`): `{"short_rou
   the first-in rows).
 - 01:32 R6's screen started (snapshot worktree at 863f9f5, the R6 code; screen set, stages exploit, elite, confirm,
   guards, variants, aware, runout term, --aim strong, --workers 3, nice 5; F's chunks pinned to bd36043bea as before).
+
+## R6's screen
+
+- 02:53 **R6, screen set 10000-10199** (stages exploit, elite, confirm, guards, variants (27), aware (5), runout term,
+  --aim strong, --workers 3, nice 5; `goal/s20/R6_screen.out`, `r_R6_screen.json`, code 863f9f5 = the branch's;
+  candidate key 0c92ed200fb5): **ACCEPT**.
+
+| stage | cell | F | R6 | R6 - F (corrected) | | raw | R5 on the same seeds |
+|---|---|---|---|---|---|---|---|
+| confirm | night | 6.006 | 6.014 | +0.007 ± 0.005 | **UP** | +0.008 ± 0.009 | +0.008 ± 0.007 UP |
+| guards | night_hard | 5.470 | 5.475 | +0.006 ± 0.007 | level | +0.002 ± 0.009 | +0.002 |
+| | realistic | 6.350 | 6.348 | -0.002 ± 0.003 | level | -0.001 ± 0.005 | -0.002 ± 0.002 |
+| | top | 5.054 | 5.059 | +0.005 ± 0.007 | level | +0.009 ± 0.012 | +0.005 |
+| | night @10/7/5/... | 6.243 | 6.255 | +0.012 ± 0.013 | level | +0.017 ± 0.018 | +0.016 UP |
+| | night @50/25/12/... | 24.719 | 24.779 | +0.060 ± 0.100 | level | +0.166 ± 0.136 | +0.135 UP |
+| | night, doubling blinds | 5.872 | 5.871 | -0.000 ± 0.005 | level | +0.004 ± 0.006 | -0.001 |
+| elite | elite | 4.856 | 4.869 | +0.013 ± 0.009 | **UP** | +0.012 ± 0.015 | +0.018 UP |
+| | elite_night | 5.440 | 5.439 | -0.001 ± 0.007 | level | -0.003 ± 0.010 | +0.007 |
+| | mirror | 4.506 | 4.520 | +0.014 ± 0.010 | **UP** | +0.017 ± 0.016 | +0.016 UP |
+| | elite_b | 4.609 | 4.629 | +0.020 ± 0.010 | **UP** | +0.024 ± 0.015 | +0.011 |
+| | mirror_b | 4.501 | 4.527 | +0.026 ± 0.010 | **UP** | +0.023 ± 0.013 | +0.025 UP |
+| exploit | exploit / exploit_3 | | | -0.008 ± 0.018 / -0.003 ± 0.022 | level | | |
+| | exploit2 / exploit2_3 | | | -0.012 ± 0.014 / +0.004 ± 0.018 | level | | |
+| | exploit3 / exploit3_3 | | | +0.016 ± 0.016 / +0.012 ± 0.029 | level | | |
+| | adapt / adapt_3 | | | +0.013 ± 0.015 / +0.024 ± 0.030 | level | | |
+| | the four heads-up cells | | | 0 | identical | | |
+| variants | top_heavy / fast_schedule | | | -0.016 ± 0.064 / -0.001 ± 0.003 | level | | |
+| | bonus_card / auction / bounty / knockout_bounty | | | +0.002 / -0.000 / -0.001 / +0.002 | level | | |
+| | the other 21 (tranche_holdem included) | | | 0 | identical | | |
+| aware | bounty_aware | | | -0.000 ± 0.001 | level | | |
+| | toss_or_holdem, short_deck, river_of_blood, tranche_holdem aware | | | 0 | identical | | |
+
+  Weighted (addendum 11): **W +0.0030 ± 0.0022, lower bound +0.0009**; W-min +0.0016 ± 0.0023, lower bound -0.0006;
+  cap holds (families: ordinary +0.0056, strong +0.0110, adapters +0.0018, twist-blind -0.0000, twist-aware -0.0001).
+  No cell's raw and corrected flags point opposite ways. 0 timeouts, 0 errors.
+
+  Read: all four strong cells but elite_night stay up with the button alone (elite_b even rises, +0.011 -> +0.020; the
+  small blind lost there on the diagnostic seeds too, -4.93 at mirror_b), night stays up, and the exploit cells are
+  all level. The realistic cell does not move on these seeds: -0.0021 ± 0.0028 against R5's -0.0020 ± 0.0025 (17 of
+  200 seeds play differently from F, 10 of them lower), so the screen cannot say R6 removes what H30 saw; what the
+  gate removes is the seat whose sign depended on the room. The realistic guard is the cell to watch on a held-out
+  set.
+- 02:56 Identity (`tools/climb_accept.py --cand '{"dials": {}}' --set 10000:10040 --stages confirm,guards` on the
+  branch code, `goal/s20/idchk5`): 14 of 14 chunks identical to main's. Full suite on the branch (872a1e3, load 14):
+  1,420 passed, 5 skipped, 7 failed; re-run alone at load 14, six pass (test_nightof_latency's three wall-clock round
+  trips, test_sim_engine's rotation test, test_sim_mirror's strong_bvb test, test_sim_night's sampler test) and
+  test_drills_run's swap_holdem drill still fails on wall-clock timeouts (2 timeouts, max 4.1 ms at load 14; S13 saw
+  the same). None touches the specialist. tests/test_s20_three.py: 8 passed, 4 skipped (numpy) under the venv.
