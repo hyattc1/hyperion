@@ -1584,3 +1584,19 @@ and (in judges) `elite_judge`.
   (c) the table strong read (as shipped): strong +0.020 / +0.029, night -0.112 DOWN on check: leaks.
 - (b) is about +0.03 a table at strong tables: a 200-seed screen can only just see it. O8 (climb/s21-o8, on O5) built
   before the pause; screened against batch 7 after it.
+
+## 09:50: H1's measuring half (heads-up at strong tables)
+- climb/s20-h1 (ddb9200; log docs/drills/climb/s20-h1-log.md, fit s20-h1-real.json), batch 7's F, seeds
+  14000-14799: F loses heads-up at strong tables almost only at 10-20 bb: its button -0.28 to -0.32 bb a hand (elite1
+  -0.06 to +0.06), its big blind +0.22 (elites +0.38 to +0.50); level below 10 bb and at 20-40. Lines: F's button
+  min-raises every hand above the weakest fifth and never jams (elite1 jams about 40%, elite2 30%), then faces a
+  re-shove 3,062 times (elite1 1,153) and folds 90%, -1.48 bb a hand there; F's big blind folds two thirds of its
+  weaker hands to a min-raise and flats 55% of its best (elite1 re-shoves 59-96%).
+- Worth: F reaches heads-up at about 23% of strong tables and converts about its chips (48.4% wins on 47.4% chips);
+  elite1 +9.7 points over its chips, elite2 +7.0. Closing that is about +0.02 a table (R6's size).
+- Realization fit by SPR: our button in position +0.135 / +0.082 / +0.098 at SPR 2 / 6 / 15, our big blind +0.027 /
+  -0.053 / -0.101 (the old model +/-0.016 / 0.047 / 0.062); strong and realistic agree; exploit cells lower.
+- Coexisting with S7: S7 plays heads-up only as the big blind against exploiter 2 (none at strong tables). H1 is a
+  second heads-up path (`short.hu2`, off) that plays only where S7's like gates refuse the seat and the strong read
+  is open (passed into the member, not short_strong, which would shut S7's route). Next session: the solve (per hero
+  seat, fitted flops, no button limp under 25 bb, two 3-bet sizes, push/fold check), the path, tests, screen.
