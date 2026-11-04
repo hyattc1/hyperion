@@ -372,3 +372,12 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
   "short_strong": true, "short.three2_keep_defence": true, "short.three2_roles": "btn,sb", "short.defer":
   "dead,station,maniac,random,nit"}`. Its full screen (exploit and elite to 200 seeds, all 26 variants with F's base)
   is queued after the final identity check.
+- 19:17 Identity check repeated at ff07018 (the final candidate's code; `goal/s20/idchk2`): 14 of 14 chunks
+  identical to main's.
+- 19:20 Main moved to e2a20fe (V-j, C3h, H7, S15d merged; SHIP_DIALS unchanged since b1c9e89, checked key by key):
+  merged into the branch (8af4fda, `git merge main`, no conflicts; S13c's climb/s13c-gate at f4e7004 also merges
+  cleanly onto the branch, checked with a trial merge in a scratch worktree). Full suite on the merged branch: 1,413
+  passed, 5 skipped, 2 failed: tests/test_nightof_latency.py's cheap-bot kit round trip (a wall-clock p99 threshold;
+  re-run, it fails once and passes once at load 6.5, and passes on main's worktree) and test_sim_adapt's twin test
+  (passes alone). Neither touches the specialist (the cheap bot builds no member; adapt1 is an opponent).
+  tests/test_s20_three.py: 10 passed under system python3 (numpy), 6 passed + 4 skipped under the venv (no numpy).
