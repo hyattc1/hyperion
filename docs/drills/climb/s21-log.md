@@ -122,3 +122,10 @@ Survey first (diagnostic seeds 11200-11399), then a screen (10000-10199, `--aim 
 - No second variant. The ones the data leaves are a stricter gate (a second `strong_rr` for this read, a tuned
   number on our own fields: the survey's realistic p90 is 0.19, the strong fields' 0.24-0.25) or the read without the
   gate (more realistic decisions at the same bias). Neither is principled enough to spend a screen on.
+- 00:44 Suite (`pytest -q -m "not timing"`, at 74511af, load 9-10): 1,406 passed, 2 skipped, 7 failed, all
+  wall-clock or replay-under-load: three drill checkpoints (2-3 timeouts, 12 ms max latency; swap_holdem-a fails the
+  same way on main at 88d456c under this load), test_gate's sim table, S16's replay, rival 2's fixed sampler, the
+  model-mode replay. Each re-run alone: all 7 pass (the drill three on a second try). No code changed since.
+- 00:44 G1's exploit and aware stages (corrected): exploit -0.034 ± 0.072, exploit2 +0.011 ± 0.041, exploit3 +0.016 ±
+  0.043 level; every heads-up and three-handed exploit cell and every aware cell identical (0 ± 0). Variants
+  running.
