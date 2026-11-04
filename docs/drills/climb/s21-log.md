@@ -439,3 +439,49 @@ offline whether the rule beats F's.
   blind, in big blinds; the nine fields have no antes) and whether everyone folded. The exploration makes F a little
   looser at those tables (opponents' reads of F move with it); stated, not corrected. Fit seeds 13000-13099, check
   13100-13179, nine fields.
+- 08:15 Data (restarted at 07:46 to record every seat's stacks and result, so outcomes can be valued in ICM points,
+  the screen's currency): 664,160 first-in decisions with four or more alive (fit 369,803, check 294,357); opens
+  called or re-raised 91,024 / 72,658, of which explored 23,387 / 18,979. Replica of rival 3's clause: 0 mismatches.
+- **Chips and points disagree.** Measured in chips, a junk open that is called loses only 0.3-1.5 bb relative to
+  folding (p 0.3-1.0; strong hands +1 to +3 bb), less than the 0.55 x 2.5 = 1.375 bb the clause assumes, so a chip
+  table would open more, not less. Valued in ICM points (post-hand stacks against the fold state, payouts 8..1)
+  and put back in big-blind equivalents at F's own points-per-chip at the hand's start, the called result is
+  -0.3 to -3 bb-eq for nearly every cell, strong hands included at 10-40 bb (goal/s21o7/fit_q.md; the table is
+  docs/drills/climb/s21-o7-table.json; 10 hand bands x 5 seat counts x 3 depths, shrinkage k = 160 at each level,
+  chosen on the check seeds: held-out weighted MSE 140.02 against 140.19 for the global mean, a small gain; the
+  cells are noisy, results sd about 12 bb).
+- **How the rooms differ** (points, bb-eq, mean result when called, by hand band p < 0.3 / 0.3-0.6 / > 0.6):
+  realistic +0.22 / -0.14 / -0.46; night +0.15 / -0.22 / -0.66; night_hard -0.59 / -0.77 / -1.18; top -0.28 / -1.03 /
+  -1.28; elite -0.56 / -1.17 / -1.42; elite_night -0.60 / -1.21 / -0.89; mirror -0.68 / -1.56 / -1.52; elite_b -0.78 /
+  -1.17 / -1.52; mirror_b -0.83 / -1.61 / -1.41. Being called costs about 1 bb-eq more at strong tables than in the
+  realistic room at every hand band; a pooled table sits between them.
+- **The offline judge**: inverse-propensity values of each open rule on the check seeds, F's opens logged with
+  propensity 1 and the explored ones 0.15, a fold worth 0, the base's sections only, paired by table seed (8
+  rotations). In points it reproduces the screens' order: F's own rule (replayed) -0.18 ± 0.17 points per seed
+  below O5 (O5 was accepted against F), O6 -0.29 ± 0.29 below O5 (O6 was rejected). In chips it does not (O6 -0.03 ±
+  5.3 bb, O7 +8.9 ± 14.6 bb): chip results are not what the screens score.
+- **O7 as briefed does not improve on F's rule** (points, against O5 as logged):
+
+  | rule | opens (of 271,871) | value vs O5, points per table seed | worst rooms |
+  |---|---|---|---|
+  | O5 as logged | 100,777 | 0 | |
+  | F's 0.55 rule on F's reads (F as shipped) | 105,615 | -0.18 ± 0.17 | |
+  | O6 (0.55 on O6's reads) | 115,712 | -0.29 ± 0.29 | mirror_b -1.12, mirror -0.78 |
+  | **O7: measured price (points table), O6's reads** | 159,890 | **-0.52 ± 0.45 (DOWN)** | mirror_b -2.78 ± 1.51, elite_b -1.41 |
+  | O7, O5's reads | 134,913 | -0.28 ± 0.35 | |
+  | O7, F's reads | 140,454 | -0.43 ± 0.38 | |
+  | O7 with the chip table, O6's reads | 187,357 | -1.08 ± 0.58 (DOWN) | mirror_b -3.84 |
+  | the price as a veto on the 0.55 rule's fold-equity opens (O5's reads) | 97,496 | +0.011 ± 0.033 | realistic -0.189 ± 0.068 DOWN |
+  | ... the veto with O6's reads in the price | 98,295 | +0.015 ± 0.028 | realistic -0.118 ± 0.053 DOWN |
+  | (outside the brief) the price also vetoes the base range's opens | 85,796 | +0.132 ± 0.131 | realistic -0.25, night -0.12 (level); strong fields +0.18 to +0.42 |
+
+  Replacing the fixed cost by the measured one opens about 60% more first-in hands (the measured cost of a call is a
+  little under 1.375 bb-eq for junk, and the open wins the blinds pf of the time), and those opens lose points at
+  every strong field. Choosing opens on a noisy estimate selects its overestimates (the same thing that hurt O6). The
+  price is no better as a veto: it takes away opens the realistic room pays for. Only tightening F's base opening
+  range at strong tables shows a gain, and the rooms pull in opposite directions there (the ordinary room wants F
+  looser, strong tables tighter), which one pooled table cannot serve.
+- **Stopped before building and screening**: the brief's rule fails the offline test, the veto is O5 within noise
+  with the realistic room down, and no principled variant left is predicted to pass. What the data supports instead:
+  a room-dependent open range (tighter base range only where the table reads strong; the strong-table read or O5's
+  big-blind read as the switch), a different design from O7, with S21's lesson that a table-level read leaks.
