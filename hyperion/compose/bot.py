@@ -1249,14 +1249,25 @@ SHIP_DIALS: dict = {"route": SHIP_ROUTE, "exploit.bet_min_fold": 0.4, "hero.post
                     # looseness gate (H25) and S15e's gated stab read (H26), plain hold'em with three or fewer alive
                     "hero.voi": 1.5, "hero.sd_tax": True,
                     "tranche_twin": "all", "hero.tranche": "now,sunk", "hero.tranche_claim_early": 0.25,
-                    "short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short", "short.pre_roles": "bb",
-                    "short.pre_open_min": 0.65, "short.like_probe": 0.75, "short.like_bet": 0.6, "short.like_pfr": 0.3,
-                    "short.like_vpip_min": 0.5, "short.like_vpip_max": 0.88,
+                    "short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short,pre_3way=short",  # pre_3way: batch 8
+                    "short.pre_roles": "bb", "short.pre_open_min": 0.65, "short.like_probe": 0.75, "short.like_bet": 0.6,
+                    "short.like_pfr": 0.3, "short.like_vpip_min": 0.5, "short.like_vpip_max": 0.88,
                     "hero.postflop.stab_from": 0.55, "hero.postflop.stab_full": 0.8, "hero.postflop.stab_prior": 0.4,
                     "hero.postflop.stab_min": 3, "hero.postflop.stab_pool": 7, "hero.postflop.stab_margin": 0.03,
                     "hero.postflop.stab_max_alive": 3, "hero.postflop.stab_pfr_min": 0.35,
                     "hero.postflop.stab_lead_max": 0.4, "hero.postflop.stab_free_max": 0.5,
-                    "hero.postflop.stab_holdem_only": True}
+                    "hero.postflop.stab_holdem_only": True,
+                    # batch 8 (docs/decisions.md): C3h's one stab size, three or fewer alive, plain hold'em (H28); S20's
+                    # R6, the solved three-handed tables on the button behind the strong read and the per-seat re-raise
+                    # gate, with S7's gates kept to its heads-up routes (short_route above gains pre_3way; H32); O5's
+                    # big blind fold read from its answers to every first-in raise, four or more alive (H33)
+                    "exploit.stab_size": True, "exploit.stab_alive": 3, "exploit.stab_holdem_only": True,
+                    "short.like_max_alive": 2, "short.three2": True, "short.three2_file": "3b",
+                    "short.defer_3bet_three": 0.25, "short_strong": "pre_3way", "short.three2_keep_defence": True,
+                    "short.three2_roles": "btn", "short.defer_three": "dead,station,maniac,random,nit",
+                    "short.three2_seat_rr": 1,
+                    "r3.oa_read": True, "r3.bb_read": True, "r3.bb_k": 10.0, "r3.oa_bb_only": True, "r3.oa_min_alive": 4,
+                    "exploit.open_read": True, "exploit.open_bb_only": True, "exploit.open_min_alive": 4}
 
 
 # Batch 5's dials at their off values: on top of SHIP_DIALS they play batch 4's ship from this tree (the tests written
@@ -1291,6 +1302,20 @@ BATCH7_OFF: dict = {"hero.voi": 0.0, "hero.sd_tax": False,
                     "hero.postflop.stab_max_alive": 0, "hero.postflop.stab_pfr_min": 0.0,
                     "hero.postflop.stab_lead_max": 1.0, "hero.postflop.stab_free_max": 1.0,
                     "hero.postflop.stab_holdem_only": False}
+
+# Batch 8's dials at their off values: on top of SHIP_DIALS they play batch 7's ship from this tree (tests written
+# against batch 7's F; --base '{"dials": BATCH8_OFF}' for a paired check against the previous batch). short_route goes
+# back to batch 7's (S7's heads-up routes); short_strong False and the specialist's defer_three / defer_3bet_three None
+# (the heads-up values) are their defaults, as are the rest (ExploitParams, ShortParams, Rival3Knobs)
+BATCH8_OFF: dict = {"exploit.stab_size": False, "exploit.stab_alive": 0, "exploit.stab_holdem_only": False,
+                    "short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short",
+                    "short.like_max_alive": 0, "short.three2": False, "short.three2_file": "3b",
+                    "short.defer_3bet_three": None, "short_strong": False, "short.three2_keep_defence": False,
+                    "short.three2_roles": "btn,sb,bb", "short.defer_three": None, "short.three2_seat_rr": 0,
+                    "r3.oa_read": False, "r3.bb_read": False, "r3.bb_k": 10.0, "r3.oa_bb_only": False,
+                    "r3.oa_min_alive": 0,
+                    "exploit.open_read": False, "exploit.open_bb_only": False, "exploit.open_min_alive": 0}
+
 
 def parse_dials(dials: dict | None) -> tuple:
     """One flat dials dict -> (route, make_bot keywords). The keys:
