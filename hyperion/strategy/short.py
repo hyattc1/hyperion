@@ -28,7 +28,8 @@ tree's raise sizes follow the actual bet: the 3-bet is 3.5 times the open, the 4
   two 3-bet sizes, 4-bets, the flop's realization fitted from our own postflop; tools/solve_short.py three2). Its
   nodes carry their raise sizes, so the history maps onto them generically (`_three_node2`; a raise at or over 45%
   of the raiser's effective stack is the jam). `three2_roles`: the seats it plays (btn, sb, bb); `three2_keep_defence`:
-  once our own raise this hand is re-raised, F's 3-bet defence plays the rest of the hand's preflop
+  once our own raise this hand is re-raised, F's 3-bet defence plays the rest of the hand's preflop; `three2_seat_rr`:
+  only while every opponent alive has re-raised at least that many of our first-in raises this table
   (docs/drills/climb/s20-log.md has the measurements; the candidate there plays btn and sb, keeps the defence, and
   needs the composite's strong-table read, `short_strong`).
 
@@ -197,6 +198,10 @@ class ShortParams:
         # ... and once our own raise this hand has been re-raised, the hand's preflop goes back to F (its 3-bet defence,
         # batch 4, hardened against the exploiters): the tables open and answer opens; F defends its raises
         self.three2_keep_defence = False
+        # ... and only while every opponent alive has re-raised at least this many of our first-in raises this table
+        # (F's profiler, rr_by: S16's per-seat count): the table-level strong read is diluted by the seats it averages
+        # over (S14), so each seat must have shown it contests our opens; 0 = off
+        self.three2_seat_rr = 0
         for k, v in kw.items():
             if not hasattr(self, k):
                 raise KeyError(f"unknown short dial {k!r}")
@@ -344,6 +349,10 @@ class ShortMember:
                 if self.p.three2_keep_defence and obs.to_call > 0 and any(
                         seat == obs.seat and a.kind is _RAISE for seat, a in obs.history):
                     return False
+                if self.p.three2_seat_rr > 0:
+                    rb = getattr(prof, "rr_by", None) if prof is not None else None
+                    if rb is None or any(rb[j] < self.p.three2_seat_rr for j in alive if j != obs.seat):
+                        return False
                 got = self._three_node2(obs)
                 return got is not None and got[3] in self._roles3 and got[4] <= self.p.three_max * (obs.blinds[1] or 1)
             if len(alive) == 3 and self.t3 is not None:

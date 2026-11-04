@@ -221,3 +221,21 @@ def test_keep_the_defence_and_the_roles():
     o2 = _obs([(0, Action.raise_to(45)), (1, Action.fold())], bets=(45, 10, 20), stacks=(755, 790, 780),
               to_call=25, seat=2, in_hand=(True, False, True))
     assert m2._three_node2(o2) is not None and not m2.wants(o2, None)
+
+
+@has_table
+def test_the_per_seat_reraise_gate():
+    class P:
+        def __init__(self, rr):
+            self.rr_by = rr
+
+        def archetype(self, s):
+            return "unknown"
+
+    m = SH.ShortMember(SH.ShortParams(three2=True, defer_3bet=1.0, three2_seat_rr=1))
+    m.new_table(R3, 0, 3)
+    m.light_observe(_obs([], bets=(0, 10, 20), stacks=(800, 790, 780), to_call=20, seat=0))
+    first = _obs([], bets=(0, 10, 20), stacks=(800, 790, 780), to_call=20, seat=0)
+    assert m.wants(first, P([0, 2, 1]))  # both opponents have re-raised us
+    assert not m.wants(first, P([0, 2, 0]))  # the big blind never has: F plays
+    assert not m.wants(first, None)  # no read: F plays
