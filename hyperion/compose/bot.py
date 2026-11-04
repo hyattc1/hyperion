@@ -98,6 +98,10 @@ counting the answers all table long, so the read is warm when it opens (docs/dri
 O5 (`r3.bb_read`, `r3.oa_bb_only`, `exploit.open_bb_only`, off by default): the big blind's fold reads its answers as
 the big blind to a first-in raise by any seat this table, with its fold-to-any-raise read as the prior (weight
 `r3.bb_k`), in both places; the other seats keep their own reads (docs/drills/climb/s21-log.md, "O5").
+O8 (`r3.veto_read`, `r3.open_veto`, with `r3.veto_t` / `veto_prior` / `veto_prior_n`; off by default): rival 3's
+core counts every seat's answers to anyone's first-in raise, and where the seats behind fold less than `veto_t` to
+those opens its first-in clause does not open a hand the measured price says loses when called
+(hyperion/hybrid/open_ev.py, valued in ICM points; docs/drills/climb/s21-log.md, "O8").
 
 **The short-handed route** (S13, `short_route`, off by default): sections played by another donor (the specialist
 `short`, hyperion/strategy/short.py) while at most `short_alive` players have chips and that member `wants` the decision

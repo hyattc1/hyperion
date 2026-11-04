@@ -146,3 +146,13 @@ class Rival3Knobs:
     bb_k: float = _dial(10.0, "weight of a big blind's fold-to-any-raise read against its answers (bb_read)")
     oa_bb_only: bool = _dial(False, "with oa_read: only the big blind takes the open-answer read; the others keep their "
                                     "fold-to-any-raise read")
+    # O8 (docs/drills/climb/s21-log.md, "O8"): a veto on first-in opens where the seats behind defend
+    veto_read: bool = _dial(False, "count each seat's answers to any first-in raise this table (not all-in), for "
+                                   "open_veto")
+    veto_t: float = _dial(0.80, "open_veto's switch: on while the seats behind's pooled fold to every open this table "
+                                "is under this")
+    veto_prior: float = _dial(0.80, "... that rate shrunk to this prior")
+    veto_prior_n: float = _dial(10.0, "... with the weight of this many answers")
+    open_veto: bool = _dial(False, "with veto_read, four or more alive, plain hold'em, no limper: a first-in open the "
+                                   "clause would make (base range or fold equity) is not made where the switch is on "
+                                   "and pf x pot + (1 - pf) x the measured price when called (hybrid/open_ev.py) <= 0")

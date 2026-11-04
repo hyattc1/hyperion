@@ -165,6 +165,11 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.bb_read` | `False` | with oa_read: the big blind's fold reads its answers as the big blind to a first-in raise by any seat this table (not all-in): (its folds + its fold-to-any-raise read x bb_k) / (its answers + bb_k); the layer's open_fold reads the same; off = O3's |
 | `r3.bb_k` | `10.0` | weight of a big blind's fold-to-any-raise read against its answers (bb_read) |
 | `r3.oa_bb_only` | `False` | with oa_read: only the big blind takes the open-answer read; the others keep their fold-to-any-raise read |
+| `r3.veto_read` | `False` | count each seat's answers to any first-in raise this table (not all-in), for open_veto |
+| `r3.veto_t` | `0.8` | open_veto's switch: on while the seats behind's pooled fold to every open this table is under this |
+| `r3.veto_prior` | `0.8` | ... that rate shrunk to this prior |
+| `r3.veto_prior_n` | `10.0` | ... with the weight of this many answers |
+| `r3.open_veto` | `False` | with veto_read, four or more alive, plain hold'em, no limper: a first-in open the clause would make (base range or fold equity) is not made where the switch is on and pf x pot + (1 - pf) x the measured price when called (hybrid/open_ev.py) <= 0 |
 
 The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"exploit": null}` turns the layer off):
 
