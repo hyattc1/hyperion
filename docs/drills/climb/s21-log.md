@@ -273,3 +273,9 @@ the strong gate only if the offline numbers want one. Diagnostic seeds 12000-129
   and S16's replays, S21's gate test, rival 2's sampler, the model-mode replay). Re-run alone: 8 pass; the drill
   checkpoints (2 of 3) and `test_model_mode_replays_a_table_exactly` still fail at load 16, and that one fails the
   same way on main (c38b7db: one of two runs) — it seats Hero, not the composite. The O5, O3 and S21 tests pass.
+- 04:20 O5's screen so far (corrected): night +0.003 ± 0.046; night_hard +0.090 ± 0.052 UP, realistic -0.004 ±
+  0.034, top +0.052 ± 0.055, night 10/7/5/... +0.059 ± 0.079, 50/25/... +0.320 ± 0.500, +double +0.030 ± 0.041; elite
+  +0.004 ± 0.048, elite_night +0.005 ± 0.050, mirror +0.045 ± 0.057, **elite_b +0.067 ± 0.053 UP, mirror_b +0.062 ±
+  0.047 UP**; exploit +0.011 ± 0.090, exploit2 -0.046 ± 0.098, exploit3 +0.076 ± 0.084, heads-up and three-handed
+  identical; aware identical. The intervals are about twice G1's: O5 moves more decisions (no cap, no gate). The
+  realistic room is level for the first time in this line of work. Adapt cells and variants running.
