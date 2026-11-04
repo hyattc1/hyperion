@@ -500,3 +500,47 @@ table's strong read; t fixed on the fit seeds only; per field and pooled against
   rival 3's clause makes (base range or fold equity) is not made when the measured price (the points table, O5's
   reads) is negative; elsewhere O5 as logged. (b)'s rate is shrunk to 0.8 with weight 10. t chosen on the fit seeds
   as the best pooled value among those keeping realistic and night at or above 0 there.
+- 09:31 Re-collection done: 12,960 of 12,960 tables identical to the first collection, decision for decision.
+- 09:44 **Results** (goal/s21o7/switch.md; points per table seed against O5 as logged; "strong family" = elite,
+  elite_night, mirror, elite_b, mirror_b pooled; "on" = share of the base's first-in decisions where the switch is
+  on, check seeds). No t kept realistic and night at or above 0 on the fit seeds for any switch, so t is the best
+  pooled fit value (for (a) and (c) that is "always on", the unswitched veto: +0.132 ± 0.131 pooled, realistic -0.25,
+  night -0.12); the rows below also show each switch at its most natural t.
+
+  | switch, t | seeds | strong family | realistic + night | realistic | night | pooled | on: realistic / night / strong |
+  |---|---|---|---|---|---|---|---|
+  | (a) O5's big-blind read < 0.6 | fit | +0.120 ± 0.102 UP | -0.027 ± 0.104 | -0.048 ± 0.105 | -0.005 ± 0.181 | +0.077 ± 0.068 UP | |
+  | | check | +0.105 ± 0.097 UP | +0.017 ± 0.109 | **-0.070 ± 0.055 DOWN** | +0.103 ± 0.210 | +0.073 ± 0.066 UP | |
+  | **(b) the seats behind's fold to every open < 0.80** | fit | **+0.256 ± 0.143 UP** | -0.039 ± 0.158 | -0.156 ± 0.188 | +0.079 ± 0.254 | +0.167 ± 0.097 UP | |
+  | | check | **+0.264 ± 0.163 UP** | +0.015 ± 0.193 | +0.044 ± 0.289 | -0.013 ± 0.258 | +0.155 ± 0.108 UP | 0.34 / 0.27 / 0.48-0.76 |
+  | (b) at 0.78 | fit | +0.165 ± 0.128 UP | -0.099 ± 0.124 | -0.070 ± 0.198 | -0.128 ± 0.149 | +0.101 ± 0.086 UP | |
+  | | check | +0.143 ± 0.139 UP | +0.069 ± 0.177 | +0.076 ± 0.255 | +0.063 ± 0.248 | +0.105 ± 0.093 UP | |
+  | (c) strong read >= 0.2 (as shipped) | fit | +0.020 ± 0.067 | -0.013 ± 0.084 | +0.051 ± 0.148 | -0.076 ± 0.079 | +0.020 ± 0.046 | |
+  | | check | +0.029 ± 0.077 | -0.000 ± 0.110 | +0.111 ± 0.206 | **-0.112 ± 0.070 DOWN** | +0.013 ± 0.052 | |
+
+  Check seeds per field for (b) at 0.80: realistic +0.044 ± 0.289, night -0.013 ± 0.258, night_hard -0.072 ± 0.143,
+  top +0.116 ± 0.318, elite +0.129 ± 0.434, elite_night +0.325 ± 0.345, mirror +0.297 ± 0.337, elite_b +0.221 ±
+  0.333, mirror_b +0.350 ± 0.375 (each level alone; the family UP).
+- **Verdict.** (b) is the one switch that is up on the strong tables (the family beyond noise up on both seed sets,
+  +0.26 points per seed) and level in the realistic room and at night on both (realistic + night -0.04 ± 0.16 fit,
+  +0.02 ± 0.19 check). It is on at about a third of realistic and night decisions against half to three quarters at
+  strong tables: the seats behind's answers to everyone's opens separate the rooms better than the big blind's read
+  (a: realistic down on the check seeds) or the table's re-raised share (c: night down, little gain). Caveats: the
+  realistic point estimate on the fit seeds is -0.156 (interval ± 0.188), so a leak is not excluded; t = 0.80 is the
+  best pooled fit value, not one that met the stricter fit rule (none did); the judge values only the base's
+  first-in decisions within the hand (no image effects), though in points it has matched the screens so far.
+- **Dials it would need** (a sketch; no code written): on top of O5's dials, in rival 3's core
+  - per-seat counts of answers to any first-in raise this table (the O6 survey's scan, counted at hand end as O5's
+    `bb_scan` is), shrunk to 0.80 with weight 10: `r3.veto_read` (bool), `r3.veto_t` 0.80, `r3.veto_prior` 0.80,
+    `r3.veto_prior_n` 10;
+  - the measured price, a generated table module (hyperion/hybrid/open_ev.py from
+    docs/drills/climb/s21-o7-table.json: points-valued, 10 hand bands x 5 seat counts x 3 depths, k 160):
+    `r3.open_veto` (bool);
+  - in the first-in clause (four or more alive, plain hold'em, no limpers, deeper than 10 bb): where the seats
+    behind's pooled rate is under `veto_t` and pf x pot + (1 - pf) x price(p, seats behind, depth) x bb <= 0 (pf the
+    clause's own product: O5's big blind, F's reads elsewhere), the clause does not open (base range or fold
+    equity); it falls through to its check / small-blind complete / fold. Act cost: a sum over the seats behind and
+    one table lookup.
+  - Next if wanted: tests, identity, then the screen at 10000-10199 with --aim strong; the offline numbers say the
+    family gain is about +0.26 points per table seed, so around +0.03 per table, which a 200-seed screen can only
+    just see.
