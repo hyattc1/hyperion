@@ -82,3 +82,27 @@ Survey first (diagnostic seeds 11200-11399), then a screen (10000-10199, `--aim 
   split, strong 0.58-0.68). So the strong-table read is the wrong discriminator for what O3 reads; the separating
   evidence is the big blinds' own answers at this table. (Also seen: F underreads non-blind seats everywhere, 0.76
   against 0.84-0.87; O3's cap keeps that as it is.)
+- 23:42 **G's elite stage** (corrected): elite -0.002 ± 0.031, elite_night +0.006 ± 0.025, mirror +0.037 ± 0.038,
+  elite_b +0.025 ± 0.039, **mirror_b +0.053 ± 0.034 UP**. On the same screen seeds O3 ungated had mirror +0.105 ±
+  0.083 and mirror_b +0.197 ± 0.092 UP (S16b, raw deltas): the gate keeps about a quarter to a third of the gain,
+  as the survey's coverage said. With realistic DOWN at the guards, **G is rejected** by the screen's rule whatever
+  the later stages say (exploit, aware, variants were running; the aware cells done so far are identical by
+  construction).
+- 23:45 BB answers to anyone's open (goal/s21/bbopen.py, 11500-11549 x 8, F as shipped): the big blind folds to F's
+  opens 0.793 at realistic, 0.718 night, 0.595 elite, 0.596 mirror_b; to others' opens 0.731 / 0.693 / 0.636 / 0.620,
+  42-74 of them a table. On the first ten answers a table's big-blind rate is 0.70 [0.60, 0.90] at realistic
+  against 0.60 [0.40, 0.80] at elite: within a table the evidence that tells the two rooms' big blinds apart comes
+  slowly, from either source.
+- 23:47 Offline, from the calibration rows (O3's read shifted by (mu' - 0.668) x 20 / (n + 20), n this table's
+  big-blind answers): with the big blind's prior at the ordinary room's 0.799 (S16b's survey, realistic), O3's capped
+  read where the gate is open is 0.712 at realistic (G: 0.655; F 0.740; actual 0.786) and 0.70-0.71 at elite and
+  mirror_b (G: 0.63; F 0.76-0.77; actual 0.62-0.63). It cuts the realistic error G adds by about two thirds and
+  about half of G's correction at strong tables.
+- 23:48 **Variant 1, G1 = G + `r3.oa_mu_bb` 0.799** (one value, from S16b's survey, fixed before any screen). Why:
+  behind the gate the realistic loss comes from the prior, not from evidence: the realistic tables that open the read
+  do so early (6.7 big-blind answers at the gated decisions against 14.7 where it is closed), so the read there is
+  mostly the pooled prior 0.668, a strong-field number (strong fields 0.602, guard fields 0.718, realistic 0.799).
+  With the ordinary room's big blind as the prior the capped read starts at F's (the cap) and lowers the big blind's
+  fold only as this table's own big blinds show it. The risk: it also halves what G keeps at strong tables (mirror_b
+  was UP by 0.019). G's screen is stopped here (its decisive stages are in) so G1 can use the 2 workers; F's cells
+  are cached and shared (the same code, a dials-only change).
