@@ -485,3 +485,18 @@ offline whether the rule beats F's.
   with the realistic room down, and no principled variant left is predicted to pass. What the data supports instead:
   a room-dependent open range (tighter base range only where the table reads strong; the strong-table read or O5's
   big-blind read as the switch), a different design from O7, with S21's lesson that a table-level read leaks.
+
+## O7 follow-up: vetoing base-range opens only where the table reads strong (offline, no code)
+
+Brief (coordinator, 09:00): with O7's data and the same points-valued IPS judge, value "veto F's base-range opens
+where the measured price says they lose" behind switches that might not leak into the realistic room: (a) O5's
+big-blind read below t, (b) the seats behind's pooled fold to every open this table below t, (c) for reference the
+table's strong read; t fixed on the fit seeds only; per field and pooled against O5.
+
+- 09:07 The rows lacked the switches' inputs, so the collector ran again with them (goal/s21o7/o7_explore2.py: the
+  big blind's O5 read and F's read of it, every seat's answers to any first-in open this table, the composite's
+  re-raised share and strong flag); same seeds and exploration, and the play is the same (16 of 16 smoke tables
+  identical to the first collection, decision for decision). The veto, where the switch is on: a first-in open that
+  rival 3's clause makes (base range or fold equity) is not made when the measured price (the points table, O5's
+  reads) is negative; elsewhere O5 as logged. (b)'s rate is shrunk to 0.8 with weight 10. t chosen on the fit seeds
+  as the best pooled value among those keeping realistic and night at or above 0 there.
