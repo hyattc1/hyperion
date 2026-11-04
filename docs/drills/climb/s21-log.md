@@ -17,3 +17,14 @@ Survey first (diagnostic seeds 11200-11399), then a screen (10000-10199, `--aim 
   is closed at a table's start and opens only once enough of F's first-in raises are re-raised; while it is open,
   `pre_open_10` (10-20 bb unopened) goes to elite1x, so there only the layer's half of O3 can act. Rival 3's half acts
   in `pre_open_40` and `pre_open_20` (the base's sections) whatever the read.
+- 22:30 The gate (cadc5cf): `oa_strong` in ComposeConfig (off by default). Before each preflop decision the composite
+  sets rival 3's core's `oa_on` (a new attribute, True by default, read in the open-answer clause only) and the layer's
+  `open_fold` (the core's `oa_fold`, or None) from `strong_table()`. It keeps the strong read's counts on (`_rr_on`)
+  if no strong route does. The core counts the answers all table long whatever the gate, so the read is warm when it
+  opens. Off, nothing reads it. Tests (tests/test_s21_oa_strong.py): off by default and off = O3; the gate follows the
+  read decision by decision; read never open (`strong_rr` 1.01 on both sides) = F, still counting; read always open
+  (`strong_rr` 0) = O3; as shipped, a test table whose read stays under 0.2 plays as F where O3 differs, one whose
+  read opens with four or more alive differs from F. A scan of 16 test tables (strong field): O3 differs from F on 13,
+  the gated read on 4 of them; on two tables whose read ended at 0.24-0.26 it opened only after fewer than four
+  were left, where O3 does not act.
+- Candidate (docs/drills/climb/s21-candidate.json): O3's six dials + `oa_strong` true.

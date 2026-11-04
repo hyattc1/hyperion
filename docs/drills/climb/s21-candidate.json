@@ -1,0 +1,2 @@
+{"dials": {"r3.oa_read": true, "exploit.open_read": true, "r3.oa_cap": true, "exploit.open_cap": true,
+           "r3.oa_min_alive": 4, "exploit.open_min_alive": 4, "oa_strong": true}}
