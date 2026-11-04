@@ -1613,3 +1613,19 @@ and (in judges) `elite_judge`.
 - Screen (10000-10199, every stage, --aim strong, against batch 7, F fresh) started now with spare cores
   (goal/s21o8/screen_O8.sh, output screen_O8.md, screen_O8.done); stopped at the pause and resumed after from its
   cached chunks.
+
+## 10:34: the third outside judge wired in (addendum 14); H1's code half; O5 nearly done
+- o8 (fresh agent, no repo access, reads first; about 80 minutes): an ICM-priced baseline with live per-seat reads
+  (priors worth 4-6 hands) and a range-weighted, time-boxed postflop simulation; harness 0 exceptions, 0 illegal,
+  import 0.2-0.3 s; its own sparring: 5.7-8.0 a table against tight, loose, maniac, push/fold and mixed fields.
+  Wired as `out_reads` (md5 e51fb439; docs/drills/field/out_reads*.{py,md}); field outside_c = hero, out_reads,
+  out_cfr, out_press, out_charts, elite5, rival4, one night seat; a 13th judge cell from batch 8's judges on. Fixed
+  speed in model mode (15 µs a clock read, the measured median at load 8), its generator seeded per table: two
+  model-mode runs identical. Merged (climb/outside-c); F's code unchanged.
+- H1's code half (climb/s20-h1, 1f263e2): the heads-up tree (button limps only from 25 bb; big blind fold, call, 2.3x
+  or 3.3x 3-bet or re-shove; 4-bet 2.2x or jam), flops from the heads-up fit, push/fold check within 0.02, small solves
+  converge (15 bb 0.24 mbb a hand, 40 bb 2.0-2.6 at 400 iterations); `short.hu2` behind S7's own path (S7's decisions
+  unchanged over 50 against exploiter 2). Open: with the strong read forced open against exploiter 2, H1's early
+  preflop keeps exploiter 2's probe read low and S7 never plays (at the shipped threshold it does not happen); options
+  for next session: hold H1 until S7's gate has refused the seat, or read S7's gate from 8-max play only; plus R6's
+  exploiter-1 guards.
