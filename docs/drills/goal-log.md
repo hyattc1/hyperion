@@ -1572,3 +1572,15 @@ and (in judges) `elite_judge`.
 - 09:21: the public export check: denylist 0 hits. H1 started (S20's worker, climb/s20-h1): heads-up preflop solved
   per seat for strong tables, S20's method, coexisting with S7's gated heads-up routes; measuring half only before
   the pause (diagnostics 14000-14999), solve and screen after.
+
+## 09:45: a switch for the tighter open range that does not leak (offline); O8 being built
+- Offline, points-valued, O7's data re-collected with the switch fields (12,960 tables replayed identically): veto
+  rival 3's losing first-in opens (base range or fold equity; the measured points price says they lose) only where a
+  switch reads the table strong. Against O5, per table seed, fit 13000-13099 / check 13100-13179:
+  (a) O5's big-blind read < 0.6: strong +0.120 / +0.105 UP; realistic -0.048 / -0.070 (DOWN on check): leaks.
+  (b) the seats behind's pooled fold to every open < 0.80 (shrunk to 0.80, weight 10): strong +0.256 ± 0.143 /
+      +0.264 ± 0.163 UP; realistic + night -0.039 ± 0.158 / +0.015 ± 0.193 level (realistic -0.156 ± 0.188 on fit,
+      +0.044 on check); on at 34% of realistic and 27% of night decisions, 48-76% at strong tables.
+  (c) the table strong read (as shipped): strong +0.020 / +0.029, night -0.112 DOWN on check: leaks.
+- (b) is about +0.03 a table at strong tables: a 200-seed screen can only just see it. O8 (climb/s21-o8, on O5) built
+  before the pause; screened against batch 7 after it.
