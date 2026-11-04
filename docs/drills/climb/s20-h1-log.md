@@ -95,3 +95,11 @@ realization fit by SPR, where F loses heads-up at strong tables by line. No scre
   assumed in both seats (in position +0.12 of the pot at E = 0.5, out of position +0.03 instead of -0.02), while
   against the exploiters our out-of-position flops lose (-0.06 to -0.20). How much the fit moves across fields: at
   SPR 2 by +0.13 in position and +0.08 out of position between the strong rooms and the exploit cells.
+- 09:50 **What heads-up is worth at strong tables** (`huwin.py`, the four strong rooms, seeds 14000-14299 each; the
+  first hand with two alive in each table-rotation; win = finishing first): F reaches heads-up 2,173 times and wins
+  48.4% at a mean chip share of 47.4% (+1.0 points over its chips); elite1 68.5% at 58.7% (+9.7), elite2 65.0% at
+  58.0% (+7.0), rival3 +2.5, elite4 -1.3, F's copies -3.9, rival2 -3.6. By our chip share when heads-up begins (F /
+  elite1 / elite2): under 35% 18.6% / 36.9% / 27.3%; 35-50% 43.5% / 52.2% / 53.7%; 50-65% 59.7% / 68.1% / 67.3%; 65%+
+  81.1% / 88.9% / 84.2%. Under 8..1 a heads-up win is one point, so converting like elite1 (+8 points of win share a
+  heads-up) at F's reach (about 23% of strong tables) would be about +0.02 points a table: the size of R6's strong-
+  table gain again.
