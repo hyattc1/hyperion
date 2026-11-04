@@ -7,6 +7,7 @@
   "short_strong": true,
   "short.three2_keep_defence": true,
   "short.three2_roles": "btn,sb",
-  "short.defer": "dead,station,maniac,random,nit"
+  "short.defer": "dead,station,maniac,random,nit",
+  "short.three2_seat_rr": 1
  }
 }

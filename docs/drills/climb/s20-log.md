@@ -420,3 +420,97 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
   the tables only while each opponent alive has re-raised at least one of our first-in raises this table (S14's
   "per-seat read" for the diluted table read; the minimum evidence, not a tuned count). Identity on the merged code
   (8af4fda, `goal/s20/idchk3`): 14 of 14 chunks identical to main's. R5's full screen (code 77634e3) running.
+- 22:05 **R5 full screen** (screen set 10000-10199, stages exploit, elite, confirm, guards, all 26 variants, runout
+  term, --aim strong; `q/070_R5_FULL.out`, `r_R5_screen.json`, code 77634e3, F's chunks pinned to bd36043bea):
+  **ACCEPT**.
+
+| stage | cell | F | R5 | R5 - F (corrected) | | raw |
+|---|---|---|---|---|---|---|
+| confirm | night | 6.006 | 6.014 | +0.008 ± 0.007 | **UP** | +0.009 ± 0.009 |
+| guards | night_hard | 5.470 | 5.472 | +0.002 ± 0.008 | level | +0.003 ± 0.012 |
+| | realistic | 6.350 | 6.348 | -0.002 ± 0.002 | level | -0.003 ± 0.004 |
+| | top | 5.054 | 5.060 | +0.005 ± 0.008 | level | +0.005 ± 0.011 |
+| | night @10/7/5/4/3/2/1/0 | 6.243 | 6.258 | +0.016 ± 0.015 | **UP** | +0.011 ± 0.022 |
+| | night @50/25/12/6/3/2/1/1 | 24.719 | 24.854 | +0.135 ± 0.107 | **UP** | +0.139 ± 0.148 |
+| | night, doubling blinds | 5.872 | 5.870 | -0.001 ± 0.005 | level | +0.004 ± 0.006 |
+| elite | elite | 4.856 | 4.874 | +0.018 ± 0.012 | **UP** | +0.021 ± 0.015 |
+| | elite_night | 5.440 | 5.447 | +0.007 ± 0.008 | level | +0.006 ± 0.011 |
+| | mirror | 4.506 | 4.522 | +0.016 ± 0.011 | **UP** | +0.022 ± 0.016 |
+| | elite_b | 4.609 | 4.620 | +0.011 ± 0.011 | level | +0.015 ± 0.016 |
+| | mirror_b | 4.501 | 4.526 | +0.025 ± 0.011 | **UP** | +0.023 ± 0.014 |
+| exploit | exploit (8-max) | 5.765 | 5.754 | -0.011 ± 0.020 | level | -0.006 ± 0.026 |
+| | exploit_3 | 8.491 | 8.485 | -0.007 ± 0.034 | level | +0.003 ± 0.036 |
+| | exploit2 (8-max) | 5.849 | 5.846 | -0.003 ± 0.017 | level | +0.005 ± 0.024 |
+| | exploit2_3 | 7.321 | 7.322 | +0.001 ± 0.032 | level | -0.023 ± 0.048 |
+| | exploit3 (8-max) | 5.447 | 5.466 | +0.020 ± 0.019 | **UP** | +0.010 ± 0.029 |
+| | exploit3_3 | 7.520 | 7.544 | +0.024 ± 0.045 | level | -0.007 ± 0.059 |
+| | adapt (8-max) | 5.822 | 5.834 | +0.013 ± 0.016 | level | +0.017 ± 0.024 |
+| | adapt_3 | 7.934 | 7.930 | -0.004 ± 0.031 | level | -0.022 ± 0.054 |
+| | exploit_hu, exploit2_hu, exploit3_hu, adapt_hu | | | 0 | identical | |
+| variants | top_heavy (realistic) | 28.455 | 28.401 | -0.054 ± 0.062 | level | |
+| | fast_schedule (realistic) | 6.100 | 6.099 | -0.001 ± 0.004 | level | |
+| | knockout_bounty / bounty / auction / bonus_card | | | +0.001 ± 0.006 / -0.001 ± 0.002 / -0.000 ± 0.003 / +0.000 ± 0.004 | level | |
+| | the other 20 | | | 0 | identical | |
+
+  Weighted (addendum 11): **W +0.0047 ± 0.0036, lower bound +0.0011**; W-min +0.0033 ± 0.0038, lower bound -0.0006;
+  cap holds. No cell's raw and corrected flags point opposite ways (some are UP corrected and level raw). 0 timeouts
+  and 0 errors in every cell. The per-seat gate costs about a third of R4's strong-table gain (elite +0.029 -> +0.018,
+  mirror_b +0.033 -> +0.025, elite_b +0.017 -> +0.011) and takes away the three realistic-field losses (realistic
+  -0.005 -> -0.002, top_heavy -0.084 -> -0.054, fast_schedule -0.008 -> -0.001) and most of exploit_3's (-0.063 ->
+  -0.007).
+
+## Summary
+
+**What is on the branch** (all off by default; SHIP_DIALS unchanged; F plays bit-identically: 14 of 14 identity
+chunks equal to main's at 9e3af86, ff07018 and the merged 8af4fda):
+- `tools/solve_short.py three2`: the second three-handed tree (the small blind's flat and the big blind's squeeze, two
+  3-bet sizes 2.3x / 3.3x, 4-bets, cold 4-bets, the old tree's blinds battle; one generic betting walk), terminal flops
+  priced by a realization fitted from our own postflop (`fit3.py`'s offsets over the old model by SPR, our seat in
+  position / out of position / two other seats, three-way flops tilted by seat), solved once per hero seat
+  (asymmetric) at ICM 1 / 0.4 / 0, CFR+ 400 iterations, 512 configurations: median exploitability 0.04 milli-prizes
+  a hand per hero solve. Push/fold sanity, convergence and realization tests in tests/test_s20_three.py.
+- `tables/extra/short_3b.json` (3.19 MB; 2.43 MB zipped; 0.30 s to build the member).
+- The specialist (`hyperion/strategy/short.py`): `three2` (the generic walker: raises map onto each node's stored
+  sizes on a log scale, a raise at 45% of the effective stack or more is the jam), `three2_file`, `three2_roles`,
+  `three2_keep_defence`, `three2_seat_rr`. The composite (`hyperion/compose/bot.py`): `short_strong` (the short route
+  only while the strong route's table read is open).
+
+**Recommended candidate R5** (docs/drills/climb/s20-candidate.json):
+`{"short_route": "pre_3way=short", "short.three2": true, "short.three2_file": "3b", "short.defer_3bet": 0.25,
+"short_strong": true, "short.three2_keep_defence": true, "short.three2_roles": "btn,sb", "short.defer":
+"dead,station,maniac,random,nit", "short.three2_seat_rr": 1}`. In words: three-handed, on the button and in the small
+blind, our first-in decisions and our answers to opens come from the equilibrium tables, while the table reads strong
+(our opens re-raised 20%+), every opponent alive has re-raised us at least once, none 3-bets our opens at 0.25 or more
+(exploiter 1 does) and none reads as a leak archetype; once our raise is re-raised, F's 3-bet defence plays; F plays
+the big blind and every all-in answer. Screen: ACCEPT; elite, mirror, mirror_b, night (and night at both other payout
+tables), exploit3 up; nothing down. A ship with it on must carry tables/extra/short_3b.json (tools/pack.py copies only
+tables/*.json).
+
+**Every candidate screened** (screen seeds; deltas corrected; 100 seeds unless marked):
+
+| candidate | strong cells up | exploit cells down | other down | W |
+|---|---|---|---|---|
+| U: tables, no gate | elite, elite_b, mirror_b | exploit, exploit_3, exploit2, adapt | - | -0.0051 |
+| G: + strong read + 3-bet guard 0.4 | elite, elite_b, mirror_b | exploit, exploit_3, exploit2, adapt | - | +0.0008 |
+| G2: G + leak archetypes | elite, elite_b, mirror_b | exploit, exploit_3, exploit2 | - | +0.0000 |
+| GX: G with the pessimistic table | elite_b, mirror, mirror_b | exploit, exploit_3, adapt | - | - |
+| GK: G + keep the defence | elite, elite_b, mirror_b | exploit, exploit2 | - | +0.0063 |
+| GK25: GK + guard 0.25 | elite, elite_b, mirror_b | exploit2 | - | +0.0070 |
+| GXK25: GK25 with table 3c | elite, elite_b, mirror_b | exploit, exploit2 | - | +0.0079 |
+| GK25R: GK25, button and SB only | elite, elite_b, mirror_b (200: + mirror) | none | (200) realistic | +0.0123 |
+| R3: GK25R, pre_3way only | elite, elite_b, mirror_b | none | (200) realistic | - |
+| R4: R3 + leak archetypes (200, full) | elite, mirror, elite_b, mirror_b; night | none | realistic, top_heavy, fast_schedule | +0.0058 |
+| **R5: R4 + per-seat re-raise (200, full)** | **elite, mirror, mirror_b; night** | **none** | **none** | **+0.0047** |
+
+**What I would try next**
+- Re-fit the realization on R5's own flops and re-solve (the fit came from F's ranges; the tables play different
+  ones; U's recordings already showed our out-of-position realization moving from -0.15 to -0.04 with the new
+  ranges), and give the deep configurations 600+ iterations (60-90 bb: 0.2-0.4 milli-prizes at 400).
+- The big blind: F's re-shove (+0.69 bb a hand at strong tables) beats the tables' 80-100% defence, which rests on
+  weak hands realizing nearly their equity out of position, where the fit has no data. A tree whose big blind
+  defends by fold / jam / 3-bet only below ~25 bb, or a fit with an equity-dependent term from the tables' own play.
+- The heads-up tables still use S13's fixed flop model: the same fit and per-hero-seat solve would apply (`pre_hu`).
+- The strong read counts every re-raise; a per-seat read of sized re-raises versus jams would tell push/fold bots from
+  strong builds (the realistic field's few open tables).
+- 4- and 5-alive jam/fold under ~15 bb (S14's pre_open_short gap, F +0.11-0.14 bb a decision against elite1's
+  +0.27-0.43) was not built: step 1 recorded only two- and three-handed hands, and time went to the gates.
