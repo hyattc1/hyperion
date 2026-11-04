@@ -218,16 +218,18 @@ the strong gate only if the offline numbers want one. Diagnostic seeds 12000-129
   | pooled class rates + seat's excess over them (all opens), k 10 (best pooled) | 0.2067 | 0.1588 (-0.072) | 0.1882 (-0.013) | 0.2119 (+0.025) | 0.1939 (-0.013) | 0.2283 (+0.029) | 0.2066 (+0.014) | 0.2431 (+0.049) | 0.2379 (+0.049) | 0.2339 (+0.024) |
   | **F's read as the prior + seat's answers to all opens, k 10** | 0.2118 | **0.1550 (-0.022)** | 0.1919 (+0.053) | 0.2192 (+0.083) | 0.1960 (+0.033) | 0.2371 (+0.073) | 0.2114 (+0.062) | 0.2541 (+0.079) | 0.2491 (+0.087) | 0.2413 (+0.058) |
   | ... the same, class-adjusted answers | 0.2120 | 0.1548 (-0.020) | 0.1919 (+0.056) | 0.2199 (+0.087) | 0.1963 (+0.037) | 0.2373 (+0.077) | 0.2114 (+0.066) | 0.2544 (+0.086) | 0.2494 (+0.092) | 0.2414 (+0.064) |
-  | ... the same, F's answers weighted 2 | 0.2125* | 0.1554 (-0.021) | | | | | | | | |
+  | ... the same, class-adjusted, F's answers weighted 2 | 0.2117 | 0.1556 (-0.021) | 0.1913 (+0.048) | 0.2185 (+0.078) | 0.1964 (+0.033) | 0.2369 (+0.071) | 0.2106 (+0.059) | 0.2543 (+0.079) | 0.2490 (+0.086) | 0.2417 (+0.059) |
+  | ... class-adjusted, k 5 | 0.2126 | 0.1563 (-0.017) | 0.1916 (+0.047) | 0.2183 (+0.073) | 0.1978 (+0.029) | 0.2384 (+0.060) | 0.2112 (+0.054) | 0.2558 (+0.063) | 0.2501 (+0.073) | 0.2439 (+0.044) |
+  | ... class-adjusted, k 20 | 0.2131 | 0.1546 (-0.023) | 0.1937 (+0.063) | 0.2231 (+0.100) | 0.1964 (+0.045) | 0.2383 (+0.094) | 0.2133 (+0.076) | 0.2554 (+0.106) | 0.2507 (+0.109) | 0.2412 (+0.082) |
   | ... the same, capped by F's read | 0.2109 | 0.1568 (-0.047) | 0.1910 (+0.041) | 0.2186 (+0.076) | 0.1950 (+0.021) | 0.2354 (+0.069) | 0.2101 (+0.052) | 0.2523 (+0.079) | 0.2470 (+0.083) | 0.2394 (+0.056) |
   | ... answers to F's opens only | 0.2149 | 0.1558 (-0.028) | 0.1945 (+0.060) | 0.2251 (+0.103) | 0.1976 (+0.048) | 0.2404 (+0.106) | 0.2148 (+0.077) | 0.2585 (+0.124) | 0.2537 (+0.123) | 0.2437 (+0.100) |
 
-  (* 12000-12049 only.) Every estimator that starts from a pooled prior (ours: 0.69, or the class rates 0.60-0.71)
+  Every estimator that starts from a pooled prior (ours: 0.69, or the class rates 0.60-0.71)
   beats F at the strong tables and loses to it in the realistic room (bias -0.07 to -0.10: the prior sits far under
   realistic's 0.80 and the answers move it slowly), the shape that cost O3 and G1 their screens. **Only the
   estimators that start from F's own read and move with the seat's answers beat F's read on all nine fields,
-  realistic included**; k 10 is the best of 5 / 10 / 20, and class adjustment and weighting F's answers change
-  nothing (to the third decimal). With four to seven times the answers, the seat's own evidence carries it from F's
+  realistic included** (k 5 ties F at realistic; k 20 trades the strong fields for realistic); k 10, and class
+  adjustment and weighting F's answers change the third decimal at most, so the simplest form is kept. With four to seven times the answers, the seat's own evidence carries it from F's
   read toward the truth: at strong tables it takes half of F's error off (elite +0.125 -> +0.073), in the realistic
   room a little (-0.028 -> -0.022).
 - **No cap.** Capped by F's read the estimator is better than uncapped at the eight fields where F overreads the big
