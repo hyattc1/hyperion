@@ -37,7 +37,7 @@ Nothing is lost: everything decided is committed and pushed; the scratchpad (goa
    15:10, so it replays from cache in seconds; then the judges 60400-60799, then timing), goal/b35/run.sh (O8, H35),
    goal/b36/run.sh (S22, H36). Workers: 3 + 2 + 2, more with the new cores. The batch 8 freeze staging worker
    (climb/batch8-freeze, goal/wt_b8f) was stopped: resume from its branch's last WIP commit (SHIP_DIALS + BATCH8_OFF,
-   identity both ways goal/idchk38 and idchk39, suite, setup time); the brief is in the goal log's 15:10 entry. The
+   identity both ways goal/idchk38 and idchk39, suite, setup time); the brief is goal/b8f_brief.md. The
    backup (~/dev/hyperion-goal-backup/goal) now holds the result caches too (accept_*); /tmp is not cleared at boot
    (no systemd in this WSL).
 3. Batch 8 on climb/batch8 (goal/wt_b8, ac1f18c: O5 merged, candidate C3h + R6 scoped + O5, identity 14/14): ACCEPTED on
