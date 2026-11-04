@@ -1521,3 +1521,21 @@ and (in judges) `elite_judge`.
   dials + R6's in scoped form with S7's route kept (short_route pre_hu, post_hu_bet, post_hu_chk, pre_3way;
   short.like_max_alive 2). On three test tables each: S7's heads-up route plays 20-59 decisions against exploiter 2,
   the three-handed tables 14 against elite 1 and 2; no errors. O5 joins it if H33 accepts.
+
+## 08:37: O7 stopped offline (no code); a points-based offline check that matches the screens
+- O7 (climb/s21-o7, 50728e2; table docs/drills/climb/s21-o7-table.json): on diagnostic seeds (fit 13000-13099, check
+  13100-13179, nine fields) O5 played and replaced 15% of its first-in folds (4+ alive, deeper than 10 bb) with an
+  open, to price hands F never opens: 664k decisions, 164k opens called or re-raised. Called or re-raised, an open
+  costs 0.3-1.5 bb in chips (under the fixed 1.375) but 0.3-3 bb-equivalent in ICM points; about 1 bb-eq more at strong
+  tables than in the realistic room at every hand band (realistic +0.22 / -0.14 / -0.46 by band, elite -0.56 / -1.17
+  / -1.42, mirror_b -0.83 / -1.61 / -1.41).
+- Judged offline by inverse-propensity weighting in points, which reproduces the screens (F -0.18 ± 0.17 per table
+  seed below O5, O6 -0.29 ± 0.29 below O5); in chips it does not (O6 neutral, O7 positive). O7 as briefed: -0.52 ±
+  0.45 against O5 (opens 60% more, mirror_b -2.78 ± 1.51): stopped before code, no screen. As a veto on the extra
+  opens: level overall, realistic -0.19 DOWN. Vetoing the base range too: strong fields +0.18 to +0.42, realistic
+  -0.25 and night -0.12 (level).
+- Read: F's base open range is too loose at strong tables and about right in the ordinary room; using that needs a
+  room switch, and a table-level read leaks (S21). Lesson kept for the climb: an offline points-valued
+  (not chip-valued) check of a preflop rule predicts its screen; run it before building.
+- The structural round so far: S20 (R6 accepted, H32), V-j (c6 accepted, H29), the open-read line (O3 parked, O5 on
+  H33, O6 rejected, O7 stopped offline).
