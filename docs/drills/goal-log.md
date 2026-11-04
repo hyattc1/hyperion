@@ -1516,3 +1516,8 @@ and (in judges) `elite_judge`.
   zip stays known-good until then. Decisions entry "The climb: batch 7", leaderboard row and headline, HANDOFF.
 - Batch 8: C3h (H28) + R6 (H32), and O5 (H33) if it passes. Its combined check and judges (60400-60799) run after
   the hardware change, on the new box.
+- Batch 8 branch climb/batch8 (from main 22cb355 + climb/s20-r6, clean merge): S20's and the scoping tests start
+  from BATCH7_OFF (they were written on batch 6's F); candidate docs/drills/climb/batch8-candidate.json = C3h's three
+  dials + R6's in scoped form with S7's route kept (short_route pre_hu, post_hu_bet, post_hu_chk, pre_3way;
+  short.like_max_alive 2). On three test tables each: S7's heads-up route plays 20-59 decisions against exploiter 2,
+  the three-handed tables 14 against elite 1 and 2; no errors. O5 joins it if H33 accepts.
