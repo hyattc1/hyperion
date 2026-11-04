@@ -177,3 +177,76 @@ loses wherever it opens in that room. The strong read measures re-raises, not bi
 separates the rooms is the big blinds' own answers, and a table gives about ten of them to our opens (42-74 to
 anyone's). Next, if O3 is pursued: a big-blind read that also counts answers to other seats' opens, or a gate on
 the table's own big-blind answers; not another threshold on the re-raise read.
+
+# O5: the big blind's read from everyone's opens (branch climb/s21-o5 from dcf376c)
+
+Brief (coordinator, 02:25): take the summary's suggestion forward. Per seat, as the big blind, folds / chances facing a
+first-in raise by any seat, so the evidence arrives several times faster than from F's opens alone; the estimator
+chosen offline by Brier score against the big blinds' answers to F's opens on the nine fields before any screen; fed
+where O3's read went (rival 3's steal price and open clauses, the layer's open_fold) for the big blind only; a cap or
+the strong gate only if the offline numbers want one. Diagnostic seeds 12000-12999.
+
+- 02:30 Survey (goal/s21o5/o5_survey.py; F as shipped, rival 3's core counting O3's read unused): per table every
+  big-blind answer to a first-in raise by anyone (not all-in; the big blind's first action unless a re-raise came
+  first), and at each of F's first-in raises every seat's answer with what F's reads said then (rival 3's
+  `_fold_prob`, the layer's `fold_rate`, O3's `oa_fold`). Nine fields, 12000-12099 to choose (7,060 tables, 124,936
+  big-blind answers to F's opens with four or more alive), 12100-12199 to check.
+- **The opener's position matters, and so does who opens** (12000-12049; big blind's fold by opener class: the small
+  blind opened / the button / the cutoff / earlier):
+
+  | field | to F's opens | to others' opens |
+  |---|---|---|
+  | realistic | 0.78 / 0.82 / 0.80 / 0.80 | 0.64 / 0.73 / 0.78 / 0.78 |
+  | night | 0.66 / 0.71 / 0.75 / 0.76 | 0.61 / 0.66 / 0.72 / 0.74 |
+  | elite | 0.55 / 0.59 / 0.67 / 0.69 | 0.59 / 0.59 / 0.64 / 0.68 |
+  | mirror | 0.46 / 0.55 / 0.61 / 0.65 | 0.52 / 0.57 / 0.63 / 0.64 |
+
+  Later opens are defended more (0.08-0.20 from the earliest class to the small blind's). Realistic's big blinds fold
+  more to F than to the room's other openers, most at the small blind and button opens; at strong tables the two are
+  about equal. So others' opens are evidence of a seat's level but not the same quantity as its answer to F.
+- **Estimators** (Brier against the big blind's answers to F's opens, four or more alive, fit seeds 12000-12099;
+  per field Brier and the mean bias, predicted - actual; `goal/s21o5/grid_fit.md` has all 40):
+
+  | estimator | pooled | realistic | night | night_hard | top | elite | elite_night | mirror | elite_b | mirror_b |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | F's read (rival 3's `_fold_prob`) | 0.2195 | 0.1563 (-0.028) | 0.2008 (+0.079) | 0.2340 (+0.127) | 0.2001 (+0.061) | 0.2449 (+0.125) | 0.2209 (+0.095) | 0.2629 (+0.144) | 0.2583 (+0.142) | 0.2461 (+0.118) |
+  | the layer's `fold_rate` | 0.2184 | 0.1578 (-0.037) | 0.1979 (+0.055) | 0.2299 (+0.106) | 0.2022 (+0.049) | 0.2439 (+0.118) | 0.2179 (+0.080) | 0.2627 (+0.144) | 0.2573 (+0.136) | 0.2458 (+0.116) |
+  | O3's `oa_fold` | 0.2113 | 0.1632 (-0.077) | 0.1965 (-0.023) | 0.2198 (+0.009) | 0.2015 (-0.028) | 0.2298 (+0.018) | 0.2139 (-0.001) | 0.2422 (+0.039) | 0.2382 (+0.034) | 0.2330 (+0.018) |
+  | O3 capped (as screened) | 0.2114 | 0.1663 (-0.096) | 0.1963 (-0.032) | 0.2192 (+0.002) | 0.2019 (-0.038) | 0.2292 (+0.010) | 0.2134 (-0.011) | 0.2416 (+0.031) | 0.2375 (+0.027) | 0.2323 (+0.010) |
+  | seat's answers to F's opens, pooled prior 0.688, k 10 | 0.2099 | 0.1631 (-0.089) | 0.1930 (-0.026) | 0.2166 (+0.019) | 0.1987 (-0.022) | 0.2294 (+0.038) | 0.2118 (+0.009) | 0.2432 (+0.068) | 0.2388 (+0.060) | 0.2333 (+0.042) |
+  | seat's answers to all opens, pooled prior 0.688, k 10 | 0.2070 | 0.1578 (-0.069) | 0.1887 (-0.013) | 0.2117 (+0.023) | 0.1940 (-0.015) | 0.2291 (+0.026) | 0.2074 (+0.013) | 0.2444 (+0.043) | 0.2389 (+0.046) | 0.2347 (+0.020) |
+  | pooled class rates + seat's excess over them (all opens), k 10 (best pooled) | 0.2067 | 0.1588 (-0.072) | 0.1882 (-0.013) | 0.2119 (+0.025) | 0.1939 (-0.013) | 0.2283 (+0.029) | 0.2066 (+0.014) | 0.2431 (+0.049) | 0.2379 (+0.049) | 0.2339 (+0.024) |
+  | **F's read as the prior + seat's answers to all opens, k 10** | 0.2118 | **0.1550 (-0.022)** | 0.1919 (+0.053) | 0.2192 (+0.083) | 0.1960 (+0.033) | 0.2371 (+0.073) | 0.2114 (+0.062) | 0.2541 (+0.079) | 0.2491 (+0.087) | 0.2413 (+0.058) |
+  | ... the same, class-adjusted answers | 0.2120 | 0.1548 (-0.020) | 0.1919 (+0.056) | 0.2199 (+0.087) | 0.1963 (+0.037) | 0.2373 (+0.077) | 0.2114 (+0.066) | 0.2544 (+0.086) | 0.2494 (+0.092) | 0.2414 (+0.064) |
+  | ... the same, F's answers weighted 2 | 0.2125* | 0.1554 (-0.021) | | | | | | | | |
+  | ... the same, capped by F's read | 0.2109 | 0.1568 (-0.047) | 0.1910 (+0.041) | 0.2186 (+0.076) | 0.1950 (+0.021) | 0.2354 (+0.069) | 0.2101 (+0.052) | 0.2523 (+0.079) | 0.2470 (+0.083) | 0.2394 (+0.056) |
+  | ... answers to F's opens only | 0.2149 | 0.1558 (-0.028) | 0.1945 (+0.060) | 0.2251 (+0.103) | 0.1976 (+0.048) | 0.2404 (+0.106) | 0.2148 (+0.077) | 0.2585 (+0.124) | 0.2537 (+0.123) | 0.2437 (+0.100) |
+
+  (* 12000-12049 only.) Every estimator that starts from a pooled prior (ours: 0.69, or the class rates 0.60-0.71)
+  beats F at the strong tables and loses to it in the realistic room (bias -0.07 to -0.10: the prior sits far under
+  realistic's 0.80 and the answers move it slowly), the shape that cost O3 and G1 their screens. **Only the
+  estimators that start from F's own read and move with the seat's answers beat F's read on all nine fields,
+  realistic included**; k 10 is the best of 5 / 10 / 20, and class adjustment and weighting F's answers change
+  nothing (to the third decimal). With four to seven times the answers, the seat's own evidence carries it from F's
+  read toward the truth: at strong tables it takes half of F's error off (elite +0.125 -> +0.073), in the realistic
+  room a little (-0.028 -> -0.022).
+- **No cap.** Capped by F's read the estimator is better than uncapped at the eight fields where F overreads the big
+  blind, and worse than F's own read in the realistic room (0.1568 against 0.1563): the cap keeps the answers that
+  lower the read and drops the ones that raise it, so where F already reads the big blind low it adds only the
+  noise's downward half (the minimum of two centred reads is biased low). Uncapped it is better than F everywhere.
+- **No strong gate.** The gate's job was to keep the read off tables where it misreads; this read beats F's at every
+  field, and the gate closes it at 70% of decisions at strong tables (S21's survey).
+- **Other positions off.** O3's read at the small blind and at seats that are not a blind, capped as O3 ships it, is
+  worse than F's read at both on every field (small blind pooled 0.1528 against 0.1519; not a blind 0.1276 against
+  0.1271), so O5 is the big blind only (`r3.oa_bb_only`, `exploit.open_bb_only`). Seen in passing: uncapped, O3's
+  read of the seats that are not a blind beats F's on all nine fields (0.1146 against 0.1271; F underreads their folds
+  by 0.08-0.11 everywhere), a separate lead for later; not in O5.
+- **Chosen before any screen:** big blind's fold = (its folds as the big blind to any first-in raise this table +
+  `_fold_prob` x 10) / (its answers + 10), clamped to [0.05, 0.97]; the layer reads the same number for the big blind
+  (from the core); its prior there is rival 3's read rather than the layer's own (the layer's prior gives 0.2116
+  pooled, the same family; one function serves both). Four or more alive, plain hold'em, no straddle, as O3.
+- 02:50 Code (a9262d5): `bb_scan` and per-seat `bbn` / `bbf` in rival 3's core, counted at hand end; `oa_fold(s, 2)`
+  reads them under `r3.bb_read` (prior weight `r3.bb_k` 10); `r3.oa_bb_only` keeps every other seat on its
+  fold-to-any-raise read in the open clause; `exploit.open_bb_only` the same in the layer. All off by default.
+  CONTRACTS.md regenerated (five rows). Tests: tests/test_s21_o5.py (the scan, the estimator's start and move, the
+  layer reading the big blind only, counting and exact replay, twist and straddle tables as F, SHIP_DIALS off).
