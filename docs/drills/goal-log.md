@@ -1316,3 +1316,27 @@ and (in judges) `elite_judge`.
   hold'em identical (goal/b27/c6_h29.md).
 - Future organiser briefs add to the exclusion list: tranche_holdem (each betting round's chips a pot of their own,
   won by the hand as it stood on that street; no cards once the betting is over).
+
+## 22:15: V-i and c6 accepted, O3 rejected; S20 done (R5 passes its screen), R5 on H30
+- V-i (hero.voi 1.5, hero.sd_tax; twist decisions as value of information) on H23 (43000-43399) against batch 6,
+  variants and aware, hold'em identical by construction: **ACCEPT**. bonus_card +0.048 ± 0.045 and auction +0.073 ±
+  0.048 UP; swap_one_turn +0.039, toss_or_holdem +0.008, three_card_blind_discard and deal5_keep2 level; 20 variants
+  identical; aware cells level (toss_or_holdem -0.006 ± 0.011). Weighted +0.0008 ± 0.0023 (lower bound -0.0015),
+  W-min lower bound -0.0024, cap holds. A small gain on two families. H23 used.
+- O3 (S16b's open-answer read) on H24 (44000-44399), every stage: **REJECT**. All five strong cells up (elite +0.091,
+  elite_night +0.067, mirror +0.087, elite_b +0.079, mirror_b +0.061, each ± 0.04), but realistic -0.044 ± 0.028 and
+  fast_schedule -0.053 ± 0.034 DOWN. Weighted +0.0086 ± 0.0110, W-min lower bound -0.0155. As the screen's weighted
+  score said (11:21), the strong-table gain is paid for in the ordinary room. H24 used. O3 stays off.
+- V-j's c6 (tranche_twin all, hero.tranche now,sunk, early claim 0.25) on H29 (49000-49399): **ACCEPT**, every cell
+  level (realistic +0.000 ± 0.072, tranche-aware +0.019, generic aware +0.061), hold'em identical by construction.
+  Weighted +0.0121 ± 0.0261. It enters batch 7 as insurance for a tranche-like twist, not as a measured gain. H29 used.
+- S20 done (climb/s20-three, d046fef; log docs/drills/climb/s20-log.md on the branch): a three-handed preflop solved
+  by CFR+ over a richer tree (small blind flats, big blind squeezes, two 3-bet sizes, 4-bets) with flops priced by a
+  measured realization fit; table tables/extra/short_3b.json (3.19 MB, 2.43 MB zipped), member build 0.30 s, act p99
+  90 µs. Six candidates failed the screen on exploit cells; R5 (strong read open, 3-bet guard 0.25 fixed from a
+  survey before any screen, button and small blind only, F's 3-bet defence kept, leak archetypes deferred, a per-seat
+  re-raise gate) passes it under --aim strong (10000-10199): elite +0.018, mirror +0.016, mirror_b +0.025 UP, night
+  +0.008 UP, none down; W +0.0047 ± 0.0036. Identity 14 of 14 on its branch; suite 1,416 passed.
+- R5 on H30 (50000-50399) against batch 6, --aim strong, every stage, runout term, from a worktree at d046fef
+  (goal/b28/run.sh, output goal/b28/s20_h30.md, RUN_DONE), in parallel with the S7 / S15e / C3h chain.
+- Stop rule: this round accepted V-i and c6, so the count of rounds that accept nothing stays at zero.

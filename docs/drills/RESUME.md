@@ -1,6 +1,6 @@
 # Resume here (the climb, if the session or usage stops)
 
-Updated 2026-11-03 13:37 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
+Updated 2026-11-03 22:15 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
 through 13, then "The climb: batch 6"). Main is pushed after every merge. F as it ships is batch 6 (91014ae,
 frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BATCH6_OFF plays batch 5).
 
@@ -8,19 +8,20 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 - V-f (H15) + V-h (H18), twist tables only; H21 ACCEPT (exposed card +0.216, knockout bounty +0.111, bounty-aware
   +0.026 up, none down). Gate pass plain, exposed_card, knockout_bounty. Nothing left to do for it.
 
-## Queued, detached (/tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal/b23/chain.sh, runs after H21; each against batch 5 + V-f + V-h, --runout-term)
-- S17's C3 (one stab size with three or fewer alive) on H22: /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal/b23/c3_h22.md
-- V-i (twist decisions as value of information) on H23: /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal/b23/vi_h23.md
-- S16b's O3 (the open-answer read) on H24: /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal/b23/o3_h24.md
-- Each accepted part joins the next batch, which needs judges on fresh judge seeds 30800-31199 (addendum 12).
+## Held-out results this round (goal-log 22:15)
+- V-i (H23) ACCEPT, c6 (H29) ACCEPT: both twist-only, both join batch 7. O3 (H24) REJECT. C3 rejected (H27).
+- Batch 7 needs judges on fresh judge seeds 30800-31199 (addendum 12) only if a plain hold'em part joins it.
+
+## Queued or running, detached (each against batch 6, --runout-term)
+- S7 on H25: goal/b24/chain2.sh, output goal/b24/s7_h25.md (ends "done"), CHAIN2_DONE.
+- S15e on H26 after S7: goal/b25/chain3.sh, output goal/b25/s15e_h26.md, CHAIN3_DONE.
+- C3h on H28 after S15e: goal/b26/chain4.sh, output goal/b26/c3h_h28.md, CHAIN4_DONE.
+- S20's R5 on H30, in parallel: goal/b28/run.sh (worktree goal/wt_measure9 at d046fef), output goal/b28/s20_h30.md,
+  RUN_DONE. Merging it brings tables/extra/short_3b.json (pack.py copies tables/*.json only: the ship must carry it).
 
 ## Workers running (branches in worktrees under /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal; each commits as it goes)
-- S13c done: S7 (S6 + a looseness gate) merged off; queued on H25 after the b23 chain: goal/b24/chain2.sh, output
-  goal/b24/s7_h25.md (ends "done"); goal/b24/CHAIN2_DONE when finished.
-- S15d done: S15e (the gated stab read) merged off; queued on H26 after S7: goal/b25/chain3.sh, output
-  goal/b25/s15e_h26.md; goal/b25/CHAIN3_DONE when finished.
-- S20 (climb/s20-three, wt_s20): the structural round's first idea, a three-handed preflop solved for strong tables
-  (log docs/drills/climb/s20-log.md on its branch). Diagnostics 11000-11199.
+- S13c done (S7 merged off), S15d done (S15e merged off).
+- S20 done (climb/s20-three, d046fef, not merged; log docs/drills/climb/s20-log.md on its branch): R5 on H30.
 - Drill 11 done (docs/drills/prompt-drill-11.md); H7 and V-j merged. Future organiser briefs exclude tranche_holdem.
 - start-vs-now done (the leaderboard's "Since the start" table).
 
@@ -30,9 +31,9 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
   entry the same day. Our regional is Pittsburgh, Nov 12; the climb stops by Nov 11 18:00 ET.
 
 ## Held-out sets used
-H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); in use or queued H22-H24; H25 queued for S7, H26 for S15e, H27 for
+H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); H22-H24 used (C3, V-i, O3); H25 queued for S7, H26 for S15e, H27 for
 C3's bonus_card replicate (down: C3 rejected), H28 for C3h (goal/b26/chain4.sh, output
-goal/b26/c3h_h28.md, CHAIN4_DONE), H29 for V-j's c6 (goal/b27/c6_h29.md); next fresh H30 = 50000-50399
+goal/b26/c3h_h28.md, CHAIN4_DONE), H29 used by V-j's c6, H30 (50000-50399) for S20's R5; next fresh H31 = 51000-51399
 (worker briefs say held-out is 20000-49999: widen it to 20000-59999 in the next brief). Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 30800-31199.
 
 ## End deliverables (goal.md)
