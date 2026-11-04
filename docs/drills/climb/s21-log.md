@@ -252,3 +252,10 @@ the strong gate only if the offline numbers want one. Diagnostic seeds 12000-129
   fold-to-any-raise read in the open clause; `exploit.open_bb_only` the same in the layer. All off by default.
   CONTRACTS.md regenerated (five rows). Tests: tests/test_s21_o5.py (the scan, the estimator's start and move, the
   layer reading the big blind only, counting and exact replay, twist and straddle tables as F, SHIP_DIALS off).
+- 02:55 **Check seeds** (12100-12199, 7,200 tables, 127,960 answers; bases and the choice from the fit seeds): the
+  chosen read beats F's on all nine fields again (realistic 0.1558 (-0.018) against 0.1565 (-0.022); night 0.1874
+  against 0.1974; night_hard 0.2143 / 0.2269; top 0.1965 / 0.2017; elite 0.2404 / 0.2489; elite_night 0.2160 / 0.2264;
+  mirror 0.2520 / 0.2616; elite_b 0.2449 / 0.2547; mirror_b 0.2380 / 0.2444), and the layer's own read on all nine
+  (realistic 0.1582). Capped, realistic 0.1568 is again worse than F's; the pooled-prior estimator again loses
+  realistic (0.1604 (-0.070)). Other positions as on the fit seeds (O3 capped worse than F's read at both).
+  goal/s21o5/grid_val.md.
