@@ -106,3 +106,8 @@ Survey first (diagnostic seeds 11200-11399), then a screen (10000-10199, `--aim 
   fold only as this table's own big blinds show it. The risk: it also halves what G keeps at strong tables (mirror_b
   was UP by 0.019). G's screen is stopped here (its decisive stages are in) so G1 can use the 2 workers; F's cells
   are cached and shared (the same code, a dials-only change).
+- 23:59 G1's guards (corrected): night -0.001 ± 0.020, night_hard +0.045 ± 0.030 UP, **realistic -0.011 ± 0.010
+  DOWN** (G -0.020 ± 0.017), top +0.007 ± 0.023, night 10/7/5/... -0.018 ± 0.035. The prior halves the realistic loss
+  again but does not remove it: at realistic F already reads the big blind a little under what it folds (0.774
+  against 0.800), so any read that can only lower it (the cap) loses there, and the minimum of two noisy reads is
+  biased low even when both are centred. G1 is rejected at the guards too; its elite stage is next.
