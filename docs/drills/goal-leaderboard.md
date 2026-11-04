@@ -3,10 +3,12 @@
 One page, updated after every accepted batch. Points are per table, averaged over the seeds shown, every seed played
 in all eight seat rotations; "margin" is F minus the other bot on the same deals, with the 95% interval.
 
-## Where we stand (2026-11-03 13:37 ET, batch 6)
+## Where we stand (2026-11-04 08:40 ET, batch 7)
 
-Batch 6 changes only twist tables, so every plain hold'em number below (judges, night, elite rooms, exploiters) is
-batch 5's and holds for batch 6 exactly.
+Batch 7 (frozen, gate pass; the known-good upload) changes plain hold'em only with three or fewer alive against
+exploiter-like seats (its 8-max, judge and strong-table cells within ±0.002 of batch 6), so the judge, night and
+elite-room numbers below are batch 5's and hold for batches 6 and 7. Batch 7 on held-out H31 against batch 6:
+exploiter 2 heads-up +0.307, three-handed +0.086, exploiter 3 heads-up +0.096, auction +0.060, tranche_holdem +0.180.
 
 **F (the composite) is first against every judge field.** On fresh seeds (30000-30399, 400 x 8), none of them ever
 used for tuning. Batch 5 moved judge_top +0.106 and outside +0.087 (beyond noise) and left the rest level; the
@@ -34,8 +36,8 @@ paired on held-out seeds, +0.241 ± 0.065. Elite 2 and elite 1 still take 1st pl
 **Against bots built to beat F** (fresh agents that see F only by playing it), on held-out seeds after batch 5:
 - exploiter 1: F wins every format: 8-max 5.72 vs 4.55, heads-up 9.27 vs 7.73, three-handed 8.47 vs 6.92.
 - exploiter 2: F wins 8-max (5.79 vs 5.06); heads-up 7.80 vs its 9.20 and three-handed 7.35 vs 8.23 it still leads,
-  by less than before (it was 7.50 vs 9.50 and 7.15 vs 8.57). The short-handed specialist (S13), which cuts most of the
-  heads-up gap on the screen set, is in held-out confirmation.
+  by less than before (it was 7.50 vs 9.50 and 7.15 vs 8.57). Batch 7 adds +0.307 heads-up and +0.086 three-handed
+  (held-out H31): about 8.11 vs 8.89 heads-up, the gap roughly halved; batch 8's C3h adds +0.225 heads-up alone (H28).
 
 **On a slow sandbox:** with the governor (batch 2), F on a 3x slower box scores what it scores on a normal one.
 
@@ -82,5 +84,6 @@ On ordinary rooms F was already first, and it has not measurably moved there.
 | 2026-11-02 08:59 (batch 4) | + 3-bet defence, keep2/toss calls, kit fixes | e3cec13 | bb5820cc...6197fe | beats exploiter 1 in every format; keep2 +0.29; adapter reads 20 kit shapes; no test bots in the zip |
 | 2026-11-02 20:56 (batch 5) | + strong-table route, size read, S11 fixes, twist play | 3aac34d | cbf2ccb3...95fa4803 | held-out night +0.096, mirror +0.241, every exploit cell up (heads-up vs exploiter 2 +0.30), wild/short deck/omaha/keep up |
 | 2026-11-03 13:37 (batch 6) | + per-family twist dials, known opponent cards | 91014ae | a66eb4b3...d6666f77 | twist tables only: exposed card +0.22, knockout bounty +0.11, bounty-aware +0.03 (held-out H21); plain hold'em identical |
+| 2026-11-04 08:40 (batch 7) | + heads-up specialist (gated), stab read, value of information, street-settled twin | 038c3f0 | 51c37f02...9848bdc4 | exploiter 2 heads-up +0.31, three-handed +0.09, exploiter 3 heads-up +0.10, auction +0.06, tranche +0.18 (H31); judges level; gate pass on plain, auction, bonus_card, tranche (load 4) |
 
 Zips live in `frozen/` (git-ignored); each is rebuilt from its commit with `tools/pack.py --slim`.

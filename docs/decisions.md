@@ -3425,3 +3425,48 @@ batch 5. Both act only on twist tables: plain hold'em plays exactly as batch 5 (
   tables strict each, 0 exceptions, 0 illegal: plain +0.274 ± 0.579, exposed_card +0.150 ± 0.560, knockout_bounty
   -0.816 ± 0.904 against the sim's composite; 1.4-1.5% timeouts at load 9-10 on both the package and the sim copy
   (the load clause; re-time on a quiet box before the final rehearsal).
+
+## The climb: batch 7 (exploiters short-handed, two twists) (2026-11-04, builder: the climb's coordinator)
+
+**Batch 7 (038c3f0).** On top of batch 6's ship, four parts, each accepted alone on its own held-out set against
+batch 6, then together, then the judges.
+- **Twist decisions as value of information** (V-i): `hero.voi` 1.5, `hero.sd_tax`. H23 (43000-43399): bonus_card
+  +0.048 ± 0.045, auction +0.073 ± 0.048 UP; plain hold'em identical by construction.
+- **Street-settled tables** (V-j's c6): `tranche_twin` all, `hero.tranche` now,sunk, `hero.tranche_claim_early` 0.25.
+  H29 (49000-49399): every cell level; insurance for a twist that settles each betting round on its own.
+- **The heads-up specialist behind its looseness gate** (S7): `short_route` pre_hu, post_hu_bet, post_hu_chk to the
+  short-handed specialist, `short.pre_roles` bb, `short.pre_open_min` 0.65, the like gates (probe 0.75, bet 0.6,
+  pfr 0.3, VPIP 0.50-0.88). H25 (45000-45399): exploiter 2 heads-up +0.328 ± 0.078, three-handed +0.105 ± 0.034 UP;
+  every other cell identical (the gate never opened elsewhere).
+- **The gated stab read** (S15e): `hero.postflop.stab_*` (call wider against a seat that bets whenever F checks; three
+  or fewer alive; plain hold'em). H26 (46000-46399): exploiter 3 heads-up +0.067, exploiter 2 three-handed +0.012,
+  adapt1 heads-up +0.023 UP; nothing down.
+- **Together** on H31 (51000-51399), every stage, --aim exploit, runout term: exploiter 2 heads-up +0.307 ± 0.080,
+  three-handed +0.086 ± 0.030, exploiter 3 heads-up +0.096 ± 0.039, auction +0.060 ± 0.038, tranche_holdem +0.180 ±
+  0.096, tranche-aware +0.081 ± 0.074 UP; bonus_card -0.023 ± 0.046 level (V-i's H23 gain did not repeat); night, the
+  guards, the strong tables and the 8-max exploit cells within ±0.002; nothing down. ACCEPT. W +0.0033 ± 0.0029.
+- **Judges** on fresh judge seeds 60000-60399 (30800-31199 would have overlapped H11): all 12 level (adapt_judge
+  heads-up +0.035 ± 0.039); S7's gate never opened on them. ACCEPT.
+- **Timing** (tools/latency.py per-call minimum, act mean / p99, µs, batch 6 -> 7, load 12): plain 55 / 103 -> 60 /
+  119, a table's first decision 104 -> 134 (the specialist's table start); bonus_card, auction, tranche_holdem within
+  ±5 / ±15. Hand end p99 139 -> 149.
+- **Two fixes found by the suite**, both in this batch: the night's `cheap` dial now drops the specialist too (cheap
+  means no other member); the specialist's new_table resets its last hand's stacks and its payout ratio (no measured
+  cell changes). Tests written against batch 6's F start from `BATCH7_OFF`; SHIP_DIALS + BATCH7_OFF plays batch 6
+  exactly (14 of 14 identity chunks).
+- Frozen: frozen/B7-038c3f0, kit B zip sha256 51c37f0214c0c13baa48894194235551358b7d2c552a0b0b16956fd99848bdc4 (1.1 MB,
+  slim, the specialist's heads-up tables in, stdlib and the package only, import 0.30 s). Gate, 40 tables strict
+  each: 0 exceptions, 0 illegal on plain, auction, bonus_card and tranche_holdem; timeouts 0.6-1.1% on the package
+  and the sim's copy alike at load 8-12 (tranche under the load clause; plain, auction and bonus_card just outside
+  it, the one-minute load dipping under the core count). Batch 6 measured 1.4-1.5% the same way. **Re-run the gate on
+  a quiet box (after the owner's hardware change) before batch 7 is the known-good upload**; until then batch 6's zip
+  (a66eb4b3) stays known-good.
+- Already accepted for batch 8: C3h (H28: exploiter 2 heads-up +0.225, three-handed +0.157, 8-max +0.041, adapt1
+  heads-up +0.155) and S20's R6 (H32: elite +0.015, mirror +0.019, elite_b +0.018, mirror_b +0.019, realistic level).
+
+## The climb: batch 7's gate on a quieter box (2026-11-04 08:39, builder: the climb's coordinator)
+
+Re-run with only one held-out run beside it (load 3.6-3.8 on 8 cores), the same zip (sha256 51c37f02...9848bdc4),
+40 tables strict each: GATE PASS on plain (+0.145 ± 0.493 against the sim's composite), auction (-0.597 ± 0.702),
+bonus_card (+0.020 ± 0.494) and tranche_holdem (-0.241 ± 0.598); 0 exceptions, 0 illegal; timeouts 0.04-0.05% (1.1%
+at load 8-12 before). Batch 7's zip (frozen/B7-038c3f0) is the known-good upload from now on.

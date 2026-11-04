@@ -14,8 +14,9 @@ TR = V.get("tranche_holdem").rules
 OTHERS = [n for n in V.catalog_names() if n != "tranche_holdem"]
 
 
-def test_the_dials_are_off_in_the_ship():
-    assert "tranche_twin" not in CB.SHIP_DIALS and "hero.tranche" not in CB.SHIP_DIALS
+def test_the_dials_ship_in_batch_7_and_are_off_by_default():
+    assert CB.SHIP_DIALS["tranche_twin"] == "all" and CB.SHIP_DIALS["hero.tranche"] == "now,sunk"  # c6 (H29)
+    assert CB.BATCH7_OFF["tranche_twin"] == "" and CB.BATCH7_OFF["hero.tranche"] == ""
     assert CB.ComposeConfig().tranche_twin == ""
     assert config_from_dict({}).tranche == ""
     with pytest.raises(KeyError):
@@ -35,7 +36,7 @@ def test_the_twin_reaches_only_street_settled_or_no_runout_tables():
     assert o is not obs and o.hole == parse_cards("As Ts")  # 22 beats every non-pair: shown as A-T suited
     assert obs.hole == parse_cards("2c 2d")  # the engine's observation is untouched
     assert core._twin_obs(make_obs(hole="8s 7s", street=0, seat=3)).hole[0] >> 2 < 8  # a weak two-card hand
-    assert _core({}, TR)._twin is None
+    assert _core(CB.BATCH7_OFF, TR)._twin is None
     for name in OTHERS:
         assert _core({"tranche_twin": "all"}, V.get(name, seed=3).rules)._twin is None, name
     assert _core({"tranche_twin": "all"}, Rules())._twin is None

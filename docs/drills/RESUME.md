@@ -1,29 +1,38 @@
 # Resume here (the climb, if the session or usage stops)
 
-Updated 2026-11-03 22:15 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
-through 13, then "The climb: batch 6"). Main is pushed after every merge. F as it ships is batch 6 (91014ae,
-frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BATCH6_OFF plays batch 5).
+Updated 2026-11-04 08:45 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
+through 13, then "The climb: batch 6" and "The climb: batch 7"). Main is pushed after every merge. F as it ships is batch 7 (038c3f0,
+frozen/B7-038c3f0, kit B zip 51c37f02; SHIP_DIALS in hyperion/compose/bot.py; BATCH7_OFF plays batch 6). Gate pass
+(re-run at load 4): batch 7's zip is the known-good upload.
+Identity reference for worker branches: goal/idchk34/post (batch 7's F).
 
 ## Batch 6 (frozen 2026-11-03 13:37)
 - V-f (H15) + V-h (H18), twist tables only; H21 ACCEPT (exposed card +0.216, knockout bounty +0.111, bounty-aware
   +0.026 up, none down). Gate pass plain, exposed_card, knockout_bounty. Nothing left to do for it.
 
 ## Held-out results this round (goal-log 22:15)
-- V-i (H23) ACCEPT, c6 (H29) ACCEPT: both twist-only, both join batch 7. O3 (H24) REJECT. C3 rejected (H27).
+- V-i (H23) ACCEPT, c6 (H29) ACCEPT: both twist-only, both join batch 7. S7 (H25) ACCEPT (plain hold'em, heads-up
+  and three-handed against exploiter 2 only). S15e (H26) ACCEPT (plain hold'em, short-handed).
+  C3h (H28) ACCEPT: joins batch 8 (exploiter 2 heads-up +0.225; overlaps S7's spots, so batch 8's combined check). O3 (H24) REJECT. C3 rejected (H27).
+- S20's R5 (H30) REJECT on realistic -0.003 ± 0.002 (all five strong cells up); R6 (button only) ACCEPT on H32:
+  joins batch 8 (merge climb/s20-r6, 2cac7e3; keep S7's route, goal-log R6 entry). If a later S20 version passes: climb/b7-scope (863f9f5) has the per-route scoping.
 - Batch 7 needs judges on fresh judge seeds 60000-60399 (addendum 12) only if a plain hold'em part joins it.
 
+## Batch 8 (being composed)
+- climb/batch8 (worktree goal/wt_b8): main + climb/s20-r6; candidate docs/drills/climb/batch8-candidate.json (C3h + R6
+  scoped, S7's route kept). Add O5 (merge climb/s21-o5, its dials) if H33 accepts. Then: combined check on a fresh
+  held-out set (H34 = 54000-54399) against batch 7, every stage, --aim strong; judges 60400-60799; timing; freeze as batch 7.
+
 ## Queued or running, detached (each against batch 6, --runout-term)
-- S7 on H25: goal/b24/chain2.sh, output goal/b24/s7_h25.md (ends "done"), CHAIN2_DONE.
-- S15e on H26 after S7: goal/b25/chain3.sh, output goal/b25/s15e_h26.md, CHAIN3_DONE.
-- C3h on H28 after S15e: goal/b26/chain4.sh, output goal/b26/c3h_h28.md, CHAIN4_DONE.
-- S20's R5 on H30, in parallel: goal/b28/run.sh (worktree goal/wt_measure9 at d046fef), output goal/b28/s20_h30.md,
-  RUN_DONE. Merging it brings tables/extra/short_3b.json (pack.py copies tables/*.json only: the ship must carry it).
+- Batch 7's combined check (V-i + c6 + S7 + S15e) on H31, then judges 60000-60399, then timing: goal/b29/run.sh,
+  outputs goal/b29/b7_h31.md, judges.md, lat_*.txt; RUN_DONE. Then merge climb/batch7 (6fddb13, staged: SHIP_DIALS + BATCH7_OFF, identity 14/14, tests fixed),
+  pack, gate, freeze, docs.
 
 ## Workers running (branches in worktrees under /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal; each commits as it goes)
 - S13c done (S7 merged off), S15d done (S15e merged off).
 - S20 done (climb/s20-three, d046fef, not merged; log docs/drills/climb/s20-log.md on its branch): R5 on H30.
-- S21 (climb/s21-o3s, goal/wt_s21): O3 behind the strong-table read (O3 was up on all five strong cells on H24 and
-  down in the realistic room); survey on 11200-11399, screen 10000-10199 --aim strong.
+- S21 done: rejected on its screen (O3 parked). O5 (2de5070) passed its screen: on H33 after C3h (goal/b31/run.sh,
+  output goal/b31/o5_h33.md, RUN_DONE). O6 (climb/s21-o6, the non-blind seats' fold read) with the same worker.
 - Drill 11 done (docs/drills/prompt-drill-11.md); H7 and V-j merged. Future organiser briefs exclude tranche_holdem.
 - start-vs-now done (the leaderboard's "Since the start" table).
 
@@ -33,9 +42,8 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
   entry the same day. Our regional is Pittsburgh, Nov 12; the climb stops by Nov 11 18:00 ET.
 
 ## Held-out sets used
-H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); H22-H24 used (C3, V-i, O3); H25 queued for S7, H26 for S15e, H27 for
-C3's bonus_card replicate (down: C3 rejected), H28 for C3h (goal/b26/chain4.sh, output
-goal/b26/c3h_h28.md, CHAIN4_DONE), H29 used by V-j's c6, H30 (50000-50399) for S20's R5; next fresh H31 = 51000-51399
+H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); H22-H24 used (C3, V-i, O3); H25 used (S7), H26 used (S15e), H27 for
+C3's bonus_card replicate (down: C3 rejected), H28 used (C3h), H29 used by V-j's c6, H30 used by S20's R5, H31 for batch 7's combined check, H32 used (R6), H33 for O5; next fresh H34 = 54000-54399
 (worker briefs say held-out is 20000-49999: widen it to 20000-59999 in the next brief). Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 60000-60399 (30800-31199 would overlap H11's 31000-31399), then 60400-60799 for a replicate.
 
 ## End deliverables (goal.md)

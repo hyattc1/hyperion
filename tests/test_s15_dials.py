@@ -6,13 +6,16 @@ import pytest
 from hyperion.core.types import Action, ActionKind, HandResult, Observation, Rules
 from hyperion.strategy.profiler import Profiler
 
+from hyperion.compose.bot import BATCH7_OFF
+
 from .test_s2_dials import _digest
 
 HU = ["hero", "exploiter3"]
 THREE = ["hero", "exploiter3", "loose_aggro"]
 R2, R3 = Rules(n_players=2, payouts=(10, 7)), Rules(n_players=3, payouts=(10, 7, 5))
+OFF = BATCH7_OFF  # batch 6's F (batch 7 ships S15e: these tests start from batch 6 to show each dial moves play)
 # S15's candidate
-S = {"hero.postflop.stab_from": 0.55, "hero.postflop.stab_full": 0.8, "hero.postflop.stab_prior": 0.4,
+S = {**OFF, "hero.postflop.stab_from": 0.55, "hero.postflop.stab_full": 0.8, "hero.postflop.stab_prior": 0.4,
      "hero.postflop.stab_min": 3, "hero.postflop.stab_pool": 7, "hero.postflop.stab_margin": 0.03,
      "hero.postflop.stab_holdem_only": True}
 
@@ -60,7 +63,7 @@ def test_a_lead_into_me_is_not_a_stab():
 S7 = {**S, "hero.postflop.stab_streets": 7}
 
 
-@pytest.mark.parametrize("dials,ref", [(S, {}), (S7, S), ({**S7, "hero.postflop.stab_bluff": 1.0}, S7),
+@pytest.mark.parametrize("dials,ref", [(S, OFF), (S7, S), ({**S7, "hero.postflop.stab_bluff": 1.0}, S7),
                                        ({**S, "hero.postflop.stab_aggr_only": True}, S)])
 def test_each_s15_dial_reaches_the_decisions(dials, ref):
     assert any(_digest(dials, t, HU, R2)[0] != _digest(ref, t, HU, R2)[0] for t in range(10)), dials
@@ -88,7 +91,7 @@ def test_stab_holdem_only_plays_a_twist_table_exactly_as_f():
     for name in ("short_deck", "bounty"):
         rules = V.get(name).rules
         d = {**S, "hero.postflop.stab_bluff": 0.5, "hero.postflop.stab_streets": 7}
-        assert all(_digest(d, t, rules=rules)[0] == _digest({}, t, rules=rules)[0] for t in range(2)), name
+        assert all(_digest(d, t, rules=rules)[0] == _digest(OFF, t, rules=rules)[0] for t in range(2)), name
 
 
 def test_stab_max_alive_plays_heads_up_as_without_it():
@@ -100,9 +103,9 @@ def test_stab_pfr_min_reaches_the_decisions():
     """Exploiter 3 raises preflop far more than 0.3 of its hands heads-up: the gate passes it some of the time, and a
     gate no seat passes plays as F."""
     d = {**S, "hero.postflop.stab_pfr_min": 0.3}
-    assert any(_digest(d, t, HU, R2)[0] != _digest({}, t, HU, R2)[0] for t in range(10))
+    assert any(_digest(d, t, HU, R2)[0] != _digest(OFF, t, HU, R2)[0] for t in range(10))
     shut = {**S, "hero.postflop.stab_pfr_min": 1.01}
-    assert all(_digest(shut, t, HU, R2)[0] == _digest({}, t, HU, R2)[0] for t in range(3))
+    assert all(_digest(shut, t, HU, R2)[0] == _digest(OFF, t, HU, R2)[0] for t in range(3))
 
 
 def test_the_lead_rate_leaves_out_the_stabs_after_my_check():
@@ -123,14 +126,14 @@ def test_the_lead_rate_leaves_out_the_stabs_after_my_check():
 
 def test_stab_lead_max_reaches_the_decisions_and_shut_plays_as_f():
     d = {**S, "hero.postflop.stab_pfr_min": 0.35, "hero.postflop.stab_lead_max": 0.4}
-    assert any(_digest(d, t, HU, R2)[0] != _digest({}, t, HU, R2)[0] for t in range(10))
+    assert any(_digest(d, t, HU, R2)[0] != _digest(OFF, t, HU, R2)[0] for t in range(10))
     shut = {**S, "hero.postflop.stab_lead_max": -0.01}
-    assert all(_digest(shut, t, HU, R2)[0] == _digest({}, t, HU, R2)[0] for t in range(3))
+    assert all(_digest(shut, t, HU, R2)[0] == _digest(OFF, t, HU, R2)[0] for t in range(3))
 
 
 def test_stab_free_max_reaches_the_decisions_and_shut_plays_as_f():
     d = {**S, "hero.postflop.stab_pfr_min": 0.35, "hero.postflop.stab_lead_max": 0.4,
          "hero.postflop.stab_free_max": 0.5}
-    assert any(_digest(d, t, HU, R2)[0] != _digest({}, t, HU, R2)[0] for t in range(10))
+    assert any(_digest(d, t, HU, R2)[0] != _digest(OFF, t, HU, R2)[0] for t in range(10))
     shut = {**S, "hero.postflop.stab_free_max": -0.01}
-    assert all(_digest(shut, t, HU, R2)[0] == _digest({}, t, HU, R2)[0] for t in range(3))
+    assert all(_digest(shut, t, HU, R2)[0] == _digest(OFF, t, HU, R2)[0] for t in range(3))

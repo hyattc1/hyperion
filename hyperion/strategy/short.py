@@ -222,9 +222,9 @@ class ShortMember:
         self._fo = [0] * max(12, n_players)
         self._ff = [0] * max(12, n_players)
         pay = tuple(rules.payouts) if rules.payouts else ()
-        if len(pay) >= 3 and pay[0] > pay[2]:
-            self.rho = (pay[1] - pay[2]) / (pay[0] - pay[2])
+        self.rho = (pay[1] - pay[2]) / (pay[0] - pay[2]) if len(pay) >= 3 and pay[0] > pay[2] else 0.4
         self._hand = -1
+        self._start = []  # the last table's last hand (light_observe refills it; reset so a new table keeps nothing)
 
     def hand_end(self, result) -> None:
         """The heads-up read of `sb_ftb_max`: in a hand two started, the button's first action an open (a raise), the
