@@ -154,3 +154,13 @@ The branch with the new dials off (25f37d5; SHIP_DIALS = batch 7) against batch 
 `goal/s22/idchk.sh`, `idcmp.py`): **14 of 14 identical.** Code under hyperion/ is unchanged since 003aec8 (the screen's
 cache key is the same tree).
 
+## Tests
+
+tests/test_s22_river.py (11: the count, leads and bets after my check, not a raise of my bet or the turn, a long board
+as the river, the smoothing and minimum; the dials reach the decisions; shut gates play as F; `rbet_max_alive` 3
+plays heads-up as without it; `rbet_margin` reaches the decisions; twist tables (short_deck, bounty) play as F;
+three-handed replays exactly). docs/packet/CONTRACTS.md regenerated (the apicard test asked).
+Full suite at 42827ef (`pytest -q -m "not timing"`, beside the screen, load 10-12): 1,419 passed, 4 failed, 3
+skipped. The four (test_nightof_latency's kit B/C and kit D round trips, test_sim_engine's same-seed table,
+test_sim_rival3's strict-mode timeout rate) are wall-clock and strict-mode tests; re-run alone, all 4 passed.
+
