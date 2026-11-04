@@ -1492,6 +1492,40 @@ class OutChartsBot(_OutsideBBot):
     SALT = 0x0C7
 
 
+class OutReadsBot(_FixedSpeedInModel, PersonaBot):
+    """Outside `out_reads` (decisions addendum 14): a reads-first team. An ICM-priced baseline (positional opens, push/fold
+    under about 13.5 bb, value 3-bets sized to the raiser's range), live per-seat reads with priors worth 4-6 hands, and
+    a postflop simulation that weights each opponent's range by his own action frequencies, stopped by its wall clock at
+    200 us (hard 350). Its sampler reads a module-level `_PC`; in mode "model" that clock advances STEP_US per read (15
+    us: the median wall time between its reads, measured at load 8), so every run replays exactly. Its module-level
+    generator `_R` is reseeded from the seat seed at every table start. Frozen at md5 e51fb439."""
+
+    MODULE = "out_reads"
+    STEP_US = 15.0
+    SALT = 0x0C8
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self.mod = sys.modules[type(self.impl).__module__]
+        self._seed = seed or 0
+        self._now = 0.0
+
+    def _clock(self) -> float:
+        self._now += self.STEP_US * 1e-6
+        return self._now
+
+    def _set_speed(self, fixed: bool) -> None:
+        pass  # read at every act()
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self.mod._R.seed(self._seed * 1_000_003 + self.SALT)
+
+    def act(self, obs: Observation) -> Action:
+        self.mod._PC = self._clock if self.fixed_speed else time.perf_counter
+        return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
+
+
 class OutsideQuantsBot(_FixedSpeedInModel, PersonaBot):
     """Outside `out_quants`: two quant interns. An embedded 169x169 all-in equity table and fictitious-play push/fold
     equilibria for 1-7 players behind and 1-30 bb, exact ICM for 10/7/5/4/3/2/1/0 (hard-coded), push/fold at 16 bb or
@@ -1888,6 +1922,7 @@ REGISTRY: dict[str, type] = {
     "out_cfr": OutCfrBot,  # outside judges, second wave (addendum 10): self-play trained, never tuned on
     "out_press": OutPressBot,  # outside judges, second wave: hyper-aggressive, never tuned on
     "out_charts": OutChartsBot,  # outside judges, second wave: solver charts, never tuned on
+    "out_reads": OutReadsBot,  # outside judges, third wave (addendum 14): reads first, never tuned on
     "elite1": Elite1Bot,  # elite field (prepared top-team build): tuning fields elite, elite_night
     "elite2": Elite2Bot,  # elite field: tuning fields elite, elite_night
     "elite4": Elite4Bot,  # elite field, second wave: tuning fields elite_b, mirror_b
@@ -2010,6 +2045,8 @@ FIELDS["outside_strong"] = ("hero",) + OUTSIDE + ("rival4", "rival5", "agent_pus
 # the second wave (addendum 10): the three with the other held-out bots and one night seat; judges only
 OUTSIDE_B = ("out_cfr", "out_press", "out_charts")
 FIELDS["outside_b"] = ("hero",) + OUTSIDE_B + ("rival4", "rival5", "elite5") + _night.seat_names("night")[:1]
+OUTSIDE_C = ("out_reads",)
+FIELDS["outside_c"] = ("hero",) + OUTSIDE_C + OUTSIDE_B + ("elite5", "rival4") + _night.seat_names("night")[:1]
 # the elite field (owner's direction): three prepared top-team builds. elite1 and elite2 are a tuning field, alone with
 # the strong tunable bots (`elite`, a top table) or in a night room (`elite_night`); elite3 is held out with both judges
 # and two outside builds (`elite_judge`, the strongest room we have): measured once per batch, never tuned on.
