@@ -1381,3 +1381,13 @@ and (in judges) `elite_judge`.
   the rule's history (addendum 11's review: 10 of 14 small-loss rejections were followed by a gated version, 9
   accepted), the next step is a diagnosis on fresh diagnostic seeds of where in the realistic room the route opens
   and loses, then one gate fixed from that, a screen, and a fresh held-out set. Sent to S20's worker (R6).
+
+## 02:00: S15e accepted on H26; C3h on H28 started
+- S15e (S15d's gated stab read: call wider against a seat that bets whenever F checks, three or fewer alive, plain
+  hold'em only; dials goal/b25/s15e.json) on H26 (46000-46399) against batch 6, --aim exploit, every stage, twists
+  identical by construction, runout term, 168.9 min: **ACCEPT**. exploit2 three-handed +0.012 ± 0.008, exploit3
+  heads-up +0.067 ± 0.047 and adapt1 heads-up +0.023 ± 0.021 UP; nothing down (the 8-max cells within ±0.004,
+  most identical). W +0.0006 ± 0.0007 (lower bound -0.0001), W-min lower bound -0.0002: small, as a short-handed
+  read should be at the night level. H26 used. It joins batch 7 (plain hold'em: the judges decide it there).
+- Batch 7 so far: V-i, c6 (twist tables only), S7, S15e (plain hold'em, three or fewer alive). Waiting: C3h (H28,
+  running from 01:59), S21's screen, S20's R6 diagnosis.
