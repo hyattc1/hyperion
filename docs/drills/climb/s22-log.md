@@ -6,7 +6,7 @@ about 41%) and does not adapt. Diagnose on seeds 15000-15999 only, fix behind di
 on 10000-10199 with `--aim exploit`. No held-out set, judge set, judge bot or judge field is run, read or tuned on
 (20000-60799 untouched). Workers 2, nice 5, detached runs with done-files.
 
-**Where I am / next:** diagnosis done, read coded and tested (tests/test_s22_river.py), candidate fixed (docs/drills/climb/s22-candidate.json); identity check running (scratch goal/s22/idchk.sh), then the screen.
+**Where I am / next:** identity 14 of 14; the screen is running (scratch goal/s22/screen.sh, done-file screen.done; re-run the same script after a restart, chunks are cached); the full suite beside it.
 from it, then the code.
 
 ## Diagnosis (seeds 15000-15199 heads-up and three-handed, 15000-15079 x 8 at 8-max; F = batch 7, model mode)
@@ -146,4 +146,11 @@ The candidate, `docs/drills/climb/s22-candidate.json` (on top of SHIP_DIALS):
     {"dials": {"hero.postflop.rbet_from": 0.5, "hero.postflop.rbet_full": 0.65, "hero.postflop.rbet_prior": 0.35,
                "hero.postflop.rbet_n": 4, "hero.postflop.rbet_min": 3, "hero.postflop.rbet_margin": 0.03,
                "hero.postflop.rbet_max_alive": 3, "hero.postflop.rbet_holdem_only": true}}
+
+## Identity
+
+The branch with the new dials off (25f37d5; SHIP_DIALS = batch 7) against batch 7's F (goal/idchk34/post):
+`climb_accept --cand '{"dials": {}}' --set 10000:10040 --stages confirm,guards`, chunk by chunk (scratch
+`goal/s22/idchk.sh`, `idcmp.py`): **14 of 14 identical.** Code under hyperion/ is unchanged since 003aec8 (the screen's
+cache key is the same tree).
 
