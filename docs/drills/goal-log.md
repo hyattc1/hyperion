@@ -1391,3 +1391,7 @@ and (in judges) `elite_judge`.
   read should be at the night level. H26 used. It joins batch 7 (plain hold'em: the judges decide it there).
 - Batch 7 so far: V-i, c6 (twist tables only), S7, S15e (plain hold'em, three or fewer alive). Waiting: C3h (H28,
   running from 01:59), S21's screen, S20's R6 diagnosis.
+- 02:01: batch 7's combined check started: V-i + c6 + S7 + S15e (24 dials, goal/b29/b7.json; no dial shared) against
+  batch 6 on H31 (51000-51399), every stage, --aim exploit, runout term, from goal/wt_measure10 at 49f3dc2; then the
+  judges on 60000-60399 and timing (plain, bonus_card, auction, tranche_holdem) in the same script (goal/b29/run.sh,
+  RUN_DONE). C3h, S21 and S20's R6 join batch 8 if they pass, rather than hold batch 7 back.
