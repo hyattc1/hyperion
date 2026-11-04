@@ -1464,3 +1464,12 @@ and (in judges) `elite_judge`.
 - It joins batch 8, not batch 7 (whose combined check is nearly done). C3h and batch 7's S7 both reach heads-up pots
   against exploiter 2 (S7's specialist plays them postflop when its gate opens; C3h sizes the layer's stab when F
   plays), so batch 8's combined check measures them together. O5 (H33) now starts.
+
+## 07:11: batch 7's combined check accepted on H31; judges running
+- Batch 7 (V-i + c6 + S7 + S15e, goal/b29/b7.json) against batch 6 on H31 (51000-51399), every stage, --aim exploit,
+  runout term, 309.0 min: **ACCEPT**. exploit2 heads-up +0.307 ± 0.080, exploit2 three-handed +0.086 ± 0.030,
+  exploit3 heads-up +0.096 ± 0.039 UP; auction +0.060 ± 0.038, tranche_holdem +0.180 ± 0.096 and tranche-aware +0.081 ±
+  0.074 UP; bonus_card -0.023 ± 0.046 level (V-i's H23 gain there did not repeat), toss -0.014 ± 0.015 level; night,
+  the guards, the strong tables and the 8-max exploit cells within ±0.002; nothing down; 0 timeouts, 0 errors.
+  W +0.0033 ± 0.0029 (lower bound +0.0004), W-min lower bound -0.0020. H31 used.
+- The judges (60000-60399, 12 cells) and timing are running in the same script (goal/b29/run.sh).
