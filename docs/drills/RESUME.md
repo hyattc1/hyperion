@@ -1,6 +1,6 @@
 # Resume here (the climb, if the session or usage stops)
 
-Updated 2026-11-04 14:05 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
+Updated 2026-11-04 15:20 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
 through 13, then "The climb: batch 6" and "The climb: batch 7"). Main is pushed after every merge. F as it ships is batch 7 (038c3f0,
 frozen/B7-038c3f0, kit B zip 51c37f02; SHIP_DIALS in hyperion/compose/bot.py; BATCH7_OFF plays batch 6). Gate pass
 (re-run at load 4): batch 7's zip is the known-good upload.
@@ -32,8 +32,16 @@ Nothing is lost: everything decided is committed and pushed; the scratchpad (goa
    UP, nothing down) and is on H36 on top of batch 8: climb/b8-s22 (goal/wt_b8s22 = batch 8 + main + S22),
    goal/b36/run.sh (identity first: goal/idchk37.md, goal/b36/identity.txt; then s22_h36.md; RUN_DONE). Re-run as is
    if no RUN_DONE (caches goal/idchk37, goal/accept_b8s22). If it passes, S22 joins batch 9 with O8.
-3. Batch 8 on climb/batch8 (goal/wt_b8, ac1f18c: O5 merged, candidate C3h + R6 scoped + O5, identity 14/14): its
-   combined check runs as goal/b34/run.sh (outputs b8_h34.md, judges.md, lat_*; RUN_DONE): if no RUN_DONE, re-run it
+2c. Paused 15:20 ET (second pause). On restart re-run, in this order, each as is (cached chunks stand; delete any
+   chunk JSON that fails to load first: a shutdown can cut one): goal/b34/run.sh (H34 is done and ACCEPTED, goal-log
+   15:10, so it replays from cache in seconds; then the judges 60400-60799, then timing), goal/b35/run.sh (O8, H35),
+   goal/b36/run.sh (S22, H36). Workers: 3 + 2 + 2, more with the new cores. The batch 8 freeze staging worker
+   (climb/batch8-freeze, goal/wt_b8f) was stopped: resume from its branch's last WIP commit (SHIP_DIALS + BATCH8_OFF,
+   identity both ways goal/idchk38 and idchk39, suite, setup time); the brief is in the goal log's 15:10 entry. The
+   backup (~/dev/hyperion-goal-backup/goal) now holds the result caches too (accept_*); /tmp is not cleared at boot
+   (no systemd in this WSL).
+3. Batch 8 on climb/batch8 (goal/wt_b8, ac1f18c: O5 merged, candidate C3h + R6 scoped + O5, identity 14/14): ACCEPTED on
+   H34 (15:10); its combined check runs as goal/b34/run.sh (outputs b8_h34.md, judges.md, lat_*; RUN_DONE): if no RUN_DONE, re-run it
    as is (cached chunks in goal/accept_b8 stand; delete any chunk JSON that fails to load). It is the check on H34 (54000-54399) against
    batch 7, every stage, --aim strong, runout term; judges 60400-60799 (13 cells now, outside_c included); timing;
    then SHIP_DIALS + BATCH8_OFF, identity, suite, pack, gate, freeze, docs (batch 7's entry is the template).
