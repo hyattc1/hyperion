@@ -356,3 +356,10 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
   and R3 is +0.0022 points on these seeds. The screen's -0.006 comes from the few tables where the read opens. R4 =
   R3 with `short.defer` widened to F's leak archetypes (dead, station, maniac, random, nit): the equilibrium only
   against opponents F has no read on; queued.
+- 19:06 **R4** confirm + guards at 200 seeds: **night +0.014 ± 0.009 UP**, night @10/7/5 +0.021 ± 0.021, @50/25/12
+  +0.160 ± 0.161, night_hard +0.001 ± 0.008, top +0.004 ± 0.009, doubling -0.007 ± 0.009, **realistic -0.005 ± 0.004
+  DOWN** (upper bound -0.001). Per seed (raw): realistic differs from F on 26 of 200 seeds for R4 (33 for GK25R and
+  R3), raw sums -0.68 / -1.69 / -1.31 points over the 200 seeds, each differing seed a position or two in one or two
+  of its 8 rotations (±0.01-0.25); 16 of R4's 26 are negative (a sign test cannot tell). The cell's interval is narrow
+  because 87% of its seeds are identical by construction. A real, small cost at the few realistic tables whose read
+  opens the route, or a handful of position swaps: the protocol counts it as down either way.
