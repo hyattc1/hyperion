@@ -97,7 +97,9 @@ read and threshold, `strong_rr`, `strong_prior`, `strong_prior_n`), set before e
 counting the answers all table long, so the read is warm when it opens (docs/drills/climb/s21-log.md).
 O5 (`r3.bb_read`, `r3.oa_bb_only`, `exploit.open_bb_only`, off by default): the big blind's fold reads its answers as
 the big blind to a first-in raise by any seat this table, with its fold-to-any-raise read as the prior (weight
-`r3.bb_k`), in both places; the other seats keep their own reads (docs/drills/climb/s21-log.md, "O5").
+`r3.bb_k`), in both places; the other seats keep their own reads (docs/drills/climb/s21-log.md, "O5"). O6
+(`r3.oa_other`, `exploit.open_other`, off by default, on top of O5's): the seats that are not a blind take O3's own
+open-answer read as well, uncapped; the small blind keeps its fold-to-any-raise read ("O6" in the same log).
 
 **The short-handed route** (S13, `short_route`, off by default): sections played by another donor (the specialist
 `short`, hyperion/strategy/short.py) while at most `short_alive` players have chips and that member `wants` the decision

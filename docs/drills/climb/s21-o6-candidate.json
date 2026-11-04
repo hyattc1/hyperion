@@ -1,0 +1,1 @@
+{"dials": {"r3.oa_read": true, "r3.bb_read": true, "r3.bb_k": 10.0, "r3.oa_bb_only": true, "r3.oa_other": true, "r3.oa_min_alive": 4, "exploit.open_read": true, "exploit.open_bb_only": true, "exploit.open_other": true, "exploit.open_min_alive": 4}}

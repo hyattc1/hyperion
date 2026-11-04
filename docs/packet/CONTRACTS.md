@@ -165,6 +165,7 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.bb_read` | `False` | with oa_read: the big blind's fold reads its answers as the big blind to a first-in raise by any seat this table (not all-in): (its folds + its fold-to-any-raise read x bb_k) / (its answers + bb_k); the layer's open_fold reads the same; off = O3's |
 | `r3.bb_k` | `10.0` | weight of a big blind's fold-to-any-raise read against its answers (bb_read) |
 | `r3.oa_bb_only` | `False` | with oa_read: only the big blind takes the open-answer read; the others keep their fold-to-any-raise read |
+| `r3.oa_other` | `False` | with oa_bb_only: the seats that are not a blind take the open-answer read too (O6: O3's estimator, no cap unless oa_cap); the small blind keeps its own |
 
 The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"exploit": null}` turns the layer off):
 
@@ -200,6 +201,7 @@ The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"
 | `exploit.open_cap` | False |
 | `exploit.open_min_alive` | 0 |
 | `exploit.open_bb_only` | False |
+| `exploit.open_other` | False |
 | `exploit.isolate` | False |
 | `exploit.iso_min_fold` | 0.85 |
 | `exploit.iso_max_bb` | 6.0 |
@@ -488,6 +490,7 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `exploit.open_cap` | False |
 | `exploit.open_min_alive` | 0 |
 | `exploit.open_bb_only` | False |
+| `exploit.open_other` | False |
 | `exploit.isolate` | False |
 | `exploit.iso_min_fold` | 0.85 |
 | `exploit.iso_max_bb` | 6.0 |

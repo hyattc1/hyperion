@@ -146,3 +146,5 @@ class Rival3Knobs:
     bb_k: float = _dial(10.0, "weight of a big blind's fold-to-any-raise read against its answers (bb_read)")
     oa_bb_only: bool = _dial(False, "with oa_read: only the big blind takes the open-answer read; the others keep their "
                                     "fold-to-any-raise read")
+    oa_other: bool = _dial(False, "with oa_bb_only: the seats that are not a blind take the open-answer read too (O6: "
+                                  "O3's estimator, no cap unless oa_cap); the small blind keeps its own")

@@ -456,8 +456,8 @@ class Rival3Core(R3.Bot):
                 for s in behind:
                     if self._rates(s)[7]:
                         continue  # a dead seat folds
-                    if bb_only and s != bbs:
-                        pf *= fp(s, False)  # O5: only the big blind takes the read
+                    if bb_only and s != bbs and (s == sbs or not kn.oa_other):
+                        pf *= fp(s, False)  # O5: only the big blind takes the read (O6: and the non-blind seats)
                         continue
                     f = self.oa_fold(s, 1 if s == sbs else 2 if s == bbs else 0)
                     if cap:
