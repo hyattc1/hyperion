@@ -25,7 +25,11 @@ tree's raise sizes follow the actual bet: the 3-bet is 3.5 times the open, the 4
 - `three`, `three_max`: three-handed preflop (and its depth cap).
 - `three2` (S20): three-handed preflop from the second tree (tables/extra/short_3b.json: the small blind's flat,
   two 3-bet sizes, 4-bets, the flop's realization fitted from our own postflop; tools/solve_short.py three2). Its
-  nodes carry their raise sizes, so the history maps onto them generically (`_three_node2`).
+  nodes carry their raise sizes, so the history maps onto them generically (`_three_node2`; a raise at or over 45%
+  of the raiser's effective stack is the jam). `three2_roles`: the seats it plays (btn, sb, bb); `three2_keep_defence`:
+  once our own raise this hand is re-raised, F's 3-bet defence plays the rest of the hand's preflop
+  (docs/drills/climb/s20-log.md has the measurements; the candidate there plays btn and sb, keeps the defence, and
+  needs the composite's strong-table read, `short_strong`).
 
 **Postflop, heads-up pots** (two in the hand, at most `post_alive` alive): one size per street (flop 0.5 pot, turn
 0.66, river 0.75) for value and bluffs alike, so a size names nothing. The hand's place in its range is read from
