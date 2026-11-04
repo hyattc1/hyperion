@@ -1367,3 +1367,17 @@ and (in judges) `elite_judge`.
   The combined candidate would be S7's dials + R5's with short_route "pre_hu=short,post_hu_bet=short,
   post_hu_chk=short,pre_3way=short", short_strong "pre_3way", short.like_max_alive 2, and R5's defer values moved
   to short.defer_three / short.defer_3bet_three.
+
+## 01:09: S20's R5 rejected on H30 (one guard cell, by 0.003); the strong-table gain held
+- R5 on H30 (50000-50399) against batch 6, --aim strong, every stage, runout term, 173.5 min: **REJECT** (main rule)
+  on one guard cell: realistic -0.003 ± 0.002 DOWN (raw -0.003 ± 0.003). Every strong cell UP beyond noise at 400
+  seeds: elite +0.017, elite_night +0.009, mirror +0.030, elite_b +0.017, mirror_b +0.020 (each ± 0.006-0.008);
+  night_hard +0.009 and exploit3 +0.017 UP; night +0.001 ± 0.005, top, the payout guards, doubling, every exploit and
+  adapt cell, the variants and the aware cells level; 0 timeouts, 0 errors.
+- Route 2 (addendum 11) fails too: W +0.0027 ± 0.0019 (lower bound +0.0008) but W-min -0.0013's lower bound is below
+  zero (worst corner: ordinary room 0.35, adapters 0.30). Cap holds. H30 used.
+- Read: the gain at strong tables is real and the screen's size held (+0.01 to +0.03); the cost is that the strong
+  read sometimes opens in the realistic room, where the tables play worse than F's own three-handed preflop. Under
+  the rule's history (addendum 11's review: 10 of 14 small-loss rejections were followed by a gated version, 9
+  accepted), the next step is a diagnosis on fresh diagnostic seeds of where in the realistic room the route opens
+  and loses, then one gate fixed from that, a screen, and a fresh held-out set. Sent to S20's worker (R6).
