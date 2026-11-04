@@ -389,3 +389,33 @@ seeds 12200-12999.
 - Candidate O6 (docs/drills/climb/s21-o6-candidate.json) = O5's dials + `r3.oa_other` + `exploit.open_other`.
   Screen started: 10000-10199, every stage, `--aim strong --runout-term`, 2 workers, nice 5 (goal/s21o6/screen_O6.sh,
   output goal/s21o6/screen_O6.md).
+- 07:26 **O6's screen: REJECT** (stopped after the elite stage; the confirm, guard and elite verdicts are in;
+  corrected deltas, 200 seeds; goal/s21o6/screen, key 72b3dac9c984):
+
+  | cell | O6 - F | | O5 - F (the same seeds) |
+  |---|---|---|---|
+  | night (confirm) | -0.065 ± 0.064 | **DOWN** | +0.003 ± 0.046 |
+  | night_hard | +0.068 ± 0.069 | level | +0.090 UP |
+  | realistic | +0.000 ± 0.053 | level | -0.004 |
+  | top | +0.019 ± 0.070 | level | +0.052 |
+  | night @10/7/5/4/3/2/1/0 | -0.125 ± 0.102 | **DOWN** | +0.059 |
+  | night @50/25/12/6/3/2/1/1 | -0.453 ± 0.700 | level | +0.320 |
+  | night +double | -0.008 ± 0.052 | level | +0.030 |
+  | elite | -0.122 ± 0.067 | **DOWN** | +0.004 |
+  | elite_night | -0.131 ± 0.065 | **DOWN** | +0.005 |
+  | mirror | -0.061 ± 0.076 | level | +0.045 |
+
+  The non-blind read costs 0.07-0.18 night points on top of O5 at night and at strong tables. The read is right
+  (Brier 9/9 on both seed sets) but rival 3's open clause cannot use it: it opens any hand up to the 85th percentile
+  whenever pf x pot beats (1 - pf) x 0.55 x the raise, so lifting 1.6-2.5 fold reads by 0.09 each turns 4.5-8.6% of
+  first-in decisions into opens, almost all of them loose opens from early and middle position, and the 0.55 call
+  cost is far too light for those hands against seats that call and 3-bet well (elite, elite_night down most). F's
+  underread of these seats has been holding that clause tight; the two errors cancel. O6 stays off.
+- **No variant run.** The only principled one left is the read in the layer alone (its steal_min_fold 0.7 is a pure
+  fold-equity steal with margin, where a calibrated read is safe), but it changes under 1% of first-in decisions
+  (0.35-0.9% with the member passive) and would be O5 within noise at 200 seeds. A read restricted to the cutoff's
+  opens (one non-blind seat behind: 24-36% of the flips) still goes through the same clause. The fix that would let
+  F use the calibrated read is in the clause (a call cost that depends on the hand and the seats left to act), a
+  separate change to F's open logic, not a variant of O6.
+- Suite (`pytest -q -m "not timing"`, at ab4602a, load 12-14): 1,418 passed, 2 skipped, 5 failed (two drill
+  checkpoints and the seeded drill pick, two night-of kit round trips, the adapt twin); each passes re-run alone.
