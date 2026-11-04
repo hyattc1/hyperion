@@ -55,3 +55,8 @@ Survey first (diagnostic seeds 11200-11399), then a screen (10000-10199, `--aim 
 - 22:43 Screen of G (the gated O3, goal/s21/cand_G.json = docs/drills/climb/s21-candidate.json) started: base F
   (`{"dials": {}}`), 10000-10199, `--aim strong --runout-term`, stages confirm, guards, elite, exploit, aware,
   variants, 2 workers, nice 5 (goal/s21/screen_G.sh, output goal/s21/screen_G.md).
+- 23:08 G's screen, first stages (corrected deltas, read from the cache before the tool's report): night +0.011 ±
+  0.028, night_hard +0.039 ± 0.033 UP, **realistic -0.020 ± 0.017 DOWN**, top +0.018 ± 0.027, night 10/7/5/... -0.006
+  ± 0.051, night 50/25/... -0.036 ± 0.306, night +double +0.010 ± 0.021. The gate halves realistic's loss (H24's O3
+  -0.044 ± 0.028 on other seeds) but does not remove it, though the read is open at only 8% of O3's decisions there:
+  the loss sits at the third of realistic tables where the read opens. Elite and the rest still running.
