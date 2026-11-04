@@ -227,6 +227,9 @@ with `short.hu2` on and require its decisions and digests unchanged (tests/test_
   the push/fold check, a two-depth solve that converges (fixture tables/extra/short_hu2_dev.json), the member's
   `short.hu2` path behind its dial with S7's decisions kept S7's (tested), the composite passing its strong read,
   identity with batch 7 (14 of 14). Full suite: see the line below.
+- **Full suite** on the branch at 697abe9 (`pytest -q -m "not timing"`, load 17-20): 1,413 passed, 4 skipped, 3
+  failed (test_nightof_pack's recorded-bot check, test_sim_rivals' strict-mode timeout rate, test_sim_timeout_model's
+  replay); all three pass when re-run alone at load 9 (wall-clock and load effects; none touches the specialist).
 - **Next (after the restart):** (1) decide the coexistence rule above (H1 off until S7's like reads have refused with
   enough chances, or S7's gate read from the 8-max part) and the exploiter-1 guard; (2) the full solve:
   `tools/solve_short.py hu2 --real docs/drills/climb/s20-h1-real.json --iters 600 --workers N` over HU_DEPTHS (26
