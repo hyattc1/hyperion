@@ -10,7 +10,7 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 
 ## Held-out results this round (goal-log 22:15)
 - V-i (H23) ACCEPT, c6 (H29) ACCEPT: both twist-only, both join batch 7. O3 (H24) REJECT. C3 rejected (H27).
-- Batch 7 needs judges on fresh judge seeds 30800-31199 (addendum 12) only if a plain hold'em part joins it.
+- Batch 7 needs judges on fresh judge seeds 60000-60399 (addendum 12) only if a plain hold'em part joins it.
 
 ## Queued or running, detached (each against batch 6, --runout-term)
 - S7 on H25: goal/b24/chain2.sh, output goal/b24/s7_h25.md (ends "done"), CHAIN2_DONE.
@@ -22,6 +22,8 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 ## Workers running (branches in worktrees under /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal; each commits as it goes)
 - S13c done (S7 merged off), S15d done (S15e merged off).
 - S20 done (climb/s20-three, d046fef, not merged; log docs/drills/climb/s20-log.md on its branch): R5 on H30.
+- S21 (climb/s21-o3s, goal/wt_s21): O3 behind the strong-table read (O3 was up on all five strong cells on H24 and
+  down in the realistic room); survey on 11200-11399, screen 10000-10199 --aim strong.
 - Drill 11 done (docs/drills/prompt-drill-11.md); H7 and V-j merged. Future organiser briefs exclude tranche_holdem.
 - start-vs-now done (the leaderboard's "Since the start" table).
 
@@ -34,7 +36,7 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); H22-H24 used (C3, V-i, O3); H25 queued for S7, H26 for S15e, H27 for
 C3's bonus_card replicate (down: C3 rejected), H28 for C3h (goal/b26/chain4.sh, output
 goal/b26/c3h_h28.md, CHAIN4_DONE), H29 used by V-j's c6, H30 (50000-50399) for S20's R5; next fresh H31 = 51000-51399
-(worker briefs say held-out is 20000-49999: widen it to 20000-59999 in the next brief). Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 30800-31199.
+(worker briefs say held-out is 20000-49999: widen it to 20000-59999 in the next brief). Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 60000-60399 (30800-31199 would overlap H11's 31000-31399), then 60400-60799 for a replicate.
 
 ## End deliverables (goal.md)
 Final SHIP and zip, a decisions entry, PLAYBOOK and HANDOFF, the last rehearsal on the final ship (drills 7-10 were

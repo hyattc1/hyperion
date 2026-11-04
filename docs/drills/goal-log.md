@@ -1340,3 +1340,8 @@ and (in judges) `elite_judge`.
 - R5 on H30 (50000-50399) against batch 6, --aim strong, every stage, runout term, from a worktree at d046fef
   (goal/b28/run.sh, output goal/b28/s20_h30.md, RUN_DONE), in parallel with the S7 / S15e / C3h chain.
 - Stop rule: this round accepted V-i and c6, so the count of rounds that accept nothing stays at zero.
+- S21 started (climb/s21-o3s, goal/wt_s21): O3 behind the composite's strong-table read, the shape that took S20's
+  realistic-room losses away. A survey of how often the read is open at O3's decisions comes first (11200-11399); the
+  screen is 10000-10199, --aim strong, every stage.
+- Judge seeds for batch 7 move to 60000-60399: the planned 30800-31199 overlaps H11 (31000-31399). Worker briefs
+  reserve 20000-60399.
