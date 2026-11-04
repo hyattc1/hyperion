@@ -211,7 +211,7 @@ def test_every_climb_accept_cell_maps_to_a_family():
         f = fam("confirm", c)
         assert CA.label((*c, None)) in WTS["families"][f]["cells"]
     seats = {(x["bot"], x["fmt"]) for x in (WS.classify(WTS, "exploit", CA.label((*c, None))) for c in CA.EXPLOIT)}
-    assert seats == {(b, f) for b in ("exploiter1", "exploiter2", "exploiter3", "adapt1") for f in ("8max", "hu",
+    assert seats == {(b, f) for b in ("exploiter1", "exploiter2", "exploiter3", "exploiter4", "adapt1") for f in ("8max", "hu",
                                                                                                     "three")}
     units = {CA.label((*c, None)): WS.classify(WTS, "exploit", CA.label((*c, None)))["unit"] for c in CA.EXPLOIT}
     assert units["adapt @10/7/5/4/3/2/1/0"] == 0.7 and units["exploit3_hu +hu"] == pytest.approx(1 / 3)
@@ -227,7 +227,7 @@ def test_the_weighted_blocks_arithmetic_on_a_hand_made_case(monkeypatch, tmp_pat
     # by hand, in night points: each family's mean and half-width (cells perfectly correlated inside a family)
     ordinary = (0.40 * 0.02 + 0.10 * -0.01, 0.40 * 0.01 + 0.10 * 0.01)
     strong = (0.20 * 0.03, 0.20 * 0.02)
-    adapters = (1 / 3 * 1 / 4 * 1 / 3 * 0.3, 1 / 3 * 1 / 4 * 1 / 3 * 0.3)  # format third, bot quarter, heads-up 1/3
+    adapters = (1 / 3 * 1 / 5 * 1 / 3 * 0.3, 1 / 3 * 1 / 5 * 1 / 3 * 0.3)  # format third, bot fifth (addendum 15), hu 1/3
     # bounty's P over the catalogue's 89 plus tranche_holdem's 1 (an unlisted twist's weight: not in the table)
     twist = (8 / 90 * 0.05, 8 / 90 * 0.05)
     aware = (8 / 29.5 * 0.04, 8 / 29.5 * 0.02)  # over the five aware fields' twists (11 + 8 + 7 + 2.5 + 1)
@@ -239,7 +239,7 @@ def test_the_weighted_blocks_arithmetic_on_a_hand_made_case(monkeypatch, tmp_pat
     mean = sum(wt[f] * fams[f][0] for f in fams)
     half = math.sqrt(sum((wt[f] * fams[f][1]) ** 2 for f in fams))
     assert w["mean"] == pytest.approx(mean) and w["half"] == pytest.approx(half)
-    assert w["lb"] == pytest.approx(mean - half) and mean == pytest.approx(0.0076931, abs=1e-7)
+    assert w["lb"] == pytest.approx(mean - half) and mean == pytest.approx(0.0074431, abs=1e-7)
     assert w["dropped"] == [] and w["cap"]["broken"] == [] and w["missing"] == {}
 
 
@@ -345,6 +345,16 @@ VF_LIVE = ("toss_or_holdem", "three_card_blind_discard", "bounty", "knockout_bou
            "swap_holdem", "swap_one_turn", "exposed_card")
 
 
+def _weights_before_addendum_15():
+    """The weights the review's rows were scored under: four adapter bots, a fixed quarter each (addendum 15 added
+    exploiter 4 and made it a fifth each; every past verdict keeps the rule it was scored by)."""
+    W = WS.load()
+    ad = W["families"]["adapters"]
+    ad["bots"].pop("exploiter4")
+    ad["bot_share"] = 0.25
+    return W
+
+
 @pytest.mark.parametrize("name, path, identical, row", [
     ("S5 on H14", "s5_h14.json", ["twists"],
      {"W": 0.004719703361898699, "lb": 0.0009120812331385774, "lbmin": -0.002723069485978417,
@@ -356,8 +366,9 @@ VF_LIVE = ("toss_or_holdem", "three_card_blind_discard", "bounty", "knockout_bou
 def test_the_reviews_rescored_rows_reproduce_from_their_saved_verdicts(name, path, identical, row):
     with open(os.path.join(REVIEW, path)) as fh:
         v = json.load(fh)
-    fixed = WS.score(v["stages"], identical)  # the committed rule: a fixed quarter per adapter bot
-    shared = WS.score(v["stages"], identical, adapters="shared")  # the review's W columns before that change
+    W = _weights_before_addendum_15()
+    fixed = WS.score(v["stages"], identical, W)  # the committed rule then: a fixed quarter per adapter bot
+    shared = WS.score(v["stages"], identical, W, adapters="shared")  # the review's W columns before that change
     assert shared["mean"] == pytest.approx(row["W"], rel=1e-9, abs=1e-12)
     assert shared["lb"] == pytest.approx(row["lb"], rel=1e-9, abs=1e-12)
     assert shared["w_min"]["lb"] == pytest.approx(row["lbmin"], rel=1e-9, abs=1e-12)

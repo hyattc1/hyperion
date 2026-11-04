@@ -1659,3 +1659,59 @@ and (in judges) `elite_judge`.
   first, so no "done" was written), no partial result read, and re-run with the same command and cache: the 1,359
   saved chunks stood and the 3 missing ones played in under two minutes (goal/b31/rerun.sh). Rule for the climb: a
   run whose chunk count stops moving with its workers asleep is re-run the same way.
+
+## 11:39: exploiter 4 wired in (addendum 15); batch 8's combined check running on H34
+- Exploiter 4 (md5 fc1fdc77; docs/drills/exploiter4/ with its notebook, brief and arena) as `exploiter4`: fields
+  exploit4 (six night seats), exploit4_hu, exploit4_3; climb_accept's exploit stage gains three cells; the weighted
+  score's adapter family gives five bots a fifth each (a quarter before; family weight and range unchanged; the
+  review's historical rows keep the quarter they were scored by). Fixed speed in model mode (3.2 µs a clock read,
+  the measured median at load 7), RNG reseeded per table; two model-mode runs identical. Merged; F unchanged.
+- Batch 8 (C3h + R6 scoped + O5, 21 dials; climb/batch8 ac1f18c, O5 merged with one conflict resolved: the read flag
+  keeps the strong read for the strong routes, the specialist's gate and S21's gate) against batch 7 on H34
+  (54000-54399), every stage, --aim strong, runout term, then judges 60400-60799 (13 cells) and timing
+  (goal/b34/run.sh, RUN_DONE). It started before addendum 15, so its exploit stage has exploiters 1-3 and adapt1.
+  Identity of the branch with its dials off against batch 7's F: goal/idchk35.
+- S20's three-handed table loads once at the specialist's construction (bot build), not at a decision: setup time,
+  about 0.3 s; checked against the kit budgets at batch 8's pack.
+- 11:40: batch 8's branch with its dials off plays batch 7 exactly (idchk35: 14 of 14). S22 started (climb/s22-river):
+  exploiter 4's river over-fold, a gated per-seat river-bet read, diagnostics 15000-15999, screen --aim exploit.
+
+## 14:05: O8 passes its screen; on H35 on top of batch 8
+- O8's screen (O5 + O8 against batch 7, 10000-10199, every stage, --aim strong, runout term; started before
+  addendum 15, so exploiters 1-3 and adapt1): **ACCEPT**. Against O5's own screen on the same seeds, O8 adds where the
+  offline price said it would: elite +0.070, elite_night +0.047, elite_b +0.050, mirror_b +0.052; realistic +0.020;
+  top -0.048, night @10/7/5/4/3/2/1/0 -0.046, night +double -0.037 (all inside noise). W +0.0144 ± 0.0167 (lower
+  bound -0.0023), W-min lower bound -0.0120.
+- Held-out on top of what it would ship with: climb/b8-o8 (batch 8 + main, for exploiter 4, + climb/s21-o8; both
+  merges clean; tests for O8, the batch 7 scope, exploiter 4 and climb_accept: 54 passed). goal/b35/run.sh: identity
+  with dials off against batch 7's F (idchk36 against idchk34), then batch 8 + O8 against batch 8 on H35
+  (55000-55399), every stage, --aim strong, runout term, exploiter 4 in the exploit stage. H35 used; next fresh H36.
+- Batch 8's combined check: base done, candidate 470 of 681 chunks; S22's screen about two thirds through.
+
+## 14:30: S22 passes its screen; on H36 on top of batch 8
+- S22 (climb/s22-river, 3627f1f; log docs/drills/climb/s22-log.md): exploiter 4 bets 0.72 of its heads-up river
+  chances (night seats 0.29-0.31) and F folds 74% there, weak and middle pairs that win 66% at a 0.29 price. The fix,
+  `hero.postflop.rbet_*` (off by default): a seat's river bets per river chance in heads-up pots against F (leads and
+  bets after F's check), prior 0.35 worth 4, no read before 3; above 0.5 (full at 0.65) F's equity moves toward its
+  equity against a whole range and its margin toward 0.03; calls only, three or fewer alive, plain hold'em only.
+  Settings fixed from the diagnosis (15000-15999) before the screen.
+- Screen (10000-10199, every stage, --aim exploit, runout term, against batch 7, exploiter 4 in): **ACCEPT**.
+  exploit4_hu +0.123 ± 0.054 UP; exploit4_3 +0.042 ± 0.043, exploit4 +0.005, exploiter 1 heads-up and three-handed
+  +0.013 / +0.020, the rest within ±0.002 or identical; timeouts and errors 0. W +0.0005 ± 0.0009, W-min lower bound
+  -0.0008. Identity with the dials off 14 of 14; tests 11; suite 1,419 passed, 4 timing tests flaky under load (pass
+  alone).
+- Held-out on top of batch 8: climb/b8-s22 (batch 8 + main + S22, clean; 59 tests passed), goal/b36/run.sh: identity
+  (idchk37 against idchk34), then batch 8 + S22 against batch 8 on H36 (56000-56399), every stage, --aim exploit,
+  runout term. H36 used; next fresh H37. O8's identity on climb/b8-o8 passed (idchk36: identical); its H35 run is on.
+
+## 15:10: batch 8 accepted on H34; its judges running; freeze being staged
+- Batch 8 (C3h + R6 scoped + O5, 21 dials; climb/batch8 ac1f18c) against batch 7 on H34 (54000-54399), every stage,
+  --aim strong, runout term (exploiters 1-3 and adapt1: started before addendum 15): **ACCEPT**. UP: elite +0.077 ±
+  0.037, mirror +0.090 ± 0.039, elite_b +0.084 ± 0.037, mirror_b +0.058 ± 0.040, night_hard +0.039 ± 0.036, exploit_hu
+  +0.059, exploit2 +0.067, exploit2_hu +0.052, exploit2_3 +0.190, exploit3 +0.075, exploit3_hu +0.086, adapt_hu +0.150,
+  adapt_3 +0.121. Level: night +0.021 ± 0.034, realistic +0.016 ± 0.026, top +0.013, the payout guards, elite_night,
+  every variant and aware cell. Nothing down. W +0.0179 ± 0.0101 (lower bound +0.0078); W-min +0.0127 ± 0.0130
+  (lower bound -0.0003); cap holds. 176 minutes.
+- Judges (13 cells, 60400-60799) running (goal/b34/judges.md), then timing. Freeze staging by a worker on
+  climb/batch8-freeze (goal/wt_b8f: SHIP_DIALS + BATCH8_OFF, identity both ways, suite, setup time); pack, gate,
+  merge and docs after the judges.
