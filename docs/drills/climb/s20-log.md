@@ -381,3 +381,42 @@ handed +0.21, 8-max +0.06); but the 3-bet guard does not keep exploiter 1 off (e
   re-run, it fails once and passes once at load 6.5, and passes on main's worktree) and test_sim_adapt's twin test
   (passes alone). Neither touches the specialist (the cheap bot builds no member; adapt1 is an opponent).
   tests/test_s20_three.py: 10 passed under system python3 (numpy), 6 passed + 4 skipped under the venv (no numpy).
+- 20:47 **R4 full screen** (screen set 10000-10199, every stage but aware/judges, runout term, --aim strong;
+  `q/060_FINAL_R4.out`, `r_FINAL_R4_screen.json`, code ff07018): **REJECT** on three realistic-field cells.
+
+| stage | cell | F | R4 | R4 - F | |
+|---|---|---|---|---|---|
+| confirm | night | 6.006 | 6.021 | +0.014 ± 0.009 | UP |
+| guards | night_hard | 5.470 | 5.471 | +0.001 ± 0.008 | level |
+| | realistic | 6.350 | 6.346 | -0.005 ± 0.004 | **DOWN** (raw -0.003 ± 0.005) |
+| | top | 5.054 | 5.058 | +0.004 ± 0.009 | level |
+| | night @10/7/5/4/3/2/1/0 | 6.243 | 6.264 | +0.021 ± 0.021 | level |
+| | night @50/25/12/6/3/2/1/1 | 24.719 | 24.879 | +0.160 ± 0.161 | level |
+| | night, doubling blinds | 5.872 | 5.864 | -0.007 ± 0.009 | level |
+| elite | elite | 4.856 | 4.884 | +0.029 ± 0.013 | UP |
+| | elite_night | 5.440 | 5.450 | +0.010 ± 0.010 | level |
+| | mirror | 4.506 | 4.533 | +0.026 ± 0.013 | UP |
+| | elite_b | 4.609 | 4.626 | +0.017 ± 0.014 | UP |
+| | mirror_b | 4.501 | 4.534 | +0.033 ± 0.013 | UP |
+| exploit | exploit / exploit_3 | 5.765 / 8.491 | 5.742 / 8.428 | -0.023 ± 0.032 / -0.063 ± 0.095 | level |
+| | exploit2 / exploit2_3 | 5.849 / 7.321 | 5.849 / 7.309 | -0.000 ± 0.021 / -0.012 ± 0.059 | level |
+| | exploit3 / exploit3_3 | 5.447 / 7.520 | 5.488 / 7.561 | +0.042 ± 0.026 / +0.041 ± 0.066 | UP / level |
+| | adapt / adapt_3 | 5.822 / 7.934 | 5.822 / 7.897 | +0.000 ± 0.024 / -0.037 ± 0.056 | level |
+| | the four heads-up cells | | | 0 | identical |
+| variants | top_heavy (realistic) | 28.455 | 28.371 | -0.084 ± 0.079 | **DOWN** |
+| | fast_schedule (realistic) | 6.100 | 6.092 | -0.008 ± 0.007 | **DOWN** |
+| | knockout_bounty / auction / bounty / bonus_card | | | -0.005 ± 0.008 / -0.002 ± 0.005 / -0.001 ± 0.004 / +0.000 ± 0.005 | level |
+| | the other 20 (twists, antes, straddle, pot limit, fixed raise ...) | | | 0 | identical |
+
+  Weighted (addendum 11): W +0.0058 ± 0.0051 (lower bound **+0.0007**), W-min +0.0033 ± 0.0059 (lower bound
+  **-0.0026**), cap holds; families: ordinary +0.0086, strong +0.0180, adapters -0.0013, twist -0.0008. 0 timeouts,
+  0 errors in every cell.
+- 20:50 Where the realistic cells come from (survey at our three-handed decisions, F as shipped, diagnostic seeds
+  11100-11129): the strong read is open at 0-4% of them at realistic (median read 0.10), 15% at night, 60-78% at elite
+  (median 0.22-0.25). So the three realistic-field cells are the few ordinary tables whose read crosses 0.2, where F's
+  reads beat an equilibrium. Per-seat re-raises of our first-in raises: at realistic 27-53% of opponent decisions
+  come from a seat that has never re-raised us (tag 53%, timeout_then_recover 50%, pushfold 42%), at elite 3-17%
+  (rival2 3%, rival3 4%, elite1 8%), at mirror 24-38%, the night pool 46%. **R5** = R4 with `short.three2_seat_rr` 1:
+  the tables only while each opponent alive has re-raised at least one of our first-in raises this table (S14's
+  "per-seat read" for the diluted table read; the minimum evidence, not a tuned count). Identity on the merged code
+  (8af4fda, `goal/s20/idchk3`): 14 of 14 chunks identical to main's. R5's full screen (code 77634e3) running.
