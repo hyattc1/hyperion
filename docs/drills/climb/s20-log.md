@@ -599,3 +599,12 @@ R6 in the scoped terms (`docs/drills/climb/s20-r6-candidate.json`): `{"short_rou
 "short.three2": true, "short.three2_file": "3b", "short.defer_3bet_three": 0.25, "short_strong": "pre_3way",
 "short.three2_keep_defence": true, "short.three2_roles": "btn", "short.defer_three":
 "dead,station,maniac,random,nit", "short.three2_seat_rr": 1}`. No code change (the dial exists).
+- 01:36 The rest of step 1's recordings (R5 and F, seeds 11400-11519): gate rates at our three-handed preflop
+  decisions, the tables' share of them: elite 20.5%, elite_b 28.7%, mirror 14.7%, mirror_b 16.1%, top 10.7%,
+  night_hard 8.8%, night 5.1%, realistic 1.2% (strong read open 54-70% at the strong rooms, 16-33% at night, night_hard
+  and top, 3.9% at realistic). Paired, raw: mirror_b +0.014 ± 0.021, night +0.005 ± 0.013, night_hard +0.008 ±
+  0.018, top +0.003 ± 0.013. mirror_b by seat (first divergences): button +16.48 over 86, small blind -4.93 over 68:
+  the small blind also loses there, which the R6 gate was fixed without (it was in hand only as "about -1.2" from
+  the first-in rows).
+- 01:32 R6's screen started (snapshot worktree at 863f9f5, the R6 code; screen set, stages exploit, elite, confirm,
+  guards, variants, aware, runout term, --aim strong, --workers 3, nice 5; F's chunks pinned to bd36043bea as before).
