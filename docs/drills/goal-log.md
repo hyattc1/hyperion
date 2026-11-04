@@ -1659,3 +1659,19 @@ and (in judges) `elite_judge`.
   first, so no "done" was written), no partial result read, and re-run with the same command and cache: the 1,359
   saved chunks stood and the 3 missing ones played in under two minutes (goal/b31/rerun.sh). Rule for the climb: a
   run whose chunk count stops moving with its workers asleep is re-run the same way.
+
+## 11:39: exploiter 4 wired in (addendum 15); batch 8's combined check running on H34
+- Exploiter 4 (md5 fc1fdc77; docs/drills/exploiter4/ with its notebook, brief and arena) as `exploiter4`: fields
+  exploit4 (six night seats), exploit4_hu, exploit4_3; climb_accept's exploit stage gains three cells; the weighted
+  score's adapter family gives five bots a fifth each (a quarter before; family weight and range unchanged; the
+  review's historical rows keep the quarter they were scored by). Fixed speed in model mode (3.2 µs a clock read,
+  the measured median at load 7), RNG reseeded per table; two model-mode runs identical. Merged; F unchanged.
+- Batch 8 (C3h + R6 scoped + O5, 21 dials; climb/batch8 ac1f18c, O5 merged with one conflict resolved: the read flag
+  keeps the strong read for the strong routes, the specialist's gate and S21's gate) against batch 7 on H34
+  (54000-54399), every stage, --aim strong, runout term, then judges 60400-60799 (13 cells) and timing
+  (goal/b34/run.sh, RUN_DONE). It started before addendum 15, so its exploit stage has exploiters 1-3 and adapt1.
+  Identity of the branch with its dials off against batch 7's F: goal/idchk35.
+- S20's three-handed table loads once at the specialist's construction (bot build), not at a decision: setup time,
+  about 0.3 s; checked against the kit budgets at batch 8's pack.
+- 11:40: batch 8's branch with its dials off plays batch 7 exactly (idchk35: 14 of 14). S22 started (climb/s22-river):
+  exploiter 4's river over-fold, a gated per-seat river-bet read, diagnostics 15000-15999, screen --aim exploit.

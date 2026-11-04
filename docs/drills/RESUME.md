@@ -27,14 +27,15 @@ Nothing is lost: everything decided is committed and pushed; the scratchpad (goa
 2. O8's screen (goal/s21o8/screen_O8.sh, output screen_O8.md, done-file screen_O8.done): if no done-file, re-run
    it as is (its cached chunks in goal/s21o8/screen stand; check no chunk file there is empty or cut: a JSON that
    fails to load is deleted first). Workers can rise with the new cores.
-3. Batch 8 on climb/batch8 (goal/wt_b8): merge climb/s21-o5 (2de5070), add O5's dials to
-   docs/drills/climb/batch8-candidate.json (C3h + R6 scoped + O5); combined check on H34 (54000-54399) against
+3. Batch 8 on climb/batch8 (goal/wt_b8, ac1f18c: O5 merged, candidate C3h + R6 scoped + O5, identity 14/14): its
+   combined check runs as goal/b34/run.sh (outputs b8_h34.md, judges.md, lat_*; RUN_DONE): if no RUN_DONE, re-run it
+   as is (cached chunks in goal/accept_b8 stand; delete any chunk JSON that fails to load). It is the check on H34 (54000-54399) against
    batch 7, every stage, --aim strong, runout term; judges 60400-60799 (13 cells now, outside_c included); timing;
    then SHIP_DIALS + BATCH8_OFF, identity, suite, pack, gate, freeze, docs (batch 7's entry is the template).
    If O8 passes its screen, it goes to its own held-out set (H35) and joins batch 9, not batch 8.
 4. Workers to resume (agents, by their logs on their branches): H1 (climb/s20-h1: settle the S7 coexistence rule
-   and R6's exploiter-1 guards, full solve, screen); exploiter 4 to wire in as a tuning field (goal/exploiter4,
-   NOTEBOOK.md; as exploiter 3); S22 = exploiter 4's river over-fold (goal-log 10:47 entry).
+   and R6's exploiter-1 guards, full solve, screen); exploiter 4 is wired in (addendum 15); S22 (climb/s22-river,
+   goal/wt_s22, log docs/drills/climb/s22-log.md): exploiter 4's river over-fold, resume from its log.
 5. Re-time on the quiet new box (latency.py, gate) and keep the rehearsal on the final ship for the end.
 
 ## Batch 8 (being composed)
