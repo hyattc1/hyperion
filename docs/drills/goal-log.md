@@ -1544,3 +1544,10 @@ and (in judges) `elite_judge`.
 - With only O5 running (load 3.6-3.8), the same zip: GATE PASS on plain, auction, bonus_card and tranche_holdem, 0
   exceptions, 0 illegal, timeouts 0.04-0.05%. Batch 7 (frozen/B7-038c3f0, 51c37f02) is the known-good upload.
   Decisions "The climb: batch 7's gate on a quieter box"; leaderboard, HANDOFF, RESUME.
+
+## 08:48: batch 8's branch passes the suite; the still-to-try list drafted
+- climb/batch8 (main + S20 + the scoping + R6's candidate, batch 7 still in SHIP_DIALS): full suite 1,427 passed,
+  5 skipped, 0 failed (load 4).
+- docs/drills/still-to-try.md drafted (an end deliverable; ranked; kept current as ideas are tried).
+- After the owner's hardware change, first: batch 8 (+ O5 if H33 accepts) combined on H34; then new opponents, per
+  goal.md's "a new outside bot every few rounds": exploiter 4 (built against batch 7's F) and a fresh outside build.
