@@ -1432,3 +1432,24 @@ and (in judges) `elite_judge`.
   lower bound -0.0006. Identity 14 of 14; suite as before (load flakes pass alone).
 - R6 on H32 (52000-52399) against batch 6, --aim strong, every stage, runout term (goal/b30/run.sh, worktree
   goal/wt_measure11 at 2cac7e3, output goal/b30/r6_h32.md, RUN_DONE). The cell to watch is realistic.
+
+## 05:58: O5 passes its screen; queued on H33; O6 started
+- Data first (12000-12199): the big blind defends late opens more (its fold 0.08-0.20 lower against small-blind opens
+  than early ones); realistic big blinds fold more to F (0.78-0.82) than to the room's other openers (0.64-0.78), at
+  strong tables about the same. Estimators by Brier score on the big blind's answers to F's opens (chosen on
+  12000-12099, checked on 12100-12199, nine fields): only "F's read as prior + the seat's answers as big blind to any
+  first-in raise, weight 10" beats F's read on every field on both sets, realistic included (0.1550 against 0.1563;
+  pooled 0.2118 against 0.2195). Every pooled-prior estimator wins at strong tables and loses in the realistic room,
+  the pattern that sank O3 and G1. No cap (worse than F's read in the realistic room), no strong gate, big blind
+  only (O3's capped read was worse than F's at every other seat).
+- O5 (climb/s21-o5, 2de5070; dials docs/drills/climb/s21-o5-candidate.json) on 10000-10199, every stage, --aim
+  strong: ACCEPT. night_hard +0.090 ± 0.052, elite_b +0.067 ± 0.053, mirror_b +0.062 ± 0.047 UP; realistic -0.004 ±
+  0.034 level (G1: -0.011 DOWN); mirror +0.045, top +0.052, elite +0.004 level; every exploit, variant and aware cell
+  level or identical; 0 timeouts, 0 errors. W +0.0114 ± 0.0129 (lower bound -0.0015), W-min lower bound -0.0055.
+  Intervals about twice G1's: O5 changes more decisions. Identity 14 of 14. F's half of the screen reused from S21's
+  cache (every O5 path is behind a dial F leaves off; seven chunks re-run on this code match sample for sample).
+- O5 on H33 (53000-53399) against batch 6, --aim strong, every stage, F re-run fresh on this code, after C3h's chain
+  (goal/b31/run.sh, worktree goal/wt_measure12 at 2de5070, output goal/b31/o5_h33.md, RUN_DONE).
+- O6 (climb/s21-o6): the worker found F underreads how often the non-blind seats fold to its opens by 0.08-0.11 on
+  every field (O3's uncapped read beats F's there on all nine). Offline estimator choice first (12200-12999), then
+  O5 + the chosen read on the screen.
