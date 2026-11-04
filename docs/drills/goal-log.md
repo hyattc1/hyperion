@@ -1629,3 +1629,20 @@ and (in judges) `elite_judge`.
   preflop keeps exploiter 2's probe read low and S7 never plays (at the shipped threshold it does not happen); options
   for next session: hold H1 until S7's gate has refused the seat, or read S7's gate from 8-max play only; plus R6's
   exploiter-1 guards.
+
+## 10:47: exploiter 4 (against batch 7): F still wins 8-max; heads-up leaks found
+- Exploiter 4 (goal/exploiter4, NOTEBOOK.md; fresh red-team agent, black box against batch 7 at 038c3f0; 16
+  versions): 8-max F 5.59 vs 5.13 (450 tables, 10/7/5/4/3/2/1/0; first places equal at 28%, F more 2nd-4th);
+  heads-up exploiter 4 wins 56-59% (600 tables, payouts 2/1); three-handed level (2.15 vs 2.14, 400 tables).
+- Its findings, each from 100-300 heads-up tables: (1) F folds a lot before its reads warm: first ~5 flop bets at a
+  table get 72-77% folds, first 3 all-ins over F's open at 30+ bb get 80%; (2) F adapts by counting the opponent's
+  actions (not its shown cards): after 5-14 flop bets it folds 37-51% and raises 18-21%; after 3+ any-two shoves it
+  calls 58-64%; (3) F's flop read lags a change of style by 20-40 hands; (4) **F over-folds the river and does not
+  adapt there**: 66-81% folds to a 0.7-pot river bet (break-even 41%), still 74% after 5-14 river bets; river stabs
+  took exploiter 4 from 52% to 59% heads-up wins; (5) F's small blind steals by the big blind's fold rate (folds 2%
+  against a folder, 42% against a wide defender); (6) heads-up F 4-bets 25-32% of 3-bets and calls 5-bet shoves 88%;
+  (7) F's sizes are fixed (heads-up opens 2.2 bb, half-pot c-bets, third-pot leads, small river bets); (8) at 8-max F
+  gains when opponents are too tight.
+- Next (after the pause): wire exploiter 4 in as a tuning field (exploit4, exploit4_hu, exploit4_3, as exploiter 3);
+  S22 on (4): a river defence read (call more against a seat that bets rivers often, behind a gate like S15e's),
+  screened with every exploit cell.
