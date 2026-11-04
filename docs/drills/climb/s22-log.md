@@ -6,7 +6,7 @@ about 41%) and does not adapt. Diagnose on seeds 15000-15999 only, fix behind di
 on 10000-10199 with `--aim exploit`. No held-out set, judge set, judge bot or judge field is run, read or tuned on
 (20000-60799 untouched). Workers 2, nice 5, detached runs with done-files.
 
-**Where I am / next:** diagnosis of the exploit cells done (sections 1-4); 8-max rooms running; the read is coded (off by default, 6a below), its prior and gate next.
+**Where I am / next:** diagnosis done, read coded and tested (tests/test_s22_river.py), candidate fixed (docs/drills/climb/s22-candidate.json); identity check running (scratch goal/s22/idchk.sh), then the screen.
 from it, then the code.
 
 ## Diagnosis (seeds 15000-15199 heads-up and three-handed, 15000-15079 x 8 at 8-max; F = batch 7, model mode)
@@ -75,4 +75,75 @@ Exploiter 4 bets 0.36 of its heads-up turn chances (0.44 after F's check), about
 on the turn its frequency does not stand out from the room. F folds 66% to its turn bets; F's tier 2 has 0.37 equity
 over the river against them at a price of 0.28, but a turn call faces the river after it, and the frequency read
 cannot tell exploiter 4 from an ordinary seat there. The fix stays on the river.
+
+### 5. The rooms at 8-max (river, heads-up pots against F; 80 seeds x 8)
+
+| room | seats' river bet rates (all alive) | their bets that F's hand beats | at three or fewer alive |
+|---|---|---|---|
+| night, night_hard | 0.29-0.31 | 0.28-0.29 | 0.24-0.28, F beats 0.26 |
+| realistic | rival1 0.23, montecarlo 0.17-0.26, tag 0.57, pushfold 0.60, loose_aggro 0.62, timeout_then_recover 0.75 | 0.19-0.27 for the first three, 0.42-0.50 for the last four | 0.18-0.67 (6-18 chances each) |
+| elite, elite_b, mirror | elite1 0.40-0.45, elite2 0.40-0.46, elite4 0.53, rival1-3 0.24-0.43, F's copy 0.48, agents 0.34-0.46 | 0.18-0.37, elite2 and elite4 0.49-0.55 | 0.11-0.67 (5-36 chances each) |
+| exploit4 (six night seats) | exploiter 4 0.51, night 0.32 | 0.47 / 0.27 | exploiter 4 0.62 (F beats 0.57), night 0.23 |
+
+The room bets about a third of its river chances (night 0.29-0.31, the elite builds 0.40-0.46, rival1 0.23), with value
+behind most of them. A few ordinary seats bet more and bluff too (realistic's loose and push-fold seats, elite2 and
+elite4), and there F's folds are also too many, but they are few chances at a table.
+
+## The read, its prior and its gate (fixed from the diagnosis, before any screen)
+
+`hero.postflop.rbet_*` (hyperion/strategy/postflop.py; the count in Profiler.river_bet_rate). Facing the river's
+first bet heads-up (nothing of F's in: a lead or a bet after F's check) from a seat whose smoothed river bet rate is
+above `rbet_from`, F's equity moves from the tier's proxy toward WIDE_EQUITY_RIVER (the tier against a whole range,
+S15's river row) and its call margin from 0.2 toward `rbet_margin`, by the weight (r - from) / (full - from), at most
+1. It only calls more: no raise, no bluff. Where S15e's stab read also acts, the larger weight decides.
+
+- **The count:** every river action with nothing to call heads-up against F, whoever acts first. Two thirds of
+  exploiter 4's river bets are leads (section 1); a count of bets after F's check alone sees a third of them.
+- **The prior, 0.35 worth 4 chances; no read before 3 chances (`rbet_prior`, `rbet_n`, `rbet_min`).** The room's
+  rate is about 0.30 (night 0.29-0.31; rival1 0.23; elite builds 0.40-0.46): 0.35 sits in it. A heads-up match gives
+  about 4.5 river chances a table against exploiter 4, so the read must start early, but one or two early bets of an
+  ordinary seat must not switch it on: with 4 chances of prior and 3 seen, a seat needs 3 bets of 3 (0.63) or 3 of 4
+  (0.55) to pass 0.5.
+- **The threshold, from 0.5, full at 0.65 (`rbet_from`, `rbet_full`).** Exploiter 4 bets 0.70-0.72, exploiter 1 0.55,
+  the room 0.23-0.46. At the weight's full value the call needs price + 0.03 (`rbet_margin`, S15's stab margin):
+  against a 0.7-pot bet tier 1 (0.34) calls, tier 0 (0.18) never; tier 2 calls from weight 0.4, tier 3 from 0.14.
+  Against exploiter 4 F's tier 1 wins 0.44-0.48 of these pots, tier 2 0.62-0.66 (section 1); against exploiter 1,
+  whose rate tops out near 0.55 (weight 0.33), tier 2 and 3 call and tier 1 does not (it wins 0.23-0.27 there).
+- **The gate: three or fewer players with chips (`rbet_max_alive` 3), hold'em tables only (`rbet_holdem_only`).**
+  As the brief asks, and as S15b found at 8-max: the decisive endgame hands against ordinary seats are where a
+  frequency read costs. No pfr or lead gate: exploiter 4's preflop raise rate (0.33-0.36) and lead rate (0.41-0.43)
+  sit inside the room's, and its river frequency alone separates it.
+
+**Offline replay** (scratch `ana2.py`, `grid.py`: the read recomputed from the records in play order, each of F's
+folds re-decided; chips from the cards, so a guide to where it fires, not a verdict; the opponents' answers to F's
+new calls are not in it). At these dials, folds turned into calls, with their chips in pots before the bet:
+
+| where | changed | chips |
+|---|---|---|
+| exploit4_hu / exploit4_3 / exploit4 (8-max), against exploiter 4 | 218 / 144 / 9 | +216 / +127 / +12 pots |
+| exploit_hu / exploit_3, against exploiter 1 | 37 / 33 | +25 / +24 |
+| adapt1, exploiters 2 and 3 (six cells) | 0-2 each | -1.3 to +1.0 each |
+| every other seat in the fourteen cells (night, night_hard, realistic, elite, elite_b, mirror, the exploit cells' night seats) | 0-8 each, 37 in all | -1.0 to +4.7 each |
+
+Faster settings found more against exploiter 4 and more elsewhere: from 0.45 (271 changes heads-up, +264) also
+changed 9 decisions against exploiter 3 heads-up (-3.8); prior worth 2 chances with a 2-chance minimum (341, +326)
+changed 10-17 a cell against the night seats (-3.2 to -3.8). From 0.55 / full 0.75 kept half the gain.
+Without the alive gate the 8-max rooms change 3-11 decisions a cell (similar chips): the gate costs little here and
+keeps the read out of full-table play, which these fields cannot test well.
+
+**Points on the diagnostic seeds** (scratch `quick.py`: climb_accept's own cells and paired interval, F against the
+candidate, seeds 15000-15199, not a screen):
+
+| cell | F | S22 | S22 - F | exploiter F / S22 |
+|---|---|---|---|---|
+| exploit4_hu | 8.320 | 8.395 | +0.075 ± 0.077 | 8.680 / 8.605 |
+| exploit4_3 | 7.687 | 7.760 | **+0.073 ± 0.059** | 7.797 / 7.722 |
+| exploit_hu | 9.318 | 9.355 | +0.037 ± 0.044 | 7.683 / 7.645 |
+| exploit_3 | 8.493 | 8.537 | **+0.043 ± 0.043** | 6.897 / 6.860 |
+
+The candidate, `docs/drills/climb/s22-candidate.json` (on top of SHIP_DIALS):
+
+    {"dials": {"hero.postflop.rbet_from": 0.5, "hero.postflop.rbet_full": 0.65, "hero.postflop.rbet_prior": 0.35,
+               "hero.postflop.rbet_n": 4, "hero.postflop.rbet_min": 3, "hero.postflop.rbet_margin": 0.03,
+               "hero.postflop.rbet_max_alive": 3, "hero.postflop.rbet_holdem_only": true}}
 
