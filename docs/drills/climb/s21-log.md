@@ -372,3 +372,8 @@ fit; realistic alone -0.156 ± 0.188 on the fit seeds, so a leak is not excluded
 - **If O5 fails H33:** O8's veto does not depend on O5's reads except through pf (the clause's fold product, which
   uses O5's big-blind read under O5's dials); O8 alone would price with F's reads. That variant was not valued
   offline; it would need the same IPS run with pfF in the price (the data has it) before a screen.
+- 10:13 Valued after all (same data, same judge; points per table seed): **O8 without O5**, F's reads in the price
+  and in F's own clause, against F's rule replayed: fit seeds pooled +0.204 ± 0.132, strong family +0.353 ± 0.218 UP,
+  **realistic -0.210 ± 0.144 DOWN**, night +0.073 ± 0.233; check seeds pooled +0.241 ± 0.177, strong family +0.430 ±
+  0.300 UP, realistic +0.066 ± 0.289, night -0.127 ± 0.229. Bigger on the strong tables than on top of O5, but the
+  realistic room goes down beyond noise on one of the two seed sets: if O5 fails H33, O8 alone is the riskier form.
