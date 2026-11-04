@@ -28,3 +28,25 @@ Survey first (diagnostic seeds 11200-11399), then a screen (10000-10199, `--aim 
   the gated read on 4 of them; on two tables whose read ended at 0.24-0.26 it opened only after fewer than four
   were left, where O3 does not act.
 - Candidate (docs/drills/climb/s21-candidate.json): O3's six dials + `oa_strong` true.
+- 22:40 **Survey** (F as shipped, Hero's seat only, diagnostic seeds 11200-11399 x 8 rotations; goal/s21/survey_oa.py):
+  at the decisions where O3 would act (preflop, plain hold'em, four or more with chips, F first in: every earlier
+  action a fold), the share with `strong_table()` open:
+
+  | field | decisions | read open | open, over 10 bb | tables where it ever opens | read median [p10, p90] | open by section 40 / 20 / 10 / short |
+  |---|---|---|---|---|---|---|
+  | realistic | 83,993 | 0.081 | 0.081 | 0.34 | 0.125 [0.074, 0.192] | 0.09 / 0.06 / 0.09 / 0.08 |
+  | fast_schedule (realistic) | 60,303 | 0.111 | 0.102 | 0.35 | 0.136 [0.083, 0.206] | 0.10 / 0.09 / 0.12 / 0.17 |
+  | night | 85,514 | 0.152 | 0.147 | 0.44 | 0.136 [0.079, 0.219] | 0.14 / 0.13 / 0.21 / 0.24 |
+  | night_hard | 89,866 | 0.167 | 0.155 | 0.51 | 0.139 [0.088, 0.219] | 0.12 / 0.14 / 0.29 / 0.34 |
+  | top | 102,181 | 0.188 | 0.170 | 0.54 | 0.146 [0.088, 0.224] | 0.11 / 0.17 / 0.31 / 0.36 |
+  | elite | 93,587 | 0.250 | 0.233 | 0.62 | 0.150 [0.100, 0.237] | 0.16 / 0.25 / 0.42 / 0.44 |
+  | mirror | 93,865 | 0.285 | 0.266 | 0.66 | 0.156 [0.100, 0.250] | 0.19 / 0.28 / 0.46 / 0.47 |
+  | elite_b | 93,625 | 0.313 | 0.293 | 0.70 | 0.159 [0.107, 0.250] | 0.20 / 0.33 / 0.51 / 0.54 |
+  | mirror_b | 96,057 | 0.317 | 0.297 | 0.69 | 0.162 [0.107, 0.250] | 0.21 / 0.33 / 0.48 / 0.51 |
+
+  The read is rarely open in the realistic room (8% of O3's decisions there, 11% on fast_schedule), so the gate can
+  separate it; it is 3-4 times as often open at the strong tables. But even there it is closed at about 70% of O3's
+  decisions: most of them are deep (`pre_open_40`) and early in a table, before enough of F's opens have been
+  re-raised to lift the read over 0.2 (prior 0.15 with weight 10). So the gated O3 keeps at best a quarter to a third
+  of O3's strong-table decisions; whether the gain lives in them is what the screen tells. Not a reason to stop:
+  screen as briefed.
