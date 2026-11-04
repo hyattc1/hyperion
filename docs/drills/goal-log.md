@@ -1687,3 +1687,19 @@ and (in judges) `elite_judge`.
   with dials off against batch 7's F (idchk36 against idchk34), then batch 8 + O8 against batch 8 on H35
   (55000-55399), every stage, --aim strong, runout term, exploiter 4 in the exploit stage. H35 used; next fresh H36.
 - Batch 8's combined check: base done, candidate 470 of 681 chunks; S22's screen about two thirds through.
+
+## 14:30: S22 passes its screen; on H36 on top of batch 8
+- S22 (climb/s22-river, 3627f1f; log docs/drills/climb/s22-log.md): exploiter 4 bets 0.72 of its heads-up river
+  chances (night seats 0.29-0.31) and F folds 74% there, weak and middle pairs that win 66% at a 0.29 price. The fix,
+  `hero.postflop.rbet_*` (off by default): a seat's river bets per river chance in heads-up pots against F (leads and
+  bets after F's check), prior 0.35 worth 4, no read before 3; above 0.5 (full at 0.65) F's equity moves toward its
+  equity against a whole range and its margin toward 0.03; calls only, three or fewer alive, plain hold'em only.
+  Settings fixed from the diagnosis (15000-15999) before the screen.
+- Screen (10000-10199, every stage, --aim exploit, runout term, against batch 7, exploiter 4 in): **ACCEPT**.
+  exploit4_hu +0.123 ± 0.054 UP; exploit4_3 +0.042 ± 0.043, exploit4 +0.005, exploiter 1 heads-up and three-handed
+  +0.013 / +0.020, the rest within ±0.002 or identical; timeouts and errors 0. W +0.0005 ± 0.0009, W-min lower bound
+  -0.0008. Identity with the dials off 14 of 14; tests 11; suite 1,419 passed, 4 timing tests flaky under load (pass
+  alone).
+- Held-out on top of batch 8: climb/b8-s22 (batch 8 + main + S22, clean; 59 tests passed), goal/b36/run.sh: identity
+  (idchk37 against idchk34), then batch 8 + S22 against batch 8 on H36 (56000-56399), every stage, --aim exploit,
+  runout term. H36 used; next fresh H37. O8's identity on climb/b8-o8 passed (idchk36: identical); its H35 run is on.
