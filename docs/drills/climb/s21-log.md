@@ -279,3 +279,37 @@ the strong gate only if the offline numbers want one. Diagnostic seeds 12000-129
   0.047 UP**; exploit +0.011 ± 0.090, exploit2 -0.046 ± 0.098, exploit3 +0.076 ± 0.084, heads-up and three-handed
   identical; aware identical. The intervals are about twice G1's: O5 moves more decisions (no cap, no gate). The
   realistic room is level for the first time in this line of work. Adapt cells and variants running.
+- 05:55 **O5's screen: ACCEPT** (goal/s21o5/screen_O5.md, 10000-10199, `--aim strong`, every stage, runout term;
+  corrected deltas; 0 timeouts and 0 errors in every cell):
+
+  | stage | cell | cand - base | |
+  |---|---|---|---|
+  | confirm | night | +0.003 ± 0.046 | level |
+  | guards | night_hard | +0.090 ± 0.052 | UP |
+  | | realistic | -0.004 ± 0.034 | level |
+  | | top | +0.052 ± 0.055 | level |
+  | | night @10/7/5/4/3/2/1/0 | +0.059 ± 0.079 | level |
+  | | night @50/25/12/6/3/2/1/1 | +0.320 ± 0.500 | level |
+  | | night +double | +0.030 ± 0.041 | level |
+  | elite | elite | +0.004 ± 0.048 | level |
+  | | elite_night | +0.005 ± 0.050 | level |
+  | | mirror | +0.045 ± 0.057 | level |
+  | | elite_b | +0.067 ± 0.053 | UP |
+  | | mirror_b | +0.062 ± 0.047 | UP |
+  | exploit | exploit / exploit2 / exploit3 / adapt (8-max) | +0.011 ± 0.090 / -0.046 ± 0.098 / +0.076 ± 0.084 / -0.003 ± 0.079 | level |
+  | | the eight heads-up and three-handed cells | 0 ± 0 | identical |
+  | variants | top_heavy | +0.052 ± 0.468 | level |
+  | | antes_from_level_3 / fast_schedule | -0.023 ± 0.036 / -0.005 ± 0.032 | level |
+  | | the other 24 | 0 ± 0 | identical |
+  | aware | all 5 | 0 ± 0 | identical |
+
+  Weighted: **W +0.0114 ± 0.0129 (lower bound -0.0015); W-min +0.0130 ± 0.0185 (lower bound -0.0055)**; cap holds;
+  families: ordinary room +0.031, strong tables +0.034, adapters +0.002, twist-blind -0.0005, twist-aware 0. Against
+  G1 (the same seeds): realistic -0.011 DOWN -> -0.004 level, night_hard +0.045 -> +0.090, top +0.007 -> +0.052,
+  mirror_b +0.030 -> +0.062, elite_b +0.008 -> +0.067; the intervals are 1.5-2 times wider (more decisions move).
+  Runout term: the paired term is inside noise everywhere but night (+0.042 ± 0.036, the raw delta +0.045 and the
+  corrected +0.003). exploit3's raw delta is +0.145 UP, corrected +0.076 level.
+- Latency (tools/latency.py, 2,000 calls, F and O5 alternated twice, load 16): act p50 58.6-59.5 µs for F and
+  61.6-62.6 for O5; the p99 at this load is the box's (F 4,074-4,102 µs, O5 429-4,180), not a measurement. O5 adds
+  a per-hand scan at hand end and one fold read per big blind at the steal price.
+- No variant run (the screen passed). O5 is the candidate for a held-out set.
