@@ -6,7 +6,7 @@ about 41%) and does not adapt. Diagnose on seeds 15000-15999 only, fix behind di
 on 10000-10199 with `--aim exploit`. No held-out set, judge set, judge bot or judge field is run, read or tuned on
 (20000-60799 untouched). Workers 2, nice 5, detached runs with done-files.
 
-**Where I am / next:** the screen is running (scratch goal/s22/screen.sh, done-file screen.done; re-run the same script after a restart, chunks are cached). At 13:35, with confirm, guards, elite and twelve exploit cells in (scratch peek.py, corrected): exploit4_hu +0.123 ± 0.054 UP, exploit4_3 +0.042 ± 0.043, exploit_3 +0.020, every other cell within ±0.015 and level; adapt, aware and variants to come.
+**Where I am / next:** done. Screen ACCEPT under `--aim exploit` (exploit4_hu +0.123 ± 0.054 UP, nothing down); identity 14 of 14; suite green but four wall-clock tests that pass alone. The candidate is docs/drills/climb/s22-candidate.json; not merged (the coordinator's call).
 from it, then the code.
 
 ## Diagnosis (seeds 15000-15199 heads-up and three-handed, 15000-15079 x 8 at 8-max; F = batch 7, model mode)
@@ -146,6 +146,60 @@ The candidate, `docs/drills/climb/s22-candidate.json` (on top of SHIP_DIALS):
     {"dials": {"hero.postflop.rbet_from": 0.5, "hero.postflop.rbet_full": 0.65, "hero.postflop.rbet_prior": 0.35,
                "hero.postflop.rbet_n": 4, "hero.postflop.rbet_min": 3, "hero.postflop.rbet_margin": 0.03,
                "hero.postflop.rbet_max_alive": 3, "hero.postflop.rbet_holdem_only": true}}
+
+## The screen: ACCEPT under `--aim exploit`
+
+`climb_accept --base '{"dials": {}}' --cand docs/drills/climb/s22-candidate.json --set 10000:10200 --aim exploit
+--runout-term --stages confirm,guards,elite,exploit,aware,variants --workers 2` (scratch `goal/s22/screen.sh`, code
+d9c8c8a634 = the tree of 003aec8, run from 42827ef; 180 minutes at load 5-14). Corrected deltas (addendum 13), 200
+seeds a cell; raw beside where it differs.
+
+| stage | cell | F | S22 | S22 - F | | raw | exploiter F / S22 |
+|---|---|---|---|---|---|---|---|
+| exploit | exploit4_hu | 8.218 | 8.341 | **+0.123 ± 0.054** | **UP** | +0.150 ± 0.088 UP | 8.845 / 8.695 |
+| | exploit4_3 | 7.626 | 7.668 | +0.042 ± 0.043 | level | +0.058 ± 0.059 | 7.813 / 7.762 |
+| | exploit4 (8-max) | 5.565 | 5.569 | +0.005 ± 0.008 | level | | 5.231 / 5.220 |
+| | exploit_hu | 9.232 | 9.244 | +0.013 ± 0.030 | level | -0.007 ± 0.049 | 7.772 / 7.780 |
+| | exploit_3 | 8.502 | 8.522 | +0.020 ± 0.033 | level | +0.008 ± 0.040 | 6.913 / 6.883 |
+| | exploit (8-max) | 5.764 | 5.765 | +0.001 ± 0.001 | level | | 4.610 / 4.610 |
+| | exploit2, _hu, _3 | | | -0.001 / +0.000 / -0.002 | level | | |
+| | exploit3, _hu, _3 | | | -0.002 / -0.001 / +0.002 | level | | |
+| | adapt, _hu, _3 | | | +0.001 / +0.002 / +0.002 | level | | |
+| confirm | night | 6.006 | 6.005 | -0.001 ± 0.001 | level | -0.001 ± 0.001 | |
+| guards | night_hard | 5.470 | 5.469 | -0.000 ± 0.001 | level | | |
+| | realistic | 6.350 | 6.350 | +0.000 ± 0.000 | level | | |
+| | top | 5.054 | 5.054 | +0.000 ± 0.000 | level | | |
+| | night @10/7/5/4/3/2/1/0 | 6.243 | 6.241 | -0.001 ± 0.004 | level | | |
+| | night @50/25/12/6/3/2/1/1 | 24.703 | 24.688 | -0.015 ± 0.043 | level | -0.002 ± 0.044 | |
+| | night, doubling blinds | 5.872 | 5.871 | -0.001 ± 0.001 | level | +0.000 ± 0.000 | |
+| elite | elite, elite_night, mirror, elite_b, mirror_b | | | -0.000 to +0.000 (± 0.000-0.002) | level | | |
+| variants | 27 catalog entries (realistic) | | | 25 identical; top_heavy +0.002 ± 0.005, straddle -0.002 ± 0.003 | level | | |
+| aware | five aware fields | | | identical | level | | |
+
+0 timeouts and 0 errors in every cell for both specs. Weighted score (addendum 11): W +0.0005 ± 0.0009 night points,
+lower bound -0.0004; W-min -0.0001 ± 0.0007, lower bound -0.0008; the cap holds.
+
+- **Against exploiter 4** heads-up F goes from 8.218 to 8.341 and exploiter 4 from 8.845 to 8.695 (still behind it,
+  by 0.35 instead of 0.63). Three-handed +0.042 ± 0.043, just short of the bound (on the diagnostic seeds it was
+  +0.073 ± 0.059 UP). At 8-max level, as expected: the read waits for three alive.
+- **Exploiter 1** +0.013 / +0.020 (level): the read fires on it (section 5) and does not cost there.
+- **Ordinary and strong rooms**: within ±0.002 of F everywhere except the 50/25/12 payout guard (-0.015 ± 0.043, a
+  few endgame hands; raw -0.002 ± 0.044), as the offline replay's handful of changed decisions there predicted.
+- Hold'em-structure variants (top_heavy, straddle, antes, fast_schedule) move by at most 0.002; every twist table is
+  identical (`rbet_holdem_only`).
+
+## What I would still try
+
+- **Faster evidence heads-up.** A heads-up match gives about 4.5 river chances a table against exploiter 4, so the
+  read reaches full weight late (prior worth 4, three-chance minimum). The offline replay put a prior worth 2 with a
+  two-chance minimum at half again the gain against exploiter 4 (341 changed folds against 218), at 10-17 changed
+  decisions a cell against night seats. A table-level prior (a short-handed seat that leads rivers) would start
+  sooner without loosening the seat's own count.
+- **Its bet sizes.** Exploiter 4's river bluff is always 0.7 pot and its value 0.6 or 0.75 (section 1). S12's size
+  read is off short-handed (`size_read_min_alive` 4); a short-handed size read would separate them once a few hands
+  are shown, but that is reading one bot's habit, and the frequency read does not need it.
+- **The turn** (section 4): exploiter 4's turn bets are not more frequent than the room's, so no frequency read finds
+  them; F's turn folds against it stay high (66%).
 
 ## Identity
 
