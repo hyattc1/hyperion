@@ -12,8 +12,8 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 - V-i (H23) ACCEPT, c6 (H29) ACCEPT: both twist-only, both join batch 7. S7 (H25) ACCEPT (plain hold'em, heads-up
   and three-handed against exploiter 2 only). S15e (H26) ACCEPT (plain hold'em, short-handed).
   C3h (H28) ACCEPT: joins batch 8 (exploiter 2 heads-up +0.225; overlaps S7's spots, so batch 8's combined check). O3 (H24) REJECT. C3 rejected (H27).
-- S20's R5 (H30) REJECT on realistic -0.003 ± 0.002 (all five strong cells up); R6 (button only) passed its screen;
-  on H32: goal/b30/run.sh, output goal/b30/r6_h32.md, RUN_DONE. If a later S20 version passes: climb/b7-scope (863f9f5) has the per-route scoping.
+- S20's R5 (H30) REJECT on realistic -0.003 ± 0.002 (all five strong cells up); R6 (button only) ACCEPT on H32:
+  joins batch 8 (merge climb/s20-r6, 2cac7e3; keep S7's route, goal-log R6 entry). If a later S20 version passes: climb/b7-scope (863f9f5) has the per-route scoping.
 - Batch 7 needs judges on fresh judge seeds 60000-60399 (addendum 12) only if a plain hold'em part joins it.
 
 ## Queued or running, detached (each against batch 6, --runout-term)
@@ -36,7 +36,7 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 
 ## Held-out sets used
 H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); H22-H24 used (C3, V-i, O3); H25 used (S7), H26 used (S15e), H27 for
-C3's bonus_card replicate (down: C3 rejected), H28 used (C3h), H29 used by V-j's c6, H30 used by S20's R5, H31 for batch 7's combined check, H32 for S20's R6, H33 for O5; next fresh H34 = 54000-54399
+C3's bonus_card replicate (down: C3 rejected), H28 used (C3h), H29 used by V-j's c6, H30 used by S20's R5, H31 for batch 7's combined check, H32 used (R6), H33 for O5; next fresh H34 = 54000-54399
 (worker briefs say held-out is 20000-49999: widen it to 20000-59999 in the next brief). Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 60000-60399 (30800-31199 would overlap H11's 31000-31399), then 60400-60799 for a replicate.
 
 ## End deliverables (goal.md)

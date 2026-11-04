@@ -1487,3 +1487,18 @@ and (in judges) `elite_judge`.
 - O7 (the same worker): price the open by what F actually wins when the open is called or re-raised, by hand class,
   position, seats behind and depth, fitted offline from F's own play on diagnostic seeds, with the right fold read
   for every seat; then screen. It is the structural round's "preflop retrained for this format" for full tables.
+
+## 08:15: S20's R6 accepted on H32 (joins batch 8)
+- R6 (the solved three-handed tables on the button only, behind the strong read and the per-seat re-raise gate, in
+  batch 7's scoped dials; climb/s20-r6, 2cac7e3) on H32 (52000-52399) against batch 6, --aim strong, every stage,
+  runout term, 316.7 min: **ACCEPT**. elite +0.015 ± 0.007, mirror +0.019 ± 0.007, elite_b +0.018 ± 0.007, mirror_b
+  +0.019 ± 0.007 UP; exploit2 8-max +0.017 ± 0.012 and exploit3 8-max +0.015 ± 0.014 UP; realistic +0.001 ± 0.001
+  level (R5's -0.003 on H30 gone with the blinds back to F); night +0.003, every exploit, adapt, variant and aware cell
+  level; nothing down; 0 timeouts, 0 errors. W +0.0028 ± 0.0016 (lower bound +0.0012), W-min lower bound -0.0002.
+  H32 used.
+- The structural round's first idea to pass: a solved three-handed preflop for strong tables, after R5's one-cell
+  miss and a diagnosis (button gains in every room; the small blind's first-in folds and limps lost at realistic).
+- Batch 8 so far: C3h (H28) + R6 (H32); O5 (H33) running. R6 merges with climb/s20-r6 (S20's code, the scoping and
+  tables/extra/short_3b.json, which the pack must carry). On batch 7's ship it needs S7's route kept:
+  short_route "pre_hu=short,post_hu_bet=short,post_hu_chk=short,pre_3way=short" and short.like_max_alive 2 (S7 alone
+  with that plays as S7: tests/test_b7_scope.py).
