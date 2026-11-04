@@ -107,7 +107,8 @@ STREET_BY_BOARD = {0: 0, 3: 1, 4: 2, 5: 3}
 #   Test: python tools/pack.py ... prints the import time (budget 5 s); kit sim first decision under 1 ms.
 #   HAND END -> Adapter.hand_end(hand_no, my_delta, n_players, history=..., deltas=..., showdown=..., board=...):
 #   pass what the kit's hand-end signal carries: the hand's actions (history() above), every seat's chip change
-#   (deltas=, or final_stacks=), the hands at showdown (showdown={seat: cards}, {} when none; only if the kit
+#   (deltas=, or final_stacks=; a `won` field: chips collected or net change? collected (kit I) gives
+#   deltas = won - paid, net change (kit G) deltas = won; right, they sum to 0), the hands at showdown (showdown={seat: cards}, {} when none; only if the kit
 #   shows every hand still in). The bot's hand end then holds the folds after our last decision (rival 3's core
 #   reads them). If the signal has only my_delta, Adapter holds the hand end until the next hand's first state,
 #   whose stacks settle them (defer_hand_end); nothing to write. A kit that TIMES its hand-end callback (kits E, F,

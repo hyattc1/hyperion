@@ -322,6 +322,7 @@ def _ok_action(a) -> bool:
     return a in ("f", "c") or (isinstance(a, str) and a[:1] == "r" and a[1:].isdigit())
 
 
+@pytest.mark.night
 def test_process_entry_round_trips_and_keeps_order_under_a_burst(tmp_path):
     """The template as its own process: one reply per request, in order, each echoing its id, the decisions legal;
     then a burst written at once (hand ends, decisions, a table end and the next table start, none waiting for its
@@ -355,6 +356,7 @@ def test_process_entry_round_trips_and_keeps_order_under_a_burst(tmp_path):
     assert skipped >= 1, err
 
 
+@pytest.mark.night
 def test_process_entry_imports_quietly(tmp_path):
     """Imported (tools/pack.py's probe prints its timing on stdout after importing the entry), the template leaves
     stdout alone; run as the kit's process it writes only replies there."""

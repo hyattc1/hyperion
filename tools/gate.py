@@ -24,6 +24,9 @@ Action:
          organisers' kit.py. Its state's history rows carry the street and the chips each action put in
          ([seat, kind, total, street, put]) and `posts` the hand's forced bets, so the seat can send the kit's own
          per-street log (hyperion/drills/gate_seat_template.py by_street) and the gate tests the adapter's parser.
+         A process kit's seat: process_gate_seat_template.py; a module-function kit's (drill 11's kit I):
+         module_gate_seat_template.py, which loads the entry as the kit's loader does (the folder off sys.path and
+         its modules out of sys.modules after the import) and raises the kit's Overtime inside it at each limit.
 Illegal replies and exceptions are a check or fold, as the rules score them. One exception: kit D's legal set
 lets a seat re-raise after a short all-in, which our engine does not reopen; that raise is played as a call
 and reported as a rule mismatch, since the bot followed its kit.
@@ -129,6 +132,7 @@ class Proxy:
         self.lifecycle_errors = 0  # exceptions in table start or hand end, counted by the host
         self.rule_mismatch = 0  # kit D raises its rules allow and ours do not (short all-in, no reopen)
         self.import_s: float | None = None
+        self.counts: dict = {}  # a seat file's own tallies (gate_counts: the module seat's Overtimes)
 
     def note(self, text: str) -> None:
         if len(self.notes) < 12:
@@ -288,6 +292,7 @@ class HostProxy(Proxy):
                 self.lifecycle_errors = msg["errors"]
                 for n in msg.get("notes", []):
                     self.note(n)
+            self.counts = dict(msg.get("counts") or {})
         try:
             self.proc.stdin.close()
         except OSError:
@@ -728,6 +733,7 @@ class Side:
     unasked: int = 0
     unsupported: int = 0
     rule_mismatch: int = 0
+    counts: dict = field(default_factory=dict)  # the seat file's tallies, summed over the tables
     lifecycle: int = 0
     notes: list[str] = field(default_factory=list)
     import_s: list[float] = field(default_factory=list)
@@ -825,6 +831,8 @@ def play(cfg: Config, names: list[str], tables: int, seed: int, rules: Rules, va
                 side.rule_mismatch += proxy.rule_mismatch
                 side.unsupported += proxy.unsupported
                 side.lifecycle += proxy.lifecycle_errors
+                for k, c in proxy.counts.items():
+                    side.counts[k] = side.counts.get(k, 0) + int(c)
                 if proxy.import_s is not None:
                     side.import_s.append(proxy.import_s)
                 side.fatal = side.fatal or proxy.fatal
@@ -1057,6 +1065,9 @@ def main(argv=None) -> int:
               f"played as calls, not counted illegal")
     if pkg_side.unsupported:
         print(f"note: {pkg_side.unsupported} variant decisions kit {a.kit} cannot carry; the dealer's default played them")
+    if pkg_side.counts:
+        print("note: seat counts (the kit's clock in the seat file): "
+              + ", ".join(f"{k} {v}" for k, v in sorted(pkg_side.counts.items())))
     for x in pkg_side.notes:
         print(f"note: {x}")
     load = os.getloadavg()[0] if hasattr(os, "getloadavg") else 0.0

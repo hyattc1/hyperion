@@ -28,6 +28,7 @@ def _hand(t: EV.EventTracker):
     t.post(2, 20)
 
 
+@pytest.mark.night
 def test_tracker_keeps_pot_bets_stacks_and_the_log():
     t = EV.EventTracker()
     _hand(t)
@@ -54,6 +55,7 @@ def test_tracker_keeps_pot_bets_stacks_and_the_log():
     assert t.deltas(chips_after={1: 2300})[1] == 300
 
 
+@pytest.mark.night
 def test_fresh_catches_a_missed_event():
     t = EV.EventTracker()
     _hand(t)
@@ -65,6 +67,7 @@ def test_fresh_catches_a_missed_event():
     assert not t.fresh(7, 3)  # we are not in the hand
 
 
+@pytest.mark.night
 def test_a_board_past_its_last_size_reads_as_the_river():
     t = EV.EventTracker()
     _hand(t)

@@ -136,6 +136,7 @@ def _run_loader(tmp_path: Path, pkg: Path) -> dict:
     return json.loads(out.stdout.strip().splitlines()[-1])
 
 
+@pytest.mark.night
 @pytest.mark.parametrize("mode", ["defer", "store"])
 def test_the_entry_template_survives_a_loader_that_unloads_before_the_agent_and_defers_a_timed_hand_end(tmp_path, mode):
     entry = (ROOT / "hyperion" / "drills" / "entry_template.py").read_text()
@@ -158,6 +159,7 @@ def test_the_entry_template_survives_a_loader_that_unloads_before_the_agent_and_
     assert r["second"] in ("fold", "call", "raise") and r["errors"] == {}, r
 
 
+@pytest.mark.night
 def test_without_the_folder_pinned_the_same_lazy_import_falls_to_the_kits_fold(tmp_path):
     """The control: the entry minus its pin_package(<folder>) at import. The package itself is still pinned (the Adapter
     built at import pins it), but the entry's own module is gone with the folder: the decision is the kit's fold."""
@@ -257,6 +259,7 @@ class _Dict(Adapter):
         return "fold"
 
 
+@pytest.mark.night
 def test_the_warm_up_leaves_no_findings_on_the_kits_first_hand():
     ad = conformance.checked(_Dict(CheapBot(), Rules()))
     # drill 9's warm-up: a made-up hand 1 (button 4, a raise in its log), then the bot started for the kit's table
@@ -325,6 +328,7 @@ print(json.dumps(out))
 '''
 
 
+@pytest.mark.night
 def test_a_table_start_inside_a_decision_builds_nothing_and_plays_legally(tmp_path):
     """Cold process, a kit with no table-start hook: the first decision starts the bot. Before H5 that start, inside
     the decision, built the 8-card evaluator and loaded the variant set (67 ms for three hole cards, 33 ms short deck,

@@ -147,6 +147,8 @@ class Player:  # TODO 6  the kit's class name and method names; every method wra
 
     def hand_end(self, info):
         # TODO 11 what the hand end carries: net={seat: chip change} or chips_after={seat: chips}; none: end_hand()
+        #   A `won` field: chips collected or net change? The README says which. Collected (drill 11's kit I): net is
+        #   won - what the seat paid this hand; net change (drill 9's kit G): won as it is. They sum to 0 when right.
         try:
             self.a.end_hand(net={int(s): int(v) for s, v in info["net"].items()})
         except Exception:  # noqa: BLE001

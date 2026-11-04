@@ -60,6 +60,7 @@ def _digest(dials: dict, table: int, as_built: bool = False, names: list | None 
     return rec.h.hexdigest(), res.points[0]
 
 
+@pytest.mark.night
 def test_ship_names_one_bot_and_make_bot_builds_it():
     from hyperion.compose import Composite
 
@@ -132,6 +133,7 @@ def test_ship_seats_in_the_simulator_with_its_dials():
         B.REGISTRY.pop("ship", None)
 
 
+@pytest.mark.night
 def test_adapter_hand_end_passes_the_kits_history_and_deltas():
     """A kit whose hand-end signal carries the actions gives them to the bot (rival 3 replays them at hand end)."""
     from hyperion.core.types import Action
@@ -209,6 +211,7 @@ def test_every_registered_ship_bot_builds_with_no_dials():
         assert all(hasattr(bot, m) for m in ("new_table", "act", "hand_end", "variant_decide")), name
 
 
+@pytest.mark.night
 def test_recipes_resolve_for_whichever_bot_ships(tmp_path, capsys):
     """The window dials are named recipes: the same name gives each bot the dials with that meaning."""
     for name in ship.HERO_RECIPES:
@@ -253,6 +256,7 @@ def _governor(bot):
     return None if g is None else (bot.safe.deadline, g.window, g.ladder, g.recover, getattr(bot.core, "levels", 0))
 
 
+@pytest.mark.night
 def test_set_keeps_the_composites_governor(tmp_path):
     """F1: the governor is in the composite's SHIP_DIALS (batch 2), and `python -m hyperion.ship --set <recipes>` writes
     only the recipes' dials into DIALS, which ship() lays on top of SHIP_DIALS. So every window's bot, alone or stacked,

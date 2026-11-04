@@ -223,6 +223,14 @@ class Sim:
         self.fast = (not _overrides(h, "score_hand")) and not rules.must_use_hole and is_identity_order(rules)
         sh = h.score_hand
         self._score = None if self.fast else (lambda hole, board, _sh=sh, _r=rules: _sh(hole, board, _r))
+        # payoff by street (Rules.extras settle="street", the engine's rule: V-j): this street's chips are won by the
+        # hand as it is now, so the showdown is scored on the board as it stands, with no runout (two cards alone
+        # preflop: evaluate_short below five cards); the earlier streets' chips are not priced apart
+        self.now = (rules.extras or {}).get("settle") == "street"
+        if self.now:
+            self.fast = False
+            self._score = (lambda hole, board, _sh=sh, _r=rules: _sh(hole, board, _r)
+                           if len(hole) + len(board) >= 5 else _short(hole, board, _r))
         # settle keeps state (and may deal from the unseen cards), so it runs on the dynamic path: hooks reset and
         # spare cards per runout
         self.dynamic = self.on_street is not None or self.next_card is not None or self.settle is not None
@@ -240,7 +248,7 @@ class Sim:
                 == (d.hole_cards, tuple(d.board_sizes), tuple(d.rank_order), d.n_suits, d.must_use_hole)
                 and not ex.get("removed_ranks") and not ex.get("keep") and self.fast
                 and self.on_deal is None and self.dynamic is False and self.splits is None and self.payout is None
-                and self.settle is None)
+                and self.settle is None and not self.now)
 
     # -- scores
     def score(self, hole, board):
@@ -301,7 +309,7 @@ class Sim:
         if opp_k is None:
             opp_k = min(len(hole) + my_extra, self.k)
         needs = [max(0, opp_k - len(held.get(s, ()))) + (opp_extra if i == 0 else 0) for i, s in enumerate(opps)]
-        board_need = max(0, self.final - len(board))
+        board_need = 0 if self.now else max(0, self.final - len(board))
         base = my_extra + sum(needs) + board_need
         if base > len(stub) or n <= 0:
             return None
@@ -512,6 +520,15 @@ class Sim:
 
 def _combos(cls: str) -> int:
     return 6 if len(cls) == 2 else 4 if cls[2] == "s" else 12
+
+
+def _short(hole, board, rules: Rules) -> int:
+    """A hand under five cards (payoff by street before the flop): core.eval.evaluate_short on canonical cards."""
+    from ..core.cards import remap
+    from ..core.eval import evaluate_short
+
+    cards = tuple(hole) + tuple(board)
+    return evaluate_short(cards if is_identity_order(rules) else remap(cards, rules))
 
 
 _REF: Optional[list] = None  # hold'em classes, best first by heads-up equity: [(class, share, cumulative share)]

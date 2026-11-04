@@ -118,8 +118,8 @@ Done at home. Not optional; each item has sunk a drill or will.
 | 1 | READ | 0:00–0:05 | `00-briefing` then `01-rule-sheet` with the rules and kit path | xhigh | Rule sheet filled, axis named, assumption diff listed | Verifier answers the agent's questions from the rules text; no code until the sheet exists |
 | 2 | ADAPT | 0:05–0:15 | `02-adapter-and-cheap-bot` | medium | Kit simulator 50 hands: 0 exceptions, 0 illegal, conformance 0 violations, bot folds/calls/raises at least once; `pack.py --bot cheap` zip hashed; after the upload, `tools/gate.py` on that zip: GATE PASS | Adapter clean at 0:12: upload the cheap bot. Not clean: upload the kit's own example bot at 0:12, the cheap bot at 0:17 (one upload per five minutes, §3.5) |
 | 3 | TABLES | 0:15–0:25, only if the FIT VERDICT says REGENERATE | `03-tables` | medium | Generator finished, fingerprint matches, one remapped decision printed sane | Keep old tables; note which Stage 5 patch compensates |
-| 4 | WIRE | 0:25–0:40 | `04-wire-hero` | high | Kit sim 100 hands clean; our strict sim (the Stage 0 command with `--rules rules_tonight.json`): 0 exc, 0 illegal, p99 < 300 µs, over-1 ms rate < 0.3%, the ship line within its own CI of the Stage 0 number. Ship vs tag is not the gate. Then `tools/gate.py` on the zip itself: GATE PASS (paired against the bot the zip records), before this and every later upload | Only the bot's own line fails: `--bot hero`, same gates. Else resubmit the Stage 2 cheap package unchanged |
-| 5 | PATCH | 0:40–0:50 | `05-variant-patch`, the section for the named axis | xhigh | The same sim in model mode with and without the dials; points did not drop beyond CI; then strict, errors still zero | Revert. Ship without the patch. |
+| 4 | WIRE | 0:25–0:40 | `04-wire-hero` | high | Kit sim 100 hands clean; our strict sim (the Stage 0 command with `--rules rules_tonight.json`): 0 exc, 0 illegal, p99 < 300 µs, over-1 ms rate < 0.3%, the ship line within its own CI of the Stage 0 number (skipped, and noted, when nobody re-measured Stage 0 under tonight's rules). Ship vs tag is not the gate. Then `tools/gate.py` on the zip itself: GATE PASS (paired against the bot the zip records), before this and every later upload | Only the bot's own line fails: `--bot hero`, same gates. Else resubmit the Stage 2 cheap package unchanged |
+| 5 | PATCH | 0:40–0:50 | `05-variant-patch`, the section for the named axis | xhigh | The keep rule in `05-variant-patch.md` (paired, 600 tables or more); then strict, errors still zero | Revert. Ship without the patch. |
 | — | SUBMIT | 0:50 | — | — | Portal confirms; sha256, bot and dials in `NIGHT.md`; copy to `frozen/T1` | Resubmit the Stage 2 cheap bot |
 | 6 | WINDOWS | after T1, ×5 | `06-windows` with standings pasted | high | One recipe: the window check (`tools/climb_accept.py --stages window`, paired) not beyond noise down, strict run and kit simulator clean, GATE PASS at 40 tables; submitted by minute 15 of the window | Keep the frozen bot. Submit nothing. |
 
@@ -162,6 +162,18 @@ seat, which launches the entry as the kit does and plays the real stdin loop thr
 answers every request first and does the hand end after, skipped when another request already waits (drill 10: the
 composite's hand end with the next message waiting was most of kit H's timeouts). A kit that launches the bot with a
 fixed environment never passes `HYPERION_CHECK=1` on: a `check.on` file beside the entry turns the checks on there.
+**Plain module-level functions, one module a session** (drill 11's kit I: start/table/act/done, an int of chips back,
+the folder off sys.path and our modules out of sys.modules right after the import, an Overtime BaseException at each
+limit): `hyperion/drills/module_entry_template.py`, with `module_gate_seat_template.py` as the gate seat, which loads
+the entry as the kit's loader does and raises its Overtime. Every template's hand end asks whether the kit's `won` is
+chips collected or the net change, with both formulas: drill 11 pasted kit G's net onto kit I's collected chips.
+
+**The organisers' checker on a loaded box** (prompt 02 step 6). Its wall clock flags every bot under load, the kit's own
+sample bots too (drill 11 at load 17). Run it on its CPU clock when it has one. It passes when the layout, the size caps
+and the load are fine, 0 errors, and our timeouts per decision are no worse than the worst of the kit's sample bots in
+the same run; the box's load is written beside it. A checker with no CPU clock: the same rule on its wall clock with
+nothing else heavy running; ours worse than the kit's bots there is ours, and prompt 04 step 4 is the fix. The tests on
+the night are the one-minute subset, `python -m pytest -q -m night`; the full suite is for the day.
 
 What the kit shows of the betting is the second thing to read off its interface, after the cards. Our bots
 read every fold, call, check and raise from `obs.history`: Hero's raise counts, the profiler, the exploit layer's
@@ -209,9 +221,9 @@ bot plus profiler" middle option does not exist in the code and is not worth bui
 
 One axis, one patch, as dials or a single small function. The axis sections in `05-variant-patch.md`
 are the pre-reasoned fixes; on a ship bot built on rival 3's core most axes either move a table Hero plays whole (its patch as
-`hero.<key>` dials) or need nothing, and antes are the core's one dial set. Run the sim in model mode with
-and without the dials; keep only if points did not drop beyond the confidence interval, then strict, errors
-zero. The realistic field plays the twist only where we wrote aware bots (toss, bounty, short deck, river of blood,
+`hero.<key>` dials) or need nothing, and antes are the core's one dial set. Measure it paired and keep it only by
+**the keep rule** in `05-variant-patch.md` (written there once), then strict, errors zero. The realistic field plays
+the twist only where we wrote aware bots (toss, bounty, short deck, river of blood,
 auction, keep-two), so on any other twist it flatters both lines: measure the same dials against opponents that play
 the twist, one command, `python tools/climb_accept.py --stages aware --aware generic:<variant> --base '' --cand
 '{"dials": <the dict>}' --set 10000:10100 --workers 2` (a spec is `{"dials": {...}}` or recipe names, never the bare
@@ -221,9 +233,10 @@ variant plus hooks). It builds the variant's generic table first when missing (a
 new twist 15-45 s at two workers, by load) and seats F and the candidate, paired, in `generic_aware` (gen_mc, gen_tag,
 gen_pushfold deal, score and pay through the variant's own hooks: hyperion/sim/generic.py). Rehearsed on a twist the
 catalog lacks (three boards, as a file): 2.4 minutes end to end at load 12 with two workers (its table
-14 s, then F and the candidate on 100 seeds x 8). Keep the patch only if it is not beyond noise down there either. A kept patch goes into `DIALS` (`python -m hyperion.ship --set '<dict>'`), so every tool and the package carry it. Drill 2's lesson: when the sim is
-blind to what the patch compensates for (it could not play antes), the prompt's own revert rule
-fires and the patch is dropped. That is correct behaviour, not a failure. Ship unpatched rather than
+14 s, then F and the candidate on 100 seeds x 8): one of the keep rule's paired checks. A kept patch goes into `DIALS` (`python -m hyperion.ship --set '<dict>'`), so every tool and the package carry it. When our sim cannot play the
+twist, the kit's own simulator is the measure (drill 11's twin: the patched and the unpatched zip in the same tables).
+Drill 2's lesson: when no simulator can see what the patch compensates for (ours could not play antes then), the
+keep rule cannot pass and the patch is dropped. That is correct behaviour, not a failure. Ship unpatched rather than
 ship unverified.
 
 ### Submit and freeze (0:50)
@@ -250,7 +263,7 @@ lines in `NIGHT.md`.
 
 Hard rules: one change per window; no new modules; nothing unverified; timeouts or errors in any log
 override everything (`latency` first: no shadow decisions, points level; `timeouts`, every decision Hero's cheap path,
-for errors or timeouts it did not cure; verify, submit). Tournaments 5 and 6 are 52% of
+for errors or timeouts it did not cure; verify in the kit's own simulator, paired, then submit). Tournaments 5 and 6 are 52% of
 the score: the bot that plays T6 should be a bot that has already played T4 or T5 clean.
 
 ---
@@ -452,7 +465,8 @@ layer's keys are `exploit.*`, never `hero.exploit.*`.
    agent's word. No zip is uploaded until `tools/gate.py` passes on that zip.
 4. One axis patch in the hour. One dial per window.
 5. The frozen bot is always one command from being resubmitted.
-6. When the sim cannot see what a patch does, the patch does not ship.
+6. A patch ships only by the keep rule (`05-variant-patch.md`): when neither our sim nor the kit's can see what it
+   does, it does not ship.
 7. Timeouts or errors in our own log override every other priority.
 8. Nobody researches, tunes, or refactors after 6 PM.
 9. Kill by PID, never `pkill -f`. Record a background job's PID when you start it (`... & echo $! > job.pid`) and
@@ -507,6 +521,7 @@ The track is decided in Stage 0, never on the night.
 | 2026-11-02 | Opponents that read any twist: `gen_mc`, `gen_tag`, `gen_pushfold` (hyperion/sim/generic.py) deal, score and pay through the variant's own hooks, no per-twist code; field `generic_aware`. Stage 5 (and prompt 05) measures a patch against them in one command, `tools/climb_accept.py --stages aware --aware generic:<variant or file>`; a new twist is a file in the shape of `hyperion/drills/variant_file_example.py`; the freeze warms its table. Section 4b: F against them on all 26 entries (`tools/aware_board.py`) | V-d worker, docs/drills/climb/vd-log.md |
 | 2026-11-02 | Drill 9's fixes (H5, docs/drills/prompt-drill-9.md): `hyperion/drills/entry_template.py` for a kit that builds a bot object (built, warmed and `pin_package`d at import: kit G unloaded our modules before `Agent()`; a timed hand end `"defer"`s its curve to the next decision); the gate seat's rows carry street and chips, plus the posts (`gate_seat_template.by_street`); conformance forgets the warm-up; a `timing` pytest marker the night deselects; a table start inside a decision reads and builds nothing (`tables.quick_start`); `--cand '{"dials": ...}'` | H5 |
 | 2026-11-03 | Drill 10's fixes (H6, docs/drills/prompt-drill-10.md): `hyperion/drills/process_entry_template.py` and `process_gate_seat_template.py` for a kit whose bot is its own process (answer first, hand end skipped while a request waits, a `check.on` marker for a stripped environment; the gate drives the real stdin loop); on a table Hero plays whole the composite's base sleeps (one hand end, not two); Hero's must-use path reads a board shorter than it must supply (`mu_short_board`, Solo's flop); `hyperion/drills/solo_example.py`; gen_tables `--preset loaded`, progress, `--resume`; pack `--max-zip-mb`; hard rule 9, kill by PID | H6 |
+| 2026-11-03 | Drill 11's fixes (H7, docs/drills/prompt-drill-11.md): `hyperion/drills/module_entry_template.py` and `module_gate_seat_template.py` for a kit of plain module-level functions (kit I: everything built at import, the loader's purge, the kit's Overtime never swallowed; the gate seat loads the entry as the kit's loader and raises the Overtime); every template's hand end asks "won: chips collected or net change?" and counts deltas that do not sum to 0; `extras.full_bb_call` for the full big blind after a short post; the organisers' checker's pass rule on a loaded box; `pytest -m night`, the one-minute subset; a latency recipe kept only by the kit's own simulator; one keep rule for a Stage 5 patch (prompt 05); the Stage 0 clause skipped on a solo night; `hyperion.ship --set` keeps the line | H7 |
 ---
 
 ## 10. The email (send before the event)

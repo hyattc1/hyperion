@@ -650,6 +650,13 @@ class Profiler:
             return 0.0
         return (k + prior * n0) / (n + n0)
 
+    def lead_rate(self, s: int, prior: float = 0.3, n0: float = 2.0) -> float:
+        """How often seat s bets postflop when nothing is to call, apart from its free actions right after my check in
+        a heads-up pot (S15d: its bets where it has not just seen me check), smoothed toward `prior` with n0 chances."""
+        k = self.post_free_bets[s] - sum(self.st_bet[s])
+        n = self.post_free[s] - sum(self.st_opp[s])
+        return (k + prior * n0) / (n + n0)
+
     def checked_this_street(self, street: int) -> bool:
         """I checked on `street` this hand (with nothing to call): valid while the hand's history is consumed."""
         return self.my_chk == street

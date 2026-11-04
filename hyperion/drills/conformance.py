@@ -17,6 +17,10 @@ cross-call state (seat, button, chips, the last history), so one adapter can pla
 clears the whole report after the entry's import-time warm-up (drill 9: the warm-up's made-up hand 1 showed as
 `history_prefix` and `button_changed` findings on the kit's real hand 1).
 
+Rules the check reads from `Rules.extras` (rules_tonight.json): `discard_street` and `keep` (the hole cards after a
+discard), and `full_bb_call` (true when, after a blind posted short, the others must still call the full big blind, as kit
+I has it: preflop, to_call then runs from the big blind, not from max(bets); without it the check reports to_call_bets).
+
 The checks cost tens of microseconds per decision and allocate: a drill tool, never a submission path.
 """
 from __future__ import annotations
@@ -90,11 +94,18 @@ def _check(obs: Observation, rules: Rules) -> list[str]:
     my_stack = obs.stacks[seat] if me_ok else 0
     my_bet = obs.bets[seat] if me_ok else 0
     cur = max(obs.bets)
+    bb = obs.blinds[1] if len(obs.blinds) > 1 else 0
+    if obs.street == 0 and ex.get("full_bb_call") and cur < bb:
+        cur = bb  # the rule sheet's "the others must still call the full big blind" after a short blind post (kit I)
     if me_ok:
         expect = max(0, min(cur - my_bet, my_stack))
         if obs.to_call != expect:
+            hint = ""
+            if obs.street == 0 and cur < bb and obs.to_call == max(0, min(bb - my_bet, my_stack)):
+                hint = (": a short blind post, and the kit has the others call the full big blind? Then say so in "
+                        "rules_tonight.json, \"extras\": {\"full_bb_call\": true} (prompt 01's betting line)")
             v.append(f"to_call_bets: to_call {obs.to_call}, but max(bets) {cur} - my bet {my_bet} capped by my stack "
-                     f"{my_stack} is {expect}")
+                     f"{my_stack} is {expect}{hint}")
     # legal set
     legal = obs.legal
     if not legal:

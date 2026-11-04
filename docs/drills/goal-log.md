@@ -1194,3 +1194,125 @@ and (in judges) `elite_judge`.
   6", leaderboard row, HANDOFF, RESUME.
 - The chain runs C3 on H22, V-i on H23, O3 on H24 (addendum 13 named H21-H23; batch 6 took H21), each against
   batch 5 + V-f + V-h = batch 6. S13c and S15d in their screens.
+
+## 13:47: the structural round starts (S20); drill 11 commissioned; start-vs-now cut to plain hold'em
+- S20 (goal/wt_s20, climb/s20-three): a three-handed preflop solved on the right game, for strong tables. S14 showed
+  the strong builds beat F three-handed and heads-up preflop and win 1st from three-handed 46-57% against F's
+  22-31%; K18 (elite1's play copied) was up on every strong cell but down on exploit_3; S13's own three-handed tables
+  lost to both exploiters (no small-blind flat, no big-blind 4-bet, small 3-bets mapped to 3.5x). S20 diagnoses by
+  line first, refits the solver's flop model from our own postflop's realization, re-solves with the missing lines,
+  and screens ungated and behind the strong-table read, --aim strong, every exploit cell. Diagnostics on 11000-11199
+  (new), screens on 10000-10199.
+- Not started, and why: playing for first when three or fewer remain (under 8..1 points first place is worth what
+  ICM already prices; it matters only under a top-heavy table, which the window recipes cover); a bandit over a
+  portfolio (the research expects a small edge at 150-200 hands); full-ring preflop retrained offline (S20 first:
+  the measured gap is short-handed). The counter-exploitation alarm waits on S15d (the same leak: folding to bets).
+- Drill 11: a fresh organiser (goal/drill11/kit, no repo access) builds a kit with an unseen twist on an axis the
+  last three drills did not move (betting structure, a hand's payoff, or chips to points), and an interface that is
+  neither a process boundary nor a pot-fraction menu. The player then runs the hour on batch 6's ship.
+- Start-vs-now restarted on confirm, guards, elite and exploit only (cached chunks kept): at 13 hours it was a quarter
+  done, and batch 6 changes only twist tables, so the plain-hold'em stages answer "how much better since the start".
+
+## 14:22: drill 11: kit I (Tranche Hold'em) built; the player started on batch 6
+- Kit I (goal/drill11/kit, a fresh organiser with no repo access; 35 tests, 500 tables clean). The twist moves a
+  hand's payoff: each betting round's chips are their own pot (a tranche), won at showdown by the best hand as it
+  stood on that street (two cards preflop, any pair over AK, suits never count; hole cards plus the flop; and so on to
+  the river); folding gives up every tranche paid into; an all-in settles on the cards already out (a preflop all-in
+  has no board). Points 16/10/6/3/1/0/-1/-3; 86-92% of the organiser's tables reach hand 200 with two or three left.
+- Interface: module functions (start 3 s, table 50 ms, act 1 ms, done 1 ms; one module for the session), act returns
+  the chips to put in now as one int (0 = check or fold), no legal list, seats relative to us and reshuffled every
+  table, cards 0-51, a compact history string, an Overtime BaseException raised inside the bot at the limit.
+- The organiser wrote a few run logs to its parent scratch folder and read them back, then deleted them; it read
+  nothing else outside its folder.
+- Player: a fresh agent with R = a clone of main at c8d64fa (batch 6; push disabled), the handout without the
+  organiser's notes, prompts 00-05 and the playbook.
+
+## 14:53: drill 11 scored; H7 and V-j next
+- Kit I, Tranche Hold'em (a hand's payoff by street; a preflop all-in has no board), module-function interface. Ship
+  gated and submitted at minute 12 (drill 10: 29), the two-card twin patch at 26, stop at 29. Kit sim: ship +9.12 ±
+  0.67 a table against the organiser's twist-aware bot's +5.47; the patch +0.35 over 1,000 paired tables. Write-up
+  docs/drills/prompt-drill-11.md, files docs/drills/drill11/.
+- Fixes: H7 (tooling and prompts: a module-function template, the checker's pass rule under load, a night test
+  subset, one keep rule, and the rest of the list) and V-j (street-settled pots in our engine and catalog, so F's
+  play there can be measured and improved outside the kit).
+
+## 15:25: S13c's S7 (S6 with a looseness gate) passes the screen; merged (off); queued on H25
+- Audit on tuning fields (fresh seeds 3400-3419): S6's gate opened on 76 of 21,056 heads-up decisions against seats
+  other than the exploiters and adapt1 (elite2, elite4, hero_tight, F copies), changing 35. A preflop looseness read
+  separates them: the ordinary openers show VPIP 0.28-0.44, PFR 0.20-0.33; exploiter 2 0.76/0.54 heads-up, 0.51/0.38
+  three-handed. S7 adds VPIP 0.50-0.88 and PFR 0.30 or more (fixed before the screen) to S6's probe and bet gates:
+  ordinary opens 0 in the audit; 99% of exploiter 2's heads-up opens kept, 58% three-handed.
+- Screen (10000-10199, --aim exploit, runout term): exploit2_hu +0.298 ± 0.120 and exploit2_3 +0.084 ± 0.041 UP; the
+  other exploit cells level (8-max identical); confirm, all guards, elite, elite_night, elite_b, mirror_b and aware
+  identical; mirror +0.0008 ± 0.0015; weighted +0.0016 ± 0.0010. It gives up S6's 8-max exploit2 gain and about 40%
+  of its three-handed one. ACCEPT on the screen.
+- climb/s13c-gate merged (3295488; the dials off; identity after the merge: 14 cells identical). S7 queued on H25 (45000-45399) against batch 6, --aim exploit,
+  every stage, after the b23 chain (goal/b24/chain2.sh). If accepted it needs the next batch's judges (30800-31199).
+
+## 16:22: S15d's S15e (the stab read gated by lead and free-bet rates) passes the screen; merged (off); queued on H26
+- Audit on tuning fields (seeds 11000-11099, about 6,800 tables): S15c's stab read acted 53 times against ordinary
+  seats (rival 1-3, elite1, elite2, a loose student, F copies), changing 26 folds to calls, mostly against value.
+  Exploiter 3 bets right after F checks but rarely otherwise: its other free bets (lead rate) 0.20 median against
+  0.37-0.65 for ordinary seats; preflop raise rate 0.48 against 0.30-0.42.
+- S15d (raise rate 0.35 or more, lead rate 0.4 or less): ordinary, strong and variant cells identical, but exploit_hu
+  -0.060 ± 0.059 corrected (raw +0.037). S15e adds an overall free-bet rate cap of 0.5 (exploiter 1 bets 0.75 of those
+  chances, exploiter 3 0.40), fixed before its screen: 3 acts against non-exploiters in the re-audit (one elite1 hand).
+- S15e screen (10000-10199, --aim exploit, runout term, twists identical by its hold'em gate): exploit3_hu +0.118 ±
+  0.074 and exploit3_3 +0.027 ± 0.026 UP; exploit_hu -0.001 ± 0.007 and every other exploit and adapt cell level;
+  confirm, guards, elite cells and four plain-table variants level or identical; weighted +0.0007 ± 0.0009. ACCEPT on
+  the screen. Three-handed it keeps about a third of S15c's gain (a heads-up-only rate is untested).
+- climb/s15d-gate merged (be9d8bf; dials off; identity after the merge: 14 cells identical). S15e queued on H26 (46000-46399) after S7's H25 (goal/b25/chain3.sh).
+  S7 and S15e each need their own held-out acceptance, then a combined check and the judges (30800-31199) as batch 7.
+
+## 16:34: H7 merged (drill 11's tooling and prompt fixes)
+- A module-function entry template and gate seat for kit I's shape (purge after import, Overtime raised inside the
+  bot and never swallowed); "won: collected or net?" in all eight templates with a deltas_sum check; the organisers'
+  checker's pass rule on a loaded box (prompt 02 step 6, PLAYBOOK Stage 2); a night test subset (pytest -m night,
+  153 tests, 16-52 s); extras.full_bb_call for kit I's blind rule; a latency recipe kept only on the kit's own sim;
+  one keep rule for a variant patch (prompt 05; floor 600 paired tables, pooled above zero, no paired check down
+  beyond its interval); the Stage 0 clause skipped on a solo night; ship --set keeps the line's comment. Identity:
+  14 chunks identical (H7's own, and again on main after the merge). Full suite: 7 wall-clock failures, the same on main.
+- Coordinator's edit on merge: under the new checker rule both our zip and the drill player's failed the timeout half
+  on today's box (1.2-2.0% against the kit bot's 0.4-0.5%), so the cheap bot uploads on layout, caps, loading and 0
+  errors alone (insurance; the next upload replaces it) and the timeout gap goes to prompt 04 step 4.
+
+## 17:02: C3 (one stab size with three or fewer alive) on H22: every check passes but one variant cell; replicate on H27
+- H22 (42000-42399), batch 6 + C3 against batch 6, --aim exploit, every stage, runout term (233 min): exploit2_hu
+  +0.284 ± 0.063, exploit2_3 +0.161 ± 0.061, exploit3_hu +0.078 ± 0.049, exploit3_3 +0.073 ± 0.064, adapt_hu +0.075
+  ± 0.054, adapt_3 +0.114 ± 0.056 UP; night @10/7/5 +0.022 ± 0.018 and @50/25/12 +0.183 ± 0.145 UP; confirm, the
+  other guards, every elite and aware cell and 25 variants level; bonus_card (realistic) -0.015 ± 0.011 DOWN.
+  Weighted +0.0049 ± 0.0035 (lower bound +0.0015), W-min +0.0019 ± 0.0024, cap holds. H22 used once.
+- Addendum 7: one variant cell down with every other check passing replicates: bonus_card (realistic) on H27
+  (47000-47399) at 400 seeds (goal/b23/c3_rep_h27.md). C3 fails if the re-run or the two pooled is beyond noise down.
+- Raw and corrected flags never point opposite ways (exploit_hu raw UP, corrected level; adapt @10/7/5 raw DOWN,
+  corrected level: the term narrows, it does not flip).
+
+## 17:15: C3's bonus_card replicate is down (C3 rejected); C3h (the one size on plain hold'em only) queued on H28
+- H27 (47000-47399), bonus_card (realistic) at 400 seeds: -0.007 ± 0.007 DOWN. Under addendum 7 C3 fails (pooled
+  with H22's -0.015 ± 0.011, about -0.010, down). H27 used once.
+- Cause: C3's stab takes Hero's one balanced size where Hero has one, and batch 6 carries that size to some twist
+  families (postflop.s11_twists: knockout, buy, swap, exposed), so C3 changed twist play it was never aimed at.
+  Play digests (3 tables each, the room of digest_cmp): ungated C3 differs from batch 6 on exposed_card,
+  knockout_bounty, swap_holdem and auction.
+- C3h: `exploit.stab_holdem_only` (off by default; climb/c3h merged, 9bfb415): the one size on plain hold'em tables
+  only. Digests identical to batch 6 on all 13 sampled twists; tests; identity after the merge 14 cells identical. Chosen from where C3 gained (plain hold'em
+  exploit cells) and where it lost (a twist), as Z3's hold'em gates were after H9; it needs a fresh held-out set:
+  C3h on H28 (48000-48399) against batch 6, --aim exploit, every stage, twists identical (goal/b26/chain4.sh, after
+  S15e's H26).
+
+## 18:02: start-vs-now in (plain hold'em); V-j merged; V-j's c6 on H29
+- The starting F's settings (start_off.json) against batch 6 on H17 (37000-37399), confirm, guards, elite, exploit,
+  raw (started before addendum 13): elite +0.151 ± 0.061, mirror +0.213 ± 0.072, elite_b +0.075 ± 0.066, mirror_b
+  +0.171 ± 0.066, top +0.104 ± 0.059 UP; exploiter 1 +0.740 / +1.211 / +1.366 (8-max, heads-up, three-handed),
+  exploiter 2 heads-up +0.371 and three-handed +0.169, exploiter 3 8-max +0.131, adapt1 8-max +0.097 and heads-up
+  +0.116 UP; night -0.014 ± 0.053, night_hard +0.033, realistic +0.006, the payout guards and doubling blinds level;
+  none down. Weighted +0.084 ± 0.033 (lower bound +0.051). The leaderboard has a "Since the start" table. H17 used.
+- V-j merged (9d871f2; dials off): the engine's extras `settle: "street"` and `no_runout`, the catalog entry
+  tranche_holdem (our 8..1 points; kit I's in docs/drills/drill11/rules_tonight.json), aware opponents (tranche_tag,
+  tranche_pushfold, tranche_mc), F's dials `tranche_twin` and `hero.tranche` (now, sunk, allin). Plain hold'em and
+  every other entry identical on V-j's branch (40 of 40 chunks); identity on main after the merge 14 cells identical. Screen: no candidate beyond noise; c6 (twin, now,
+  sunk, early claim 0.25, chosen among five weights on the screen) +0.094 / +0.051 / +0.044 (realistic, aware,
+  generic aware), kit sim +0.28 over 1,200 unpaired tables. c6 on H29 (49000-49399): tranche cells at 400 seeds,
+  hold'em identical (goal/b27/c6_h29.md).
+- Future organiser briefs add to the exclusion list: tranche_holdem (each betting round's chips a pot of their own,
+  won by the hand as it stood on that street; no cards once the betting is over).

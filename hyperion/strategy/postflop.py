@@ -265,7 +265,13 @@ class PostflopParams:
     # holds its calling range). stab_max_alive: only while at most this many players have chips (0 = any; by then a
     # full table's seats have shown their stabs over many hands). stab_pfr_min: only against a seat that raises
     # preflop at least this share of its hands (Profiler.pfr_rate): a loose-aggressive seat's frequent stabs are light,
-    # a tight seat's are value. stab_holdem_only: hold'em tables only (hero.holdem_table). 1.0 / -1 / 0 = off
+    # a tight seat's are value. stab_lead_max (S15d, docs/drills/climb/s15d-log.md): only against a seat whose other
+    # free bets are rare (Profiler.lead_rate at most this, prior stab_lead_prior worth stab_lead_n): it bets when I
+    # check, not whenever it may (an aggressive seat that bets everywhere, a loose-aggressive student or an elite
+    # build, has hands behind its stabs). stab_free_max: ... and whose bets when nothing is to call, its stabs included
+    # (Profiler.free_bet_rate, prior stab_free_prior worth stab_free_n), are at most this share: a seat that bets most
+    # of its free chances is betting a range (exploiter 1's Monte Carlo bets: 0.75), not attacking my checks.
+    # stab_holdem_only: hold'em tables only (hero.holdem_table). 1.0 / -1 / 0 = off
     stab_from: float = 1.0
     stab_full: float = 1.0
     stab_prior: float = 0.5
@@ -279,6 +285,12 @@ class PostflopParams:
     stab_aggr_only: bool = False
     stab_max_alive: int = 0
     stab_pfr_min: float = 0.0
+    stab_lead_max: float = 1.0
+    stab_lead_prior: float = 0.3
+    stab_lead_n: float = 2.0
+    stab_free_max: float = 1.0
+    stab_free_prior: float = 0.4
+    stab_free_n: float = 2.0
     stab_holdem_only: bool = False
     # S12 reads (docs/drills/climb/s12-log.md); every one off by default.
     # size_read: facing a single bet heads-up (or a raise of my bet), the bettor's range for a bet of that size (bucket
@@ -478,13 +490,14 @@ class Postflop:
     # ------------------------------------------------------------------ hand reading
     @staticmethod
     def read(hole, board, dead=(), flush_shift: int = 0, straight_shift: int = 0, flush_over_full: bool = False,
-             short: bool = False, long: bool = False, more: bool = False) -> tuple[int, int, bool]:
+             short: bool = False, long: bool = False, more: bool = False, now: bool = False) -> tuple[int, int, bool]:
         """(tier, outs, wet_board) for two hole cards. Pure arithmetic over ranks and suits plus one evaluate().
         `dead` cards (exposed elsewhere) come off the draw outs; the shifts move a made flush / straight. `short`: the
         36-card deck's straights (A-6-7-8-9 made and drawn to, no wheel) and flush draws (five outs, not nine).
         `long`: the board may be longer than five (any count, core.eval.evaluate_many past 8 cards; playing the board
         is read against the board's own best five at any length). `more`: another board card may still come on a board
-        of five or more (river_of_blood's red last card), so draws and their outs count there too."""
+        of five or more (river_of_blood's red last card), so draws and their outs count there too. `now`: the hand is
+        judged on the cards as they are (payoff by street, an all-in with no runout): no draw counts, as on a river."""
         cards = tuple(hole) + tuple(board)
         strength = evaluate(cards) if len(cards) <= 8 else evaluate_many(cards)
         cat = category(strength)
@@ -537,7 +550,7 @@ class Postflop:
                 my_flush_cards = a
             else:
                 my_flush_cards, fsuit = b, s2
-        drawing = n_board < 5 or more
+        drawing = (n_board < 5 or more) and not now
         flush_draw = my_flush_cards == 4 and drawing
         # straight draw: completing ranks beyond what the board alone offers
         mine = comp[full_mask] & ~comp[board_mask] if drawing else 0
@@ -968,7 +981,12 @@ class Postflop:
             tier = max(0, tier - self.p.wild_board_penalty)
         return tier, outs, wet
 
-    def _read(self, hole, board, must_use: int, dead, long: bool = False, more: bool = False) -> tuple[int, int, bool]:
+    def _read(self, hole, board, must_use: int, dead, long: bool = False, more: bool = False,
+              now: bool = False) -> tuple[int, int, bool]:
+        if now and len(hole) == 2 and not must_use and not self.low and self.wild_rank < 0:
+            p = self.p  # the hand as it is now (Hero's tranche dial): hold'em's read without draws
+            return self.read(hole, board, dead, p.flush_tier_shift, p.straight_tier_shift, self.flush_over_full,
+                             self.short, long, False, True)
         if self.low:
             return self.read_low(hole, board)
         if must_use and len(board) < 5 - must_use:
@@ -1029,7 +1047,7 @@ class Postflop:
             board=None, board2=None, must_use: int = 0, dead=(), value_shift: int = 0, call_shift: int = 0,
             street: int | None = None, to_come: int | None = None, long: bool = False, more: bool = False,
             shared: tuple = (), shared_call_shift: int | None = None, shared_all: bool = False,
-            call_scale: float = 1.0, thin_shift: int = 0) -> Action:
+            call_scale: float = 1.0, thin_shift: int = 0, now: bool = False, tranche: tuple | None = None) -> Action:
         """`hole` and `board` are canonical cards (Hero remaps under a permuted rank order); the
         displayed obs.board is only the fallback when no board is passed. `board2` is the second board of
         a two-board game, `must_use` the Omaha rule, `dead` the exposed cards, `value_shift` raises the
@@ -1041,12 +1059,17 @@ class Postflop:
         in the hand is one of them, so the plain read, which prices our shared cards as ours alone, is left out);
         facing a bet a shared read is shifted by `shared_call_shift` (None: call_shift). `call_scale` / `thin_shift`: a
         showdown tax (Hero's Config.sd_tax): facing a bet the equity is read x call_scale (a won showdown pays that share
-        of the pot), and the thin value thresholds (value_tier, the station tiers) move up thin_shift tiers."""
+        of the pot), and the thin value thresholds (value_tier, the station tiers) move up thin_shift tiers. `now`: the
+        hand read as it is, no draws (pass to_come=0 with it). `tranche` = (this street's chips, claim): payoff by
+        street (Hero's tranche dial): a call's price is (call - claim) / (this street's chips + call), the call winning
+        this street's pot and keeping `claim` (the earlier tranches times the chance of holding them) where a fold
+        gives it up."""
         p = self.p
         obs = spot.obs
         if board is None:
             board = obs.board
-        tier, outs, wet = self._read(hole, board, must_use, dead, long, more)
+        tier, outs, wet = self._read(hole, board, must_use, dead, long, more, now) if now else \
+            self._read(hole, board, must_use, dead, long, more)
         if street is None:
             street = obs.street
         if to_come is None:
@@ -1188,6 +1211,11 @@ class Postflop:
 
         # ---- facing a bet
         pot_odds = spot.pot_odds
+        if tranche is not None:
+            t_s, claim = tranche
+            pot_odds = (spot.to_call - claim) / (t_s + spot.to_call)
+            if pot_odds < 0.0:
+                pot_odds = 0.0
         if street >= 2 and bettor >= 0 and prof is not None and not cheap:
             if call_down > p.late_calldown_cap and not (prof.maniac(bettor) or prof.random_like(bettor)):
                 call_down = p.late_calldown_cap
@@ -1233,6 +1261,10 @@ class Postflop:
                 and (not p.stab_aggr_only or bettor == prof.prev_aggressor(street)) \
                 and (p.stab_max_alive <= 0 or obs.players_left <= p.stab_max_alive) \
                 and (p.stab_pfr_min <= 0.0 or prof.pfr_rate(bettor) >= p.stab_pfr_min) \
+                and (p.stab_lead_max >= 1.0
+                     or prof.lead_rate(bettor, p.stab_lead_prior, p.stab_lead_n) <= p.stab_lead_max) \
+                and (p.stab_free_max >= 1.0
+                     or prof.free_bet_rate(bettor, p.stab_free_prior, p.stab_free_n) <= p.stab_free_max) \
                 and (self._tw is None or not self._twist_read_off(spot, bettor)):
             r = prof.stab_rate(bettor, street, p.stab_prior, p.stab_n, p.stab_pool, p.stab_min)
             if r > p.stab_from:

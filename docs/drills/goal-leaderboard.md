@@ -3,7 +3,10 @@
 One page, updated after every accepted batch. Points are per table, averaged over the seeds shown, every seed played
 in all eight seat rotations; "margin" is F minus the other bot on the same deals, with the 95% interval.
 
-## Where we stand (2026-11-02 21:18 ET, batch 5)
+## Where we stand (2026-11-03 13:37 ET, batch 6)
+
+Batch 6 changes only twist tables, so every plain hold'em number below (judges, night, elite rooms, exploiters) is
+batch 5's and holds for batch 6 exactly.
 
 **F (the composite) is first against every judge field.** On fresh seeds (30000-30399, 400 x 8), none of them ever
 used for tuning. Batch 5 moved judge_top +0.106 and outside +0.087 (beyond noise) and left the rest level; the
@@ -44,6 +47,29 @@ drill's zip of batch 4 scored 7.64 a table against the organiser's Ghost-aware b
 
 **Rehearsals:** drill 7 (event-driven kit, unseen variant): legal upload minute 8, ship gated minute 20. Drill 8
 (one Agent per session, int actions, Ghost Hold'em): insurance minute 1, ship gated minute 12.
+
+## Since the start (the starting F against today's, plain hold'em)
+
+The starting F's settings (2026-11-01 20:28, every dial added since at its default) against batch 6, on fresh seeds
+(H17, 37000-37399, 400 x 8, paired; plain hold'em, so batch 6 plays as batch 5 here). Twist gains are on top (batches
+3, 5 and 6, each measured against its own base).
+
+| family | cell | start | now | change |
+|---|---|---|---|---|
+| strong tables | elite | 4.666 | 4.817 | **+0.151 ± 0.061** |
+| | mirror (three F copies, rival 2, elite 1, elite 2, hybrid3_x) | 4.320 | 4.533 | **+0.213 ± 0.072** |
+| | elite_b / mirror_b (second wave) | 4.620 / 4.390 | 4.695 / 4.561 | **+0.075 / +0.171** |
+| | elite_night | 5.390 | 5.439 | +0.049 ± 0.055 |
+| | top (rivals 1-4) | 5.061 | 5.165 | **+0.104 ± 0.059** |
+| exploiters | exploiter 1: 8-max / heads-up / three-handed | 5.015 / 8.054 / 7.202 | 5.755 / 9.265 / 8.568 | **+0.74 / +1.21 / +1.37** |
+| | exploiter 2: 8-max / heads-up / three-handed | 5.673 / 7.555 / 7.318 | 5.761 / 7.926 / 7.487 | +0.09 / **+0.37 / +0.17** |
+| | exploiter 3: 8-max / heads-up / three-handed | 5.378 / 8.354 / 7.671 | 5.509 / 8.373 / 7.619 | **+0.13** / +0.02 / -0.05 |
+| adaptive | adapt1: 8-max / heads-up / three-handed | 5.623 / 8.605 / 8.053 | 5.720 / 8.721 / 8.117 | **+0.10 / +0.12** / +0.06 |
+| ordinary rooms | night / night_hard / realistic | 6.030 / 5.491 / 6.418 | 6.016 / 5.524 / 6.424 | -0.01 / +0.03 / +0.01 (level) |
+
+Bold: beyond noise up. Nothing is beyond noise down. The weighted score (addendum 11): +0.084 ± 0.033 night points a
+table (lower bound +0.051). The gains are where the climb aimed: strong tables, bots that hunt F's leaks, and twists.
+On ordinary rooms F was already first, and it has not measurably moved there.
 
 ## Ship and frozen fallbacks
 

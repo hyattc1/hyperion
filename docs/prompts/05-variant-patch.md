@@ -11,21 +11,33 @@ bounties and exposed cards, and the straddle preflop (`hero:table:<why>` in the 
 Hero patch below reaches such a bot only on Hero's tables, written `hero.<key>`; the core's dials are
 `r3.<name>`. With `--bot hero` (Hero is the ship bot) the Hero keys are written bare.
 
-Measure before and after with prompt 04's 300-table sim in `--mode model` on the same seed:
-`python -m hyperion.sim --tables 300 --seed 11 --mode model --field realistic@ship --rules rules_tonight.json`,
-then the same with `--dials '<the dict>'`. Keep the patch only if the ship line's points rise by more than half
-their CI, else revert it and say so. Kept: `python -m hyperion.ship --set '<the dict>'` writes it into `DIALS` in
-`hyperion/ship.py` (the kit simulator, latency, pack and the sim all read it), then one strict run: errors zero.
+**The keep rule** (the one rule for this patch; PLAYBOOK Stage 5, hard rule 6 and prompt 00 point here). Measure it
+paired, the same tables with and without it: in our simulator with `--variant` when it can play tonight's twist (a
+catalog entry, or its hooks as a file), else in the kit's own simulator (the patched and the unpatched zip in the same
+tables, two seats each, the same seeds; its CPU clock if it has one). Use the most tables the box allows in the box's
+time, never fewer than 600 paired tables in all (pool runs on different seeds). Keep it when the pooled point estimate
+is above zero and no paired check is down beyond its 95% interval (each run, and the aware check below). Otherwise
+revert it and say so. Drill 11's twin: +0.35 over 1,000 kit-sim tables, every run up: kept.
 
-The realistic field ignores most twists (only toss, bounty, short deck, river of blood, auction and keep-two have
-opponents that play them), so check the patch against opponents that read tonight's rules too, in one command:
+Dials, in our simulator: `python tools/climb_accept.py --stages window --base '' --cand '{"dials": <the dict>}' --rules
+rules_tonight.json --variant <name> --workers 2` (F with and without them on the night field under tonight's rules, 200
+seeds x 8 = 1,600 paired tables, about 3 minutes cold; the spec wraps the dials: `{"dials": {"hero.multi_call_shift":
+1}}`). A fallback ship bot climb_accept cannot build (hybrid3_x, Hero): `python -m hyperion.sim --tables 600 --seed 11
+--mode model --field realistic@ship --rules rules_tonight.json` once as it is and once with `--dials '<the dict>'` (the
+same seed is the same tables). A patch that is a function in the adapter, not dials: the kit's simulator, as above.
+Kept: `python -m hyperion.ship --set '<the dict>'` writes it into `DIALS` in `hyperion/ship.py` (the kit simulator,
+latency, pack and the sim all read it), then one strict run: errors zero.
+
+The night field ignores most twists (only toss, bounty, short deck, river of blood, auction and keep-two have opponents
+that play them), so the second check is against opponents that read tonight's rules too, in one command:
 `python tools/climb_accept.py --stages aware --aware generic:<variant> --base '' --cand '{"dials": <the dict>}'
---set 10000:10100 --workers 2` (the spec wraps the dials: `{"dials": {"hero.multi_call_shift": 1}}`). `<variant>` is the catalog name; for a twist the catalog lacks, first write its Rules and
+--set 10000:10100 --workers 2` (800 paired tables). `<variant>` is the catalog name; for a twist the catalog lacks, first write its Rules and
 hooks as a file (copy `hyperion/drills/variant_file_example.py`: name the variant in `Rules.extras["variant"]`, give
 the hooks `restore()` if their public state is published under another name) and pass `generic:path/to/file.py:variant`.
 The command builds the twist's table if missing (catalog: committed; a new twist 15-45 s) and pairs F and the
 candidate in `generic_aware`, whose Monte Carlo, TAG and push/fold seats deal, score and pay through the variant's own
-hooks. Rehearsed on a twist the catalog lacks: 2.4 minutes end to end (table 14 s) at two workers. A patch beyond noise down there is reverted even if realistic liked it.
+hooks. Rehearsed on a twist the catalog lacks: 2.4 minutes end to end (table 14 s) at two workers. Down beyond noise
+there, the keep rule reverts the patch whatever the night field said.
 
 ## Strength ordering moved (permuted ranks, short deck, new categories)
 The evaluator remaps ranks through `Rules.rank_order`. If prompt 03 ended on its restore branch,
@@ -80,6 +92,24 @@ caption every line "on hold'em tables" and expect the patch to do nothing. Patch
   bid request there, and `charges_dead`-style accounting in the sim if the price goes to the pot. Bidding nothing
   measured -0.56 ± 0.34 a table (Hero, realistic_auction, 200 seeds). A first-price auction (pay your own bid)
   wants the bid shaded, by (n - 1) / n for n bidders on the textbook uniform-value rule: not measured here.
+- Pots settled by street (each betting round's chips a pot of their own, won by the best hand as it stood on that
+  street; drill 11's Tranche Hold'em: two cards preflop, a preflop all-in has no board). Our engine plays it from two
+  Rules extras keys, each usable alone: `"settle": "street"` and `"no_runout": true` (no cards once the betting is
+  over); the catalog's `tranche_holdem` is kit I's twist (`--variant tranche_holdem`; aware field
+  `tranche_holdem_aware`, and `generic:tranche_holdem`). Tonight: put the keys and `"variant"` in rules_tonight.json's
+  extras, and have the adapter pass the earlier streets' pots, `make_observation(..., extras={"tranches": (T0, T1,
+  ...)})` (kit I: `v.tranches[:v.street]`). The dials read the rule, not the adapter: `{"tranche_twin": "all",
+  "hero.tranche": "now,sunk", "hero.tranche_claim_early": 0.25}`. The twin is drill 11's kept patch as a dial (every
+  preflop decision, for every member of F, sees the hold'em class at the same combo percentile as our hand's two-card
+  rank: a pair over any non-pair, then the higher card, then the lower; 22 as ATs, KQ as A3s; with `no_runout` alone
+  only the all-in decisions). `now` reads the hand as it is after the flop (draws count for nothing); `sunk` prices a
+  call against this street's pot, (call - claim) / (this street's chips + call), where the claim is the earlier pots
+  times our chance of holding each. It counts in full where the call ends the betting and a quarter before (all of it
+  before measured -0.18). Our sim, 200 seeds x 8 (realistic / tranche aware / generic aware): the twin alone +0.03 /
+  -0.02 / +0.01, all three dials +0.09 / +0.05 / +0.04, each level (docs/drills/climb/vj-log.md); kit I's simulator,
+  the three dials +0.28 over 1,200 tables, every run up. Keep or revert by the keep rule above. For a twist of this
+  family the two keys cannot express, the twin goes in the adapter (`twin_hole` in docs/drills/drill11/adapter.py,
+  kept in drill 11 at +0.35 over 1,000 tables of the kit's simulator) and the kit's simulator measures.
 - Point tables: `Rules.payouts` in `rules_tonight.json` is the whole patch; Hero's ICM curve and the core's
   all-in prices are both built from it (print the payouts of the `Rules` passed to `new_table` to confirm).
   No ICM-premium key exists; `preflop.shove_call_margin` (Hero) and `r3.push_margin` / `r3.call_margin` (the
