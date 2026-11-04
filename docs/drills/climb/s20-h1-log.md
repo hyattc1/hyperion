@@ -165,15 +165,72 @@ S7 decision) and only while the composite's strong read is open for heads-up. Th
 the member (one boolean set before `wants`, as it passes the profiler), and H1 checks it itself. A test will replay S7
 with `short.hu2` on and require its decisions and digests unchanged (tests/test_b7_scope.py's pattern).
 
-## Where I am / next (10:05, before the 11:30 shutdown)
+## The code half (the coordinator, 09:50: the tree, the fitted flops, push/fold, a small solve, the member path)
 
-- **Done (measuring half):** recordings of batch 7's F on seeds 14000-14799 (`goal/s20/rech/`, 10 fields, regenerable
-  with `goal/s20/run_h1.sh`); the heads-up line book, the depth split, the 10-20 bb ranges, heads-up conversion, the
-  realization fit (three groups, by SPR and by equity band), S7's coverage. Scripts in `goal/s20/`: `d6.py`
-  (recorder), `h1a.py` (line book), `huwin.py`, `hu_ranges.py`, `fit3.py` (with `ALIVE=2` and `HM` pointing at a
-  worktree's tables/hu_matrix.json), `a3.py`.
-- **Next:** (1) the solver: `solve_short.py hu2` (per-hero-seat, fitted flops, no limp under 25 bb, two 3-bet sizes),
-  check convergence and the push/fold cut against tables/pushfold_hu.json; (2) the member: `short.hu2` (the second
-  heads-up path behind the like gates and the passed strong read) and its walker (reuse three-handed's generic one);
-  (3) tests (S7 unchanged with hu2 on; push/fold sanity); (4) diagnostics of the new tables on seeds 14800-14999;
-  (5) screen on 10000-10199, every stage, runout term, --aim strong; (6) identity against goal/idchk34/post.
+- 09:52 **`tools/solve_short.py hu2`** (block "heads-up, v2 (S20 H1)", pure Python like `hu`): `hu2_tree(S, real,
+  hero)`. The button folds / opens (2.0 bb to 25 bb, 2.25 to 60, 2.5 deeper) / jams, and limps only from 25 bb
+  (`H2_LIMP_MIN`; over a limp the big blind checks / raises to 2.5-3 bb / jams); the big blind facing the open folds /
+  calls / 3-bets 2.3x / 3-bets 3.3x / re-shoves; the button facing each 3-bet folds / calls / 4-bets 2.2x / jams; the
+  big blind facing a 4-bet folds / calls / jams; anyone facing a jam folds / calls; a raise over 40% of the stack (45%
+  for 4-bets) is the jam. Chip EV (exact heads-up). Flops: `realize_h2(real, spr, mode)`, our seat's fitted share
+  for the hero's position (`hero_ip` the button, `hero_oop` the big blind; offsets over the old model by SPR, as the
+  three-handed fit); every heads-up flop has the hero in it, so a depth is solved once per hero seat and each seat
+  keeps its own nodes (`solve_hu2_depth`). Nodes carry their raise sizes ("z"). `cmd_hu2`: depths, iterations,
+  `--real` (default the old model), out tables/short_hu2.json. Sizes at 15 bb: 6 decision nodes (no limp, one 3-bet
+  size: the big one is a jam there); at 20 bb 8; at 30 bb 14; at 60 bb 16.
+- 09:53 The fit for the solve: docs/drills/climb/s20-h1-real.json (the three-group mix above) with shares clipped to
+  [-0.3, 1.3] as three-handed.
+- 09:54 **A small solve** (15 and 40 bb, 400 iterations, the fit, 2 workers: 18 s and 48 s): exploitability in the
+  abstract game, mbb a hand, per hero seat (button / big blind): 15 bb 2.41 / 2.44 at 100 iterations, 0.76 / 0.72 at
+  200, 0.38 / 0.40 at 300, **0.24 / 0.26** at 400; 40 bb 11.6 / 19.3, 4.7 / 6.9, 2.9 / 3.8, **2.0 / 2.6** (S13's `hu`
+  at 40 bb: 1.2-1.3 at 500). Committed as tables/extra/short_hu2_dev.json (15 KB), a development fixture for the
+  tests, not a table to play from. What it plays at 15 bb: the button folds 30% / min-raises 67% / jams 2% (by hand-
+  strength fifth: folds the weakest fifth, half the second, raises the rest); the big blind against the min-raise
+  folds 0% / calls 69% / 3-bets 3% / re-shoves 28% (calls 84-99% of its weaker 60%, re-shoves 42% / 76% of the top two
+  fifths); facing the 2.3x 3-bet the button folds 16% / calls 60% / jams 23%. At 40 bb the button limps 56% and raises
+  44%. So with our fitted flops (out of position +0.03 of the pot at SPR 2) the equilibrium big blind flats rather
+  than re-shoves, unlike the elites' 60-80% re-shoves: the screen will say which is right against strong tables.
+- 09:55 **The member path** (`hyperion/strategy/short.py`): `wants` is now S7's own path first (`_wants_s7`, the old
+  body unchanged, its like gates factored into `_like_ok` with the same arithmetic), then, only if S7's path refuses,
+  `_wants_hu2`: preflop, heads-up, no antes, the composite's strong read open (`strong_open`), the opponent *not*
+  admitted by the like gates (a seat S7's gates admit is never H1's), `hu2_defer_3bet` and the archetype deferral,
+  `hu2_keep_defence`, the hand mapping onto the hu2 table (`_hu2_node`, the generic walker with `_map_raise2`), our
+  seat in `hu2_roles`, the depth in [`hu2_min`, `hu2_max`]. Dials `short.hu2`, `hu2_file`, `hu2_roles`,
+  `hu2_defer_3bet`, `hu2_keep_defence`, `hu2_min`, `hu2_max`, all off. The composite (`hyperion/compose/bot.py`) sets
+  the member's `strong_open` from `strong_table()` before each `wants` when the member asks for it (`needs_strong`,
+  true only with `short.hu2`), and keeps the read then.
+- 09:56 **Tests** (tests/test_s20_h1.py, 10, all pass; with test_s13_short, test_compose, test_ship: 72 passed): the
+  tree's lines; the default flop model equals the old `realize_mats` exactly; the fit raises our in-position share;
+  **push/fold sanity**: the tree cut to fold / jam at 10 bb gives tables/pushfold_hu.json's push and call
+  frequencies within 0.02; a small solve converges (12 bb, under 4 mbb a hand at 120 iterations); the walker maps an
+  open and a 2.3x 3-bet onto "rs"; F builds no second path by default; with the strong read shut (strong_rr 0.99) F
+  plays bit-identically to batch 7 against exploiter 2 heads-up; **S7's decisions stay S7's**: with `short.hu2` on at
+  the shipped threshold, at every decision S7's own path wants (a twin member without hu2 replays each, 100+ of them
+  against exploiter 2) the decision is S7's with S7's action, and those tables play bit-identically to batch 7; the
+  second path plays against elite1 heads-up when the read is open.
+- 09:58 **A coexistence finding to resolve before screening.** With the strong read forced always open (strong_rr
+  0.01) against exploiter 2 heads-up, H1 takes the early preflop decisions, and exploiter 2's probe read (the one S7's
+  gate keys on) then never climbs past 0.3-0.48 (batch 7 alone: 0.72 at hand 10, 0.82-0.90 from hand 20), so S7 never
+  plays: H1's preflop changes the postflop spots S7's read is measured in. At the shipped threshold (0.2) this does
+  not happen against exploiter 2 (the read stays at 0.14-0.19 heads-up, H1 plays 0-3 decisions a table and S7's 50 are
+  unchanged), but against exploiter 1 heads-up the read is 0.32-0.48 and H1 plays (S7 never plays there), and at
+  8-max strong tables the read is open at heads-up time most of the time. Options for the next session: keep H1 off
+  until the like reads have enough chances to have refused (the probe read's chances, `pb_opp`), or let S7's gate be
+  read from the table's 8-max play only; and the exploiter-1 guard (`hu2_defer_3bet` 0.25, `hu2_keep_defence`) as in
+  R6.
+- 10:01 **Identity** (`tools/climb_accept.py --cand '{"dials": {}}' --set 10000:10040 --stages confirm,guards` on the
+  branch at 3479ca4, `goal/s20/idchk6`): 14 of 14 chunks identical to batch 7's reference (`goal/idchk34/post`).
+
+## Where I am / next (10:10, before the 11:30 shutdown)
+
+- **Done:** the measuring half (above) and the code half: the hu2 tree and its per-seat solve with the fitted flops,
+  the push/fold check, a two-depth solve that converges (fixture tables/extra/short_hu2_dev.json), the member's
+  `short.hu2` path behind its dial with S7's decisions kept S7's (tested), the composite passing its strong read,
+  identity with batch 7 (14 of 14). Full suite: see the line below.
+- **Next (after the restart):** (1) decide the coexistence rule above (H1 off until S7's like reads have refused with
+  enough chances, or S7's gate read from the 8-max part) and the exploiter-1 guard; (2) the full solve:
+  `tools/solve_short.py hu2 --real docs/drills/climb/s20-h1-real.json --iters 600 --workers N` over HU_DEPTHS (26
+  depths x 2 hero seats, pure Python: about 2 x S13's 19 minutes on 2 workers, less on the new cores); (3) diagnostics
+  of the new table on seeds 14800-14999 (the 10-20 bb lines against F's, `h1a.py`); (4) the screen on 10000-10199,
+  every stage, runout term, --aim strong, with candidates H1 (`short.hu2` on, roles sb,bb) and, if the big blind's
+  flat-heavy equilibrium loses to F's re-shoves, H1 on the button only; (5) identity against goal/idchk34/post again.
