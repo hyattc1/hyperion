@@ -1675,3 +1675,15 @@ and (in judges) `elite_judge`.
   about 0.3 s; checked against the kit budgets at batch 8's pack.
 - 11:40: batch 8's branch with its dials off plays batch 7 exactly (idchk35: 14 of 14). S22 started (climb/s22-river):
   exploiter 4's river over-fold, a gated per-seat river-bet read, diagnostics 15000-15999, screen --aim exploit.
+
+## 14:05: O8 passes its screen; on H35 on top of batch 8
+- O8's screen (O5 + O8 against batch 7, 10000-10199, every stage, --aim strong, runout term; started before
+  addendum 15, so exploiters 1-3 and adapt1): **ACCEPT**. Against O5's own screen on the same seeds, O8 adds where the
+  offline price said it would: elite +0.070, elite_night +0.047, elite_b +0.050, mirror_b +0.052; realistic +0.020;
+  top -0.048, night @10/7/5/4/3/2/1/0 -0.046, night +double -0.037 (all inside noise). W +0.0144 ± 0.0167 (lower
+  bound -0.0023), W-min lower bound -0.0120.
+- Held-out on top of what it would ship with: climb/b8-o8 (batch 8 + main, for exploiter 4, + climb/s21-o8; both
+  merges clean; tests for O8, the batch 7 scope, exploiter 4 and climb_accept: 54 passed). goal/b35/run.sh: identity
+  with dials off against batch 7's F (idchk36 against idchk34), then batch 8 + O8 against batch 8 on H35
+  (55000-55399), every stage, --aim strong, runout term, exploiter 4 in the exploit stage. H35 used; next fresh H36.
+- Batch 8's combined check: base done, candidate 470 of 681 chunks; S22's screen about two thirds through.
