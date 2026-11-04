@@ -67,3 +67,31 @@ realization fit by SPR, where F loses heads-up at strong tables by line. No scre
   -0.115 (elite1 +0.124, elite4 -0.109); under 10 bb F's button +0.169 (elite1 +0.334). Across the four strong rooms F
   gives up about 0.3 bb a hand on the button and 0.2-0.25 in the big blind at 10-20 bb to the best builds, about 13,000
   hands of each role per 600 tables-seeds x 8.
+
+## Step 1b: heads-up realization by SPR, and where S7 plays
+
+- 09:45 **Where batch 7's S7 plays heads-up** (the exploit fields, seeds 14300-14399, `h1a.py --split-s7`): only as
+  the big blind against exploiter 2 (3,342 decisions facing its open, 181 facing a jam), 13 decisions against adapt1,
+  none against exploiters 1 and 3 and none at the four strong rooms. F's heads-up bb a hand by role (button / big
+  blind): against exploiter 1 +1.491 / -0.320, exploiter 2 -0.501 / -0.109, exploiter 3 +0.104 / -0.286, adapt1
+  +0.328 / +0.047. So H1 and S7 barely overlap in the field: S7 is an exploiter-2 read, H1 a strong-table one.
+- 09:47 **Heads-up realization** (`fit3.py` with ALIVE=2: flops in hands that start heads-up; our share of the flop
+  pot over the old model's E + k E (1 - E) + s (b_ip - b_oop), piecewise linear at SPR 2 / 6 / 15; groups strong =
+  elite, mirror, elite_b, mirror_b, exploit = the four heads-up exploit cells, equal weight; `goal/s20/real_hu_v0.json`,
+  `fit_hu_v0.txt`). Our share - E at E = 0.5:
+
+| | SPR 2 | SPR 6 | SPR 15 |
+|---|---|---|---|
+| old model, in position / out of position | +0.016 / -0.016 | +0.047 / -0.047 | +0.062 / -0.062 |
+| our button (in position), mix (14,782 flops) | +0.086 | +0.079 | +0.091 |
+| ... strong rooms (7,650) / exploit cells (7,132) | **+0.121** / -0.006 | +0.040 / +0.114 | +0.315 ± 0.39 / +0.082 |
+| our big blind (out of position), mix (14,765) | +0.029 | -0.092 | -0.137 |
+| ... strong / exploit | **+0.025** / -0.057 | -0.036 / -0.199 | +0.243 ± 0.38 / -0.130 |
+| two other seats (the in-position one), strong (13,340) | +0.049 | +0.134 | -0.385 ± 0.34 |
+
+  (offsets' 95% intervals: ±0.05-0.07 at SPR 2 and 6 for the strong group, ±0.06-0.15 for the exploit group, ±0.35-0.4
+  at SPR 15 for strong, where heads-up flops at strong tables are rare.) Read: at the depths that matter here (10-20
+  bb, SPR 1-4 after a called min-raise) our heads-up postflop at strong tables realizes more than the old model
+  assumed in both seats (in position +0.12 of the pot at E = 0.5, out of position +0.03 instead of -0.02), while
+  against the exploiters our out-of-position flops lose (-0.06 to -0.20). How much the fit moves across fields: at
+  SPR 2 by +0.13 in position and +0.08 out of position between the strong rooms and the exploit cells.
