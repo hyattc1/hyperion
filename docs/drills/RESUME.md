@@ -20,7 +20,7 @@ Identity reference for worker branches: goal/idchk34/post (batch 7's F).
 
 ## Batch 8 (being composed)
 - climb/batch8 (worktree goal/wt_b8): main + climb/s20-r6; candidate docs/drills/climb/batch8-candidate.json (C3h + R6
-  scoped, S7's route kept). Add O5 (merge climb/s21-o5, its dials) if H33 accepts. Then: combined check on a fresh
+  scoped, S7's route kept). O5 ACCEPTED on H33: merge climb/s21-o5 (2de5070) into climb/batch8 and add its dials. Then: combined check on a fresh
   held-out set (H34 = 54000-54399) against batch 7, every stage, --aim strong; judges 60400-60799; timing; freeze as batch 7.
 
 ## Queued or running, detached (each against batch 6, --runout-term)
@@ -43,7 +43,7 @@ Identity reference for worker branches: goal/idchk34/post (batch 7's F).
 
 ## Held-out sets used
 H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); H22-H24 used (C3, V-i, O3); H25 used (S7), H26 used (S15e), H27 for
-C3's bonus_card replicate (down: C3 rejected), H28 used (C3h), H29 used by V-j's c6, H30 used by S20's R5, H31 for batch 7's combined check, H32 used (R6), H33 for O5; next fresh H34 = 54000-54399
+C3's bonus_card replicate (down: C3 rejected), H28 used (C3h), H29 used by V-j's c6, H30 used by S20's R5, H31 for batch 7's combined check, H32 used (R6), H33 used (O5); next fresh H34 = 54000-54399
 (worker briefs say held-out is 20000-49999: widen it to 20000-59999 in the next brief). Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 60000-60399 (30800-31199 would overlap H11's 31000-31399), then 60400-60799 for a replicate.
 
 ## End deliverables (goal.md)

@@ -1646,3 +1646,16 @@ and (in judges) `elite_judge`.
 - Next (after the pause): wire exploiter 4 in as a tuning field (exploit4, exploit4_hu, exploit4_3, as exploiter 3);
   S22 on (4): a river defence read (call more against a seat that bets rivers often, behind a gate like S15e's),
   screened with every exploit cell.
+
+## 11:30: O5 accepted on H33 (joins batch 8); one worker hang fixed by a re-run
+- O5 (the big blind's fold read from its answers to every first-in raise, prior F's read, weight 10; climb/s21-o5,
+  2de5070) on H33 (53000-53399) against batch 6, --aim strong, every stage, runout term: **ACCEPT**. elite +0.065 ±
+  0.035, mirror +0.073 ± 0.041, elite_b +0.080 ± 0.037, mirror_b +0.043 ± 0.039, top +0.045 ± 0.037 UP; realistic
+  +0.008 ± 0.027, night +0.028 ± 0.034, night_hard +0.032, the payout guards, every exploit and adapt cell, the
+  variants and aware cells level; nothing down. W +0.0130 ± 0.0095 (lower bound +0.0035), W-min lower bound -0.0024.
+  H33 used. O3's strong-table gain without its realistic loss. It joins batch 8 (C3h + R6 + O5).
+- The run hung at 678 of 681 candidate chunks (about 10:47-11:28: the three pool workers asleep on a futex and a
+  pipe, no CPU; a worker had died mid-chunk, which multiprocessing.Pool never returns from). Killed by PID (run.sh
+  first, so no "done" was written), no partial result read, and re-run with the same command and cache: the 1,359
+  saved chunks stood and the 3 missing ones played in under two minutes (goal/b31/rerun.sh). Rule for the climb: a
+  run whose chunk count stops moving with its workers asleep is re-run the same way.
