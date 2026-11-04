@@ -516,3 +516,21 @@ tables/*.json).
   +0.27-0.43) was not built: step 1 recorded only two- and three-handed hands, and time went to the gates.
 - 22:12 Final checks on the branch code 77634e3 (main merged, every S20 dial): identity 14 of 14 chunks equal to
   main's (`goal/s20/idchk4`); full suite `pytest -q -m "not timing"`: **1,416 passed, 5 skipped, 0 failed** (6:41).
+
+# R6 (branch climb/s20-r6, from the coordinator's scoping branch climb/b7-scope at 863f9f5)
+
+R5 on held-out H30 (50000-50399, the coordinator's run, `goal/b28/s20_h30.md`): **REJECT** on one guard, realistic
+-0.003 ± 0.002 DOWN (raw -0.003 ± 0.003); every strong cell up at 400 seeds (elite +0.017, elite_night +0.009,
+mirror +0.030, elite_b +0.017, mirror_b +0.020), night_hard +0.009 and exploit3 +0.017 up, the rest level; W +0.0027
+± 0.0019, W-min lower bound -0.0013 (route 2 fails too). H30 is used. Task: find where the route opens in the
+realistic room on fresh diagnostic seeds 11400-11999, fix one general gate before any screen, screen it.
+
+R5 in the scoped terms (plays as R5, tests/test_b7_scope.py; `goal/s20/cand_R5s.json`): `{"short_route":
+"pre_3way=short", "short.three2": true, "short.three2_file": "3b", "short.defer_3bet_three": 0.25, "short_strong":
+"pre_3way", "short.three2_keep_defence": true, "short.three2_roles": "btn,sb", "short.defer_three":
+"dead,station,maniac,random,nit", "short.three2_seat_rr": 1}`.
+
+- 01:12 Recordings (`goal/s20/d6.py`: d3.py plus, at each of our three-handed preflop decisions, the strong read,
+  every opponent's re-raises of our first-in raises, the 3-bet read, the archetypes and whether the tables played),
+  snapshot worktree at 863f9f5: realistic, seeds 11400-11999 (600 x 8), R5 and F; elite, mirror, elite_b, mirror_b,
+  night, night_hard, top, seeds 11400-11519, R5 and F. Workers 3, nice 5.
