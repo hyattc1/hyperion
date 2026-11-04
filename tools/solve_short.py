@@ -136,7 +136,7 @@ def matvec(M, v):
 
 # ------------------------------------------------------------------------------------------------ tree
 class Node:
-    __slots__ = ("player", "acts", "kids", "key", "term", "reg", "avg", "n", "lock")
+    __slots__ = ("player", "acts", "kids", "key", "term", "reg", "avg", "n", "lock", "sizes")
 
     def __init__(self, player=-1, key=""):
         self.player = player
@@ -147,6 +147,7 @@ class Node:
         self.reg = None
         self.avg = None
         self.lock = None  # a fixed strategy (per action, per class): a node-locked opponent (cmd_lock)
+        self.sizes = None  # the raise sizes of the node's raise actions (three_tree2)
 
 
 def dec(player, key, children):
@@ -933,6 +934,313 @@ def cmd_compact(a):
     print("wrote", a.dst, os.path.getsize(a.dst), "bytes")
 
 
+# ------------------------------------------------------------------------------------------------ three-handed, v2 (S20)
+# The second three-handed tree (docs/drills/climb/s20-log.md). What changed from `three` and why:
+# - the small blind may flat the button's open (three-way and heads-up flops), and the big blind then squeezes;
+# - two 3-bet sizes (T2_X: small and big, multiples of the open), so a small 3-bet is answered from its own node;
+# - non-all-in 4-bets wherever the stacks allow (the opener against a 3-bet, the big blind's cold 4-bet over the small
+#   blind's 3-bet), answered by fold / call / jam;
+# - the flop's realization is fitted from our own postflop's measured pot shares (`--real`, a JSON of coefficients by
+#   SPR) instead of the fixed E + k E (1 - E) + s (b_ip - b_oop), and it is asymmetric: `hero` is the seat whose
+#   strategy the solve is for, and its flops use our postflop's fitted share (in position, out of position), the
+#   others' flops a symmetric fit. A configuration is solved once per hero seat and each seat keeps its own nodes.
+# The tree is built by one generic betting-round walk (`_t2_node`), so every line has the same action rules.
+T2_X = (2.3, 3.3)  # 3-bets: small and big, as multiples of the open (three-handed 3-bets seen on the diagnostic seeds
+#                    run 2.0-3.7x the open: exploiter 1 at 2.0-2.5, exploiter 2 and the elite builds 2.6-3.1, F,
+#                    rival 2 and exploiter 3 3.1-3.7; two sizes geometric over that span)
+T2_SQ = 4.0  # the squeeze over one flat, a multiple of the open
+T2_R4 = 2.2  # 4-bets, a multiple of the 3-bet
+T2_ISO = (2.5, 3.0)  # the big blind's raise over a limp, to this many bb (12 bb or less, deeper)
+T2_CAP = 0.4  # a raise to more than this share of the effective stack is the jam (0.45 for 4-bets)
+T2_GRID = (5, 8, 12, 18, 27, 40, 60, 90)
+
+# the realization model's default coefficients (the old fixed model, for checks): per SPR knot, the in-position share
+# r = E + k E (1 - E) + s (b_ip - b_oop) + c; `fit3.py` (s20) writes measured ones in the same shape
+REAL_DEFAULT = {"spr": [0.0, 6.0, 8.0, 40.0],
+                "sym": {"k": [0.0, 0.1875, 0.25, 0.25], "s": [0.0, 1.0, 1.0, 1.0], "c": [0.0, 0.0, 0.0, 0.0]},
+                "hero_ip": None, "hero_oop": None, "w3": [0.0, 0.0, 0.0]}
+
+
+def _interp(xs, ys, x):
+    if x <= xs[0]:
+        return ys[0]
+    if x >= xs[-1]:
+        return ys[-1]
+    for i in range(1, len(xs)):
+        if xs[i] >= x:
+            w = (x - xs[i - 1]) / (xs[i] - xs[i - 1])
+            return ys[i - 1] + w * (ys[i] - ys[i - 1])
+    return ys[-1]
+
+
+def _coef(real, kind, spr):
+    m = real.get(kind) or real["sym"]
+    xs = real["spr"]
+    return _interp(xs, m["k"], spr), _interp(xs, m["s"], spr), _interp(xs, m["c"], spr)
+
+
+_RM2: dict = {}
+
+
+def realize_fit(real, spr, mode, key=""):
+    """(IP matrix, OOP matrix) as numpy arrays, W x share, rows the player's own class, for an IP player of class i
+    against an OOP player of class j. mode "sym": both seats are the field (the symmetric fit); "hero_ip": the hero is
+    in position (its own fitted share); "hero_oop": the hero is out of position (the IP share is 1 - the hero's)."""
+    g = _np_globals()
+    np = g["np"]
+    sp = round(min(spr, 40.0) * 2) / 2
+    ck = (key, sp, mode)
+    m = _RM2.get(ck)
+    if m is not None:
+        return m
+    G = _globals()
+    E = np.array(G["E"])
+    W = g["W"]
+    b = np.array(G["bonus"])
+    db = b[:, None] - b[None, :]  # b_ip - b_oop
+    ee = E * (1.0 - E)
+    if mode == "hero_oop" and real.get("hero_oop"):
+        k, s, c = _coef(real, "hero_oop", sp)
+        # the hero (OOP, class j) has share (1 - E) + k E (1 - E) + s (b_j - b_i) + c
+        r = 1.0 - ((1.0 - E) + k * ee - s * db + c)
+    else:
+        k, s, c = _coef(real, "hero_ip" if mode == "hero_ip" else "sym", sp)
+        r = E + k * ee + s * db + c
+    lo, hi = real.get("clip", (0.01, 0.99))  # a fitted share may leave [0, 1]: postflop money beyond the pot
+    r = np.clip(r, lo, hi)
+    m = _RM2[ck] = (W * r, W * (1.0 - r).T)  # oop[j][i] = W[j][i] (1 - r[i][j]), as realize_mats
+    return m
+
+
+_W3: dict = {}
+
+
+def _fl3_tensors(U_by_winner, w3, start_key=""):
+    """Three-way flop: player p's prize by the three players' buckets, the pot's winner drawn from the bucket product
+    model (pbest) tilted by position (w3[x]: log weight of player x's postflop seat; 0 = all-in odds)."""
+    g = _np_globals()
+    np = g["np"]
+    pb = g["pbest"]
+    ws = tuple(round(x, 4) for x in w3)
+    P = _W3.get(ws)
+    if P is None:
+        raw = [pb[x] * math.exp(w3[x]) for x in range(3)]
+        tot = raw[0] + raw[1] + raw[2]
+        P = _W3[ws] = [r / tot for r in raw]
+    return [sum(P[x] * U_by_winner[x][p] for x in range(3)) for p in range(3)]
+
+
+def three_tree2(st, rho, real=None, hero=None, x_sizes=T2_X, flat=True, r4=True, limp_btn=False):
+    """The second three-handed tree (block comment above) at stacks st = [button, SB, BB] in bb, prizes 1 / rho / 0.
+    Returns (root, meta). Node keys are the action strings from the root (f c j, r = the node's one raise, s / t =
+    the small / big 3-bet); every node records its raise sizes as multiples of the bet it faces ("z")."""
+    real = real or REAL_DEFAULT
+    rkey = json.dumps(real, sort_keys=True)
+    start = [float(x) for x in st]
+    pos_rank = (2, 0, 1)  # postflop order: SB first (0), then BB (1), the button last (2)
+
+    def U(final):
+        return icm3(final, start, rho)
+
+    def eff(p, inh):
+        return min(start[p], max(start[q] for q in inh if q != p))
+
+    def r1_of(e):
+        return 2.0 if e <= 25 else 2.25 if e <= 60 else 2.5
+
+    def terminal(c, inh):
+        inh = sorted(inh)
+        if len(inh) == 1:
+            final = [start[i] - c[i] for i in range(3)]
+            final[inh[0]] += sum(c)
+            return term(("fold", U(final)))
+        allin = any(c[i] >= start[i] - 1e-9 for i in inh)
+        if len(inh) == 2:
+            a, b = inh
+            ua = U(_distribute(c, start, [a, b], inh))
+            ub = U(_distribute(c, start, [b, a], inh))
+            mats = None
+            if not allin:
+                pot = sum(c)
+                spr = min(start[a] - c[a], start[b] - c[b]) / pot
+                ip, oop = (a, b) if pos_rank[a] > pos_rank[b] else (b, a)
+                mode = "hero_ip" if hero == ip else "hero_oop" if hero == oop else "sym"
+                mi, mo = realize_fit(real, spr, mode, rkey)
+                mats = (mi, mo) if ip == a else (mo, mi)
+            return term(("sd2", a, b, ua, ub, mats))
+        if allin:
+            from itertools import permutations
+
+            outs = {order: U(_distribute(c, start, list(order), [0, 1, 2])) for order in permutations(range(3))}
+            return term(("sd3", outs))
+        Ub = []
+        for x in range(3):
+            final = [start[i] - c[i] for i in range(3)]
+            final[x] += sum(c)
+            Ub.append(U(final))
+        w3 = [real.get("w3", [0.0, 0.0, 0.0])[pos_rank[x]] for x in range(3)]
+        if hero is not None and real.get("w3_hero") is not None:
+            w3[hero] = real["w3_hero"][pos_rank[hero]]
+        return term(("sd3", None, _fl3_tensors(Ub, w3)))
+
+    def node(c, inh, pending, nr, key, raisers, vol, flats):
+        """c: chips in per player; inh: players in the hand; pending: players still to act, in order; nr: raises so
+        far; raisers: who made each raise, in order; vol: players who put chips in voluntarily; flats: players who
+        called the current raise level."""
+        pending = [p for p in pending if p in inh and c[p] < start[p] - 1e-9]
+        if len(inh) == 1 or not pending:
+            return terminal(c, inh)
+        p = pending[0]
+        rest = pending[1:]
+        cur = max(c)
+        facing = cur > c[p] + 1e-9
+        e = eff(p, inh)
+        kids = []
+        sizes = {}
+
+        def after_raise(q, to):
+            c2 = list(c)
+            c2[q] = to
+            order = [(q + d) % 3 for d in (1, 2)]
+            return c2, [x for x in order if x in inh]
+
+        jam_open = any(c[i] >= start[i] - 1e-9 for i in inh)  # someone is all in: fold / call only
+        # fold
+        if facing:
+            inh_f = [x for x in inh if x != p]
+            kids.append(("f", node(c, inh_f, rest, nr, key + "f", raisers, vol, flats)))
+        # call / check / limp
+        call_to = min(cur, start[p])
+        c_c = list(c)
+        c_c[p] = call_to
+        if True:
+            limp = nr == 0 and facing
+            allow_call = True
+            if limp and p == 0 and not limp_btn:
+                allow_call = False
+            if limp and p == 1 and 0 in inh:  # the small blind completing behind a limp: not in the tree
+                allow_call = False
+            if nr >= 2 and facing and p not in vol and not jam_open:
+                allow_call = False  # no cold call of a 3-bet or more
+            if nr >= 3 and facing and not jam_open and raisers and raisers[-2:-1] != [p]:
+                allow_call = False  # facing a 4-bet: only the 3-bettor may call
+            if allow_call:
+                fl = flats + [p] if facing and nr >= 1 else flats
+                kids.append(("c", node(c_c, inh, rest, nr, key + "c", raisers, vol | ({p} if facing else set()), fl)))
+        # raises (none once someone is all in, and none for a player who can only call)
+        if not jam_open and start[p] > cur + 1e-9:
+            opts = []
+            if nr == 0:
+                if facing:
+                    to = r1_of(e)
+                    opts.append(("r", to, to / cur))
+                else:  # the big blind's option over the small blind's limp
+                    to = T2_ISO[0] if e <= 12 else T2_ISO[1]
+                    opts.append(("r", to, to / cur))
+            elif nr == 1 and raisers[0] != p:
+                if p in vol and facing and not flats:
+                    pass  # a limper facing the raise over its limp: fold / call / jam
+                elif flats:
+                    if p not in vol:
+                        opts.append(("r", T2_SQ * cur, T2_SQ))  # the squeeze over the flat
+                else:
+                    for ch, m in zip("st", x_sizes):
+                        opts.append((ch, m * cur, m))
+            elif nr == 2 and r4:
+                if p == raisers[0] and not flats:
+                    opts.append(("r", T2_R4 * cur, T2_R4))  # the opener's 4-bet
+                elif p not in vol and p != raisers[-1]:
+                    opts.append(("r", T2_R4 * cur, T2_R4))  # the cold 4-bet
+            for ch, to, mult in opts:
+                cap = (0.45 if nr == 2 else T2_CAP) * e
+                if to > cap or to >= start[p] - 1e-9:
+                    continue
+                c2, order = after_raise(p, to)
+                kids.append((ch, node(c2, inh, order, nr + 1, key + ch, raisers + [p], vol | {p}, [])))
+                sizes[ch] = round(mult, 4)
+            # jam
+            c2, order = after_raise(p, start[p])
+            kids.append(("j", node(c2, inh, order, nr + 1, key + "j", raisers + [p], vol | {p}, [])))
+        if len(kids) == 1:  # one legal line: no decision (a player who can only call an all-in)
+            return kids[0][1]
+        n = dec(p, key, kids)
+        n.sizes = sizes
+        return n
+
+    c0 = [0.0, min(0.5, start[1]), min(1.0, start[2])]
+    root = node(c0, [0, 1, 2], [0, 1, 2], 0, "", [], set(), [])
+    return root, {"st": start, "rho": rho, "x": list(x_sizes), "sq": T2_SQ, "r4": T2_R4, "v": 2}
+
+
+def encode_np2(root, np, players=None):
+    """Nodes as encode_np, with each node's raise sizes ("z": {action: multiple of the bet it faces}); only the
+    nodes of `players` (all when None)."""
+    out = {}
+    for n in _all_nodes(root):
+        if n.term is not None or (players is not None and n.player not in players):
+            continue
+        s = _avg_np(n, np)
+        na = len(n.acts)
+        chars = []
+        for i in range(N):
+            qs = [int(round(float(s[a][i]) * Q)) for a in range(na)]
+            k = max(range(na), key=lambda a: s[a][i])
+            qs[k] += Q - sum(qs)
+            chars.append("".join(chr(48 + x) for x in qs))
+        rec = {"p": n.player, "a": "".join(n.acts), "s": "".join(chars)}
+        z = getattr(n, "sizes", None)
+        if z:
+            rec["z"] = z
+        out[n.key] = rec
+    return out
+
+
+def solve_three2_cfg(args):
+    """One configuration, solved once per hero seat (each seat's nodes from its own solve), or once (hero None)."""
+    st, rho, iters, every, real, heroes = args
+    t0 = time.time()
+    import numpy as np
+
+    nodes, expl, hist = {}, {}, {}
+    for hero in heroes:
+        root, meta = three_tree2(st, rho, real, hero)
+        h = solve3(root, iters, every)
+        nodes.update(encode_np2(root, np, None if hero is None else {hero}))
+        expl[str(hero)] = h[-1][1] if h else None
+        hist[str(hero)] = h
+    tot = {k: (round(1000 * sum(v), 3) if v else None) for k, v in expl.items()}
+    return st, rho, {"meta": meta, "nodes": nodes, "iters": iters, "expl": expl, "expl_mprize": tot,
+                     "history": hist, "secs": round(time.time() - t0, 1)}
+
+
+def cmd_three2(a):
+    grid = [float(x) for x in a.grid.split(",")] if a.grid else T2_GRID
+    rho = float(a.rho)
+    real = None
+    if a.real:
+        with open(a.real) as fh:
+            real = json.load(fh)
+    heroes = [None] if a.symmetric else [0, 1, 2]
+    cfgs = [(x, y, z) for x in grid for y in grid for z in grid]
+    if a.only:
+        cfgs = [tuple(float(v) for v in c.split(",")) for c in a.only.split(";")]
+    jobs = [(list(c), rho, a.iters, a.every, real, heroes) for c in cfgs]
+    out = {"version": 2, "kind": "three2", "q": Q, "classes": list(CLASSES), "grid": list(grid), "rho": [rho],
+           "real": real, "heroes": heroes, "solve": {}}
+    t0 = time.time()
+    with Pool(a.workers) as p:
+        for st, r, res in p.imap_unordered(solve_three2_cfg, jobs):
+            key = "%g,%g,%g" % tuple(st)
+            out["solve"][key] = res
+            print(f"{key:>12} iters {res['iters']} expl {res['expl_mprize']} mprize/hand ({res['secs']} s)",
+                  flush=True)
+    out["secs"] = round(time.time() - t0, 1)
+    path = a.out or os.path.join(TABLES_DIR, "extra", "short_3b.json")
+    with open(path, "w") as fh:
+        json.dump(compact(out), fh, separators=(",", ":"))
+    print("wrote", path, os.path.getsize(path), "bytes")
+
+
 # ------------------------------------------------------------------------------------------------ jobs
 def _norm2():
     return _globals()["total"]
@@ -1141,6 +1449,16 @@ def main(argv=None):
     sz.add_argument("--depths", default=None)
     sz.add_argument("--mult", default=None)
     sz.add_argument("--out", default=None)
+    t2 = sub.add_parser("three2")
+    t2.add_argument("--iters", type=int, default=300)
+    t2.add_argument("--every", type=int, default=100)
+    t2.add_argument("--workers", type=int, default=2)
+    t2.add_argument("--grid", default=None)
+    t2.add_argument("--rho", default="0.4")
+    t2.add_argument("--only", default=None, help="configurations 'b,s,B;b,s,B' (button, small blind, big blind bb)")
+    t2.add_argument("--real", default=None, help="the realization model's coefficients (JSON; default the old model)")
+    t2.add_argument("--symmetric", action="store_true", help="one solve per configuration, no hero seat")
+    t2.add_argument("--out", default=None)
     k = sub.add_parser("compact")
     k.add_argument("src")
     k.add_argument("dst")
@@ -1149,7 +1467,7 @@ def main(argv=None):
     c.add_argument("--iters", type=int, default=300)
     a = p.parse_args(argv)
     {"hu": cmd_hu, "three": cmd_three, "check": cmd_check, "compact": cmd_compact, "lock": cmd_lock,
-     "sizes": cmd_sizes}[a.cmd](a)
+     "sizes": cmd_sizes, "three2": cmd_three2}[a.cmd](a)
 
 
 if __name__ == "__main__":

@@ -97,7 +97,9 @@ steal_min_fold reads the same (`Exploit.open_fold`, wired here to the base's cor
 `short`, hyperion/strategy/short.py) while at most `short_alive` players have chips and that member `wants` the decision
 (the hand maps onto its tables, no opponent alive reads as a clear leak); otherwise the section's donor as above. The
 member's dials are `short.<name>` (short_params). Plain hold'em tables only (holdem_only, plain_only), like the elite
-builds; its light shadow records only the hand's starting chips.
+builds; its light shadow records only the hand's starting chips. With `short_strong` (S20; True, or the sections it
+names) the route is open only while the table reads strong (the strong route's read: `strong_rr`, `strong_prior`,
+`strong_prior_n`).
 """
 from __future__ import annotations
 
@@ -617,6 +619,9 @@ class ComposeConfig:
     short_route: dict = field(default_factory=dict)
     short_alive: int = 3
     short_params: dict = field(default_factory=dict)  # the specialist's dials (strategy.short.ShortParams)
+    # S20: ... and only while the table reads strong (strong_table(): the strong route's read and threshold); off =
+    # wherever the member wants the decision. True = every section; or section names ("pre_3way": that one only)
+    short_strong: object = False
     # V-f: the hold'em-only members (the elite builds, twist-blind) may also play their sections on tables of these
     # one-step twist families (hero.TWIST_FAMILIES: "bounty,knockout,buy,swap"), where their play stays as right as the
     # base's: the base's core plays the table too (two hole cards; the families Hero plays whole, discard and exposed,
@@ -712,11 +717,15 @@ class CompositeCore:
         self.strong = [(idx[DONORS[sr[s]][0]], DONORS[sr[s]][1]) if s in sr else None for s in SECTIONS] if sr else None
         s2 = cfg.strong2_route
         self.strong2 = [(idx[DONORS[s2[s]][0]], DONORS[s2[s]][1]) if s in s2 else None for s in SECTIONS] if s2 else None
-        self._rr_on = self.strong is not None or self.strong2 is not None  # keep the read
         bvb = cfg.strong_bvb
         if isinstance(bvb, str):
             bvb = set(parse_route({k.strip(): "1" for k in bvb.split(",") if k.strip()}))
         self._sbvb = [bool(bvb is True or (isinstance(bvb, set) and s in bvb)) for s in SECTIONS]
+        ss = cfg.short_strong
+        if isinstance(ss, str):
+            ss = set(parse_route({k.strip(): "1" for k in ss.split(",") if k.strip()}))
+        self._sstrong = [bool(ss is True or (isinstance(ss, set) and s in ss)) for s in SECTIONS]
+        self._rr_on = self.strong is not None or self.strong2 is not None or any(self._sstrong)  # keep the read
         hr = cfg.short_route
         self.short = [(idx[DONORS[hr[s]][0]], DONORS[hr[s]][1]) if s in hr else None for s in SECTIONS] if hr else None
         self._rr_reset()
@@ -958,7 +967,8 @@ class CompositeCore:
                         mi, layer = s2
                         counts["strong2"] += 1
         short = self.short
-        if short is not None and short[sec] is not None and not self.panic and self.plain:
+        if short is not None and short[sec] is not None and not self.panic and self.plain and (
+                not self._sstrong[sec] or self.strong_table()):
             si, sl = short[sec]
             if not self._no_h[si]:
                 alive = 0
