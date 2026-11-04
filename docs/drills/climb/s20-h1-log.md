@@ -125,3 +125,55 @@ realization fit by SPR, where F loses heads-up at strong tables by line. No scre
   0.051 (1,692; -0.022). Flat across equity within noise, so the offset-by-SPR form of the three-handed fit fits
   heads-up too; weak hands out of position show no extra penalty at these SPRs (unlike the three-handed question
   about the big blind's 100% defence, where the data had no weak hands).
+- 10:05 **The heads-up fit with the ordinary room added** (night, elite_night, seeds 14400-14799; `real_hu_v1.json`,
+  committed as docs/drills/climb/s20-h1-real.json for the solve): our share - E at E = 0.5, SPR 2 / 6 / 15:
+
+| | SPR 2 | SPR 6 | SPR 15 |
+|---|---|---|---|
+| our button (in position), mix of the three groups (18,676 flops) | **+0.135** | +0.082 | +0.098 |
+| ... strong / night / exploit | +0.121 / +0.187 / -0.006 | +0.040 / +0.075 / +0.114 | +0.315 / +0.240 / +0.082 |
+| our big blind (out of position), mix (17,300) | **+0.027** | -0.053 | -0.101 |
+| ... strong / night / exploit | +0.025 / +0.039 / -0.057 | -0.036 / -0.021 / -0.199 | +0.243 / +0.291 / -0.130 |
+| two other seats (in position), mix of strong and night (21,441) | +0.083 | +0.100 | -0.094 |
+| old model, in position / out of position | +0.016 / -0.016 | +0.047 / -0.047 | +0.062 / -0.062 |
+
+  How much the fit moves across fields: at SPR 2, by 0.19 in position (night +0.187 against exploit -0.006) and 0.10
+  out of position (night +0.039 against exploit -0.057); strong and night agree within noise, the exploit cells are
+  the outlier (our out-of-position flops against the exploiters lose at every SPR). SPR 15 is poorly measured outside
+  the exploit cells (heads-up flops that deep are rare at 8-max tables).
+
+## H1: the plan, and how it coexists with S7
+
+**Target.** Heads-up preflop at 10-20 bb at strong tables (F's button -0.28 to -0.32 bb a hand there, the elites up
+to +0.09; F's big blind +0.22 against their +0.38-0.50), where F min-raises every button above the weakest fifth and
+never jams, and its big blind folds two thirds of its weaker hands to a min-raise and flats its best. Under 10 bb and
+at 20-40 bb F is level with the elites.
+
+**Solve (next session).** S13's heads-up tree (`solve_short.py hu`) with: (1) the flop priced by this fit, per seat
+(the button's flops at our in-position share, the big blind's at our out-of-position share; one solve per hero seat,
+each keeping its own nodes, as three-handed); (2) the button's limp dropped below 25 bb (no bot here limps, so the
+limped pot's realization is unmeasured; S13's tree limps 35-88% at 10-20 bb on the old model); (3) two 3-bet sizes
+(2.3x / 3.3x as three-handed) and the 45%-of-stack jam mapping; (4) ICM is chip EV heads-up (exact). Depths 5-100 bb
+as S13; the route only reads 8-40 bb if the screen says the deeper ones do not help.
+
+**Coexistence with S7.** S7's heads-up routes (`pre_hu`, `post_hu_bet`, `post_hu_chk` to the specialist, big blind
+only, behind `short.like_*` with `like_max_alive` 2) stay exactly as accepted: in `ShortMember.wants` the like gates
+are checked first and, when they admit the seat, the decision is S7's (its tables, its roles). H1 adds a second
+heads-up path behind a new dial (`short.hu2`, off): only when the like gates do *not* admit the seat (so never on an
+S7 decision) and only while the composite's strong read is open for heads-up. The strong read cannot use
+`short_strong` "pre_hu" (that would also shut S7's route on weak-reading tables), so the composite passes its read to
+the member (one boolean set before `wants`, as it passes the profiler), and H1 checks it itself. A test will replay S7
+with `short.hu2` on and require its decisions and digests unchanged (tests/test_b7_scope.py's pattern).
+
+## Where I am / next (10:05, before the 11:30 shutdown)
+
+- **Done (measuring half):** recordings of batch 7's F on seeds 14000-14799 (`goal/s20/rech/`, 10 fields, regenerable
+  with `goal/s20/run_h1.sh`); the heads-up line book, the depth split, the 10-20 bb ranges, heads-up conversion, the
+  realization fit (three groups, by SPR and by equity band), S7's coverage. Scripts in `goal/s20/`: `d6.py`
+  (recorder), `h1a.py` (line book), `huwin.py`, `hu_ranges.py`, `fit3.py` (with `ALIVE=2` and `HM` pointing at a
+  worktree's tables/hu_matrix.json), `a3.py`.
+- **Next:** (1) the solver: `solve_short.py hu2` (per-hero-seat, fitted flops, no limp under 25 bb, two 3-bet sizes),
+  check convergence and the push/fold cut against tables/pushfold_hu.json; (2) the member: `short.hu2` (the second
+  heads-up path behind the like gates and the passed strong read) and its walker (reuse three-handed's generic one);
+  (3) tests (S7 unchanged with hu2 on; push/fold sanity); (4) diagnostics of the new tables on seeds 14800-14999;
+  (5) screen on 10000-10199, every stage, runout term, --aim strong; (6) identity against goal/idchk34/post.
