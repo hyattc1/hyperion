@@ -60,3 +60,25 @@ Survey first (diagnostic seeds 11200-11399), then a screen (10000-10199, `--aim 
   ± 0.051, night 50/25/... -0.036 ± 0.306, night +double +0.010 ± 0.021. The gate halves realistic's loss (H24's O3
   -0.044 ± 0.028 on other seeds) but does not remove it, though the read is open at only 8% of O3's decisions there:
   the loss sits at the third of realistic tables where the read opens. Elite and the rest still running.
+- 23:18 **Why the gate leaks** (diagnostic, goal/s21/calib.py, seeds 11400-11499 x 8, F as shipped with the core
+  counting the read unused): at F's first-in raises with four or more alive, each answering seat's actual fold
+  against O3's capped read (min of oa_fold and F's pooled read) and F's own read, by the strong read open or not:
+
+  | field, read | big blind: actual / F / O3 capped | small blind | not a blind |
+  |---|---|---|---|
+  | realistic, closed | 0.800 / 0.774 / 0.707 | 0.833 / 0.779 / 0.765 | 0.843 / 0.762 / 0.757 |
+  | realistic, open | 0.786 / 0.740 / 0.655 | 0.834 / 0.754 / 0.731 | 0.824 / 0.723 / 0.714 |
+  | elite, closed | 0.639 / 0.768 / 0.660 | 0.789 / 0.769 / 0.754 | 0.873 / 0.763 / 0.761 |
+  | elite, open | 0.629 / 0.772 / 0.634 | 0.779 / 0.774 / 0.749 | 0.868 / 0.763 / 0.758 |
+  | mirror_b, closed | 0.636 / 0.754 / 0.653 | 0.794 / 0.754 / 0.744 | 0.856 / 0.750 / 0.748 |
+  | mirror_b, open | 0.617 / 0.762 / 0.628 | 0.770 / 0.765 / 0.741 | 0.857 / 0.758 / 0.751 |
+
+  O3 is a big-blind read: the cap binds there (70-93% of answers) and nearly nowhere else. At strong tables it fixes
+  F's error on the big blind (F reads 0.75-0.77, the seat folds 0.62-0.64; O3 0.63-0.66). In the realistic room the
+  big blind folds 0.79-0.80 **whether the strong read is open or not**, and O3 reads it 0.66-0.71 (the pooled prior
+  0.668 moves slowly). The strong read counts re-raises of our opens; a realistic table that crosses 0.2 has a
+  re-raiser in it, but its big blinds still fold like realistic's. Neither alive count (4-7) nor the seat's own
+  re-raises of our opens (S20's per-seat gate) separate the two either (realistic big blind 0.76-0.81 in every
+  split, strong 0.58-0.68). So the strong-table read is the wrong discriminator for what O3 reads; the separating
+  evidence is the big blinds' own answers at this table. (Also seen: F underreads non-blind seats everywhere, 0.76
+  against 0.84-0.87; O3's cap keeps that as it is.)
