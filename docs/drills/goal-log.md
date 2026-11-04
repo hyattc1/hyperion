@@ -1562,3 +1562,10 @@ and (in judges) `elite_judge`.
 - O5's big-blind read and the seats' answers to every open as non-leaking switches for a tighter open range at strong
   tables: offline, points-valued, O7's data (S21's worker).
 - The six window recipes (prompt 06) re-measured on batch 7's F, night field, 200 seeds each (goal/b33/run.sh).
+
+## 09:20: the window recipes hold on batch 7
+- Prompt 06's recipes on batch 7's F, night field, 10000-10199 (window stage, 2 workers, about 2-3 min each):
+  survival +0.014 ± 0.064, passive -0.004 ± 0.059, dead_seats +0.039 ± 0.067, strong_field -0.009 ± 0.023, latency
+  +0.017 ± 0.050, all level (window check passes); timeouts -1.579 ± 0.139 (the emergency cheap path, as prompt 06
+  states: -1.58 ± 0.14), now without the specialist (batch 7's cheap fix). 0 timeouts, 0 errors in every run.
+  Prompt 06 needs no change for batch 7.
