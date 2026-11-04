@@ -40,3 +40,18 @@ realization fit by SPR, where F loses heads-up at strong tables by line. No scre
   The same shape as three-handed: F's button min-raises 75% and is re-shoved on nearly three times as often as
   elite1's (3,062 against 1,153), folding 90% of those; elite1 jams a third of its buttons. F's big blind folds 44% to a
   min-raise and re-shoves 27% where elite1 folds 33% and re-shoves 51% (+0.43 a hand against +0.15).
+- 09:40 **By effective stack** (elite + mirror, `h1a.py --by-depth`): the loss is at 10-20 bb, nearly nowhere else.
+
+| depth | F button | elite1 button | F big blind | elite1 big blind | elite2 big blind |
+|---|---|---|---|---|---|
+| under 10 bb | +0.393 ± 0.168 (1,997) | +0.343 ± 0.166 | -0.332 ± 0.148 | -0.266 ± 0.137 | |
+| 10-20 bb | **-0.284 ± 0.089** (6,938) | +0.057 ± 0.107 | **+0.233 ± 0.088** (7,013) | +0.431 ± 0.097 | +0.431 ± 0.114 |
+| 20-40 bb | +0.268 ± 0.154 (4,012) | +0.204 ± 0.131 | +0.021 ± 0.121 | +0.120 ± 0.114 | +0.051 ± 0.136 |
+| 40+ bb | +0.829 ± 0.520 (243) | +0.834 ± 0.905 | -0.070 ± 0.310 | +0.041 ± 0.604 | |
+
+  At 10-20 bb F's button raises 88% and never jams (-0.28 bb a hand), elite1 raises 48% and jams 42% (+0.06); F's
+  button then faces a jam 2,705 times there (elite1 966) and folds 90% (-1.51 a hand in that spot). F's big blind
+  against a min-raise at 10-20 bb folds 39% and re-shoves 41% (+0.30), elite1 folds 21% and re-shoves 73% (+0.80),
+  elite2 folds 11% and re-shoves 61% (+0.60). Under 10 bb F pushes 95% of buttons, like the elites, and at 20-40 bb
+  F's button is level with them. So the heads-up target is 10-20 bb, where a jam-or-fold button and a re-shove-heavy
+  big blind beat F's min-raise-and-fold; that is also where a flop's realization matters least (SPR under ~4).
