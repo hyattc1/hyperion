@@ -534,3 +534,41 @@ R5 in the scoped terms (plays as R5, tests/test_b7_scope.py; `goal/s20/cand_R5s.
   every opponent's re-raises of our first-in raises, the 3-bet read, the archetypes and whether the tables played),
   snapshot worktree at 863f9f5: realistic, seeds 11400-11999 (600 x 8), R5 and F; elite, mirror, elite_b, mirror_b,
   night, night_hard, top, seeds 11400-11519, R5 and F. Workers 3, nice 5.
+
+## R6 step 1: where R5's route opens in the realistic room (diagnostic seeds 11400-11999)
+
+- 01:20 **Gate open rates** at our three-handed preflop decisions (`a6.py gates`; realistic 600 seeds x 8, elite 120):
+
+| field | decisions | strong read open | every opponent has re-raised us | 3-bet guard ok | no leak archetype | all four | the tables played |
+|---|---|---|---|---|---|---|---|
+| realistic | 84,444 | 3.9% | 35.9% | 100% | 64.4% | 1.8% | 1.2% |
+| elite | 8,382 | 54.2% | 51.4% | 100% | 94.3% | 33.0% | 20.5% |
+
+  At realistic the tables play 1.2% of our three-handed decisions, against rival1 1.8% of its decisions, loose_aggro
+  1.8%, pushfold 1.0%, tag 0.9%, timeout_then_recover 0.4%, the montecarlo bots 0.2-0.4%; by effective stack 2.4% under
+  8 bb, 1.7-1.9% at 8-18, 1.2% at 18-27, 0.5-0.6% deeper.
+- 01:25 **Paired results on these seeds** (raw points, rotations averaged; `paired.py`): realistic R5 - F **+0.0006 ±
+  0.0025** (48 of 600 seeds play differently), elite +0.024 ± 0.018, mirror +0.024 ± 0.022, elite_b +0.043 ± 0.023
+  (120 seeds each). On fresh seeds the realistic loss does not reproduce (screen -0.002 ± 0.002, H30 -0.003 ± 0.002,
+  here +0.0006 ± 0.0025); pooled it is about -0.001 points a seed, from about 2% of table-rotations.
+- 01:30 **Which decisions lose at realistic** (`a6.py diverge`, `div_detail.py`: each diverging table-rotation's
+  points booked to its first decision that differs from F's; 95 of 4,800 diverge, +2.92 points in all): the button
+  gains (42 divergences, +5.89: the tables raise where F raises, a different size, +4.74; fold where F raises +1.05),
+  the small blind loses (46, -1.97): first in, the tables fold where F raises (7, -4.01) or limp where F raises (7,
+  -1.22), mostly against rival1 in the big blind (19 divergences, -3.19) and at 12-18 bb (17, -4.27). At strong
+  tables the same small-blind spots gain (elite: fold for F's raise +2.99, limp for F's raise +2.11; by seat elite BTN
+  +9.22 / SB +12.42, mirror +14.34 / +8.43, elite_b +20.46 / +20.45). So the small blind's first-in fold / limp beats
+  F's open-raise against strong big blinds and loses to it against the realistic room's big blinds, which fold to
+  raises more.
+- 01:35 **Reads that do not separate the realistic tables where the route opens from strong tables** (offline
+  what-if on the first divergences, `whatif.py`; and `alive_share.py`, `persist*.py`): the alive opponents' share of
+  the table's re-raises (realistic median 0.77, elite 0.63) and their own re-raise read (0.174 / 0.171); per-seat
+  re-raises >= 2 (would remove realistic +3.31 but elite +19.0 of +23.1); the read at 0.22 (removes elite +4.5 to keep
+  realistic +0.7); persistence (realistic tables whose read is open when play becomes three-handed lose, -2.05, the
+  transient ones gain, +4.96: the opposite of a persistence gate).
+- 01:38 **Who the tables play against** (survey at our three-handed decisions with R5, F's profiler, fold to
+  preflop raises with 10+ faced, where the tables played; seeds 11600-11719 realistic, 11600-11639 elite, 11600-11629
+  the others): realistic tag 0.91 [p10 0.85, p90 0.92] (vpip 0.15), pushfold 0.86 [0.84, 0.89], loose_aggro 0.76,
+  rival1 0.73; strong builds 0.71-0.81 (medians: elite1 0.73-0.78, elite2 0.71-0.79, elite4 0.76-0.81, rival2
+  0.77-0.81, rival3 0.77-0.80, rival1 0.72-0.78, F's copies 0.79, hybrid3_x 0.77) with p90 at most 0.89; the elite
+  rooms' agent bots 0.83-0.85 (p90 0.86-0.89).
