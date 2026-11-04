@@ -572,3 +572,30 @@ R5 in the scoped terms (plays as R5, tests/test_b7_scope.py; `goal/s20/cand_R5s.
   rival1 0.73; strong builds 0.71-0.81 (medians: elite1 0.73-0.78, elite2 0.71-0.79, elite4 0.76-0.81, rival2
   0.77-0.81, rival3 0.77-0.80, rival1 0.72-0.78, F's copies 0.79, hybrid3_x 0.77) with p90 at most 0.89; the elite
   rooms' agent bots 0.83-0.85 (p90 0.86-0.89).
+- 01:40 **By seat, the first-in decisions** (the first divergences, points summed, by the fewest re-raises of our
+  first-in raises among the seats still to act, `sb_bbrr.py`): the button gains in every room and at every level
+  (realistic +4.66 / +0.68 at 1 / 2-3 re-raises; elite +7.70 / +1.47; mirror +8.08 / +7.26; elite_b +14.92 / +7.30;
+  mirror_b +9.82 / +5.50); the small blind's sign changes by room and not by what the big blind does (realistic -0.32
+  / -1.94 / -1.68 at 1 / 2-3 / 4+; elite +3.60 / +4.65 / +4.61; mirror +4.40 / +0.32 / -0.86; elite_b +7.88 / +2.78 /
+  +11.43; mirror_b +0.03 / +0.96 / -2.14). Split by the big blind's identity the small blind's results also flip sign
+  between rooms for the same bot (rival1 as the big blind: realistic -3.19 over 19, elite +3.69 over 14, elite_b +5.18
+  over 9), so no read of the opponents found here tells the rooms apart; what holds in every room is the seat.
+
+## R6: the gate, fixed before any screen
+
+**R6 = R5 with the tables on the button only** (`short.three2_roles` "btn"; F plays the small blind and the big
+blind). Why this gate: in every room measured, the tables' button decisions beat F's own play (first-divergence sums:
+realistic +5.89 over 42, elite +9.22, mirror +14.34, elite_b +20.46, mirror_b about +16.5; the biggest single spot,
+the button folding where F min-raises, is positive in all five), while the small blind's first-in fold / limp beats
+F's open-raise in some rooms and loses in others (realistic -1.97, mirror_b about -1.2, elite +12.4, elite_b +20.5),
+and neither the table's re-raise read, the per-seat re-raises, the alive seats' own read, the read's persistence nor
+the big blind's fold-to-raise read separates the rooms where it wins (above). The route's room read lets a few weak
+tables through (1.8% of our three-handed decisions at realistic); where a decision's gain depends on that read being
+right, F's play is the safe default; the button's gain does not depend on it. It keys on the decision (our seat),
+not on any bot. Expected cost: about half of R5's strong-table gain (the small blind's share at elite and elite_b);
+expected realistic effect: the small blind's losing divergences removed.
+
+R6 in the scoped terms (`docs/drills/climb/s20-r6-candidate.json`): `{"short_route": "pre_3way=short",
+"short.three2": true, "short.three2_file": "3b", "short.defer_3bet_three": 0.25, "short_strong": "pre_3way",
+"short.three2_keep_defence": true, "short.three2_roles": "btn", "short.defer_three":
+"dead,station,maniac,random,nit", "short.three2_seat_rr": 1}`. No code change (the dial exists).
