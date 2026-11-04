@@ -1569,3 +1569,6 @@ and (in judges) `elite_judge`.
   +0.017 ± 0.050, all level (window check passes); timeouts -1.579 ± 0.139 (the emergency cheap path, as prompt 06
   states: -1.58 ± 0.14), now without the specialist (batch 7's cheap fix). 0 timeouts, 0 errors in every run.
   Prompt 06 needs no change for batch 7.
+- 09:21: the public export check: denylist 0 hits. H1 started (S20's worker, climb/s20-h1): heads-up preflop solved
+  per seat for strong tables, S20's method, coexisting with S7's gated heads-up routes; measuring half only before
+  the pause (diagnostics 14000-14999), solve and screen after.
