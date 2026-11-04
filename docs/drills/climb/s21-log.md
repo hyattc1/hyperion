@@ -350,3 +350,25 @@ fit; realistic alone -0.156 ± 0.188 on the fit seeds, so a leak is not excluded
   decisions): realistic 4.6% of its opens (2.2% of decisions), night 4.2%, night_hard 3.7%, top 7.4%, elite 10.6%,
   elite_night 8.8%, mirror 16.0%, elite_b 12.6%, mirror_b 14.9% (4.4% of decisions). Two to four times as often at
   strong tables as in the ordinary room.
+- 10:12 Suite (`pytest -q -m "not timing"`, at 685681f, load 6 then 22-25): 1,423 passed, 3 skipped, 2 failed, both
+  night-of kit round trips of the cheap bot (wall clock; the cheap path is Hero's, untouched here). Re-run alone: both
+  pass, then one fails again at load 22. The O8, O5, S21 and S16b tests pass.
+
+## Where I am / next (10:12, before the 11:30 hardware pause)
+
+- **Done:** O8 built on climb/s21-o8 (O5 + main f028f50, batch 7), off by default; tests; docs; CONTRACTS.md;
+  identity 14 of 14 against goal/idchk34/post; suite as above; the candidate at
+  docs/drills/climb/s21-o8-candidate.json (O5's dials + O8's). Branch pushed.
+- **Not started:** the screen. Its script is ready, not launched: goal/s21o8/screen_O8.sh (base `{"dials": {}}` =
+  batch 7's F, cand goal/s21o8/cand_O8.json, 10000-10199, every stage, `--aim strong --runout-term`, 2 workers, nice
+  5, output goal/s21o8/screen_O8.md, done-file goal/s21o8/screen_O8.done). F's half must run fresh (my cached F
+  chunks are batch 6's), so it is a full screen of both specs, about 2.5-3 hours at load 10. If someone has batch 7's
+  F cached at 10000-10199 with the runout term, it can be pinned after the same sample-for-sample check as before
+  (this code's F against that cache on chunk 10000).
+- **What to expect:** offline the veto acts on 2-4% of first-in decisions (4% of opens in the ordinary room, 9-16% at
+  strong tables) and values at about +0.26 points per table seed on the strong family, i.e. about +0.03 per table, at
+  the edge of what 200 seeds resolve; O5's own strong-table gains come with it in the candidate. The thing to watch
+  is the realistic cell (offline -0.156 ± 0.188 on the fit seeds, +0.044 ± 0.289 on the check seeds).
+- **If O5 fails H33:** O8's veto does not depend on O5's reads except through pf (the clause's fold product, which
+  uses O5's big-blind read under O5's dials); O8 alone would price with F's reads. That variant was not valued
+  offline; it would need the same IPS run with pfF in the price (the data has it) before a screen.
