@@ -10,7 +10,8 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 
 ## Held-out results this round (goal-log 22:15)
 - V-i (H23) ACCEPT, c6 (H29) ACCEPT: both twist-only, both join batch 7. S7 (H25) ACCEPT (plain hold'em, heads-up
-  and three-handed against exploiter 2 only). S15e (H26) ACCEPT (plain hold'em, short-handed). O3 (H24) REJECT. C3 rejected (H27).
+  and three-handed against exploiter 2 only). S15e (H26) ACCEPT (plain hold'em, short-handed).
+  C3h (H28) ACCEPT: joins batch 8 (exploiter 2 heads-up +0.225; overlaps S7's spots, so batch 8's combined check). O3 (H24) REJECT. C3 rejected (H27).
 - S20's R5 (H30) REJECT on realistic -0.003 ± 0.002 (all five strong cells up); R6 (button only) passed its screen;
   on H32: goal/b30/run.sh, output goal/b30/r6_h32.md, RUN_DONE. If a later S20 version passes: climb/b7-scope (863f9f5) has the per-route scoping.
 - Batch 7 needs judges on fresh judge seeds 60000-60399 (addendum 12) only if a plain hold'em part joins it.
@@ -19,7 +20,6 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 - Batch 7's combined check (V-i + c6 + S7 + S15e) on H31, then judges 60000-60399, then timing: goal/b29/run.sh,
   outputs goal/b29/b7_h31.md, judges.md, lat_*.txt; RUN_DONE. Then merge climb/batch7 (6fddb13, staged: SHIP_DIALS + BATCH7_OFF, identity 14/14, tests fixed),
   pack, gate, freeze, docs.
-- C3h on H28 (running since 01:59): goal/b26/chain4.sh, output goal/b26/c3h_h28.md, CHAIN4_DONE.
 
 ## Workers running (branches in worktrees under /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal; each commits as it goes)
 - S13c done (S7 merged off), S15d done (S15e merged off).
@@ -36,8 +36,7 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 
 ## Held-out sets used
 H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); H22-H24 used (C3, V-i, O3); H25 used (S7), H26 used (S15e), H27 for
-C3's bonus_card replicate (down: C3 rejected), H28 for C3h (goal/b26/chain4.sh, output
-goal/b26/c3h_h28.md, CHAIN4_DONE), H29 used by V-j's c6, H30 used by S20's R5, H31 for batch 7's combined check, H32 for S20's R6, H33 for O5; next fresh H34 = 54000-54399
+C3's bonus_card replicate (down: C3 rejected), H28 used (C3h), H29 used by V-j's c6, H30 used by S20's R5, H31 for batch 7's combined check, H32 for S20's R6, H33 for O5; next fresh H34 = 54000-54399
 (worker briefs say held-out is 20000-49999: widen it to 20000-59999 in the next brief). Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 60000-60399 (30800-31199 would overlap H11's 31000-31399), then 60400-60799 for a replicate.
 
 ## End deliverables (goal.md)

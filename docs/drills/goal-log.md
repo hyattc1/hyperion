@@ -1453,3 +1453,14 @@ and (in judges) `elite_judge`.
 - O6 (climb/s21-o6): the worker found F underreads how often the non-blind seats fold to its opens by 0.08-0.11 on
   every field (O3's uncapped read beats F's there on all nine). Offline estimator choice first (12200-12999), then
   O5 + the chosen read on the screen.
+
+## 07:00: C3h accepted on H28 (joins batch 8)
+- C3h (S17's one stab size with three or fewer alive, plain hold'em only: exploit.stab_size, stab_alive 3,
+  stab_holdem_only) on H28 (48000-48399) against batch 6, --aim exploit, every stage, twists identical by
+  construction, runout term, 300.7 min at load 12-17: **ACCEPT**. exploit2 8-max +0.041 ± 0.019, heads-up +0.225 ±
+  0.065, three-handed +0.157 ± 0.059 and adapt1 heads-up +0.155 ± 0.055 UP; every other cell level (night +0.006,
+  realistic -0.003 ± 0.007, the strong tables within ±0.002). W +0.0043 ± 0.0034 (lower bound +0.0008), W-min lower
+  bound -0.0010. H28 used.
+- It joins batch 8, not batch 7 (whose combined check is nearly done). C3h and batch 7's S7 both reach heads-up pots
+  against exploiter 2 (S7's specialist plays them postflop when its gate opens; C3h sizes the layer's stab when F
+  plays), so batch 8's combined check measures them together. O5 (H33) now starts.
