@@ -10,6 +10,8 @@ from hyperion.core.types import Action, ActionKind, Observation, Rules
 from hyperion.strategy import short as SH
 from hyperion.strategy.tables import CLASS_INDEX, TABLES_DIR
 
+from hyperion.compose.bot import BATCH7_OFF
+
 from .test_s2_dials import _digest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,7 +19,8 @@ R3 = Rules(n_players=3, payouts=(10, 7, 5))
 THREE = ["hero", "exploiter2", "loose_aggro"]
 T3B = os.path.join(TABLES_DIR, "extra", "short_3b.json")
 ROUTE = "pre_3way=short,pre_allin=short"
-ON = {"short_route": ROUTE, "short.three2": True, "short.defer_3bet": 1.0}
+OFF = BATCH7_OFF  # batch 6's F: S20 was built and measured on it (batch 7 ships S7's heads-up routes)
+ON = {**OFF, "short_route": ROUTE, "short.three2": True, "short.defer_3bet": 1.0}
 has_table = pytest.mark.skipif(not os.path.exists(T3B), reason="no second three-handed table")
 
 
@@ -174,7 +177,7 @@ def test_the_route_plays_three_handed_and_replays_exactly():
     c = bot.core.counts
     assert c["short"] > 0 and c.get("short:error", 0) == 0
     assert not any(k.startswith("fallback:error") for k in c)
-    assert d1 != _digest({}, 1, THREE, R3)[0]
+    assert d1 != _digest(OFF, 1, THREE, R3)[0]
     sh = next(m for m in bot.core.members if isinstance(m, SH.ShortMember))
     assert any(k.startswith("3b:") for k in sh.counts)
 
@@ -185,7 +188,7 @@ def test_the_strong_gate_shuts_the_route_while_the_table_reads_weak():
     shut = {**ON, "short_strong": True, "strong_rr": 0.99}
     d_shut, bot = _digest(shut, 1, THREE, R3)
     assert bot.core.counts.get("short", 0) == 0
-    d_f, _ = _digest({"strong_rr": 0.99}, 1, THREE, R3)
+    d_f, _ = _digest({**OFF, "strong_rr": 0.99}, 1, THREE, R3)
     assert d_shut == d_f
     _, open_ = _digest({**ON, "short_strong": True, "strong_rr": 0.01}, 1, THREE, R3)
     assert open_.core.counts["short"] > 0
@@ -195,12 +198,11 @@ def test_f_builds_no_specialist_and_the_new_dials_are_off():
     from hyperion import ship
     from hyperion.compose import bot as CB
 
-    bot = ship.make_bot("composite", {})
-    assert bot.core.short is None and "short" not in bot.core.names
-    assert not any(k.startswith("short") for k in CB.SHIP_DIALS)
+    assert ship.make_bot("composite", OFF).core.short is None  # batch 6's F builds no specialist
+    assert not any(k.startswith("short.three") or k == "short_strong" for k in CB.SHIP_DIALS)
     assert SH.ShortParams().three2 is False and CB.ComposeConfig().short_strong is False
     # the gate alone (no route) changes nothing
-    assert _digest({"short_strong": True}, 2, THREE, R3)[0] == _digest({}, 2, THREE, R3)[0]
+    assert _digest({**OFF, "short_strong": True}, 2, THREE, R3)[0] == _digest(OFF, 2, THREE, R3)[0]
 
 
 @has_table
@@ -257,5 +259,5 @@ def test_the_button_only_route_plays_no_blind(monkeypatch):
         return orig(self, obs)
 
     monkeypatch.setattr(SH.ShortMember, "act", act)
-    _, bot = _digest({**spec, "short_strong": False}, 1, THREE, R3)
+    _, bot = _digest({**OFF, **spec, "short_strong": False}, 1, THREE, R3)
     assert bot.core.counts["short"] > 0 and roles and set(roles) == {0}

@@ -1,0 +1,5 @@
+{"dials": {"exploit.stab_size": true, "exploit.stab_alive": 3, "exploit.stab_holdem_only": true,
+ "short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short,pre_3way=short", "short.like_max_alive": 2,
+ "short.three2": true, "short.three2_file": "3b", "short.defer_3bet_three": 0.25, "short_strong": "pre_3way",
+ "short.three2_keep_defence": true, "short.three2_roles": "btn", "short.defer_three": "dead,station,maniac,random,nit",
+ "short.three2_seat_rr": 1}}
