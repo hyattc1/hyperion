@@ -292,6 +292,7 @@ class Rival3Core(R3.Bot):
         return best
 
     oa_count = False  # count the open-answer read without r3.oa_read (the layer's exploit.open_read, set by the composite)
+    oa_on = True  # S21: the composite's gate (oa_strong) sets it before each preflop decision; False: the read waits
     _oa_h = False
 
     def end(self, result: HandResult) -> None:
@@ -418,7 +419,7 @@ class Rival3Core(R3.Bot):
                     return self._raise(legal, o, o.max_raise)
                 return self._fold(legal) if to_call > 0 else self._call_or_check(legal)
             # deeper: raise-first-in / isolate
-            if kn.oa_read and self._oa_h and not limpers and n_alive >= kn.oa_min_alive:  # S16b: the open-answer read
+            if kn.oa_read and self._oa_h and self.oa_on and not limpers and n_alive >= kn.oa_min_alive:  # S16b, S21
                 pf = 1.0
                 cap = kn.oa_cap
                 for s in behind:

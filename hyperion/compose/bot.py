@@ -92,6 +92,9 @@ hand end, how every seat answered my first-in raise (not all-in): folds against 
 blind, the big blind, the rest). With `r3.oa_read` its steal price and open clauses in an unopened pot with no limper
 read each seat behind from that instead of its fold rate facing any raise; with `exploit.open_read` the layer's
 steal_min_fold reads the same (`Exploit.open_fold`, wired here to the base's core). docs/drills/climb/s16b-log.md.
+With `oa_strong` (S21, off by default) both act only while the table reads strong (strong_table(): the strong route's
+read and threshold, `strong_rr`, `strong_prior`, `strong_prior_n`), set before each preflop decision; the core goes on
+counting the answers all table long, so the read is warm when it opens (docs/drills/climb/s21-log.md).
 
 **The short-handed route** (S13, `short_route`, off by default): sections played by another donor (the specialist
 `short`, hyperion/strategy/short.py) while at most `short_alive` players have chips and that member `wants` the decision
@@ -626,6 +629,9 @@ class ComposeConfig:
     # while the hero member's profiler reads the table strong (strong_rr / strong_prior / strong_prior_n), and with
     # this > 0 also to a seat that re-raised at least this many of my first-in raises this table (the per-seat gate)
     trust_seat_rr: int = 0
+    # S21 (module doc): the open-answer read (r3.oa_read, exploit.open_read) acts only while the table reads strong
+    # (strong_table(): the strong route's read and threshold); off = wherever its own dials let it
+    oa_strong: bool = False
     # V-j (docs/drills/climb/vj-log.md): payoff by street. On a table whose Rules settle each street's chips on the
     # hand as it stood then (extras settle="street"), every preflop decision is shown, to every member, the hold'em
     # class at the same combo percentile as our hand's two-card rank (a pair over any non-pair, then the high card,
@@ -712,7 +718,8 @@ class CompositeCore:
         self.strong = [(idx[DONORS[sr[s]][0]], DONORS[sr[s]][1]) if s in sr else None for s in SECTIONS] if sr else None
         s2 = cfg.strong2_route
         self.strong2 = [(idx[DONORS[s2[s]][0]], DONORS[s2[s]][1]) if s in s2 else None for s in SECTIONS] if s2 else None
-        self._rr_on = self.strong is not None or self.strong2 is not None  # keep the read
+        # keep the read (the strong routes, and S21's gate on the open-answer read)
+        self._rr_on = self.strong is not None or self.strong2 is not None or cfg.oa_strong
         bvb = cfg.strong_bvb
         if isinstance(bvb, str):
             bvb = set(parse_route({k.strip(): "1" for k in bvb.split(",") if k.strip()}))
@@ -779,6 +786,11 @@ class CompositeCore:
         if self.ex is not None and self.ex.p.open_read and core is not None and hasattr(core, "oa_fold"):
             core.oa_count = True
             self._oa_core = core
+        self._oa_fn = None  # ... the layer's read on this table (None: not a hold'em table, or a straddle)
+        # S21 (oa_strong): the core whose open-answer read waits while the table does not read strong
+        self._oa_gcore = core if cfg.oa_strong and r3k is not None and getattr(r3k, "oa_read", False) \
+            and hasattr(core, "oa_on") else None
+        self._oa_gate = cfg.oa_strong and (self._oa_gcore is not None or self._oa_core is not None)
 
     # ------------------------------------------------------------------ Bot protocol
     def _rr_reset(self) -> None:
@@ -847,6 +859,7 @@ class CompositeCore:
             from ..strategy.hero import holdem_table
 
             self.ex.open_fold = self._oa_core.oa_fold if holdem_table(rules) and not rules.straddle else None
+            self._oa_fn = self.ex.open_fold
 
     def _trust_gate(self, obs: Observation) -> None:
         """S16: mark, before a preflop decision, the seats whose steal reads take the trust weight (module doc)."""
@@ -957,6 +970,12 @@ class CompositeCore:
                     if (c2.strong2_rr <= 0.0 or r >= c2.strong2_rr) and r < c2.strong2_rr_max:
                         mi, layer = s2
                         counts["strong2"] += 1
+        if self._oa_gate and not obs.street:  # S21: the open-answer read only while the table reads strong
+            on = self.strong_table()
+            if self._oa_gcore is not None:
+                self._oa_gcore.oa_on = on
+            if self._oa_core is not None:
+                self.ex.open_fold = self._oa_fn if on else None
         short = self.short
         if short is not None and short[sec] is not None and not self.panic and self.plain:
             si, sl = short[sec]
