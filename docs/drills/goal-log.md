@@ -1673,3 +1673,5 @@ and (in judges) `elite_judge`.
   Identity of the branch with its dials off against batch 7's F: goal/idchk35.
 - S20's three-handed table loads once at the specialist's construction (bot build), not at a decision: setup time,
   about 0.3 s; checked against the kit budgets at batch 8's pack.
+- 11:40: batch 8's branch with its dials off plays batch 7 exactly (idchk35: 14 of 14). S22 started (climb/s22-river):
+  exploiter 4's river over-fold, a gated per-seat river-bet read, diagnostics 15000-15999, screen --aim exploit.
