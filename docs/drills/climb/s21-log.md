@@ -313,3 +313,67 @@ the strong gate only if the offline numbers want one. Diagnostic seeds 12000-129
   61.6-62.6 for O5; the p99 at this load is the box's (F 4,074-4,102 µs, O5 429-4,180), not a measurement. O5 adds
   a per-hand scan at hand end and one fold read per big blind at the steal price.
 - No variant run (the screen passed). O5 is the candidate for a held-out set.
+
+# O8: the measured price as a veto where the seats behind defend (branch climb/s21-o8)
+
+Branch climb/s21-o8 from climb/s21-o5 (2de5070) merged with main f028f50 (batch 7 ships). The derivation (O6's
+non-blind read, O7's measured price in ICM points, the points-valued off-policy judge, the three switches) is in this
+log's O6 / O7 sections on climb/s21-o6 (50835a0) and climb/s21-o7 (582b692); in short: the switch "the seats behind's
+pooled fold to every open this table under 0.80" was the one that, offline on O7's check seeds, was up on the strong
+tables (+0.264 ± 0.163 points per table seed, the five strong fields pooled; +0.256 ± 0.143 on the fit seeds) and
+level in the realistic room and at night on both seed sets (realistic + night +0.015 ± 0.193 check, -0.039 ± 0.158
+fit; realistic alone -0.156 ± 0.188 on the fit seeds, so a leak is not excluded).
+
+- 09:47 Code (e400aaf), all off by default:
+  - `hyperion/hybrid/open_ev.py`: the measured price, generated from docs/drills/climb/s21-o7-table.json (copied
+    here from climb/s21-o7): F's result relative to folding when its first-in open is called or re-raised, in
+    big-blind equivalents of ICM points, 10 hand bands (rival 3's percentile) x 5 seat counts behind x 3 depths;
+    `open_ev(p, behind, eff_bb)` is a band lookup.
+  - rival 3's core: `any_scan` (each seat's first action after the hand's first-in raise, until a re-raise) counted
+    at hand end into per-seat `anyn` / `anyf` under `r3.veto_read`; `veto_rate(behind)` = (their folds +
+    `veto_prior` 0.80 x `veto_prior_n` 10) / (their answers + 10); `open_vetoed(...)`: the rate under `veto_t` 0.80
+    and pf x pot + (1 - pf) x open_ev <= 0 (pf the clause's own product: O5's big-blind read under O5's dials).
+  - the first-in clause: with `r3.open_veto`, four or more alive, plain hold'em (no straddle), no limper, an open
+    the clause would make (base range, fold equity or pf > 0.9) is not made where `open_vetoed`; it falls through to
+    check / the small blind's complete / fold. Act cost: a sum over the seats behind and one lookup.
+  - Docs: the composite's module doc, the dials' descriptions, CONTRACTS.md regenerated (five rows).
+  - Tests (tests/test_s21_o8.py): the lookup equals the JSON table at every band and edge; `any_scan`; the switch and
+    the price (closed at the prior, open once the seats behind fold 0.65, the price vetoing a junk open at pf 0.2
+    and not at 0.9, `veto_t` closing it); off by default nothing counted; on (O5 + O8) it counts, replays exactly
+    and moves play on a test table; switch never on (`veto_t` 0) = O5 exactly; twist and straddle tables as F;
+    SHIP_DIALS leave it off. With the O5 and S16b tests: 23 passed.
+- 09:51 **Identity** (goal/s21o8/idchk.sh: F, confirm and guards, 10000-10039, from this worktree at e400aaf):
+  **14 of 14 chunks identical** to goal/idchk34/post (batch 7's F). SHIP_DIALS are batch 7's, unchanged here.
+- Candidate (docs/drills/climb/s21-o8-candidate.json): O5's dials + `r3.veto_read`, `r3.veto_t` 0.8,
+  `r3.veto_prior` 0.8, `r3.veto_prior_n` 10, `r3.open_veto`.
+- 09:58 How often the veto acts (offline, O7's check seeds, rival 3's clause opens at the base's first-in
+  decisions): realistic 4.6% of its opens (2.2% of decisions), night 4.2%, night_hard 3.7%, top 7.4%, elite 10.6%,
+  elite_night 8.8%, mirror 16.0%, elite_b 12.6%, mirror_b 14.9% (4.4% of decisions). Two to four times as often at
+  strong tables as in the ordinary room.
+- 10:12 Suite (`pytest -q -m "not timing"`, at 685681f, load 6 then 22-25): 1,423 passed, 3 skipped, 2 failed, both
+  night-of kit round trips of the cheap bot (wall clock; the cheap path is Hero's, untouched here). Re-run alone: both
+  pass, then one fails again at load 22. The O8, O5, S21 and S16b tests pass.
+
+## Where I am / next (10:12, before the 11:30 hardware pause)
+
+- **Done:** O8 built on climb/s21-o8 (O5 + main f028f50, batch 7), off by default; tests; docs; CONTRACTS.md;
+  identity 14 of 14 against goal/idchk34/post; suite as above; the candidate at
+  docs/drills/climb/s21-o8-candidate.json (O5's dials + O8's). Branch pushed.
+- **Not started:** the screen. Its script is ready, not launched: goal/s21o8/screen_O8.sh (base `{"dials": {}}` =
+  batch 7's F, cand goal/s21o8/cand_O8.json, 10000-10199, every stage, `--aim strong --runout-term`, 2 workers, nice
+  5, output goal/s21o8/screen_O8.md, done-file goal/s21o8/screen_O8.done). F's half must run fresh (my cached F
+  chunks are batch 6's), so it is a full screen of both specs, about 2.5-3 hours at load 10. If someone has batch 7's
+  F cached at 10000-10199 with the runout term, it can be pinned after the same sample-for-sample check as before
+  (this code's F against that cache on chunk 10000).
+- **What to expect:** offline the veto acts on 2-4% of first-in decisions (4% of opens in the ordinary room, 9-16% at
+  strong tables) and values at about +0.26 points per table seed on the strong family, i.e. about +0.03 per table, at
+  the edge of what 200 seeds resolve; O5's own strong-table gains come with it in the candidate. The thing to watch
+  is the realistic cell (offline -0.156 ± 0.188 on the fit seeds, +0.044 ± 0.289 on the check seeds).
+- **If O5 fails H33:** O8's veto does not depend on O5's reads except through pf (the clause's fold product, which
+  uses O5's big-blind read under O5's dials); O8 alone would price with F's reads. That variant was not valued
+  offline; it would need the same IPS run with pfF in the price (the data has it) before a screen.
+- 10:13 Valued after all (same data, same judge; points per table seed): **O8 without O5**, F's reads in the price
+  and in F's own clause, against F's rule replayed: fit seeds pooled +0.204 ± 0.132, strong family +0.353 ± 0.218 UP,
+  **realistic -0.210 ± 0.144 DOWN**, night +0.073 ± 0.233; check seeds pooled +0.241 ± 0.177, strong family +0.430 ±
+  0.300 UP, realistic +0.066 ± 0.289, night -0.127 ± 0.229. Bigger on the strong tables than on top of O5, but the
+  realistic room goes down beyond noise on one of the two seed sets: if O5 fails H33, O8 alone is the riskier form.
