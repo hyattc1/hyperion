@@ -259,3 +259,12 @@ the strong gate only if the offline numbers want one. Diagnostic seeds 12000-129
   (realistic 0.1582). Capped, realistic 0.1568 is again worse than F's; the pooled-prior estimator again loses
   realistic (0.1604 (-0.070)). Other positions as on the fit seeds (O3 capped worse than F's read at both).
   goal/s21o5/grid_val.md.
+- 03:05 **Identity** (goal/s21o5/idchk.sh: idchk26's command from this worktree at a9262d5 and later docs): **14 of 14
+  chunks identical** to goal/idchk26/post. SHIP_DIALS unchanged.
+- 03:06 Candidate O5 (docs/drills/climb/s21-o5-candidate.json): `r3.oa_read`, `r3.bb_read`, `r3.bb_k` 10,
+  `r3.oa_bb_only`, `r3.oa_min_alive` 4, `exploit.open_read`, `exploit.open_bb_only`, `exploit.open_min_alive` 4; no
+  cap, no gate. Screen started: base F, 10000-10199, `--aim strong --runout-term`, every stage, 2 workers, nice 5
+  (goal/s21o5/screen_O5.sh, output goal/s21o5/screen_O5.md). F's 448 chunks are pinned from S21's screen (same
+  seeds, stages and runout-term version; copied to this code's F key 0a1f38fe5bf0): every O5 path is behind a dial
+  F leaves off, the identity check is 14 of 14, and its seven 25-seed chunks equal the S21 screen's F chunks sample
+  for sample. Only the candidate's cells run.
