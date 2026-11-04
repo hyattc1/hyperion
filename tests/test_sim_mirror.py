@@ -213,10 +213,10 @@ def test_s14_members_are_registered():
     assert {"elite4", "elite4x", "r2s", "r2sx"} <= set(CB.DONORS)
     assert "elite3" not in CB.MEMBERS and "elite5" not in CB.MEMBERS  # the held-out judges are never members
     core = CB.ship({"strong_route": "pre_raised_deep=r2sx,pre_3way=elite4x,pre_hu=elite2x"}, seed=3).core
-    assert core.names == ["base", "hero", "r2s", "elite4", "elite2"]
+    assert core.names == ["base", "hero", "r2s", "elite4", "elite2", "short"]
     r2s = core.members[2]
-    assert r2s.plain_only and r2s.holdem_only and core._rs_always == [False, False, True, False, False]
-    assert CB.ship({}, seed=3).core.names == ["base", "hero", "elite1"]  # F builds none of them
+    assert r2s.plain_only and r2s.holdem_only and core._rs_always == [False, False, True, False, False, False]
+    assert CB.ship({}, seed=3).core.names == ["base", "hero", "elite1", "short"]  # F builds none of them
 
 
 def test_s14_light_shadows_play_as_the_full_ones(monkeypatch):

@@ -1211,7 +1211,20 @@ SHIP_DIALS: dict = {"route": SHIP_ROUTE, "exploit.bet_min_fold": 0.4, "hero.post
                     # dials (H15) and V-h's known opponent cards (H18)
                     "hero.postflop.size_read_twists": "discard,bounty,knockout,swap,exposed",
                     "hero.postflop.s11_twists": "knockout,buy,swap,exposed", "strong_route_twists": "bounty,knockout,buy",
-                    "hero.known_cards": "pre"}
+                    "hero.known_cards": "pre",
+                    # batch 7 (docs/decisions.md): V-i's value of information on twist decisions (H23) and V-j's c6,
+                    # the street-settled tables (H29), twist tables only; S7's heads-up specialist routes behind its
+                    # looseness gate (H25) and S15e's gated stab read (H26), plain hold'em with three or fewer alive
+                    "hero.voi": 1.5, "hero.sd_tax": True,
+                    "tranche_twin": "all", "hero.tranche": "now,sunk", "hero.tranche_claim_early": 0.25,
+                    "short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short", "short.pre_roles": "bb",
+                    "short.pre_open_min": 0.65, "short.like_probe": 0.75, "short.like_bet": 0.6, "short.like_pfr": 0.3,
+                    "short.like_vpip_min": 0.5, "short.like_vpip_max": 0.88,
+                    "hero.postflop.stab_from": 0.55, "hero.postflop.stab_full": 0.8, "hero.postflop.stab_prior": 0.4,
+                    "hero.postflop.stab_min": 3, "hero.postflop.stab_pool": 7, "hero.postflop.stab_margin": 0.03,
+                    "hero.postflop.stab_max_alive": 3, "hero.postflop.stab_pfr_min": 0.35,
+                    "hero.postflop.stab_lead_max": 0.4, "hero.postflop.stab_free_max": 0.5,
+                    "hero.postflop.stab_holdem_only": True}
 
 
 # Batch 5's dials at their off values: on top of SHIP_DIALS they play batch 4's ship from this tree (the tests written
@@ -1234,6 +1247,18 @@ BATCH5_OFF: dict = {"strong_route": "", "strong_rr": 0.0,
 # as well, batch 4's.
 BATCH6_OFF: dict = {"hero.postflop.size_read_twists": "", "hero.postflop.s11_twists": "", "strong_route_twists": "",
                     "hero.known_cards": ""}
+
+# Batch 7's dials at their off values: on top of SHIP_DIALS they play batch 6's ship from this tree (tests written
+# against batch 6's F; --base '{"dials": BATCH7_OFF}' for a paired check against the previous batch).
+BATCH7_OFF: dict = {"hero.voi": 0.0, "hero.sd_tax": False,
+                    "tranche_twin": "", "hero.tranche": "", "hero.tranche_claim_early": 0.5,
+                    "short_route": "", "short.pre_roles": "sb,bb", "short.pre_open_min": 0.0, "short.like_probe": 0.0,
+                    "short.like_bet": 0.0, "short.like_pfr": 0.0, "short.like_vpip_min": 0.0, "short.like_vpip_max": 0.0,
+                    "hero.postflop.stab_from": 1.0, "hero.postflop.stab_full": 1.0, "hero.postflop.stab_prior": 0.5,
+                    "hero.postflop.stab_min": 0, "hero.postflop.stab_pool": 0, "hero.postflop.stab_margin": -1.0,
+                    "hero.postflop.stab_max_alive": 0, "hero.postflop.stab_pfr_min": 0.0,
+                    "hero.postflop.stab_lead_max": 1.0, "hero.postflop.stab_free_max": 1.0,
+                    "hero.postflop.stab_holdem_only": False}
 
 def parse_dials(dials: dict | None) -> tuple:
     """One flat dials dict -> (route, make_bot keywords). The keys:
@@ -1281,6 +1306,8 @@ def parse_dials(dials: dict | None) -> tuple:
         base["cheap"] = True
         route = ""
         d.pop("strong_route", None)  # no other member: batch 5's strong-table route (elite1) goes too
+        d.pop("short_route", None)  # ... and batch 7's short-handed specialist (S7)
+        short = {}
         exploit, layer = None, {}
     if layer:
         if exploit is None:

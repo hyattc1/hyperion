@@ -67,7 +67,7 @@ def test_ship_names_one_bot_and_make_bot_builds_it():
     assert ship.SHIP in ship.BUILDERS and ship.DIALS == {}
     bot = ship.make_bot()  # the composite as measured (decisions entry "Composite bot")
     assert isinstance(bot, Composite) and ship.SHIP == "composite"
-    assert bot.core.names == ["base", "hero", "elite1"]  # elite1: batch 5's strong-table route (opened pots)
+    assert bot.core.names == ["base", "hero", "elite1", "short"]  # short: batch 7 (S7); elite1: batch 5's strong-table route (opened pots)
     cfg = bot.core.members[0].cfg  # its base: rival 3's core at its defaults (plus the 3-bet defence SHIP_DIALS turn
     # on since the climb's batch 4, and batch 5's blind-vs-blind read, hold'em tables only), the layer in front
     assert cfg.core == "rival3" and cfg.exploit is None
