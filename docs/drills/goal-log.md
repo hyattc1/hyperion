@@ -1473,3 +1473,17 @@ and (in judges) `elite_judge`.
   the guards, the strong tables and the 8-max exploit cells within ±0.002; nothing down; 0 timeouts, 0 errors.
   W +0.0033 ± 0.0029 (lower bound +0.0004), W-min lower bound -0.0020. H31 used.
 - The judges (60000-60399, 12 cells) and timing are running in the same script (goal/b29/run.sh).
+
+## 07:28: O6 rejected on its screen; O7 (the open clause's call cost) started
+- O6 (climb/s21-o6, 50835a0): the non-blind seats behind F's open read by O3's uncapped read, which beats F's on all
+  nine fields offline (fit 12200-12299, check 12600-12699: pooled Brier 0.1129 against 0.1268; F underreads their
+  folds by 0.09-0.12; they fold about 0.87 in every room). The small blind stays on F's read. One or more such seat is
+  behind F in 72-86% of its first-in decisions; the read flips 4.5-8.6% of rival 3's opens, almost all toward
+  opening. Screen (10000-10199, stopped after the elite stage): night -0.065 ± 0.064, night @10/7/5 -0.125 ± 0.102,
+  elite -0.122 ± 0.067, elite_night -0.131 ± 0.065 DOWN. REJECT; O6 stays off. O5 is unaffected (it is on H33).
+- Why: rival 3's open clause opens a hand up to the 85th percentile once everyone-folds beats a fixed cost of 0.55
+  of the raise when called. F's underread of the seats behind has been keeping that clause tight: two errors that
+  cancel. A right read alone opens junk against seats that call and 3-bet well.
+- O7 (the same worker): price the open by what F actually wins when the open is called or re-raised, by hand class,
+  position, seats behind and depth, fitted offline from F's own play on diagnostic seeds, with the right fold read
+  for every seat; then screen. It is the structural round's "preflop retrained for this format" for full tables.
