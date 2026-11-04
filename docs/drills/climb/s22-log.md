@@ -6,7 +6,7 @@ about 41%) and does not adapt. Diagnose on seeds 15000-15999 only, fix behind di
 on 10000-10199 with `--aim exploit`. No held-out set, judge set, judge bot or judge field is run, read or tuned on
 (20000-60799 untouched). Workers 2, nice 5, detached runs with done-files.
 
-**Where I am / next:** identity 14 of 14; the screen is running (scratch goal/s22/screen.sh, done-file screen.done; re-run the same script after a restart, chunks are cached); the full suite beside it.
+**Where I am / next:** the screen is running (scratch goal/s22/screen.sh, done-file screen.done; re-run the same script after a restart, chunks are cached). At 13:35, with confirm, guards, elite and twelve exploit cells in (scratch peek.py, corrected): exploit4_hu +0.123 ± 0.054 UP, exploit4_3 +0.042 ± 0.043, exploit_3 +0.020, every other cell within ±0.015 and level; adapt, aware and variants to come.
 from it, then the code.
 
 ## Diagnosis (seeds 15000-15199 heads-up and three-handed, 15000-15079 x 8 at 8-max; F = batch 7, model mode)
