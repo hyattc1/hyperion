@@ -268,3 +268,8 @@ the strong gate only if the offline numbers want one. Diagnostic seeds 12000-129
   seeds, stages and runout-term version; copied to this code's F key 0a1f38fe5bf0): every O5 path is behind a dial
   F leaves off, the identity check is 14 of 14, and its seven 25-seed chunks equal the S21 screen's F chunks sample
   for sample. Only the candidate's cells run.
+- 03:43 Suite (`pytest -q -m "not timing"`, at 614d6a2, load 13-16): 1,406 passed, 4 skipped, 11 failed, all
+  wall-clock or replay-under-load (drill checkpoints, kit d, the gate's fake kits, two night-of latency tests, S12's
+  and S16's replays, S21's gate test, rival 2's sampler, the model-mode replay). Re-run alone: 8 pass; the drill
+  checkpoints (2 of 3) and `test_model_mode_replays_a_table_exactly` still fail at load 16, and that one fails the
+  same way on main (c38b7db: one of two runs) — it seats Hero, not the composite. The O5, O3 and S21 tests pass.
