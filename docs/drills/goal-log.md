@@ -1600,3 +1600,16 @@ and (in judges) `elite_judge`.
   second heads-up path (`short.hu2`, off) that plays only where S7's like gates refuse the seat and the strong read
   is open (passed into the member, not short_strong, which would shut S7's route). Next session: the solve (per hero
   seat, fitted flops, no button limp under 25 bb, two 3-bet sizes, push/fold check), the path, tests, screen.
+
+## 10:13: O8 built; its screen started (resumes after the pause)
+- climb/s21-o8 (b2fd561; O5 + main f028f50): `r3.veto_read` counts every seat's answers to any first-in raise;
+  `r3.open_veto` drops an open the clause would make where the seats behind's pooled fold (shrunk to 0.80, weight
+  10) is under `r3.veto_t` 0.80 and the points price (hyperion/hybrid/open_ev.py, generated from s21-o7-table.json:
+  10 hand bands x 5 seats behind x 3 depths) says it loses. All off; tests/test_s21_o8.py; identity 14 of 14 against
+  batch 7's F (idchk34/post); suite 1,423 passed (2 kit round-trip timing tests pass alone).
+- Offline it acts on 2-4% of first-in decisions (4% of rival 3's opens in the realistic room, 9-16% at strong tables).
+  Without O5 (F's reads in the price): strong +0.35 / +0.43 UP but realistic -0.210 ± 0.144 DOWN on fit seeds: O8
+  alone is the riskier form.
+- Screen (10000-10199, every stage, --aim strong, against batch 7, F fresh) started now with spare cores
+  (goal/s21o8/screen_O8.sh, output screen_O8.md, screen_O8.done); stopped at the pause and resumed after from its
+  cached chunks.
