@@ -111,3 +111,14 @@ Survey first (diagnostic seeds 11200-11399), then a screen (10000-10199, `--aim 
   again but does not remove it: at realistic F already reads the big blind a little under what it folds (0.774
   against 0.800), so any read that can only lower it (the cap) loses there, and the minimum of two noisy reads is
   biased low even when both are centred. G1 is rejected at the guards too; its elite stage is next.
+- 00:12 G1's elite stage (corrected): elite +0.003 ± 0.025, elite_night +0.006 ± 0.022, **mirror +0.035 ± 0.032 UP**,
+  elite_b +0.008 ± 0.030, **mirror_b +0.030 ± 0.029 UP** (G: -0.002, +0.006, +0.037, +0.025, +0.053 UP). The prior
+  cost G little at strong tables and halved its realistic loss: G1 is a near miss (realistic down by 0.001 at the
+  interval's edge). Offline the gated read is about the same number in both rooms where it is open (0.71 at
+  realistic, 0.70 at elite), so G1 is in effect "while the table reads strong, read the big blind's fold about 0.06
+  lower": the gate does all the separating, and its leak (the realistic tables that open it) is the loss. G1's
+  later stages (exploit, aware, variants) running; it is the candidate (docs/drills/climb/s21-candidate.json now
+  holds G1; G was the six O3 dials + `oa_strong`).
+- No second variant. The ones the data leaves are a stricter gate (a second `strong_rr` for this read, a tuned
+  number on our own fields: the survey's realistic p90 is 0.19, the strong fields' 0.24-0.25) or the read without the
+  gate (more realistic decisions at the same bias). Neither is principled enough to spend a screen on.
