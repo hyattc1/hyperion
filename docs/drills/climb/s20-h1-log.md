@@ -103,3 +103,18 @@ realization fit by SPR, where F loses heads-up at strong tables by line. No scre
   81.1% / 88.9% / 84.2%. Under 8..1 a heads-up win is one point, so converting like elite1 (+8 points of win share a
   heads-up) at F's reach (about 23% of strong tables) would be about +0.02 points a table: the size of R6's strong-
   table gain again.
+- 09:55 **The 10-20 bb ranges** (four strong rooms, `hu_ranges.py`: action shares by the hole class's quintile of
+  tables/preflop_rank.json, q0 the weakest 20% of hands; fold / call / raise / jam, %):
+
+| spot | bot | q0 | q1 | q2 | q3 | q4 |
+|---|---|---|---|---|---|---|
+| button first in | F | 58 / 0 / 42 / 0 | 0 / 0 / 100 / 0 | 0 / 0 / 100 / 0 | 0 / 0 / 100 / 0 | 0 / 0 / 100 / 0 |
+| | elite1 | 36 / 0 / 25 / 39 | 13 / 0 / 46 / 41 | 4 / 0 / 54 / 42 | 0 / 0 / 56 / 43 | 0 / 0 / 54 / 46 |
+| | elite2 | 73 / 0 / 0 / 27 | 67 / 0 / 5 / 28 | 10 / 0 / 60 / 30 | 0 / 0 / 70 / 30 | 0 / 0 / 70 / 30 |
+| big blind vs a min-raise | F | 74 / 0 / 0 / 26 | 66 / 0 / 0 / 34 | 46 / 14 / 0 / 39 | 11 / 24 / 0 / 65 | 0 / 55 / 8 / 37 |
+| | elite1 | 41 / 0 / 0 / 59 | 29 / 3 / 0 / 67 | 19 / 11 / 0 / 69 | 5 / 12 / 0 / 82 | 0 / 3 / 0 / 96 |
+| | elite2 | 19 / 0 / 0 / 81 | 14 / 0 / 0 / 86 | 11 / 4 / 0 / 86 | 2 / 75 / 0 / 23 | 0 / 61 / 0 / 39 |
+
+  F's button min-raises every hand above the bottom fifth and jams none; elite1 jams about 40% of every quintile (a
+  balanced jam) and elite2 30%. F's big blind folds two thirds of its bottom 40% to a min-raise and flat-calls 55% of
+  its top fifth; elite1 re-shoves 59-96% across the quintiles, elite2 81-86% of its weaker 60% and flats its best.
