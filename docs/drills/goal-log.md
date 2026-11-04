@@ -1359,3 +1359,11 @@ and (in judges) `elite_judge`.
   short section check; hyperion/strategy/short.py). Combined as they are, S20's strong-read gate would shut S7's
   heads-up routes against exploiter 2. If R5 passes H30, scope those three per route so each part plays as it was
   accepted, and prove it by play digests before the combined check.
+- Ready if R5 passes: climb/b7-scope (863f9f5, on S20's d046fef; not merged). `short_strong` takes section names
+  (True = every section, as `strong_bvb`), `short.like_max_alive` keeps the like gates to that many alive,
+  `short.defer_three` / `short.defer_3bet_three` replace the defer settings on three-handed decisions. Digests
+  (tests/test_b7_scope.py): S7 alone with the scoping on plays as S7, R5 alone rescoped plays as R5, on three
+  three-handed tables each (S7 plays 22 decisions on one, R5 3 on another; together the same counts, no errors).
+  The combined candidate would be S7's dials + R5's with short_route "pre_hu=short,post_hu_bet=short,
+  post_hu_chk=short,pre_3way=short", short_strong "pre_3way", short.like_max_alive 2, and R5's defer values moved
+  to short.defer_three / short.defer_3bet_three.

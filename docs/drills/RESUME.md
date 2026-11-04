@@ -11,7 +11,8 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 ## Held-out results this round (goal-log 22:15)
 - V-i (H23) ACCEPT, c6 (H29) ACCEPT: both twist-only, both join batch 7. S7 (H25) ACCEPT (plain hold'em, heads-up
   and three-handed against exploiter 2 only). O3 (H24) REJECT. C3 rejected (H27).
-- If S20's R5 passes too: scope short_strong, short.defer and short.defer_3bet per route first (goal-log 23:10).
+- If S20's R5 passes too: merge climb/b7-scope (863f9f5: S20 + the per-route scoping, goal-log 23:10) and use the
+  combined dials written there.
 - Batch 7 needs judges on fresh judge seeds 60000-60399 (addendum 12) only if a plain hold'em part joins it.
 
 ## Queued or running, detached (each against batch 6, --runout-term)
