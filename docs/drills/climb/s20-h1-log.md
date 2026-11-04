@@ -118,3 +118,10 @@ realization fit by SPR, where F loses heads-up at strong tables by line. No scre
   F's button min-raises every hand above the bottom fifth and jams none; elite1 jams about 40% of every quintile (a
   balanced jam) and elite2 30%. F's big blind folds two thirds of its bottom 40% to a min-raise and flat-calls 55% of
   its top fifth; elite1 re-shoves 59-96% across the quintiles, elite2 81-86% of its weaker 60% and flats its best.
+- 10:00 **Realization by our own equity at low SPR** (our heads-up flops at the four strong rooms, SPR under 5,
+  against seats other than our copies; share - E with its 95% interval, the old model beside): in position E 0.2-0.4
+  +0.092 ± 0.047 (1,860; old +0.021), 0.4-0.6 +0.076 ± 0.058 (1,482; +0.030), 0.6-0.8 +0.134 ± 0.107 (713; +0.029);
+  out of position 0.2-0.4 +0.025 ± 0.078 (868; old -0.032), 0.4-0.6 -0.002 ± 0.052 (1,691; -0.031), 0.6-0.8 -0.039 ±
+  0.051 (1,692; -0.022). Flat across equity within noise, so the offset-by-SPR form of the three-handed fit fits
+  heads-up too; weak hands out of position show no extra penalty at these SPRs (unlike the three-handed question
+  about the big blind's 100% defence, where the data had no weak hands).
