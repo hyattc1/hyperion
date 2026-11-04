@@ -132,6 +132,10 @@ class Profiler:
         # river]; st_bet counts the bets
         self.st_opp = [[0, 0, 0] for _ in range(n)]
         self.st_bet = [[0, 0, 0] for _ in range(n)]
+        # S22 (docs/drills/climb/s22-log.md): heads-up pots with me, the seat's river actions with nothing to call,
+        # whoever acts first (a lead into me or a bet after my check: a chance to bet the river); rv_bet counts the bets
+        self.rv_opp = z()
+        self.rv_bet = z()
         self.sz_hist = [[[[0] * 9 for _ in range(6)] for _ in range(3)] for _ in range(n)]  # seat, street, bucket, tier
         self.sz_n = [[[0] * 6 for _ in range(3)] for _ in range(n)]
         self.sz_oracle = None  # measurement only: per seat {(street 0..2, bucket): 9 tier weights} or None
@@ -362,11 +366,17 @@ class Profiler:
                 if seat == self.me:
                     if kind is _CHECK:
                         self.my_chk = self.tstreet
-                elif self.my_chk == self.tstreet and self.inhand == (bit | (1 << self.me)):
-                    k = self.tstreet - 1 if self.tstreet <= 3 else 2  # a long board's later streets count as the river
-                    self.st_opp[seat][k] += 1
-                    if kind is _RAISE:
-                        self.st_bet[seat][k] += 1
+                else:
+                    two = self.inhand == (bit | (1 << self.me))
+                    if two and self.my_chk == self.tstreet:
+                        k = self.tstreet - 1 if self.tstreet <= 3 else 2  # a long board's later streets: the river
+                        self.st_opp[seat][k] += 1
+                        if kind is _RAISE:
+                            self.st_bet[seat][k] += 1
+                    if two and self.tstreet >= 3:  # the profiler's street stops at 3 (the river and any later)
+                        self.rv_opp[seat] += 1
+                        if kind is _RAISE:
+                            self.rv_bet[seat] += 1
             if not pre and self.tstreet <= 2 and seat != self.me and 0 <= self.me < n:
                 two = self.inhand == (bit | (1 << self.me))
                 if two:
@@ -649,6 +659,14 @@ class Profiler:
         if n < min_n:
             return 0.0
         return (k + prior * n0) / (n + n0)
+
+    def river_bet_rate(self, s: int, prior: float = 0.35, n0: float = 4.0, min_n: int = 0) -> float:
+        """How often seat s bets the river heads-up against me when it has nothing to call, whoever acts first (S22),
+        smoothed toward `prior` with n0 chances; 0 while fewer than min_n chances are seen."""
+        n = self.rv_opp[s]
+        if n < min_n:
+            return 0.0
+        return (self.rv_bet[s] + prior * n0) / (n + n0)
 
     def lead_rate(self, s: int, prior: float = 0.3, n0: float = 2.0) -> float:
         """How often seat s bets postflop when nothing is to call, apart from its free actions right after my check in

@@ -292,6 +292,24 @@ class PostflopParams:
     stab_free_prior: float = 0.4
     stab_free_n: float = 2.0
     stab_holdem_only: bool = False
+    # a river bettor (S22, docs/drills/climb/s22-log.md). Facing the river's first bet heads-up (nothing of mine in:
+    # a lead into me or a bet after my check) from a seat that bets the river against me, when it has nothing to call,
+    # at a smoothed rate r (Profiler.river_bet_rate: prior rbet_prior worth rbet_n chances, no read before rbet_min
+    # chances) above rbet_from, far above the room's rate: a seat that bets most rivers bets air there, and a fold of
+    # every hand that only beats air pays for each of them. My equity moves from the tier's proxy toward
+    # WIDE_EQUITY_RIVER (the tier against a whole range) by the weight (r - from) / (rbet_full - from), at most 1, and
+    # the call margin toward rbet_margin by the same weight (-1: it stays): my calls widen toward a minimum defence.
+    # Where the stab read also acts, the larger weight decides. It never raises or bluffs. rbet_max_alive: only while
+    # at most this many players have chips (0 = any). rbet_holdem_only: hold'em tables only (hero.holdem_table).
+    # 1.0 / -1 / 0 = off
+    rbet_from: float = 1.0
+    rbet_full: float = 1.0
+    rbet_prior: float = 0.35
+    rbet_n: float = 4.0
+    rbet_min: int = 0
+    rbet_margin: float = -1.0
+    rbet_max_alive: int = 0
+    rbet_holdem_only: bool = False
     # S12 reads (docs/drills/climb/s12-log.md); every one off by default.
     # size_read: facing a single bet heads-up (or a raise of my bet), the bettor's range for a bet of that size (bucket
     # of the pot before the bet, Profiler.SZ_EDGES; a raise is its own bucket) is a tier histogram: the population's
@@ -1276,6 +1294,20 @@ class Postflop:
                     we = (WIDE_EQUITY_FLOP, WIDE_EQUITY_TURN, WIDE_EQUITY_RIVER)[street - 1][tier]
                     if we > eq_pre:
                         eq = eq_pre + w * (we - eq_pre)
+        rbet_w = 0.0
+        if p.rbet_from < 1.0 and street == 3 and n_opp == 1 and bettor >= 0 and prof is not None and not cheap \
+                and obs.bets[spot.me] == 0 and (self._holdem or not p.rbet_holdem_only) \
+                and (p.rbet_max_alive <= 0 or obs.players_left <= p.rbet_max_alive) \
+                and (self._tw is None or not self._twist_read_off(spot, bettor)):
+            r = prof.river_bet_rate(bettor, p.rbet_prior, p.rbet_n, p.rbet_min)
+            if r > p.rbet_from:
+                w = (r - p.rbet_from) / (p.rbet_full - p.rbet_from) if p.rbet_full > p.rbet_from else 1.0
+                if w > 1.0:
+                    w = 1.0
+                if w > stab_w:
+                    rbet_w = w
+                    we = WIDE_EQUITY_RIVER[tier]
+                    eq = eq_pre + w * (we - eq_pre) if we > eq_pre else eq_pre
         base_margin = p.call_margin
         if p.vs_cbet_margin >= 0.0 and street == 1 and n_opp == 1 and bettor >= 0 and prof is not None \
                 and prof.pre_raiser == bettor and obs.bets[spot.me] == 0 and obs.pot > 0 \
@@ -1285,7 +1317,10 @@ class Postflop:
             base_margin = p.split_call_margin
         if wide_w > 0.0 and 0.0 <= p.probe_margin < base_margin:
             base_margin += wide_w * (p.probe_margin - base_margin)
-        if stab_w > 0.0 and 0.0 <= p.stab_margin < base_margin:
+        if rbet_w > 0.0:
+            if 0.0 <= p.rbet_margin < base_margin:
+                base_margin += rbet_w * (p.rbet_margin - base_margin)
+        elif stab_w > 0.0 and 0.0 <= p.stab_margin < base_margin:
             base_margin += stab_w * (p.stab_margin - base_margin)
         margin = base_margin / call_down if call_down > 0 else base_margin
         if p.tight_aggro_margin > 0.0 and street >= 2 and bettor >= 0 and prof is not None and not cheap \

@@ -419,6 +419,14 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `postflop.stab_free_prior` | 0.4 |
 | `postflop.stab_free_n` | 2.0 |
 | `postflop.stab_holdem_only` | False |
+| `postflop.rbet_from` | 1.0 |
+| `postflop.rbet_full` | 1.0 |
+| `postflop.rbet_prior` | 0.35 |
+| `postflop.rbet_n` | 4.0 |
+| `postflop.rbet_min` | 0 |
+| `postflop.rbet_margin` | -1.0 |
+| `postflop.rbet_max_alive` | 0 |
+| `postflop.rbet_holdem_only` | False |
 | `postflop.size_read` | 0.0 |
 | `postflop.size_read_n0` | 8.0 |
 | `postflop.size_read_margin` | 0.03 |
