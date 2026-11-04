@@ -95,6 +95,9 @@ steal_min_fold reads the same (`Exploit.open_fold`, wired here to the base's cor
 With `oa_strong` (S21, off by default) both act only while the table reads strong (strong_table(): the strong route's
 read and threshold, `strong_rr`, `strong_prior`, `strong_prior_n`), set before each preflop decision; the core goes on
 counting the answers all table long, so the read is warm when it opens (docs/drills/climb/s21-log.md).
+O5 (`r3.bb_read`, `r3.oa_bb_only`, `exploit.open_bb_only`, off by default): the big blind's fold reads its answers as
+the big blind to a first-in raise by any seat this table, with its fold-to-any-raise read as the prior (weight
+`r3.bb_k`), in both places; the other seats keep their own reads (docs/drills/climb/s21-log.md, "O5").
 
 **The short-handed route** (S13, `short_route`, off by default): sections played by another donor (the specialist
 `short`, hyperion/strategy/short.py) while at most `short_alive` players have chips and that member `wants` the decision

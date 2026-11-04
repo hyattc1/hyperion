@@ -139,3 +139,10 @@ class Rival3Knobs:
                                  "and three-handed the steal price stays as built")
     oa_cap: bool = _dial(False, "with oa_read: the open-answer read only lowers a seat's fold read (min of the two), as "
                                 "S16's one-sided cap; off = it replaces the read")
+    # O5 (docs/drills/climb/s21-log.md): the big blind's read from its answers to every first-in raise this table
+    bb_read: bool = _dial(False, "with oa_read: the big blind's fold reads its answers as the big blind to a first-in "
+                                 "raise by any seat this table (not all-in): (its folds + its fold-to-any-raise read "
+                                 "x bb_k) / (its answers + bb_k); the layer's open_fold reads the same; off = O3's")
+    bb_k: float = _dial(10.0, "weight of a big blind's fold-to-any-raise read against its answers (bb_read)")
+    oa_bb_only: bool = _dial(False, "with oa_read: only the big blind takes the open-answer read; the others keep their "
+                                    "fold-to-any-raise read")
