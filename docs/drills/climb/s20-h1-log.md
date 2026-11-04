@@ -61,3 +61,9 @@ realization fit by SPR, where F loses heads-up at strong tables by line. No scre
   strong builds limp (F's big blind faced a limp 73 times in 26,328 heads-up hands), so the limped pot's realization,
   on which that limp-heavy button rests, cannot be measured from our own play; the re-solve should either drop the
   button's limp below ~25 bb or price it from the big blind's side of limped pots, and say which.
+- 09:41 **Replicated at elite_b + mirror_b** (seeds 14000-14299): F's button at 10-20 bb -0.316 ± 0.096 (6,187
+  hands; elite1 -0.062 ± 0.108, elite2 +0.085 ± 0.103), F's big blind at 10-20 bb +0.220 ± 0.095 (elite1 +0.496 ±
+  0.105, elite2 +0.384 ± 0.111, elite4 +0.217 ± 0.121); at 20-40 bb F's button +0.233 (elite1 +0.305) and big blind
+  -0.115 (elite1 +0.124, elite4 -0.109); under 10 bb F's button +0.169 (elite1 +0.334). Across the four strong rooms F
+  gives up about 0.3 bb a hand on the button and 0.2-0.25 in the big blind at 10-20 bb to the best builds, about 13,000
+  hands of each role per 600 tables-seeds x 8.
