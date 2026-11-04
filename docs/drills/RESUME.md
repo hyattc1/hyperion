@@ -17,14 +17,14 @@ frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BA
 
 ## Queued or running, detached (each against batch 6, --runout-term)
 - Batch 7's combined check (V-i + c6 + S7 + S15e) on H31, then judges 60000-60399, then timing: goal/b29/run.sh,
-  outputs goal/b29/b7_h31.md, judges.md, lat_*.txt; RUN_DONE. Then freeze (SHIP_DIALS + BATCH7_OFF, tests, pack, gate).
+  outputs goal/b29/b7_h31.md, judges.md, lat_*.txt; RUN_DONE. Then merge climb/batch7 (6fddb13, staged: SHIP_DIALS + BATCH7_OFF, identity 14/14, tests fixed),
+  pack, gate, freeze, docs.
 - C3h on H28 (running since 01:59): goal/b26/chain4.sh, output goal/b26/c3h_h28.md, CHAIN4_DONE.
 
 ## Workers running (branches in worktrees under /tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal; each commits as it goes)
 - S13c done (S7 merged off), S15d done (S15e merged off).
 - S20 done (climb/s20-three, d046fef, not merged; log docs/drills/climb/s20-log.md on its branch): R5 on H30.
-- S21 (climb/s21-o3s, goal/wt_s21): O3 behind the strong-table read (O3 was up on all five strong cells on H24 and
-  down in the realistic room); survey on 11200-11399, screen 10000-10199 --aim strong.
+- S21 done: rejected on its screen (O3 parked; goal-log, S21 entry).
 - Drill 11 done (docs/drills/prompt-drill-11.md); H7 and V-j merged. Future organiser briefs exclude tranche_holdem.
 - start-vs-now done (the leaderboard's "Since the start" table).
 

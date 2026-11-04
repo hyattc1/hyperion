@@ -1395,3 +1395,21 @@ and (in judges) `elite_judge`.
   batch 6 on H31 (51000-51399), every stage, --aim exploit, runout term, from goal/wt_measure10 at 49f3dc2; then the
   judges on 60000-60399 and timing (plain, bonus_card, auction, tranche_holdem) in the same script (goal/b29/run.sh,
   RUN_DONE). C3h, S21 and S20's R6 join batch 8 if they pass, rather than hold batch 7 back.
+
+## 02:25: S21 rejected on its screen (O3 behind the strong read); batch 7's freeze staged
+- S21 (climb/s21-o3s, dcf376c; log docs/drills/climb/s21-log.md on the branch): composite dial `oa_strong` (off) opens
+  O3's open-answer read only while strong_table() is. Survey (11200-11399): the read is open at 8% of O3's decisions in
+  the realistic room, 11% on fast_schedule, 25-32% at the strong tables (closed at about 70% there: deep and early in
+  a table, before the read passes 0.2). G (O3 + gate) and G1 (G + the big blind's starting fold 0.799, the realistic
+  survey's rate, fixed before the screen) on 10000-10199: both REJECT on realistic (G -0.020 ± 0.017, G1 -0.011 ±
+  0.010 DOWN); G1 mirror +0.035 and mirror_b +0.030 UP, elite level. W-min lower bound -0.0068. Identity 14 of 14.
+- Read: O3 is in effect a big-blind read (its cap binds on 70-93% of big-blind answers). Realistic big blinds fold
+  0.79-0.80 whether the strong read is open or not, so any read that only lowers the estimate loses wherever it opens
+  there; the evidence that separates the rooms is the big blinds' own answers, about 10 per table to F's opens.
+  O3 parked. If resumed: a big-blind read that also counts answers to other seats' opens (42-74 a table).
+- Batch 7's freeze staged on climb/batch7 (6fddb13, not merged): SHIP_DIALS + the 24 dials, BATCH7_OFF;
+  SHIP_DIALS + BATCH7_OFF plays batch 6 exactly (idchk33: 14 of 14). The suite found two fixes, both in the branch:
+  the night's `cheap` dial built the short-handed specialist (cheap means no other member; it now drops short_route
+  too), and the specialist's new_table kept the last table's hand stacks and, on a table paying fewer than three
+  places, its payout ratio (no measured cell changes: refilled at the first observation; same ratio on every table
+  we measure). Tests written against batch 6 start from BATCH7_OFF. It merges when H31 and the judges pass.
