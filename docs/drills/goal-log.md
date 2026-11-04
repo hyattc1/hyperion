@@ -1551,3 +1551,14 @@ and (in judges) `elite_judge`.
 - docs/drills/still-to-try.md drafted (an end deliverable; ranked; kept current as ideas are tried).
 - After the owner's hardware change, first: batch 8 (+ O5 if H33 accepts) combined on H34; then new opponents, per
   goal.md's "a new outside bot every few rounds": exploiter 4 (built against batch 7's F) and a fresh outside build.
+
+## 09:06: before the hardware pause (about 11:30): four short jobs
+- Exploiter 4 (goal/exploiter4; fresh red-team agent, black box against batch 7 pinned at 038c3f0 in
+  goal/wt_target7; exploiter 3's arena, no access to exploiters 1-3's findings): it keeps NOTEBOOK.md and continues
+  after the restart.
+- o8 (goal/outside3/o8; fresh agent, no repo access, the elite brief, direction "reads first": model each seat live
+  and exploit early with priors): a new outside build, held out as a judge once wired in (an addendum fixes that
+  before it measures anything).
+- O5's big-blind read and the seats' answers to every open as non-leaking switches for a tighter open range at strong
+  tables: offline, points-valued, O7's data (S21's worker).
+- The six window recipes (prompt 06) re-measured on batch 7's F, night field, 200 seeds each (goal/b33/run.sh).
