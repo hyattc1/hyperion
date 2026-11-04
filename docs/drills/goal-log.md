@@ -1415,3 +1415,20 @@ and (in judges) `elite_judge`.
   we measure). Tests written against batch 6 start from BATCH7_OFF. It merges when H31 and the judges pass.
 - S21's worker on O5 (climb/s21-o5): the big blind's fold read from its answers to everyone's opens (about 42-74 a
   table against 10 to F's), estimator chosen offline by Brier score before any screen; diagnostics 12000-12999.
+
+## 02:58: S20's R6 passes its screen; R6 on H32
+- Diagnosis (11400-11999): the tables play 1.2% of our three-handed preflop decisions in the realistic room (all four
+  gates open at 1.8%), 5-11% in night/night_hard/top, 15-29% at the strong tables. Paired raw realistic here +0.0006 ±
+  0.0025 (the H30 loss does not reproduce; pooled with the screen and H30 about -0.001 a seed). Booking each diverging
+  table to its first decision that differs from F's: the button gains in every room (realistic +5.89 over 42, elite
+  +9.22, mirror +14.34, elite_b +20.46, mirror_b +16.48); the small blind loses at realistic (-1.97 over 46: folding
+  or limping where F raises first in) and mirror_b (-4.93). No opponent read separated the rooms (table read, per-seat
+  re-raises, the seats' 3-bet read, the big blind's fold to raises); the same opponent flips sign between rooms.
+- R6, fixed before the screen: the tables play the button only (short.three2_roles "btn"), F both blinds; written in
+  batch 7's scoped dials (climb/s20-r6, 2cac7e3, on climb/b7-scope; no code change). Screen (10000-10199, every
+  stage, --aim strong): ACCEPT. elite +0.013, mirror +0.014, elite_b +0.020, mirror_b +0.026, night +0.007 UP;
+  realistic -0.002 ± 0.003 level (unchanged from R5 on these seeds: the screen does not show the H30 cell fixed);
+  every exploit, adapt, variant and aware cell level or identical. W +0.0030 ± 0.0022 (lower bound +0.0009), W-min
+  lower bound -0.0006. Identity 14 of 14; suite as before (load flakes pass alone).
+- R6 on H32 (52000-52399) against batch 6, --aim strong, every stage, runout term (goal/b30/run.sh, worktree
+  goal/wt_measure11 at 2cac7e3, output goal/b30/r6_h32.md, RUN_DONE). The cell to watch is realistic.
