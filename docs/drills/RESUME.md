@@ -1,8 +1,10 @@
 # Resume here (the climb, if the session or usage stops)
 
-Updated 2026-11-03 23:10 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
-through 13, then "The climb: batch 6"). Main is pushed after every merge. F as it ships is batch 6 (91014ae,
-frozen/B6-91014ae, kit B zip a66eb4b3; SHIP_DIALS in hyperion/compose/bot.py; BATCH6_OFF plays batch 5).
+Updated 2026-11-04 08:45 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
+through 13, then "The climb: batch 6" and "The climb: batch 7"). Main is pushed after every merge. F as it ships is batch 7 (038c3f0,
+frozen/B7-038c3f0, kit B zip 51c37f02; SHIP_DIALS in hyperion/compose/bot.py; BATCH7_OFF plays batch 6). Its gate
+re-runs on a quiet box (timeouts at load 8-12); batch 6's zip (frozen/B6-91014ae, a66eb4b3) is known-good until it passes.
+Identity reference for worker branches: goal/idchk34/post (batch 7's F).
 
 ## Batch 6 (frozen 2026-11-03 13:37)
 - V-f (H15) + V-h (H18), twist tables only; H21 ACCEPT (exposed card +0.216, knockout bounty +0.111, bounty-aware

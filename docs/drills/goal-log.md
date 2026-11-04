@@ -1502,3 +1502,17 @@ and (in judges) `elite_judge`.
   tables/extra/short_3b.json, which the pack must carry). On batch 7's ship it needs S7's route kept:
   short_route "pre_hu=short,post_hu_bet=short,post_hu_chk=short,pre_3way=short" and short.like_max_alive 2 (S7 alone
   with that plays as S7: tests/test_b7_scope.py).
+
+## 08:26: batch 7 frozen (038c3f0); judges level; its gate waits for a quiet box
+- Judges on 60000-60399, batch 7 against batch 6: all 12 level (adapt_judge heads-up +0.035 ± 0.039; the eight
+  8-max judge cells identical: S7's gate never opened). ACCEPT. Timing (per-call minimum, load 12): plain act mean /
+  p99 55 / 103 -> 60 / 119 µs, a table's first decision 104 -> 134; the three twists within ±5 / ±15.
+- climb/batch7 merged (038c3f0). main + BATCH7_OFF plays batch 6: 14 of 14 (idchk34/off). Batch 7's own F is the
+  new identity reference (idchk34/post): worker branches compare against it from now on.
+- Frozen frozen/B7-038c3f0, kit B zip 51c37f02...9848bdc4 (1.1 MB; tables/short_hu*.json in; import 0.30 s). Gate,
+  40 tables strict each: 0 exceptions, 0 illegal on plain, auction, bonus_card, tranche_holdem; timeouts 0.57-1.14%
+  on the package and the sim copy alike (sim plain 1.27%), load 8-12 with O5 and O7 running: tranche under the load
+  clause, the other three just outside it. Re-run the gate on a quiet box after the owner's hardware change; batch 6's
+  zip stays known-good until then. Decisions entry "The climb: batch 7", leaderboard row and headline, HANDOFF.
+- Batch 8: C3h (H28) + R6 (H32), and O5 (H33) if it passes. Its combined check and judges (60400-60799) run after
+  the hardware change, on the new box.
