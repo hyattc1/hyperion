@@ -346,3 +346,7 @@ fit; realistic alone -0.156 ± 0.188 on the fit seeds, so a leak is not excluded
   **14 of 14 chunks identical** to goal/idchk34/post (batch 7's F). SHIP_DIALS are batch 7's, unchanged here.
 - Candidate (docs/drills/climb/s21-o8-candidate.json): O5's dials + `r3.veto_read`, `r3.veto_t` 0.8,
   `r3.veto_prior` 0.8, `r3.veto_prior_n` 10, `r3.open_veto`.
+- 09:58 How often the veto acts (offline, O7's check seeds, rival 3's clause opens at the base's first-in
+  decisions): realistic 4.6% of its opens (2.2% of decisions), night 4.2%, night_hard 3.7%, top 7.4%, elite 10.6%,
+  elite_night 8.8%, mirror 16.0%, elite_b 12.6%, mirror_b 14.9% (4.4% of decisions). Two to four times as often at
+  strong tables as in the ordinary room.
