@@ -1703,3 +1703,15 @@ and (in judges) `elite_judge`.
 - Held-out on top of batch 8: climb/b8-s22 (batch 8 + main + S22, clean; 59 tests passed), goal/b36/run.sh: identity
   (idchk37 against idchk34), then batch 8 + S22 against batch 8 on H36 (56000-56399), every stage, --aim exploit,
   runout term. H36 used; next fresh H37. O8's identity on climb/b8-o8 passed (idchk36: identical); its H35 run is on.
+
+## 15:10: batch 8 accepted on H34; its judges running; freeze being staged
+- Batch 8 (C3h + R6 scoped + O5, 21 dials; climb/batch8 ac1f18c) against batch 7 on H34 (54000-54399), every stage,
+  --aim strong, runout term (exploiters 1-3 and adapt1: started before addendum 15): **ACCEPT**. UP: elite +0.077 ±
+  0.037, mirror +0.090 ± 0.039, elite_b +0.084 ± 0.037, mirror_b +0.058 ± 0.040, night_hard +0.039 ± 0.036, exploit_hu
+  +0.059, exploit2 +0.067, exploit2_hu +0.052, exploit2_3 +0.190, exploit3 +0.075, exploit3_hu +0.086, adapt_hu +0.150,
+  adapt_3 +0.121. Level: night +0.021 ± 0.034, realistic +0.016 ± 0.026, top +0.013, the payout guards, elite_night,
+  every variant and aware cell. Nothing down. W +0.0179 ± 0.0101 (lower bound +0.0078); W-min +0.0127 ± 0.0130
+  (lower bound -0.0003); cap holds. 176 minutes.
+- Judges (13 cells, 60400-60799) running (goal/b34/judges.md), then timing. Freeze staging by a worker on
+  climb/batch8-freeze (goal/wt_b8f: SHIP_DIALS + BATCH8_OFF, identity both ways, suite, setup time); pack, gate,
+  merge and docs after the judges.
