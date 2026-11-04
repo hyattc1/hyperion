@@ -239,3 +239,23 @@ def test_the_per_seat_reraise_gate():
     assert m.wants(first, P([0, 2, 1]))  # both opponents have re-raised us
     assert not m.wants(first, P([0, 2, 0]))  # the big blind never has: F plays
     assert not m.wants(first, None)  # no read: F plays
+
+
+@has_table
+def test_the_button_only_route_plays_no_blind(monkeypatch):
+    """R6 (`three2_roles` btn): the tables make only button decisions; F plays every small-blind and big-blind one."""
+    import json
+
+    spec = json.load(open(os.path.join(ROOT, "docs", "drills", "climb", "s20-r6-candidate.json")))["dials"]
+    roles = []
+    orig = SH.ShortMember.act
+
+    def act(self, obs):
+        got = self._three_node2(obs) if obs.street == 0 else None
+        if got is not None:
+            roles.append(got[3])
+        return orig(self, obs)
+
+    monkeypatch.setattr(SH.ShortMember, "act", act)
+    _, bot = _digest({**spec, "short_strong": False}, 1, THREE, R3)
+    assert bot.core.counts["short"] > 0 and roles and set(roles) == {0}
