@@ -313,3 +313,68 @@ the strong gate only if the offline numbers want one. Diagnostic seeds 12000-129
   61.6-62.6 for O5; the p99 at this load is the box's (F 4,074-4,102 µs, O5 429-4,180), not a measurement. O5 adds
   a per-hand scan at hand end and one fold read per big blind at the steal price.
 - No variant run (the screen passed). O5 is the candidate for a held-out set.
+
+# O6: the seats that are not a blind (branch climb/s21-o6 from 2de5070)
+
+Brief (coordinator, 06:00): O5's lead. F underreads how often the seats that are not a blind fold to its opens
+(0.08-0.11 on every field) and O3's uncapped read beat F's there on all nine fields. Offline first, by the same Brier
+method, for those seats and separately the small blind: F's read, O3 uncapped, and the O5 family (F's read as the
+prior + the seat's answers to all opens from that position); keep only one that beats F's read on every field on both
+seed sets, realistic included, or stop. Check how much F's open decisions depend on these seats' reads. Diagnostic
+seeds 12200-12999.
+
+- 06:00 Survey (goal/s21o6/o6_survey.py; F as shipped): every seat's answer to each hand's first-in raise by anyone
+  (its first action after the open until a re-raise; its position and the seats still to act behind it), and at F's
+  first-in raises every seat's answer with F's reads then. Fit 12200-12299, check 12600-12699, nine fields.
+- 06:40 **Who answers what** (fit seeds, fold to anyone's open): a seat that is not a blind folds 0.854-0.876
+  whatever the number of seats left behind it (2: 0.854, 3: 0.873, 4-5+: 0.875), and the same to F's opens as to
+  others' (0.86-0.88 against 0.85-0.88); the small blind 0.81 (F's 0.81, others' 0.80); the big blind 0.66. Unlike the
+  big blind, these seats fold about the same in every room (realistic 0.84 to F's opens, mirror 0.86), so F's
+  underread is one systematic error, not a room difference.
+- **Estimators** (Brier against the seats' answers to F's first-in raises, four or more alive; fit 12200-12299, check
+  12600-12699; "beats F" counts fields where the Brier is under F's read; columns: pooled, beats F, realistic,
+  night, elite, mirror_b with the mean bias; goal/s21o6/fit_all.md has every field and estimator):
+
+  | seats that are not a blind | fit pooled | beats F | realistic | night | elite | mirror_b | check pooled | beats F | realistic | elite |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | F's read (`_fold_prob`) | 0.1268 | - | 0.1414 (-0.088) | 0.1068 (-0.083) | 0.1286 (-0.118) | 0.1368 (-0.109) | 0.1282 | - | 0.1366 (-0.084) | 0.1270 (-0.112) |
+  | the layer's `fold_rate` | 0.1282 | 0/9 | 0.1416 (-0.092) | 0.1106 (-0.108) | 0.1287 (-0.122) | 0.1370 (-0.111) | 0.1297 | 1/9 | 0.1363 | 0.1282 |
+  | O3 capped | 0.1273 | 0/9 | 0.1418 (-0.092) | 0.1073 (-0.089) | 0.1290 (-0.121) | 0.1370 (-0.112) | 0.1286 | 0/9 | 0.1371 | 0.1274 |
+  | **O3 uncapped (`oa_fold`)** | **0.1129** | **9/9** | 0.1315 (+0.019) | 0.0986 (-0.003) | 0.1102 (-0.010) | 0.1208 (-0.002) | **0.1152** | **9/9** | 0.1277 (+0.017) | 0.1106 (-0.008) |
+  | F's read as prior + answers to all opens from this position, k 5 | 0.1217 | 9/9 | 0.1403 (-0.047) | 0.1029 (-0.035) | 0.1213 (-0.058) | 0.1316 (-0.059) | 0.1235 | 9/9 | 0.1353 | 0.1206 |
+  | ... k 10 | 0.1219 | 9/9 | 0.1395 (-0.058) | 0.1031 (-0.047) | 0.1219 (-0.072) | 0.1317 (-0.071) | 0.1236 | 9/9 | 0.1346 | 0.1210 |
+  | (for reference) pooled rate by seats behind + seat excess, all opens, k 20 | 0.1117 | 9/9 | 0.1309 (+0.014) | 0.0975 (-0.012) | 0.1088 (-0.009) | 0.1194 (-0.002) | 0.1139 | 9/9 | 0.1272 | 0.1091 |
+
+  | small blind | fit pooled | beats F | check pooled | beats F |
+  |---|---|---|---|---|
+  | F's read | 0.1501 | - | 0.1507 | - |
+  | O3 uncapped | 0.1483 | 7/9 (loses top, elite_night) | 0.1491 | 7/9 |
+  | F's read as prior + answers from this position, k 10 / 20 | 0.1510 / 0.1501 | 2/9 / 4/9 | 0.1518 / 0.1508 | 2/9 / 4/9 |
+  | pooled rate + seat excess, k 20 | 0.1473 | 8/9 (loses top) | 0.1481 | 9/9 |
+
+- **Choice, before any screen: the seats that are not a blind take O3's own read, uncapped**; the small blind stays
+  on F's read (no estimator beats F's at the small blind on every field on both seed sets). O3 uncapped and the O5
+  family both beat F's read on all nine fields on both sets; O3 uncapped by far (pooled 0.1129 / 0.1152 against
+  0.1217-0.1236; biases within ±0.02 on every field, the O5 family's -0.04 to -0.07). The reason is the opposite of the
+  big blind's: here F's read is wrong by the same 0.08-0.12 in every room, so a pooled prior near the seats' common
+  0.87 (O3's `oa_mu_other` 0.866, from S16b's survey) is right everywhere, while starting from F's read carries its
+  bias for many answers. The pooled-rate-plus-excess form on all opens is a hair better (0.1117 / 0.1139) but new
+  code; O3's estimator is already built and measured. No cap (the cap is what made O3 0/9 here). No gate.
+- **Do F's open decisions depend on these seats?** (goal/s21o6/o6_dep.py, 12800-12849 x 8; O5 plays; at each of its
+  preflop decisions first in with four or more alive over 10 bb, rival 3's core is asked again with the non-blind
+  seats on O3's uncapped read, and the layer's steal_fold condition is evaluated both ways; "bb" asks instead with
+  the big blind on F's read, i.e. what O5's own read moves):
+
+  | field | decisions | a non-blind seat behind (mean seats) | core flips, O6 read | (to raise / from) | layer flips | core flips, O5's big blind | layer flips |
+  |---|---|---|---|---|---|---|---|
+  | realistic | 19,568 | 0.72 (1.6) | 7.2% | 1,355 / 53 | 1.9% | 2.7% | 4.4% |
+  | night | 20,058 | 0.76 (1.8) | 8.6% | 1,695 / 29 | 3.2% | 3.6% | 4.6% |
+  | elite | 20,916 | 0.83 (2.3) | 6.8% | 1,399 / 17 | 1.0% | 3.4% | 2.9% |
+  | mirror_b | 20,634 | 0.86 (2.5) | 4.5% | 897 / 27 | 0.6% | 3.0% | 2.3% |
+
+  Yes, and more than the big blind's: rival 3's steal price multiplies every seat's fold read behind, these seats
+  are behind in 72-86% of F's first-in decisions, and lifting each of 1.6-2.5 reads by about 0.09 moves the product
+  past the steal clause's break-even (about 0.48 for a 2.5 bb open) at 4.5-8.6% of decisions, almost all toward
+  opening. The layer (steal_min_fold 0.7) rarely reaches its threshold with such seats behind. So O6 is a looser open
+  from early and middle position, on reads that are calibrated; whether rival 3's crude call-cost term (0.55 of the
+  raise lost when called) prices those extra opens right is what the screen tests.
