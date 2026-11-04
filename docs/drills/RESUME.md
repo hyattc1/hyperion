@@ -1,9 +1,9 @@
 # Resume here (the climb, if the session or usage stops)
 
-Updated 2026-11-04 08:45 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
+Updated 2026-11-04 11:40 ET. Everything decided is in docs/drills/goal-log.md (newest last) and docs/decisions.md (addenda
 through 13, then "The climb: batch 6" and "The climb: batch 7"). Main is pushed after every merge. F as it ships is batch 7 (038c3f0,
-frozen/B7-038c3f0, kit B zip 51c37f02; SHIP_DIALS in hyperion/compose/bot.py; BATCH7_OFF plays batch 6). Its gate
-re-runs on a quiet box (timeouts at load 8-12); batch 6's zip (frozen/B6-91014ae, a66eb4b3) is known-good until it passes.
+frozen/B7-038c3f0, kit B zip 51c37f02; SHIP_DIALS in hyperion/compose/bot.py; BATCH7_OFF plays batch 6). Gate pass
+(re-run at load 4): batch 7's zip is the known-good upload.
 Identity reference for worker branches: goal/idchk34/post (batch 7's F).
 
 ## Batch 6 (frozen 2026-11-03 13:37)
@@ -17,6 +17,30 @@ Identity reference for worker branches: goal/idchk34/post (batch 7's F).
 - S20's R5 (H30) REJECT on realistic -0.003 ± 0.002 (all five strong cells up); R6 (button only) ACCEPT on H32:
   joins batch 8 (merge climb/s20-r6, 2cac7e3; keep S7's route, goal-log R6 entry). If a later S20 version passes: climb/b7-scope (863f9f5) has the per-route scoping.
 - Batch 7 needs judges on fresh judge seeds 60000-60399 (addendum 12) only if a plain hold'em part joins it.
+
+## Paused 2026-11-04 ~11:40 ET for the owner's hardware change (CPU and RAM): restart here
+Nothing is lost: everything decided is committed and pushed; the scratchpad (goal/ = /tmp/claude-1000/...
+/scratchpad/goal, on the root disk, not a tmpfs) is also copied to /home/connor/dev/hyperion-goal-backup/goal
+(without the result caches accept_* and the git worktrees wt_*, which are rebuilt from branches).
+1. Check: `nproc`, `free -g` (WSL takes half the RAM unless C:\Users\Connor\.wslconfig sets memory=); `git -C
+   ~/dev/hyperion status`; `ls goal/` still there (else copy back from the backup and re-add worktrees).
+2. O8's screen (goal/s21o8/screen_O8.sh, output screen_O8.md, done-file screen_O8.done): if no done-file, re-run
+   it as is (its cached chunks in goal/s21o8/screen stand; check no chunk file there is empty or cut: a JSON that
+   fails to load is deleted first). Workers can rise with the new cores.
+3. Batch 8 on climb/batch8 (goal/wt_b8): merge climb/s21-o5 (2de5070), add O5's dials to
+   docs/drills/climb/batch8-candidate.json (C3h + R6 scoped + O5); combined check on H34 (54000-54399) against
+   batch 7, every stage, --aim strong, runout term; judges 60400-60799 (13 cells now, outside_c included); timing;
+   then SHIP_DIALS + BATCH8_OFF, identity, suite, pack, gate, freeze, docs (batch 7's entry is the template).
+   If O8 passes its screen, it goes to its own held-out set (H35) and joins batch 9, not batch 8.
+4. Workers to resume (agents, by their logs on their branches): H1 (climb/s20-h1: settle the S7 coexistence rule
+   and R6's exploiter-1 guards, full solve, screen); exploiter 4 to wire in as a tuning field (goal/exploiter4,
+   NOTEBOOK.md; as exploiter 3); S22 = exploiter 4's river over-fold (goal-log 10:47 entry).
+5. Re-time on the quiet new box (latency.py, gate) and keep the rehearsal on the final ship for the end.
+
+## Batch 8 (being composed)
+- climb/batch8 (worktree goal/wt_b8): main + climb/s20-r6; candidate docs/drills/climb/batch8-candidate.json (C3h + R6
+  scoped, S7's route kept). O5 ACCEPTED on H33: merge climb/s21-o5 (2de5070) into climb/batch8 and add its dials. Then: combined check on a fresh
+  held-out set (H34 = 54000-54399) against batch 7, every stage, --aim strong; judges 60400-60799; timing; freeze as batch 7.
 
 ## Queued or running, detached (each against batch 6, --runout-term)
 - Batch 7's combined check (V-i + c6 + S7 + S15e) on H31, then judges 60000-60399, then timing: goal/b29/run.sh,
@@ -38,7 +62,7 @@ Identity reference for worker branches: goal/idchk34/post (batch 7's F).
 
 ## Held-out sets used
 H1-H3 retired; H4-H21 used once each (H20 by the stopped four-part batch 6 run); H22-H24 used (C3, V-i, O3); H25 used (S7), H26 used (S15e), H27 for
-C3's bonus_card replicate (down: C3 rejected), H28 used (C3h), H29 used by V-j's c6, H30 used by S20's R5, H31 for batch 7's combined check, H32 used (R6), H33 for O5; next fresh H34 = 54000-54399
+C3's bonus_card replicate (down: C3 rejected), H28 used (C3h), H29 used by V-j's c6, H30 used by S20's R5, H31 for batch 7's combined check, H32 used (R6), H33 used (O5); next fresh H34 = 54000-54399
 (worker briefs say held-out is 20000-49999: widen it to 20000-59999 in the next brief). Judge seeds: 30000-30399 (batches 3-6), 30400-30799 (batch 6's replicate); next 60000-60399 (30800-31199 would overlap H11's 31000-31399), then 60400-60799 for a replicate.
 
 ## End deliverables (goal.md)

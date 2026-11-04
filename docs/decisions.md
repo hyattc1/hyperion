@@ -3463,3 +3463,25 @@ batch 6, then together, then the judges.
   (a66eb4b3) stays known-good.
 - Already accepted for batch 8: C3h (H28: exploiter 2 heads-up +0.225, three-handed +0.157, 8-max +0.041, adapt1
   heads-up +0.155) and S20's R6 (H32: elite +0.015, mirror +0.019, elite_b +0.018, mirror_b +0.019, realistic level).
+
+## The climb: batch 7's gate on a quieter box (2026-11-04 08:39, builder: the climb's coordinator)
+
+Re-run with only one held-out run beside it (load 3.6-3.8 on 8 cores), the same zip (sha256 51c37f02...9848bdc4),
+40 tables strict each: GATE PASS on plain (+0.145 ± 0.493 against the sim's composite), auction (-0.597 ± 0.702),
+bonus_card (+0.020 ± 0.494) and tranche_holdem (-0.241 ± 0.598); 0 exceptions, 0 illegal; timeouts 0.04-0.05% (1.1%
+at load 8-12 before). Batch 7's zip (frozen/B7-038c3f0) is the known-good upload from now on.
+
+## The climb: addendum 14 (a third outside judge: reads first) (2026-11-04, builder: the climb's coordinator)
+
+goal.md asks for a new outside bot every few rounds, so the climb never fits a fixed set of opponents. A fresh agent
+with no repo access built o8 in about 80 minutes from the elite brief and kit, told to play the way strong prepared
+teams do: a sound ICM-priced baseline, then live per-seat reads (VPIP, PFR, opens, 3-bets, fold to steals and to
+3-bets, all-in calls, bets when checked to, fold to bets by street, showdowns) with priors worth 4-6 hands, and a
+time-boxed postflop simulation weighting each opponent's range by his own action frequencies. Frozen at md5
+e51fb4390f9ed57c44c003a474151afc (outside3/o8/rival_bot.py, 72,764 bytes).
+
+Fixed before it is measured: o8 is held out as `out_reads`, never tuned on, never in a night pool. It forms the judge
+field `outside_c` (hero, out_reads, the three second-wave outside judges, elite 5, rival 4 and one night seat),
+measured once per batch in the judges stage from batch 8's judge run on. In model mode it plays at a fixed speed
+(its sampler's clock advances 15 µs per read, the median measured on this box at load 8: about 13 reads in its 200 µs
+budget) and its module-level generator is seeded from the seat seed at every table, so runs replay exactly.

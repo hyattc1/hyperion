@@ -111,7 +111,8 @@ JUDGES = [("judge", "lin", None), ("judge2", "lin", None), ("judge2_night", "lin
           ("outside", "lin", None), ("outside_strong", "lin", None), ("elite_judge", "lin", None),
           ("elite_judge_b", "lin", None),  # elite5 held out (second wave, 2026-11-02)
           ("adapt_judge", "brief", None), ("adapt_judge_hu", "lin", "hu"), ("adapt_judge_3", "lin", "three"),  # adapt2
-          ("outside_b", "lin", None)]  # the outside judges' second wave (addendum 10)
+          ("outside_b", "lin", None),  # the outside judges' second wave (addendum 10)
+          ("outside_c", "lin", None)]  # the third wave (addendum 14): out_reads
 ELITE = [("elite", "lin", None), ("elite_night", "lin", None), ("mirror", "lin", None),
          ("elite_b", "lin", None), ("mirror_b", "lin", None)]  # elite4 joined 2026-11-02 (second wave)
 EXPLOIT = [("exploit", "brief", None), ("exploit_hu", "lin", "hu"), ("exploit_3", "lin", "three"),
