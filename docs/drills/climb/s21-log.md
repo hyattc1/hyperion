@@ -129,3 +129,51 @@ Survey first (diagnostic seeds 11200-11399), then a screen (10000-10199, `--aim 
 - 00:44 G1's exploit and aware stages (corrected): exploit -0.034 ± 0.072, exploit2 +0.011 ± 0.041, exploit3 +0.016 ±
   0.043 level; every heads-up and three-handed exploit cell and every aware cell identical (0 ± 0). Variants
   running.
+- 02:20 **G1's full screen: REJECT** (goal/s21/screen_G1.md, code 22d411f4b2, 151.8 min; corrected deltas, 200
+  seeds; 0 timeouts and 0 errors in every cell for both; the p99 column reads 400-4,100 µs for base and candidate
+  alike, the box at load 9-10):
+
+  | stage | cell | cand - base | |
+  |---|---|---|---|
+  | confirm | night | -0.001 ± 0.020 | level |
+  | guards | night_hard | +0.045 ± 0.030 | UP |
+  | | realistic | -0.011 ± 0.010 | **DOWN** (raw -0.007 ± 0.015) |
+  | | top | +0.007 ± 0.023 | level |
+  | | night @10/7/5/4/3/2/1/0 | -0.018 ± 0.035 | level |
+  | | night @50/25/12/6/3/2/1/1 | -0.062 ± 0.230 | level |
+  | | night +double | +0.001 ± 0.014 | level |
+  | elite | elite | +0.003 ± 0.025 | level |
+  | | elite_night | +0.006 ± 0.022 | level |
+  | | mirror | +0.035 ± 0.032 | UP |
+  | | elite_b | +0.008 ± 0.030 | level |
+  | | mirror_b | +0.030 ± 0.029 | UP |
+  | exploit | exploit / exploit2 / exploit3 / adapt (8-max) | -0.034 ± 0.072 / +0.011 ± 0.041 / +0.016 ± 0.043 / -0.024 ± 0.044 | level |
+  | | the eight heads-up and three-handed cells | 0 ± 0 | identical |
+  | variants | top_heavy | -0.122 ± 0.139 | level |
+  | | antes_from_level_3 / fast_schedule | -0.000 ± 0.011 / -0.003 ± 0.010 | level |
+  | | the other 24 | 0 ± 0 | identical |
+  | aware | all 5 | 0 ± 0 | identical |
+
+  Weighted: W +0.0024 ± 0.0062 (lower bound -0.0038); W-min +0.0019 ± 0.0087 (lower bound -0.0068); cap holds.
+  Against O3 on H24 (other seeds): realistic -0.044 -> -0.011, fast_schedule -0.053 -> -0.003, strong cells
+  +0.06-0.09 -> +0.00-0.04. One oddity: exploit's raw delta is -0.122 ± 0.093 DOWN with a paired runout term of
+  -0.088 ± 0.055 (the corrected delta level); a paired term beyond noise in one cell of about 60.
+- **G's partial screen** (confirm, guards, elite done; stopped at 23:45; goal/s21/screen, key de8023b98718): night
+  +0.011 ± 0.028; night_hard +0.039 ± 0.033 UP, **realistic -0.020 ± 0.017 DOWN**, top +0.018 ± 0.027, night
+  10/7/5/... -0.006 ± 0.051, 50/25/... -0.036 ± 0.306, +double +0.010 ± 0.021; elite -0.002 ± 0.031, elite_night
+  +0.006 ± 0.025, mirror +0.037 ± 0.038, elite_b +0.025 ± 0.039, mirror_b +0.053 ± 0.034 UP; the five aware cells
+  identical. REJECT at the guards.
+
+## Summary
+
+The composite dial `oa_strong` (off by default; F identical, 14 of 14 chunks) puts O3's open-answer read behind
+`strong_table()`. The read is open at 8% of O3's decisions in the realistic room and 25-32% at strong tables, so the
+gate separates the rooms by a factor of 3-4 but keeps only a third of O3's reach where it pays. G (O3 + the gate):
+realistic -0.020 DOWN, mirror_b +0.053 UP. G1 (+ the ordinary room's big-blind prior 0.799): realistic -0.011 ± 0.010
+DOWN, mirror and mirror_b UP, everything else level or identical; rejected by a hair. Why it does not go away: O3 is
+a big-blind read (the cap binds there and almost nowhere else), realistic's big blinds fold 0.79-0.80 to our opens
+whether the table reads strong or not, and F's read (0.77) is already under that, so a read that can only lower it
+loses wherever it opens in that room. The strong read measures re-raises, not big-blind folds. The evidence that
+separates the rooms is the big blinds' own answers, and a table gives about ten of them to our opens (42-74 to
+anyone's). Next, if O3 is pursued: a big-blind read that also counts answers to other seats' opens, or a gate on
+the table's own big-blind answers; not another threshold on the re-raise read.
