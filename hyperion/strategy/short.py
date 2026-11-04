@@ -170,6 +170,13 @@ class ShortParams:
         # gate (elite builds, F's own copies, a tight Hero) are 8-max seats at 0.28-0.44; exploiter 2 at 0.5-0.8
         self.like_vpip_min = 0.0
         self.like_vpip_max = 0.0
+        # ... the like gates above only while at most this many players have chips (0 = at any count): batch 7 keeps
+        # S7's gates on its heads-up routes and off S20's three-handed one, as each was accepted
+        self.like_max_alive = 0
+        # three-handed decisions (three players with chips) use these in place of `defer` and `defer_3bet` (None = the
+        # same): batch 7 keeps S20's on its three-handed route and the defaults on S7's heads-up ones
+        self.defer_three = None
+        self.defer_3bet_three = None
         # a deviation on a clear read: as the big blind facing an open from a seat that opens at least this share of
         # its small blinds (F's profiler, open_rate late, smoothed toward 0.5 with 6), the nodes after the open come
         # from the counter solved against a small blind locked to open the top w of hands (tables/short_hu_lock.json,
@@ -218,6 +225,8 @@ class ShortMember:
         self.p = params or ShortParams()
         self.seed = 0 if seed is None else int(seed)
         self.defer = frozenset(x.strip() for x in str(self.p.defer).split(",") if x.strip())
+        dt = self.p.defer_three
+        self.defer_three = None if dt is None else frozenset(x.strip() for x in str(dt).split(",") if x.strip())
         self._roles = frozenset(x.strip() for x in str(self.p.pre_roles).split(",") if x.strip())
         self._roles3 = frozenset({"btn": 0, "sb": 1, "bb": 2}[x.strip()] for x in str(self.p.three2_roles).split(",")
                                  if x.strip())
@@ -293,8 +302,10 @@ class ShortMember:
         self._prof = prof
         stacks, bets, in_hand = obs.stacks, obs.bets, obs.in_hand
         alive = [j for j in range(len(stacks)) if stacks[j] + bets[j] > 0 or in_hand[j]]
+        three = len(alive) == 3
         if prof is not None and (self.p.like_probe > 0 or self.p.like_bet > 0 or self.p.like_pfr > 0
-                                 or self.p.like_vpip_min > 0 or self.p.like_vpip_max > 0):
+                                 or self.p.like_vpip_min > 0 or self.p.like_vpip_max > 0) and (
+                self.p.like_max_alive <= 0 or len(alive) <= self.p.like_max_alive):
             p = self.p
             for j in alive:
                 if j == obs.seat:
@@ -310,19 +321,21 @@ class ShortMember:
                     return False
                 if vpip < p.like_vpip_min or (p.like_vpip_max > 0 and vpip > p.like_vpip_max):
                     return False
-        if obs.street == 0 and base is not None and self.p.defer_3bet < 1.0:
+        d3 = self.p.defer_3bet_three if three and self.p.defer_3bet_three is not None else self.p.defer_3bet
+        if obs.street == 0 and base is not None and d3 < 1.0:
             core = getattr(base, "core", None)
             v3o, v3n = getattr(core, "v3o", None), getattr(core, "v3n", None)
             if v3o is not None:
                 for j in alive:
                     if j != obs.seat and j < len(v3o):
-                        if (v3n[j] + 0.96) / (v3o[j] + 8.0) >= self.p.defer_3bet:
+                        if (v3n[j] + 0.96) / (v3o[j] + 8.0) >= d3:
                             return False
-        if prof is not None and self.defer:
+        dset = self.defer_three if three and self.defer_three is not None else self.defer
+        if prof is not None and dset:
             for j in alive:
                 if j != obs.seat:
                     try:
-                        if prof.archetype(j) in self.defer:
+                        if prof.archetype(j) in dset:
                             return False
                     except Exception:  # noqa: BLE001
                         return False
