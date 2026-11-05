@@ -27,3 +27,18 @@ With no shadow Hero's profiler is fed only when Hero itself is chosen, so on a h
 
 `bare_reads`, a composite dial, off. At a level with no shadows where Hero is not every section's donor (levels 1 and 2 of `bare,lean,hero`), `CompositeCore.act` appends the observation to `Profiler.pend_obs`, one list append. The profiler feeds them at Hero's next decision or at the hand's end, before anything else there.
 The reads then equal level 0's on every counter at every hand end, one hand later inside a hand. A first version kept only the hand's first observation (cheaper by about 4 us a hand end at 1x, in process) but its shove counts ran 8% off level 0's: closer to the truth, but not what anything was tuned on. Not kept.
+
+Ghost check with the dial on (forced `bare`, the same 40 tables, F and the candidate): **every counter equal, on elite and exploit2_hu**. Where a gate's answer still differs it is the read arriving at the hand's end rather than inside it: 10 of 6,800 decisions on exploit2_hu. tests/test_g2_bare_reads.py holds this per hand end, also through levels 0-3 changed at random at each decision.
+
+## Identity (a detached goal/wt_g2ref at 6db96fe as the reference; goal/g2/idc, goal/g2/runs)
+
+| check | what | result |
+|---|---|---|
+| climb_accept confirm,guards, 10000:10040, F | reference against this branch, dial off | 14 of 14 chunks equal (samples, tmo, errors, calls) |
+| same, candidate dials | reference against this branch, dial off | 14 of 14 |
+| same, F | reference against this branch, **dial on** | 14 of 14 |
+| same, candidate dials | reference against this branch, **dial on** | 14 of 14 |
+| kit_compare --det, kit B, F, dial on against the reference's zip | realistic 80 tables; elite 40 (21000..); exploit2_hu 40 (21000..) | 80 of 80, 40 of 40, 40 of 40; 13,469, 6,381, 4,617 decisions, reply for reply |
+| same, candidate dials | | 80 of 80, 40 of 40, 40 of 40; 13,212, 6,273, 4,630 |
+
+By level, dial on against off, night, 10000:10040: level 3 `hero` **2 of 2 chunks equal**, level 1 and level 2 **differ** (+0.078 ± 0.109, the same at each; level 2 equal to level 1 chunk for chunk, under 8..1, on and off). So it moves decisions at levels 1 and 2 only. tests/test_g2_bare_reads.py also holds level 0 and level 3 on two 8-max tables.
