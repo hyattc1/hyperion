@@ -362,3 +362,8 @@ is the hand's chips / total chips x (1st - 2nd): heads-up ICM is linear, so here
   itself (test_h1_plays_plain_holdem_only). top_heavy (12 of 200) and fast_schedule (15 of 200) stay on, as they are hold'em by the same
   test: heads-up the chips are the points whatever the payouts, and a schedule only moves the depth. Both level (-0.026 ± 0.034, +0.001 ±
   0.002). Every other twist cell was identical already. Re-run of the affected cells and a sample of the rest, `goal/s20/h1d/fix.sh`.
+- 01:23 **After the fix** (93d0f2b; `goal/s20/h1cmp.py`, `goal/s20/h1d/H1_fix_twists.md`, `H1_fix_plain.md`; the first of those prints REJECT only because it
+  has no strong cell in it): bounty, knockout_bounty, bonus_card, auction and bounty_aware now equal batch 8 on all 200 seeds; top_heavy and
+  fast_schedule unchanged. Every chunk re-run (confirm, guards, elite, exploit on 10000-10024; those twist cells on 200 seeds), compared seed by seed with
+  the screen's caches: base 83 of 83 same; cand 69 of 83 same, and the 14 that differ are those five twist cells only. So the screen's table stands with those
+  five cells at exactly zero.
