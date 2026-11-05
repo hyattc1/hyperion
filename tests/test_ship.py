@@ -71,7 +71,9 @@ def test_ship_names_one_bot_and_make_bot_builds_it():
     cfg = bot.core.members[0].cfg  # its base: rival 3's core at its defaults (plus the 3-bet defence SHIP_DIALS turn
     # on since the climb's batch 4, and batch 5's blind-vs-blind read, hold'em tables only), the layer in front
     assert cfg.core == "rival3" and cfg.exploit is None
-    assert cfg.r3 == Rival3Knobs(v3_defend=True, v3_bvb_prior=0.15, v3_bvb_holdem_only=True)
+    # ... and batch 8's O5 (the big blind's fold read, four or more alive)
+    assert cfg.r3 == Rival3Knobs(v3_defend=True, v3_bvb_prior=0.15, v3_bvb_holdem_only=True, oa_read=True, bb_read=True,
+                                 bb_k=10.0, oa_bb_only=True, oa_min_alive=4)
     assert bot.core.ex is not None
     bot = ship.make_bot("hybrid3_x")
     assert isinstance(bot, Hybrid)

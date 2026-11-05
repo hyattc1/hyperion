@@ -579,6 +579,7 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 - Keep dials in the switch / print it: `python -m hyperion.ship --set survival+passive   |   python -m hyperion.ship`
 - Hero instead (the base until 2026-11-01): `python -m hyperion.sim --tables 300 --seed 11 --mode strict --field realistic   (and --bot hero on pack, gate, latency)`
 - Pack the upload (records the bot; --bot cheap at Stage 2): `python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py submission/rules_tonight.json`
+- Check the zip plays as the source does, decision for decision (the freeze; about 5 minutes at 3 workers): `python tools/zip_parity.py dist/submission.zip`
 - Gate the zip against the same bot in-sim: `python tools/gate.py dist/submission.zip --kit a|b|c|d --tables 100 --rules rules_tonight.json`
 - Decision latency of the ship bot: `python tools/latency.py --n 2000 --rules rules_tonight.json`
 - Regenerate every table for a variant: `python tools/gen_tables.py --rules rules_tonight.json --out tables/`

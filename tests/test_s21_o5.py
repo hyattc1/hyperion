@@ -4,6 +4,7 @@ by any seat this table, with its fold-to-any-raise read as the prior (r3.bb_read
 from dataclasses import replace
 
 from hyperion import ship
+from hyperion.compose.bot import BATCH8_OFF
 from hyperion.core.types import Action, ActionKind, Observation, Rules
 from hyperion.core.types import parse_cards as parse
 from hyperion.hybrid.core3 import Rival3Core, bb_scan
@@ -74,7 +75,12 @@ def test_twist_and_straddle_tables_play_as_f():
         assert _digest(O5, 0, rules=rules)[0] == _digest({}, 0, rules=rules)[0]
 
 
-def test_ship_dials_leave_o5_off():
-    bot = ship.make_bot("composite", {})
+def test_batch8_off_leaves_o5_off_and_the_ship_dials_turn_it_on():
+    bot = ship.make_bot("composite", BATCH8_OFF)
+    bot.new_table(Rules(), 0, 8)  # the base builds its core's knobs at a table start
     k = bot.core.base.core.k
     assert not k.bb_read and not k.oa_bb_only and not bot.core.ex.p.open_bb_only
+    bot = ship.make_bot("composite", {})
+    bot.new_table(Rules(), 0, 8)
+    k = bot.core.base.core.k
+    assert k.bb_read and k.oa_bb_only and k.oa_min_alive == 4 and bot.core.ex.p.open_bb_only

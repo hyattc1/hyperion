@@ -4,6 +4,7 @@ bet_frac; off (the default) it plays as before."""
 from types import SimpleNamespace
 
 from hyperion import ship
+from hyperion.compose.bot import BATCH8_OFF
 from hyperion.core.types import Action, ActionKind, Rules
 from hyperion.strategy.exploit import POST_MW, Exploit, ExploitParams
 
@@ -13,6 +14,7 @@ from .test_strategy_exploit_layer import _flop_checked_to
 K, RAISE = Action.check(), ActionKind.RAISE
 HU = ["hero", "exploiter2"]
 R2 = Rules(n_players=2, payouts=(10, 7))
+OFF = BATCH8_OFF  # batch 7's F: batch 8 ships C3h (the dial, three or fewer alive, plain hold'em)
 
 
 def _stab(ex: Exploit) -> Action:
@@ -47,17 +49,17 @@ def test_without_one_size_or_with_the_dial_off_the_stab_keeps_bet_frac():
 
 
 def test_the_composite_reads_its_postflop_members_size_per_table():
-    bot = ship.make_bot("composite", {"exploit.stab_size": True})
+    bot = ship.make_bot("composite", {**OFF, "exploit.stab_size": True})
     bot.new_table(Rules(), 0, 8)
     assert bot.core.ex.p.stab_size and bot.core.ex.stab_frac == 0.5  # hold'em: Hero bets one size (batch 5)
     bot.new_table(Rules(extras={"variant": "bounty", "bounty_ratio": 1.5}), 0, 8)
     assert bot.core.ex.stab_frac is None  # a twist table: Hero's one size is hold'em only, so the stab keeps 0.33
     bot.new_table(Rules(), 0, 8)
     assert bot.core.ex.stab_frac == 0.5
-    off = ship.make_bot("composite", {})
+    off = ship.make_bot("composite", OFF)
     off.new_table(Rules(), 0, 8)
     assert not off.core.ex.p.stab_size and off.core.ex.stab_frac is None
-    no_bal = ship.make_bot("composite", {"exploit.stab_size": True, "hero.postflop.balance_sizes": False})
+    no_bal = ship.make_bot("composite", {**OFF, "exploit.stab_size": True, "hero.postflop.balance_sizes": False})
     no_bal.new_table(Rules(), 0, 8)
     assert no_bal.core.ex.stab_frac is None
 
@@ -71,8 +73,8 @@ def test_hero_with_its_own_layer_takes_its_size_too():
 
 
 def test_the_dial_reaches_the_decisions_heads_up_against_exploiter2():
-    on = {"exploit.stab_size": True}
-    assert any(_digest(on, t, HU, R2)[0] != _digest({}, t, HU, R2)[0] for t in range(6))
+    on = {**OFF, "exploit.stab_size": True}
+    assert any(_digest(on, t, HU, R2)[0] != _digest(OFF, t, HU, R2)[0] for t in range(6))
     assert _digest(on, 1, HU, R2)[0] == _digest(on, 1, HU, R2)[0]  # and replays exactly
 
 
@@ -99,7 +101,7 @@ def test_the_hold_em_gate_keeps_bet_frac_on_every_twist_table():
     the one size on plain hold'em only."""
     from hyperion.drills import variants as V
 
-    on = {"exploit.stab_size": True, "exploit.stab_alive": 3}
+    on = {**OFF, "exploit.stab_size": True, "exploit.stab_alive": 3}
     gated = ship.make_bot("composite", {**on, "exploit.stab_holdem_only": True})
     ungated = ship.make_bot("composite", on)
     bonus = V.get("bonus_card").rules

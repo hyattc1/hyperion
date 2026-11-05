@@ -6,14 +6,14 @@ import pytest
 from hyperion.core.types import Action, ActionKind, Observation, Rules
 from hyperion.strategy.exploit import Exploit, ExploitParams
 from hyperion.strategy.profiler import Profiler
-from hyperion.compose.bot import BATCH5_OFF, BATCH6_OFF, BATCH7_OFF
+from hyperion.compose.bot import BATCH5_OFF, BATCH6_OFF, BATCH7_OFF, BATCH8_OFF
 
 from .test_s2_dials import _digest
 
 HU = ["hero", "exploiter2"]
 THREE = ["hero", "exploiter2", "loose_aggro"]
 R2, R3 = Rules(n_players=2, payouts=(10, 7)), Rules(n_players=3, payouts=(10, 7, 5))
-FIN = {**BATCH5_OFF, **BATCH6_OFF, **BATCH7_OFF, "r3.v3_defend": True}  # batch 4's F (S11 began on FIN = this + cbet_size_dry 0.5); batch 5
+FIN = {**BATCH8_OFF, **BATCH5_OFF, **BATCH6_OFF, **BATCH7_OFF, "r3.v3_defend": True}  # batch 4's F (S11 began on FIN = this + cbet_size_dry 0.5); batch 5
 # ships Z below with both gates, so these tests start from batch 4 to show each dial still moves play
 
 

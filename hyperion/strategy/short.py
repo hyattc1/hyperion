@@ -81,11 +81,14 @@ TIER_P = {
 TIER_CDF = {k: tuple(sum(v[:i]) for i in range(10)) for k, v in TIER_P.items()}
 
 _TABLES: dict = {}
+MISSING: dict = {}  # kind -> why _load returned None. A None plays on (F's route takes the decision), which must not be
+#                     silent where it counts: tools/table_probe.py reads this, and tools/pack.py and tools/gate.py fail on it
 
 
 def _load(kind: str):
-    """tables/short_<kind>.json (or tables/extra/, which tools/pack.py does not ship by default: the three-handed
-    table, 1.5 MB, off), decoded once per process (None when missing)."""
+    """tables/short_<kind>.json (or tables/extra/short_<kind>.json: tools/pack.py ships from there only the tables the
+    recorded bot needs, tools/table_probe.py), decoded once per process (None when missing or unreadable, on record in
+    MISSING)."""
     if kind in _TABLES:
         return _TABLES[kind]
     path = os.path.join(TABLES_DIR, f"short_{kind}.json")
@@ -115,8 +118,9 @@ def _load(kind: str):
         else:
             t = {"q": raw["q"], "keys": sorted(float(k) for k in solve),
                  "solve": {float(k): v for k, v in solve.items()}}
-    except (OSError, ValueError, KeyError):
+    except (OSError, ValueError, KeyError) as e:
         t = None
+        MISSING[kind] = f"{os.path.basename(path)}: {type(e).__name__}"
     _TABLES[kind] = t
     return t
 

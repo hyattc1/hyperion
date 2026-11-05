@@ -6,14 +6,14 @@ import pytest
 from hyperion.core.types import Action, ActionKind, HandResult, Observation, Rules
 from hyperion.strategy.profiler import Profiler
 
-from hyperion.compose.bot import BATCH7_OFF
+from hyperion.compose.bot import BATCH7_OFF, BATCH8_OFF
 
 from .test_s2_dials import _digest
 
 HU = ["hero", "exploiter3"]
 THREE = ["hero", "exploiter3", "loose_aggro"]
 R2, R3 = Rules(n_players=2, payouts=(10, 7)), Rules(n_players=3, payouts=(10, 7, 5))
-OFF = BATCH7_OFF  # batch 6's F (batch 7 ships S15e: these tests start from batch 6 to show each dial moves play)
+OFF = {**BATCH8_OFF, **BATCH7_OFF}  # batch 6's F (batch 7 ships S15e: these tests start from batch 6 to show each dial moves play)
 # S15's candidate
 S = {**OFF, "hero.postflop.stab_from": 0.55, "hero.postflop.stab_full": 0.8, "hero.postflop.stab_prior": 0.4,
      "hero.postflop.stab_min": 3, "hero.postflop.stab_pool": 7, "hero.postflop.stab_margin": 0.03,

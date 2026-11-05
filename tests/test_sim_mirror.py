@@ -136,8 +136,9 @@ def test_elite1_light_shadow_plays_as_the_full_one(monkeypatch):
 
 
 def _play(nm, dials, field="elite", offset=9302):
-    # from F without its strong-table route (batch 5 ships one, pre_open_10=elite1x at 0.2): the gate's cases below
-    CB.register(nm, dials={**CB.SHIP_DIALS, "strong_route": "", "strong_rr": 0.0, **dials})
+    # from F without its strong-table route (batch 5 ships one, pre_open_10=elite1x at 0.2): the gate's cases below.
+    # On batch 7's F: batch 8's R6 reads the same strong_rr, so a shut gate would shut it too
+    CB.register(nm, dials={**CB.SHIP_DIALS, **CB.BATCH8_OFF, "strong_route": "", "strong_rr": 0.0, **dials})
     return R.run_tournament(B.field_names(f"{field}@{nm}"), 1, seed=1, rotate=True, mode="model",
                             hero_config=dict(MODEL_HERO), table_offset=offset).bots[nm].samples
 
