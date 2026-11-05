@@ -46,6 +46,7 @@ from hyperion.core.types import Action, ActionKind, HandResult, Observation, Rul
 
 _RAISE = ActionKind.RAISE
 _FOLD, _CHECK, _CALL = Action.fold(), Action.check(), Action.call()
+_NEW_OBS = Observation.__new__
 
 
 class HistoryInference:
@@ -95,7 +96,11 @@ class HistoryInference:
         extras["history_inferred"] = True
         if self.gap:
             extras["history_gap"] = True
-        return dataclasses.replace(obs, history=list(hist), extras=extras)
+        out = _NEW_OBS(Observation)  # dataclasses.replace's result at a fifth of its cost (this runs inside the timed call)
+        out.__dict__.update(obs.__dict__)
+        out.history = list(hist)
+        out.extras = extras
+        return out
 
     def acted(self, action: Action) -> None:
         """Our reply at this decision, as sent (read back from the next state; used as is only at hand end)."""
@@ -372,21 +377,32 @@ class HistoryInference:
         if final is None:
             return out
         stacks, bets, inh, need = self.stacks, self.bets, self.inh, self.need
-        allin = any(inh[s] and stacks[s] == 0 for s in range(n))
+        allin = False
+        for s in range(n):
+            if inh[s] and stacks[s] == 0:
+                allin = True
+                break
         pot = self.pot + sum(bets)
         folds: list[tuple[int, Action]] = []
         pos = (me + 1) % n
+        cur = self.cur
         for _ in range(n):
-            if sum(inh) < 2 or not any(need):
+            if sum(inh) < 2 or True not in need:
                 break
             s, pos = pos, (pos + 1) % n
             if not need[s]:
                 continue
             need[s] = False
-            responders = any(o != s and inh[o] and stacks[o] > 0 for o in range(n))
-            if self.cur - bets[s] <= 0 and not responders:
-                continue
-            if self.cur - bets[s] <= 0 or final[s] != stacks[s] or (shown is not None and s in shown):
+            if cur - bets[s] <= 0:  # nothing owed: a check, or no turn at all when nobody could answer a bet
+                responders = False
+                for o in range(n):
+                    if o != s and inh[o] and stacks[o] > 0:
+                        responders = True
+                        break
+                if not responders:
+                    continue
+                break
+            if final[s] != stacks[s] or (shown is not None and s in shown):
                 break
             folds.append((s, _FOLD))
             inh[s] = False
