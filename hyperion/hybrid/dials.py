@@ -165,3 +165,14 @@ class Rival3Knobs:
     open_veto: bool = _dial(False, "with veto_read, four or more alive, plain hold'em, no limper: a first-in open the "
                                    "clause would make (base range or fold equity) is not made where the switch is on "
                                    "and pf x pot + (1 - pf) x the measured price when called (hybrid/open_ev.py) <= 0")
+    # S25 (docs/drills/climb/s25-log.md): heads-up, the width of an all-in opponent's range has a floor. Rival 3 prices a
+    # heads-up re-jam of our open as the seat's re-raise rate over the 8-max table (0.9 x r3 + 0.02, about 0.1-0.16 for an
+    # elite) and an open-jam as 1.1 x its 8-max PFR, while heads-up at 8-22 bb the strong builds re-jam 32-74% of the opens
+    # they face and open-jam 23-43% of their buttons (the equilibrium big blind re-jams 0.25-0.35 at 8-22 bb). Calls only:
+    # the width only widens, the all-in price (ICM, linear heads-up) still decides. Plain hold'em, two alive, one bettor
+    hu_jam_w: float = _dial(0.0, "heads-up, our open re-jammed (the second raise of the hand is the opponent's all-in): "
+                                 "the width of its range is at least this; 0 = off")
+    hu_openjam_scale: float = _dial(0.0, "heads-up, the opponent's first-in all-in from the button: the width of its range "
+                                         "is at least this times the push/fold Nash push width at the effective depth "
+                                         "(tables/pushfold_hu.json, 4-25 bb); 0 = off")
+    hu_jam_max_bb: float = _dial(20.0, "both floors only at or under this effective depth (big blinds)")

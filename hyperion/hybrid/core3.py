@@ -187,6 +187,31 @@ def bb_scan(hist, bbs, start) -> int | None:
     return None
 
 
+_PUSH_W: dict | None = None
+
+
+def nash_push_width(eff_bb: float) -> float:
+    """The heads-up push/fold Nash push width (share of hands) at the effective depth, from tables/pushfold_hu.json's p_push
+    (integer depths 1-25; the depth is rounded and clipped to the table). 0.0 if the table is missing."""
+    global _PUSH_W
+    if _PUSH_W is None:
+        import json
+        import os
+
+        from ..strategy.tables import TABLES_DIR
+
+        try:
+            with open(os.path.join(TABLES_DIR, "pushfold_hu.json")) as fh:
+                _PUSH_W = {int(k): float(v) for k, v in json.load(fh)["p_push"].items()}
+        except Exception:  # noqa: BLE001 - no table: no floor
+            _PUSH_W = {}
+    if not _PUSH_W:
+        return 0.0
+    d = int(round(eff_bb))
+    lo, hi = min(_PUSH_W), max(_PUSH_W)
+    return _PUSH_W[lo if d < lo else hi if d > hi else d]
+
+
 def sr_scan(hist, start, bb: float, depth: float) -> dict:
     """S24: one hand's shove-read counts (kit shape (seat, (kind, amount)), preflop first): {seat: all-in?} for each seat
     whose first action came with no all-in before it and whose chips at the hand's start were at most `depth` big
@@ -576,6 +601,13 @@ class Rival3Core(R3.Bot):
         if kn.sr_depth > 0.0 and agg_allin and self._oa_h and tot[agg] <= kn.sr_depth * bb \
                 and sum(1 for s in opp_in if bets[s] > bb) == 1:
             w = self._shove_width(o, agg, w)
+        if (kn.hu_jam_w > 0.0 or kn.hu_openjam_scale > 0.0) and n_alive == 2 and agg_allin and self._oa_h \
+                and eff_bb <= kn.hu_jam_max_bb and len(opp_in) == 1:
+            # S25: heads-up, a floor on the all-in opponent's width (dials.py); hu_jam_on is the coin recorder's switch
+            wp = self._hu_jam_floor(n_raises, bets[seat] > bb, eff_bb)
+            self.hu_jam_would = wp > w
+            if wp > w and self.hu_jam_on:
+                w = wp
         eq = _eqvs(ci, w)
         # multiway: every other opponent who put money in beyond the blind must also be beaten
         k = sum(1 for s in opp_in if bets[s] > bb)
@@ -895,6 +927,20 @@ class Rival3Core(R3.Bot):
         if f * (pot_tot - bets[seat]) - (1.0 - f) * risk * kn.l3_lose <= 0.0:
             return None
         return self._raise(legal, o, size)
+
+    hu_jam_on = True  # S25's floors apply (the coin recorder toggles it per hand)
+    hu_jam_would = False  # ... and the last heads-up all-in decision's floor was above rival 3's width
+
+    def _hu_jam_floor(self, n_raises: int, we_raised: bool, eff_bb: float) -> float:
+        """S25 (r3.hu_jam_w, r3.hu_openjam_scale): the floor on a heads-up all-in opponent's width: our open re-jammed
+        (the hand's second raise is its all-in) -> hu_jam_w; its first-in all-in from the button (we hold the blind only)
+        -> hu_openjam_scale x the push/fold Nash push width at this depth; any other line -> 0 (no floor)."""
+        kn = self.k
+        if n_raises == 2 and we_raised:
+            return kn.hu_jam_w
+        if n_raises == 1 and not we_raised and kn.hu_openjam_scale > 0.0:
+            return kn.hu_openjam_scale * nash_push_width(eff_bb)
+        return 0.0
 
     def _shove_width(self, o, agg: int, w: float) -> float:
         """The shove read (r3.sr_depth): the width of seat agg's all-in range is at least its smoothed rate of all-ins per
