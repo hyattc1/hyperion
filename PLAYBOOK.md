@@ -248,6 +248,24 @@ window plays only its candidate; and, if Stage 5 did not build it, the twist's g
 hyperion.sim.generic --prepare <variant>`), so a window can check a recipe against the aware field too. From 0:55 to 1:00 touch nothing else; re-read the submission rules once: under 100 MB,
 no network, entry point named exactly as the kit wants.
 
+### Freezing a batch (the climb, and any zip that becomes the known-good upload)
+
+We measure the repo and upload the zip, so a freeze checks the zip against the repo, then plays the zip. In this order, each on the
+same commit:
+
+1. Identity: `SHIP_DIALS` + `BATCHn_OFF` plays the previous batch; the new default plays as the candidate
+   (`tools/climb_accept.py --stages confirm,guards`, cand columns equal).
+2. The suite, `pytest -m "not timing"`; tests pinned to the previous batch start from `BATCHn_OFF`.
+3. Pack: `python tools/pack.py --entry entry_kitb.py --out frozen/Bn-<sha>/kitb --slim --night /dev/null`. It ships every table the recorded bot
+   needs (tools/table_probe.py) and exits 1, by name, on one the package lacks. Record sha256, size and import time.
+4. **Zip parity: `python tools/zip_parity.py frozen/Bn-<sha>/kitb/submission.zip --workers 3`** (about 5 minutes). The zip's bot and the source
+   bot play the same deterministic tables and must agree decision for decision, with the strong route, the heads-up specialist and R6's
+   three-handed table each counted above zero. A FAIL here means the zip is not the bot we measured: no gate result can overrule it.
+5. Gate: `python tools/gate.py <zip> --kit b --entry entry_kitb.py --tables 40` plain and with `--variant auction`, `bonus_card`,
+   `tranche_holdem`.
+6. Timing, when the bot's cost changed: `python tools/zip_timing.py <zip>` at the box's load, with hogs, and `--k 3`, beside the previous batch's zip
+   on the same box the same hour (docs/drills/climb/b8-timing.md has the commands). A new machine flatters us: loosen no budget for it.
+
 ### Stage 6: WINDOWS (after T1, five times)
 
 Each window is 20 minutes and the same loop. Minutes 0 to 5: read standings; our rank, our mean,
@@ -522,6 +540,7 @@ The track is decided in Stage 0, never on the night.
 | 2026-11-02 | Drill 9's fixes (H5, docs/drills/prompt-drill-9.md): `hyperion/drills/entry_template.py` for a kit that builds a bot object (built, warmed and `pin_package`d at import: kit G unloaded our modules before `Agent()`; a timed hand end `"defer"`s its curve to the next decision); the gate seat's rows carry street and chips, plus the posts (`gate_seat_template.by_street`); conformance forgets the warm-up; a `timing` pytest marker the night deselects; a table start inside a decision reads and builds nothing (`tables.quick_start`); `--cand '{"dials": ...}'` | H5 |
 | 2026-11-03 | Drill 10's fixes (H6, docs/drills/prompt-drill-10.md): `hyperion/drills/process_entry_template.py` and `process_gate_seat_template.py` for a kit whose bot is its own process (answer first, hand end skipped while a request waits, a `check.on` marker for a stripped environment; the gate drives the real stdin loop); on a table Hero plays whole the composite's base sleeps (one hand end, not two); Hero's must-use path reads a board shorter than it must supply (`mu_short_board`, Solo's flop); `hyperion/drills/solo_example.py`; gen_tables `--preset loaded`, progress, `--resume`; pack `--max-zip-mb`; hard rule 9, kill by PID | H6 |
 | 2026-11-03 | Drill 11's fixes (H7, docs/drills/prompt-drill-11.md): `hyperion/drills/module_entry_template.py` and `module_gate_seat_template.py` for a kit of plain module-level functions (kit I: everything built at import, the loader's purge, the kit's Overtime never swallowed; the gate seat loads the entry as the kit's loader and raises the Overtime); every template's hand end asks "won: chips collected or net change?" and counts deltas that do not sum to 0; `extras.full_bb_call` for the full big blind after a short post; the organisers' checker's pass rule on a loaded box; `pytest -m night`, the one-minute subset; a latency recipe kept only by the kit's own simulator; one keep rule for a Stage 5 patch (prompt 05); the Stage 0 clause skipped on a solo night; `hyperion.ship --set` keeps the line | H7 |
+| 2026-11-04 | Freezing a batch: `tools/pack.py` ships what the recorded bot needs and fails by name on a table the package lacks (batch 8's R6 table was left out, and the bot played on without it, silently); `tools/gate.py` fails the same way; new `tools/zip_parity.py` (zip against source, decision for decision, the specialist's routes counted) and `tools/zip_timing.py` (the zip's bot at load and on a 3x slower clock) | batch 8 freeze |
 ---
 
 ## 10. The email (send before the event)

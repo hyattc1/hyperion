@@ -57,6 +57,10 @@ def test_the_pack_ships_the_table_r6_reads(tmp_path, entry):
         names = z.namelist()
     assert "tables/extra/short_3b.json" in names
     assert "tables/extra/short_3.json" not in names  # needs, not the whole directory: short.three is off
+    # hero.twin_preflop: each twist's own preflop table, which the bot we measure reads on that twist's tables. Before this a
+    # zip packed without tonight's rules played every twist without it (a fallback zip, or a frozen one), silently
+    assert any(n.startswith("tables/generic/auction-") for n in names)
+    assert any(n.startswith("tables/generic/bonus_card-") for n in names)
 
 
 def test_the_old_tables_fail_the_pack_by_name(tmp_path, entry):
@@ -70,6 +74,7 @@ def test_the_old_tables_fail_the_pack_by_name(tmp_path, entry):
 
 def test_a_bot_that_does_not_read_the_table_does_not_need_it(tmp_path, entry):
     old = top_level_tables(tmp_path / "old")
+    shutil.copytree(ROOT / "tables" / "generic", old / "generic")
     r = run_pack(tmp_path, "--entry", "agent.py", "--out", "dist", "--slim", "--night", "/dev/null", "--tables-dir", str(old),
                  "--dials", R6_OFF)
     assert r.returncode == 0, r.stdout + r.stderr
@@ -83,6 +88,7 @@ def test_a_lazily_loaded_table_fails_the_pack_by_name(tmp_path, entry, table):
     assert table not in probe(ROOT)["opened"]  # lazy: if it stops being lazy this test proves nothing
     tabs = top_level_tables(tmp_path / "tabs", leave_out=(table,))
     shutil.copytree(ROOT / "tables" / "extra", tabs / "extra")
+    shutil.copytree(ROOT / "tables" / "generic", tabs / "generic")
     r = run_pack(tmp_path, "--entry", "agent.py", "--out", "dist", "--slim", "--night", "/dev/null", "--tables-dir", str(tabs))
     assert r.returncode == 1, r.stdout + r.stderr
     assert table in r.stdout
@@ -91,6 +97,7 @@ def test_a_lazily_loaded_table_fails_the_pack_by_name(tmp_path, entry, table):
 def test_a_lazy_table_behind_a_dial_that_is_off_is_not_needed(tmp_path, entry):
     tabs = top_level_tables(tmp_path / "tabs", leave_out=("known_m1s2x0u1.json",))
     shutil.copytree(ROOT / "tables" / "extra", tabs / "extra")
+    shutil.copytree(ROOT / "tables" / "generic", tabs / "generic")
     r = run_pack(tmp_path, "--entry", "agent.py", "--out", "dist", "--slim", "--night", "/dev/null", "--tables-dir", str(tabs),
                  "--dials", '{"hero.known_cards": ""}')
     assert r.returncode == 0, r.stdout + r.stderr
@@ -124,7 +131,9 @@ def test_the_probe_reports_what_a_package_lacks(tmp_path):
     got = probe(pkg)
     assert "extra/short_3b.json" in got["lacking"]
     assert got["specialist_missing"]  # the loader's own record agrees
+    assert "generic/*.json" in got["lacking"]  # no twist's own preflop table at all: read as lacking, not as nothing to check
     shutil.copytree(ROOT / "tables" / "extra", pkg / "tables" / "extra")
+    shutil.copytree(ROOT / "tables" / "generic", pkg / "tables" / "generic")
     got = probe(pkg)
     assert got["lacking"] == [] and got["specialist_missing"] == {}
     assert "extra/short_3b.json" in got["opened"] and "auction_bid.json" in got["declared"]

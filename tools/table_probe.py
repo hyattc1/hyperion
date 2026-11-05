@@ -24,6 +24,7 @@ tools/zip_parity.py is the check on this map: it fails on any table the play its
 """
 from __future__ import annotations
 
+import glob
 import json
 import os
 import sys
@@ -33,6 +34,8 @@ DIAL_TABLES = {
     "hero.voi": ("voi.json",),  # the twist decisions' value of information
     "hero.known_cards": ("known_m1s2x0u1.json", "known_m2s0x1u1.json", "known_m2s1x0u2.json"),  # 2 cards at a plain table's
     #                     start, the others only at a three-card table's (hero.py's _known.preload)
+    "hero.twin_preflop": ("generic/*.json",),  # a twist's own preflop table: at that twist's table start, one per variant.
+    "hero.twin_multi": ("generic/*.json",),  # With none, generic_doc returns None and Hero plays without it, silently
     "short.three": ("extra/short_3.json",),  # hyperion/strategy/short.py's three-handed tables (at its build today)
     "short.three2": ("extra/short_{short.three2_file}.json",),
 }
@@ -49,7 +52,8 @@ def effective_dials(name: str, dials: dict) -> dict:
     return {**SHIP_DIALS, **dials}
 
 
-def declared_tables(name: str, dials: dict) -> set:
+def declared_tables(name: str, dials: dict, tables: str) -> set:
+    """Relative to `tables`. A pattern expands in this tree; one that matches nothing stays itself, so it reads as lacking."""
     eff = effective_dials(name, dials)
     out = set(ALWAYS_TABLES.get(name, ()))
     for dial, files in DIAL_TABLES.items():
@@ -57,7 +61,13 @@ def declared_tables(name: str, dials: dict) -> set:
             continue  # no specialist in this bot (`cheap` means no other member; an empty route builds none)
         if eff.get(dial) or (name in ("hero", "cheap") and dial.startswith("hero.") and eff.get(dial[5:])):
             out.update(f.replace("{short.three2_file}", str(eff.get("short.three2_file", "3b"))) for f in files)
-    return out
+    expanded = set()
+    for f in out:
+        hits = glob.glob(os.path.join(tables, f)) if "*" in f else ()
+        expanded.update(os.path.relpath(h, tables).replace(os.sep, "/") for h in hits)
+        if not hits:
+            expanded.add(f)
+    return expanded
 
 
 def main(argv: list[str]) -> int:
@@ -106,7 +116,7 @@ def main(argv: list[str]) -> int:
     if short is not None:
         missing.update({k: "loader returned None" for k, v in getattr(short, "_TABLES", {}).items() if v is None})
         missing.update(getattr(short, "MISSING", {}))
-    declared = declared_tables(name, dials)
+    declared = declared_tables(name, dials, tables)
     wanted = seen | declared
     lacking = {t for t in wanted if not os.path.isfile(tables + t)}
     report = {"hyperion": sys.modules["hyperion"].__file__, "bot": name, "dials": dials, "opened": sorted(seen),
