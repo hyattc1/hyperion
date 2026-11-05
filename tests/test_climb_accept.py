@@ -378,3 +378,70 @@ def test_the_reviews_rescored_rows_reproduce_from_their_saved_verdicts(name, pat
     # both fail route 2's condition (a) on W-min (V-f, accepted by the main rule, never needed route 2)
     r = WS.route2(fixed, False, None)
     assert r["accept"] is False and [ok for txt, ok in r["checks"] if txt.startswith("(a)")] == [False]
+
+
+# the judge cells as they stood before the fourth wave: their order, names and files must not move (addendum 16's rule)
+OLD_JUDGES = [("judge", "lin", None), ("judge2", "lin", None), ("judge2_night", "lin", None), ("judge_top", "lin", None),
+              ("outside", "lin", None), ("outside_strong", "lin", None), ("elite_judge", "lin", None),
+              ("elite_judge_b", "lin", None), ("adapt_judge", "brief", None), ("adapt_judge_hu", "lin", "hu"),
+              ("adapt_judge_3", "lin", "three"), ("outside_b", "lin", None), ("outside_c", "lin", None)]
+
+
+def test_the_fourth_waves_cells_are_appended_and_leave_every_earlier_cell_alone():
+    assert CA.JUDGES[:len(OLD_JUDGES)] == OLD_JUDGES and CA.JUDGES[len(OLD_JUDGES):] == CA.JUDGES_D
+    assert not CA.SEAT_FIELDS & {c[0] for c in OLD_JUDGES} and CA.SEAT_FIELDS == {c[0] for c in CA.JUDGES_D}
+    assert CA.cell_path("o", "k", ("outside_c", "lin", None, None, 30000)) == "o/k/outside_c.lin.-.-.30000.json"
+    assert CA.seed_range("judge") == (30000, 30400) and CA.seed_range("H34") == (54000, 54400)
+
+
+def test_the_fourth_waves_short_cells_carry_their_players():
+    from hyperion.sim import bestiary as B
+
+    for field, pay, rules in CA.JUDGES_D:
+        assert pay == "lin"
+        r = CA._rules(pay, rules)
+        assert (r.n_players if r else 8) == B.FIELD_PLAYERS.get(field, 8) == len(B.field_names(field)), field
+
+
+def test_only_a_fourth_wave_cell_keeps_every_seat_and_it_reports_them_all(tmp_path):
+    spec = {"dials": {}}
+    _, cell, old = CA._job(("k", "cand", spec, "exploit_hu", "lin", "hu", None, 40000, 1, True))
+    assert "seats" not in old and "hero" not in old
+    out = str(tmp_path)
+    (tmp_path / "k").mkdir()
+    _, cell, res = CA._job(("k", "cand", spec, "outside_d_o9_hu", "lin", "hu", None, 40000, 1, True))
+    assert set(res["seats"]) == {res["hero"], "out_o9"} and res["samples"] == res["seats"][res["hero"]]["samples"]
+    assert res["samples_rt"] == res["seats"][res["hero"]]["samples_rt"]
+    with open(CA.cell_path(out, "k", cell, 1, True), "w") as fh:
+        json.dump(res, fh)
+    t = CA.seat_rows(CA.gather(out, "k", cell[:4], 40000, 40001, True)["seats"])
+    assert t["seats"] == 2 and sorted(r["seat"] for r in t["rows"]) == ["F", "out_o9"] and t["f_rank"] in (1, 2)
+    row = {r["seat"]: r for r in t["rows"]}
+    assert row["F"]["f_minus"] is None and row["F"]["first"] + row["out_o9"]["first"] == 1.0
+    assert row["out_o9"]["f_minus"][0] == row["F"]["pts"] - row["out_o9"]["pts"]
+    assert sum(r["first"] for r in t["rows"]) == 1.0 and row["F"]["calls"] > 0
+
+
+def test_the_seat_table_ranks_by_points_and_by_first_places_apart():
+    def seat(samples, first):
+        return {"samples": samples, "samples_rt": samples, "places": [first, 4 - first], "seats": 4, "busts": 0, "tmo": 0,
+                "exc": 0, "ill": 0, "safe_err": 0, "calls": 1, "p99": 0.0, "max_us": 0.0}
+
+    t = CA.seat_rows({"F": seat([5.0, 7.0], 1), "a": seat([7.0, 7.0], 0), "b": seat([1.0, 1.0], 3)})
+    assert [r["seat"] for r in t["rows"]] == ["a", "F", "b"] and t["f_rank"] == 2 and t["f_rank_first"] == 2
+    a = next(r for r in t["rows"] if r["seat"] == "a")
+    assert a["f_minus"][0] == -1.0 and a["pts"] == 7.0 and a["ci"] == 0.0
+
+
+def test_judge_cells_refuses_an_unknown_name_and_a_partial_run_cannot_serve_route_2(tmp_path):
+    import pytest
+
+    with pytest.raises(SystemExit, match="unknown nope"):
+        CA.main(["--cand", '{"dials": {}}', "--set", "1:2", "--stages", "judges", "--judge-cells", "nope",
+                 "--out", str(tmp_path)])
+    base = CA.resolve({"dials": {}})
+    path = tmp_path / "j.json"
+    path.write_text(json.dumps({"stages": {"judges": []}, "base": base, "cand": base, "judge_cells": ["outside_d"]}))
+    with pytest.raises(SystemExit, match="some judge cells only"):
+        CA.main(["--cand", '{"dials": {}}', "--set", "H1", "--stages", "confirm", "--route2", "--judges-json", str(path),
+                 "--out", str(tmp_path)])

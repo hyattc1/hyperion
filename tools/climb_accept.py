@@ -29,7 +29,9 @@ Stages (comma-separated; default confirm,guards,variants):
   since the second wave also elite_b (elite's room with elite4 in agent_default's seat) and mirror_b (three copies of
   F with rival 2, elite4, elite1 and elite2);
 - judges: judge, judge2, judge2_night, judge_top, outside, outside_strong, elite_judge, elite_judge_b (elite5, the
-  second wave's held-out build; run these on `--set judge`).
+  second wave's held-out build; run these on `--set judge`), and the outside waves after them, the fourth (JUDGES_D:
+  outside_d, outside_d_strong and each new bot heads-up and three-handed) with every seat's points, its share of first
+  places and F's rank printed under `## every seat`. `--judge-cells NAME,...` plays some of them only.
 - aware: the likeliest twists against variant-aware opponents, each field under its variant (toss_or_holdem_aware,
   bounty_aware, short_deck_aware, river_of_blood_aware, tranche_holdem_aware; hyperion/sim/aware.py); `--aware
   NAME,...` for some, and `--aware FIELD:VARIANT` for any field under any entry (realistic_keep2:deal5_keep2). `--aware generic:VARIANT` is
@@ -113,6 +115,13 @@ JUDGES = [("judge", "lin", None), ("judge2", "lin", None), ("judge2_night", "lin
           ("adapt_judge", "brief", None), ("adapt_judge_hu", "lin", "hu"), ("adapt_judge_3", "lin", "three"),  # adapt2
           ("outside_b", "lin", None),  # the outside judges' second wave (addendum 10)
           ("outside_c", "lin", None)]  # the third wave (addendum 14): out_reads
+# the fourth wave (proposed addendum 16): appended, so no earlier cell moves; a cell's file is named by its field alone
+JUDGES_D = [("outside_d", "lin", None), ("outside_d_strong", "lin", None),
+            ("outside_d_o9_hu", "lin", "hu"), ("outside_d_o9_3", "lin", "three"),
+            ("outside_d_o10_hu", "lin", "hu"), ("outside_d_o10_3", "lin", "three"),
+            ("outside_d_o11_hu", "lin", "hu"), ("outside_d_o11_3", "lin", "three")]
+JUDGES = JUDGES + JUDGES_D
+SEAT_FIELDS = frozenset(c[0] for c in JUDGES_D)  # cells that keep every seat's record: no earlier cell's file changes
 ELITE = [("elite", "lin", None), ("elite_night", "lin", None), ("mirror", "lin", None),
          ("elite_b", "lin", None), ("mirror_b", "lin", None)]  # elite4 joined 2026-11-02 (second wave)
 EXPLOIT = [("exploit", "brief", None), ("exploit_hu", "lin", "hu"), ("exploit_3", "lin", "three"),
@@ -271,7 +280,18 @@ def _job(args):
     if rt:  # the corrected samples, and the term's events touching our seats per table seed (8 rotations)
         res.update({"samples_rt": corrected[nm], "rt_events": events[nm], "rt_version": RT.version(),
                     "opp_samples_rt": corrected[ex.name] if ex is not None else None})
+    if field in SEAT_FIELDS:
+        res["hero"] = nm
+        res["seats"] = {x: _seat_record(r, corrected[x] if rt else None) for x, r in rep.bots.items()}
     return key, (field, pay, rules_name, variant, off), res
+
+
+def _seat_record(r, corrected) -> dict:
+    """One seat's chunk in a SEAT_FIELDS cell: its samples, its finishes and what the engine saw of it."""
+    st = r.stats
+    return {"samples": r.samples, "samples_rt": corrected, "places": r.places, "seats": r.seats, "busts": r.busts,
+            "tmo": st.over_budget, "exc": st.exceptions, "ill": st.illegal, "safe_err": st.safe_err, "calls": st.calls,
+            "p50": st.percentile_us(0.5), "p99": st.percentile_us(0.99), "max_us": st.max_ns / 1000}
 
 
 def _variant_tag(variant) -> str:
@@ -333,6 +353,21 @@ def run_cells(out: str, specs: dict, cells: list, lo: int, hi: int, workers: int
             os.replace(path + ".tmp", path)
 
 
+def _add_seats(seats: dict, r: dict) -> None:
+    """A SEAT_FIELDS chunk into its cell's seat records, F's seat under the name "F"."""
+    for name, c in r["seats"].items():
+        s = seats.setdefault("F" if name == r["hero"] else name, {
+            "samples": [], "samples_rt": [], "places": [0] * len(c["places"]), "seats": 0, "busts": 0, "tmo": 0, "exc": 0,
+            "ill": 0, "safe_err": 0, "calls": 0, "p99": 0.0, "max_us": 0.0})
+        s["samples"] += c["samples"]
+        s["samples_rt"] += c["samples_rt"] or c["samples"]
+        s["places"] = [x + y for x, y in zip(s["places"], c["places"])]
+        for k in ("seats", "busts", "tmo", "exc", "ill", "safe_err", "calls"):
+            s[k] += c[k]
+        s["p99"] = max(s["p99"], c["p99"])
+        s["max_us"] = max(s["max_us"], c["max_us"])
+
+
 def gather(out: str, key: str, cell4, lo: int, hi: int, rt: bool = False) -> dict:
     field, pay, rules_name, variant = cell4
     samples, opp, agg = [], [], {"tmo": 0, "exc": 0, "ill": 0, "safe_err": 0, "calls": 0, "p99": 0.0, "max_us": 0.0}
@@ -349,6 +384,8 @@ def gather(out: str, key: str, cell4, lo: int, hi: int, rt: bool = False) -> dic
             agg[k] += r[k]
         agg["p99"] = max(agg["p99"], r["p99"])
         agg["max_us"] = max(agg["max_us"], r["max_us"])
+        if "seats" in r:
+            _add_seats(agg.setdefault("seats", {}), r)
     agg["samples"] = samples
     agg["mean"] = sum(samples) / len(samples)
     agg["opp_mean"] = sum(opp) / len(opp) if opp else None
@@ -411,6 +448,31 @@ def late_rows(recs: dict, base_recs: dict | None = None) -> dict:
                 d.append((k[0], sum(x[0] for x in mine) / len(mine) - sum(x[0] for x in seats) / len(seats)))
         out["paired"] = _cluster_mean(d)
     return out
+def _mean_ci(x: list) -> tuple[float, float]:
+    n = len(x)
+    m = sum(x) / n
+    return m, 1.96 * math.sqrt(sum((v - m) ** 2 for v in x) / (n - 1) / n) if n > 1 else 0.0
+
+
+def seat_rows(seats: dict) -> dict:
+    """A SEAT_FIELDS cell for reading: best seat first, each with its corrected and raw points, F minus the seat seed
+    for seed on the corrected samples (the seats of a table share its luck, so this interval, not the two seats'
+    own, says who is ahead), its share of first places; and F's rank by points and by first places."""
+    f = seats["F"]["samples_rt"]
+    rows = []
+    for name, s in seats.items():
+        m, h = _mean_ci(s["samples_rt"])
+        mr, hr = _mean_ci(s["samples"])
+        rows.append({"seat": name, "pts": m, "ci": h, "raw": mr, "raw_ci": hr, "first": s["places"][0] / s["seats"],
+                     "f_minus": None if name == "F" else paired(s["samples_rt"], f), "n": len(s["samples"]),
+                     "bust": s["busts"] / s["seats"], "tmo": s["tmo"], "exc": s["exc"], "ill": s["ill"],
+                     "safe_err": s["safe_err"], "calls": s["calls"], "p99": s["p99"], "max_us": s["max_us"]})
+    rows.sort(key=lambda r: -r["pts"])
+    by_first = sorted(rows, key=lambda r: -r["first"])
+    return {"rows": rows, "f_rank": 1 + [r["seat"] for r in rows].index("F"),
+            "f_rank_first": 1 + [r["seat"] for r in by_first].index("F"), "seats": len(rows)}
+
+
 def term_mean(g: dict) -> tuple[float, float]:
     """The runout term's mean per table seed for one spec (raw - corrected) and its 95% interval: zero within noise."""
     return paired(g["samples"], g["samples_raw"])
@@ -482,6 +544,8 @@ def main(argv=None) -> int:
                    help="score every cell with the all-in runout term subtracted (tools/runout_term.py): the verdict "
                         "reads the corrected delta; the raw delta, the term's mean per spec and the interval ratio "
                         "print beside it")
+    p.add_argument("--judge-cells", default=None, help="the judges stage's cells, by field name (default: all); a run "
+                                                       "of some cannot serve route 2's condition (c)")
     p.add_argument("--aim", choices=("night", "exploit", "strong"), default="night",
                    help="what the change is for: night (confirm beyond noise up), exploit (addendum 6: an exploit "
                         "field up, night not down) or strong (addendum 8: elite, elite_night or mirror up, night "
@@ -514,6 +578,8 @@ def main(argv=None) -> int:
                 jv = json.load(fh)
             if "judges" not in jv.get("stages", {}):
                 why = "; ".join(filter(None, [why, f"{a.judges_json} has no judges stage"]))
+            elif jv.get("judge_cells"):
+                why = "; ".join(filter(None, [why, f"{a.judges_json} played some judge cells only"]))
             elif [jv.get("base"), jv.get("cand")] != json.loads(json.dumps([base, cand])):
                 why = "; ".join(filter(None, [why, f"{a.judges_json} is another base or candidate"]))
             else:
@@ -544,7 +610,15 @@ def main(argv=None) -> int:
     if "elite" in stages:
         plan.append(("elite", tonight(ELITE), lo, hi))
     if "judges" in stages:
-        plan.append(("judges", JUDGES, lo, hi))
+        judges = JUDGES
+        if a.judge_cells:
+            names = [x.strip() for x in a.judge_cells.split(",") if x.strip()]
+            unknown = sorted(set(names) - {c[0] for c in JUDGES})
+            if unknown:
+                raise SystemExit(f"--judge-cells: unknown {', '.join(unknown)}")
+            judges = [c for c in JUDGES if c[0] in names]
+            verdict["judge_cells"] = names
+        plan.append(("judges", judges, lo, hi))
     if "aware" in stages:
         from hyperion.sim import aware as AW
 
@@ -594,6 +668,8 @@ def main(argv=None) -> int:
                             "term_delta": paired(tb, tc),
                             "ratio": hr / h if h > 0 else None,
                             "events": (gb["rt_events"], gc_["rt_events"])})
+            if "seats" in gb and "seats" in gc_:
+                row["seats"] = {"base": seat_rows(gb["seats"]), "cand": seat_rows(gc_["seats"])}
             out.append(row)
         verdict["stages"][stage] = out
         if a.late and stage in ("window", "confirm", "guards", "elite"):
@@ -668,6 +744,18 @@ def main(argv=None) -> int:
             print(f"| {r['cell']} | {r['base']:.3f} | {r['cand']:.3f} | {r['delta']:+.3f} ± {r['ci']:.3f} | "
                   f"{r['flag']} | {r['n']} | {r['tmo'][0]}/{r['tmo'][1]} | {r['exc'][0]}/{r['exc'][1]} | "
                   f"{r['p99'][0]:.0f}/{r['p99'][1]:.0f} |")
+    for r in st.get("judges", []):
+        for who in ("cand", "base") if "seats" in r else ():
+            t = r["seats"][who]
+            print(f"\n## every seat: {r['cell']}, F = {who} (F's rank {t['f_rank']} of {t['seats']} by points, "
+                  f"{t['f_rank_first']} by first places; n {r['n']})\n\n| seat | points | raw | F - seat | | 1st % | "
+                  f"bust % | tmo | err | calls |\n|---|---|---|---|---|---|---|---|---|---|")
+            for q in t["rows"]:
+                fm = "" if q["f_minus"] is None else f"{q['f_minus'][0]:+.3f} ± {q['f_minus'][1]:.3f}"
+                fl = "" if q["f_minus"] is None else flag(*q["f_minus"])
+                print(f"| {q['seat']} | {q['pts']:.3f} ± {q['ci']:.3f} | {q['raw']:.3f} ± {q['raw_ci']:.3f} | {fm} | {fl} "
+                      f"| {100 * q['first']:.1f} | {100 * q['bust']:.1f} | {q['tmo']} | "
+                      f"{q['exc'] + q['ill'] + q['safe_err']} | {q['calls']} |")
     for s, rows_l in verdict.get("late", {}).items():
         print(f"\n## late tables: {s} (alive {LATE} hands before the cap with 3+ players)\n\n"
               "| cell | late tables b/c | pts on late tables b | c | bust b/c | alive then b/c | bust after b/c | "
