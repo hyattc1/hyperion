@@ -20,6 +20,10 @@ from hyperion.core.types import Action, ActionKind, Observation, Rules, parse_ca
 from hyperion.drills.adapter import Adapter, make_observation  # noqa: F401
 from hyperion.drills.conformance import maybe_checked
 
+# A function here that changes play under tonight's twist (prompt 05) gets a name, and then the gate needs --variant: on
+# plain rules the patch fires with no twist in the engine, and tools/gate.py warns when this is set and --variant is not.
+TWIST_PATCH = None  # e.g. "past the stop, shove"
+
 # TODO 1  CARD ENCODING -> obs.hole, obs.board. Ours: int rank*4 + suit with 2=0 ... T=8 ... A=12 and
 #   c d h s = 0..3 (`parse_card("Th") == 34`). parse_card reads every string shape kits use ("Th", "th", "10h",
 #   "T\u2665", "hT", "10 of hearts", "1h" = ace), (rank, suit) pairs and {"rank": 10, "suit": "H"} dicts (ace as 14

@@ -72,6 +72,7 @@ import json
 import math
 import os
 import random
+import re
 import select
 import shutil
 import socket
@@ -876,6 +877,23 @@ def row(side: Side, n_places: int) -> str:
             f"{st.max_ns / 1000:>7.0f}")
 
 
+def twist_patch(pkg: Path) -> str | None:
+    """What says the package's adapter.py changes play under the night's twist (prompt 05's patch): a `TWIST_PATCH` other
+    than None (adapter_template.py), or a class of its own in front of the bot, one with an `act` method (an adapter has
+    `decide`; drill 12's StopBot). None for a plain adapter or a package with none."""
+    try:
+        text = (pkg / "adapter.py").read_text()
+    except OSError:
+        return None
+    named = re.search(r"^TWIST_PATCH[ \t]*=[ \t]*(?!None\b)([^\s#].*?)\s*(?:#.*)?$", text, re.M)
+    if named:
+        return named.group(1)
+    wrap = re.search(r"^    def act\(self", text, re.M)
+    if wrap is None or "self.bot.act(" not in text:
+        return None
+    return f"class {re.findall(r'^class (\w+)', text[:wrap.end()], re.M)[-1]} wraps the bot's act"
+
+
 def table_starts(cfg: "Config", rules: Rules, count: int) -> list[float]:
     """Milliseconds of `count` table starts through the entry, in a process of their own (module doc); [] if the kit has
     none to time (a subprocess kit, a process seat) or the package never imported (the tables report that)."""
@@ -1098,6 +1116,7 @@ def main(argv=None) -> int:
             return 1
         cfg = Config(pkg=pkg, entry=a.entry, kit=kit, kit_dir=kit_dir, scratch=str(scratch),
                      seat_file=Path(a.kit).resolve() if kit == "seat" else None, slow=a.slow, variant=a.variant)
+        patch = twist_patch(pkg)
         bot, where = baseline_bot(pkg, a.bot, a.dials, a.hero_config, hero_config)
         digest = sha256(src) if src.is_file() else "(directory)"
         field_label = f"--bots {a.bots}" if a.bots else f"field {a.field}"
@@ -1161,6 +1180,10 @@ def main(argv=None) -> int:
         fails.append(start_fail)
     if start_warn:
         warns.append(start_warn)
+    if patch and not a.variant:
+        warns.append(f"adapter.py carries a twist patch ({patch}) and no --variant was given: on plain rules a patch fires "
+                     f"with no twist in the engine, so this number says nothing about it. Pass --variant (a catalog name or "
+                     f"a hooks file, path/to/tonight.py:variant)")
     for w in warns:
         print(f"WARN {w}")
     if ok:

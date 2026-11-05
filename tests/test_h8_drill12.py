@@ -412,3 +412,45 @@ def test_prompt_05_has_a_section_for_what_a_stack_can_lose():
     assert "class StopBot" in (DRILL12 / "adapter.py").read_text()
 
 
+# ---------------------------------------------------------------------------------------------- item 4
+@pytest.mark.night
+def test_prompt_02_says_a_function_patch_needs_variant_on_the_gate():
+    flat = _flat(_read("docs/prompts/02-adapter-and-cheap-bot.md"))
+    assert "A patch that is a function in the adapter (prompt 05) needs `--variant` on the gate" in flat
+    assert "the seat's floors fire" in flat and "The gate warns" in flat
+
+
+@pytest.mark.night
+def test_the_gate_sees_a_twist_patch_in_the_adapter(tmp_path):
+    gate = _tool("gate")
+    pkg = tmp_path
+    assert gate.twist_patch(pkg) is None  # no adapter.py at all
+    shutil.copy(DRILLS / "adapter_template.py", pkg / "adapter.py")
+    assert gate.twist_patch(pkg) is None  # the template as it stands
+    (pkg / "adapter.py").write_text((DRILLS / "adapter_template.py").read_text().replace(
+        'TWIST_PATCH = None  # e.g. "past the stop, shove"', 'TWIST_PATCH = "past the stop, shove"  # drill 12'))
+    assert gate.twist_patch(pkg) == '"past the stop, shove"'
+    shutil.copy(DRILL12 / "adapter.py", pkg / "adapter.py")
+    assert gate.twist_patch(pkg) == "class StopBot wraps the bot's act"
+    shutil.copy(ROOT / "docs" / "drills" / "drill11" / "adapter.py", pkg / "adapter.py")
+    assert gate.twist_patch(pkg) is None  # its patch is a function: it would name itself in TWIST_PATCH
+
+
+def test_the_gate_warns_when_a_patch_has_no_variant(tmp_path, capsys):
+    """One table on a tiny closure package whose adapter names a patch: the warning is among the last lines without
+    --variant. Whether it goes with --variant is the same `if`; the catalog's plain entry shows it."""
+    gate = _tool("gate")
+    pkg = tmp_path / "pkg"
+    _closure_package(pkg)
+    (pkg / "adapter.py").write_text('TWIST_PATCH = "past the stop, shove"\n')
+    shutil.copy(DRILLS / "closure_gate_seat_template.py", tmp_path / "gate_seat.py")
+    args = [str(pkg), "--kit", str(tmp_path / "gate_seat.py"), "--entry", "bot.py", "--tables", "1", "--mode", "measure",
+            "--setup-starts", "4", "--setup-budget-ms", "500", "--bot", "cheap"]
+    gate.main(args)
+    out = capsys.readouterr().out
+    assert "WARN adapter.py carries a twist patch" in out and "--variant" in out, out[-1500:]
+    assert "table start through the entry: 4 starts" in out and "budget 500 ms" in out, out[-1500:]
+    gate.main(args + ["--variant", "permuted_ranks"])
+    assert "WARN adapter.py carries a twist patch" not in capsys.readouterr().out
+
+

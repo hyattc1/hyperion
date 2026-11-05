@@ -111,7 +111,11 @@ Track A (repo present):
    raises the kit's Overtime at its limits; an entry that swallows one fails the gate. A closure kit (step 2):
    `hyperion/drills/closure_gate_seat_template.py`, the same flags. Another subprocess kit unlike c
    or d: say the gate cannot run. Required: `GATE PASS`. It proves the reverse adapter now, so Stage 4's gate
-   is one command; a FAIL on the delta means the adapter loses something the sim's Hero has.
+   is one command; a FAIL on the delta means the adapter loses something the sim's Hero has. A patch that is a function
+   in the adapter (prompt 05) needs `--variant` on the gate, a catalog name or the twist as a hooks file (`--variant
+   submission/tonight.py:variant`, from `hyperion/drills/variant_file_example.py`): on plain rules the seat's floors
+   fire with no twist in the engine and the number says nothing about the patch (drill 12). The gate warns when the
+   adapter carries one (`TWIST_PATCH`, or a class in front of `bot.act`) and no `--variant` is given.
 
 Track B (blank directory): steps 1 and 4 are "one file, no vendoring". `submission.py` is steps 0 and 1
 of the from-scratch spec I pasted: the rank map at parse time, the safe wrapper and clamp first, the
