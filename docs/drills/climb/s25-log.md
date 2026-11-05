@@ -112,3 +112,43 @@ to open-jams is positive in every room.
 the button's min-raise 0.49 at 5 bb, 0.35 at 8, 0.32 at 10, 0.25-0.29 at 12-16, 0.25 at 18-20, 0.24 at 22; the button facing a re-jam of
 its open calls 0.45 at 10 bb, 0.33 at 15, 0.26 at 20 (F's base calls 8%, H1 41%). The push/fold Nash push width (tables/pushfold_hu.json)
 is 0.72 at 5 bb, 0.62 at 8, 0.58 at 10, 0.45 at 15, 0.40 at 20.
+
+## Step 3: the rule, and the coin (fit seeds 19200-19319, check 19320-19439)
+
+**Built (commit c14393e)**: in rival 3's core (hyperion/hybrid/core3.py, the base member that plays F's heads-up preflop where H1 does
+not), heads-up, plain hold'em, one opponent all-in, at or under `r3.hu_jam_max_bb` (20) effective: the width of the all-in opponent's
+range has a floor. Our open re-jammed (the hand's second raise is its all-in): `r3.hu_jam_w` (0 = off). Its first-in all-in from the
+button against our blind: `r3.hu_openjam_scale` x the push/fold Nash push width at the depth (tables/pushfold_hu.json p_push: 0.58 at
+10 bb, 0.45 at 15, 0.40 at 20; 0 = off). Calls only (the width only widens; rival 3's all-in price, ICM, decides, and heads-up ICM is
+chips), after S24's shove read where that is on; H1's decisions never see it. Tests tests/test_s25_hu.py (8: the Nash width, the floor
+by line, the dials reach heads-up decisions, shut gates and three-handed and twist tables play as F, a table replays). The coin recorder
+`goal/s25/d25c.py` toggles `core.hu_jam_on` per heads-up hand and records `would` (a floor above rival 3's width at one of F's
+decisions), who decided, the strong read, the opponent, F's class; `ips_hu.py` is the IPS judge on the hands where the base's decision
+saw a floor.
+
+What rival 3 then calls with (its `_eqvs` against the top w of hands at the all-in price; share of hands, by our class rank): a re-jam of
+our 2 bb open at 15 bb: w 0.15 (an elite's 8-max re-raise rate, F today) calls 11% (q4 only, and not all of it); 0.20 15.5% (q4 0.14 of
+0.17, q3 0.01); 0.25 18.6% (q4 0.15, q3 0.03); **0.30 24% (q4 0.17, q3 0.07)**; 0.35 27% (q3 0.09); 0.45 31.5% (q3 0.14). At 10 bb
+0.30 calls 28% (q3 0.10), at 20 bb 20% (q3 0.04). An open-jam at 12 bb: w 0.58 (Nash) calls 35% (q4 0.17, q3 0.16); 0.45 28.5% (q3
+0.11). The fit values: `hu_jam_w` 0.30 (the equilibrium big blind's re-jam width at 10-18 bb; every strong build is wider),
+`hu_openjam_scale` 1.0 (the Nash width). If the coin says the q3 calls lose where the room's re-jammers are narrow, 0.20-0.25 reaches
+q4 alone, which the counterfactual found positive in every room; that would be a second fixed rule from the same diagnosis, not a sweep.
+
+### The fit (seeds 19200-19319, 120 x 8 a room, 10/7/5; `C_<room>_brief.jsonl.gz`; floors - F in points a table-rotation, 95%)
+
+Eligible = the heads-up hands where a floor was above rival 3's width at a decision the base made (about 1 in 7 heads-up hands).
+
+| room | all | BB vs open-jam | BTN open, re-jammed | re-jam q2 / q3 / q4 | open-jam q2 / q3 / q4 |
+|---|---|---|---|---|---|
+| four strong rooms pooled | **+0.021 ± 0.019** | +0.016 ± 0.014 | +0.005 ± 0.013 | +0.001 / +0.003 / +0.004 | +0.003 / +0.009 / +0.005 |
+| realistic | -0.014 ± 0.034 | +0.004 ± 0.028 | **-0.018 ± 0.021** | -0.005 / -0.006 / -0.003 | -0.001 / +0.006 / -0.002 |
+| night | -0.006 ± 0.055 | -0.003 ± 0.044 | -0.003 ± 0.028 | +0.001 / +0.006 / -0.008 | -0.004 / -0.003 / +0.002 |
+| top | +0.011 ± 0.033 | +0.003 ± 0.028 | +0.008 ± 0.026 | +0.004 / -0.004 / +0.004 | 0.000 / +0.003 / +0.004 |
+
+Reading: at the strong rooms the floors are worth about +0.02 a table under 10/7/5 (about +0.007 under 8..1: below what the screen
+resolves there), most of it the open-jam floor (the big blind's calls of the button's all-in with q3 hands, +0.009, positive in
+realistic and top as well). The re-jam floor at 0.30 is level at the strong rooms and **down in the realistic room (-0.018 ± 0.021),
+exactly where the counterfactual said it would be: the floors' arm calls q2 and q3 hands against narrow re-jammers (rival1, tag) and
+loses -0.005 / -0.006 there**, while its q4 calls are the positive part at the strong rooms (+0.004). So the second fixed rule from the
+same diagnosis, written above before the fit: **candidate B = `r3.hu_jam_w` 0.20 (the re-jam floor reaches q4 alone: 15.5% of hands
+at 15 bb), `r3.hu_openjam_scale` 1.0**. Run on the fit seeds again (`B_*`) and on the check seeds 19320-19439 (`D_*`), both rooms sets.
