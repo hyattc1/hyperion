@@ -636,6 +636,9 @@ class ComposeConfig:
     # S20: ... and only while the table reads strong (strong_table(): the strong route's read and threshold); off =
     # wherever the member wants the decision. True = every section; or section names ("pre_3way": that one only)
     short_strong: object = False
+    # S23: ... except at or under this effective depth in big blinds (min of our chips and the most chips of any other
+    # seat alive), where the specialist's own gates decide alone (its `three2_free_max`); 0 = the read at every depth
+    short_strong_free_bb: float = 0.0
     # V-f: the hold'em-only members (the elite builds, twist-blind) may also play their sections on tables of these
     # one-step twist families (hero.TWIST_FAMILIES: "bounty,knockout,buy,swap"), where their play stays as right as the
     # base's: the base's core plays the table too (two hole cards; the families Hero plays whole, discard and exposed,
@@ -999,10 +1002,18 @@ class CompositeCore:
             if self._oa_core is not None:
                 self.ex.open_fold = self._oa_fn if on else None
         short = self.short
-        if short is not None and short[sec] is not None and not self.panic and self.plain and (
-                not self._sstrong[sec] or self.strong_table()):
+        if short is not None and short[sec] is not None and not self.panic and self.plain:
             si, sl = short[sec]
-            if not self._no_h[si]:
+            strong_now = self.strong_table()
+            gate = not self._sstrong[sec] or strong_now
+            if not gate and self.cfg.short_strong_free_bb > 0.0:  # S23: shallow, the member's own gates decide
+                mine = obs.stacks[obs.seat] + obs.bets[obs.seat]
+                most = 0
+                for j, (s_, b_, h_) in enumerate(zip(obs.stacks, obs.bets, obs.in_hand)):
+                    if j != obs.seat and (s_ + b_ > 0 or h_) and s_ + b_ > most:
+                        most = s_ + b_
+                gate = min(mine, most) <= self.cfg.short_strong_free_bb * (obs.blinds[1] or 1)
+            if gate and not self._no_h[si]:
                 alive = 0
                 for s_, b_, h_ in zip(obs.stacks, obs.bets, obs.in_hand):
                     if s_ + b_ > 0 or h_:
@@ -1012,8 +1023,9 @@ class CompositeCore:
                     prof = getattr(self.members[hi], "prof", None) if hi >= 0 else None
                     mem = self.members[si]
                     if getattr(mem, "needs_strong", False):  # S20 H1: the member's second heads-up path reads it
-                        mem.strong_open = self.strong_table()
+                        mem.strong_open = strong_now
                     try:
+                        mem.strong_now = strong_now  # S23: the member's shallow either-or reads it too
                         ok = mem.wants(obs, prof, self.base)
                     except Exception:  # noqa: BLE001 - a slip in the read keeps F's route
                         ok = False
