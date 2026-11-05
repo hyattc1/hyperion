@@ -9,8 +9,9 @@ by B, in the gate's own seat (tools/gate.py GateTable and HostProxy: one fresh `
 the kit's adapter, 1 ms a decision, strict, K-times clock with --slow), with every other seat identical, on the same
 seeds as tools/swap.py (table seed = seed * 1,000,003 + t, seats' seeds table_seed * 64 + rotation * 8 + seat). The bot's own
 seed is fixed too, so two bots that decide alike play alike, and the pairs are as tight as they can be: on fake kit B (the default)
-each package's copy gets `entry_compare.py`, make_kit_b_module around ship.make_bot(seed=...); with --kit, a seat file (drill 12's
-kit J: closure_gate_seat_template.py), the package's --entry with its `ship.make_bot()` so seeded.
+each package's copy gets `entry_compare.py`, kit B's adapter around ship.make_bot(seed=...) and --rules; with --kit, a seat file
+(drill 12's kit J: closure_gate_seat_template.py), the package's --entry with its `ship.make_bot()` so seeded (its rules are its
+own rules_tonight.json).
 
 --det is the identity check: both packages' records get tools/slowbox.py's DET dials (panic, soft deadlines, late_us off), the
 table runs in model mode (opponents at fixed speed, nothing enforced), and every reply must be the same, table by table: the
@@ -41,12 +42,26 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 ENTRY = "entry_compare.py"
-ENTRY_TEXT = """import os, sys
+ENTRY_TEXT = """import json, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hyperion import ship
-from hyperion.drills.adapter import make_kit_b_module
+from hyperion.drills.adapter import KitBAdapter
+from hyperion.tablegen import rules_from_dict
 
-decide, on_table_start, on_hand_end = make_kit_b_module(ship.make_bot(seed=int(os.environ["KIT_COMPARE_SEED"])))
+_rules = os.environ.get("KIT_COMPARE_RULES")
+_ad = KitBAdapter(ship.make_bot(seed=int(os.environ["KIT_COMPARE_SEED"])), rules_from_dict(json.loads(_rules)) if _rules else None)
+
+
+def decide(o):
+    return _ad.decide(o)
+
+
+def on_table_start(i):
+    _ad.start(i["seat"], i["players"])
+
+
+def on_hand_end(i):
+    _ad.hand_end(i["hand_id"], i["delta"])
 """
 BOT_SEED_MUL = 97
 
@@ -182,6 +197,8 @@ def main(argv=None) -> int:
     p.add_argument("--det", action="store_true")
     a = p.parse_args(argv)
 
+    if a.rules != "default":
+        os.environ["KIT_COMPARE_RULES"] = Path(a.rules).read_text()
     gate = load_tool("gate")
     from hyperion.sim import bestiary
 

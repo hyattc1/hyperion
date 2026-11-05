@@ -205,13 +205,13 @@ class Adapter:
         e = self._e_call = x if self._n_call == 1 else self._e_call + (x - self._e_call) / 16.0
         if self._n_call >= 16:
             # a box this slow plays the first rung of the governor's ladder from now on, without waiting for a cluster of
-            # overruns: no shadows, a quarter of a decision for little play (the composite's module doc). Over 0.6 of the
-            # budget going down; 0.38 coming back, as the rung itself takes a quarter off the mean
+            # overruns: no shadows, a quarter of a decision for little play (the composite's module doc). A loaded 1x box's
+            # mean is under 0.2 ms; coming back is lower than going down, as the rung itself takes a quarter off the mean
             if not self._floored:
-                if e > 0.6 * self._budget:
+                if e > FLOOR_ON_S:
                     self._floored = True
                     self._safe.set_floor(1)
-            elif e < 0.38 * self._budget:
+            elif e < FLOOR_OFF_S:
                 self._floored = False
                 self._safe.set_floor(0)
 
@@ -220,8 +220,11 @@ class Adapter:
         self._e_end = x if self._e_end == 0.0 else self._e_end + (x - self._e_end) / 8.0
 
     def short_of_time(self) -> bool:
-        """A typical decision with a hand end inside it would pass the budget (a decision's p99 is about twice its median, so
-        half the kit's budget is where the tail starts to time out). Needs a table's worth of calls: never on a cold start."""
+        """A typical decision with a hand end inside it would pass the budget: most of those calls would time out on their
+        own, reads or no reads. Needs a table's worth of calls: never on a cold start. The line is that high because the reads
+        are worth more than the timeouts they cost. Kit B at 3x against batch 8: every tail kept +0.01 ± 0.18 points a table,
+        one hand in two without its tail -0.24 ± 0.18 (400 tables each), seven in eight -0.48 ± 0.33 (150 tables), while
+        timeouts fell about as far in the first two (docs/drills/climb/g1-log.md)."""
         return bool(self._budget) and self._n_call >= 16 and self._e_call + self._e_end > self._budget
 
     def _decide(self, native: Any) -> Any:
@@ -337,7 +340,7 @@ class Adapter:
     hand_end_timed = False  # the kit times its hand-end callback (the entry templates set it from HAND_END: "eager" is False)
     hand_end_stored = False  # an entry calls hand_end inside the next decision (entry_template.py "store", the closure template)
     log_at_end = False  # a "log" kit whose hand end carries the whole log: the inference has nothing to watch for (closure template)
-    tail_every = 8  # short of time: one hand end in this many still waits for the next state, for its tail (hand_end)
+    tail_every = 2  # short of time: one hand end in this many still waits for the next state, for its tail (hand_end)
 
     def _life(self, key: str) -> None:
         safe = self._safe
@@ -612,6 +615,7 @@ def drop_blind_posts(history, big_blind: int, street: int = 0) -> tuple[list, in
     return (history[i:], i) if i else (history, 0)
 
 
+FLOOR_ON_S, FLOOR_OFF_S = 0.0003, 0.00019  # a decision's mean, without a hand end, that holds the ladder's first rung (_note_call)
 _STAND_IN = True  # False while Adapter.decide translates for a kit with no log: the rebuilt log replaces the stand-in
 
 

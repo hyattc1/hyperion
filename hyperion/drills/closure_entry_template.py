@@ -20,7 +20,7 @@ What it does without being asked, each from drill 12 unless marked:
   out; the gate's and the kit's simulator's do not.
 - THE GOVERNOR SEES ALL OF IT (G1). `decide` reads the clock on its first line and passes it to Adapter.decide, which reports
   the whole call, the recap included, to the bot's SafeBot. And the recap minds the budget: when a typical decision with one
-  would pass half the kit's limit (`short_of_time`), only the chip chain runs and the bot's hand end is dropped, at most
+  would pass 3/4 of the kit's limit (`short_of_time`), only the chip chain runs and the bot's hand end is dropped, at most
   RECAP_SKIP_MAX in a row, and counted (`dropped` on tools/gate.py's governor line). The bot's reads of that hand stop at our
   last decision in it. On a normal box the means never get there and nothing changes.
 - A TABLE START COLLECTS NOTHING: no `gc.collect()` here (a full one is 4-29 ms with our tables, against kit J's 25 ms).
@@ -80,7 +80,7 @@ TABLES_AT_ONCE = 1
 
 # TODO 1  from the RULE SHEET: is the hand end timed? Kit J: inside the next decide, "defer". Untimed: "eager".
 HAND_END = "defer"
-RECAP_SKIP_MAX = 7  # recaps whose bot hand end is dropped in a row while the budget is short (the next one is delivered)
+RECAP_SKIP_MAX = 1  # recaps whose bot hand end is dropped in a row while the budget is short (the next one is delivered)
 
 
 def safe_answer(v):

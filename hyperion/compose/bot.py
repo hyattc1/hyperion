@@ -1228,7 +1228,7 @@ SHIP_DIALS: dict = {"route": SHIP_ROUTE, "exploit.bet_min_fold": 0.4, "hero.post
                     # held hand end minds the budget, and the first rung saves time (no shadows: 25% of a decision, for
                     # little play; noshadow saved nothing). Off (G1_OFF): batch 8's clock and ladder
                     "degrade": "bare,lean,hero",
-                    "whole_call": True, "hand_end_ms": 0.5,
+                    "whole_call": True, "hand_end_ms": 0.75,
                     # batch 3 (V-b): twist tables only, plain hold'em identical (docs/decisions.md)
                     "hero.variant_preflop": {"call_raise_frac": 0.15, "three_bet_frac": 0.05},
                     "hero.toss_value_shift": 2, "hero.toss_dead": True, "base.hero_on_bounty": False,

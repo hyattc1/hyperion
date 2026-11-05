@@ -66,10 +66,12 @@ Kinds: fold, check, call, raise. `action.clamp(obs)` returns a legal version (ra
 ## Adapter (the only code written on the night)
 
 - `__init__(self, bot: 'Bot', rules: 'Rules | None' = None)`: Initialize self.  See help(type(self)) for accurate signature.
-- `decide(self, native: 'Any') -> 'Any'`
+- `decide(self, native: 'Any', t0: 'float | None' = None) -> 'Any'`: The kit's timed call, and its report: `t0` the kit's call as the entry's first line read the clock (default:
+- `drop_hand_end(self, n: 'int' = 1) -> 'None'`: An entry's stored hand end, not delivered for the budget (entry_template.py "store", the closure template's recap).
 - `from_action(self, action: 'Action', obs: 'Observation', native: 'Any') -> 'Any'`
 - `hand_end(self, hand_no: 'int', delta: 'int', n_players: 'int | None' = None, history=None, deltas=None, final_stacks=None, showdown=None, board=()) -> 'None'`: The hand is over; pass whatever the kit's hand-end signal has.
 - `native_safe(self, native: 'Any') -> 'Any'`: The kit's own check-if-possible-else-fold, used when translation itself blows up.
+- `short_of_time(self) -> 'bool'`: A typical decision with a hand end inside it would pass the budget: most of those calls would time out on their
 - `start(self, seat: 'int', n_players: 'int', rules: 'Rules | None' = None) -> 'None'`
 - `to_observation(self, native: 'Any') -> 'Observation'`
 - `with_history(self, obs: 'Observation') -> 'Observation'`: obs with the history the bot reads: the kit's log, or the one rebuilt from the states (history_source).
@@ -224,6 +226,8 @@ The shell, flat keys (hybrid3_x sets `core` 'rival3' and `exploit` 'hero'; `chea
 | `panic_ladder` | False |
 | `panic_recover` | 0 |
 | `panic_backoff` | 2.0 |
+| `whole_call` | False |
+| `hand_end_ms` | 0.0 |
 | `hero_on_bounty` | True |
 | `hero_on_exposed` | True |
 | `hero_on_three_cards` | True |
@@ -568,6 +572,8 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `panic_ladder` | False |
 | `panic_recover` | 0 |
 | `panic_backoff` | 2.0 |
+| `whole_call` | False |
+| `hand_end_ms` | 0.0 |
 | `seed` | None |
 
 ## Commands

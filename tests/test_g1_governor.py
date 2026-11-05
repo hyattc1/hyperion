@@ -112,7 +112,7 @@ def test_the_dial_off_is_batch_8s_clock():
 def test_model_mode_never_reads_the_clock_for_the_hand_end():
     bot = ship.make_bot(dials=DET)
     assert bot.safe.end_budget == 0.0 and KitBAdapter(bot)._budget == 0.0
-    assert ship.make_bot().safe.end_budget == 0.0005
+    assert ship.make_bot().safe.end_budget == 0.00075
 
 
 class Slow(KitBAdapter):
@@ -213,7 +213,7 @@ def test_on_a_normal_box_the_hand_end_waits_for_the_next_state():
 
 def test_short_of_time_the_hand_end_runs_at_the_kits_callback_and_the_bound_keeps_some_tails():
     a = _adapter()
-    a._n_call, a._e_call, a._e_end = 100, 0.0004, 0.0002
+    a._n_call, a._e_call, a._e_end = 100, 0.0005, 0.0003
     assert a.short_of_time() is True
     ends = []
     orig = a.bot.hand_end
@@ -221,7 +221,7 @@ def test_short_of_time_the_hand_end_runs_at_the_kits_callback_and_the_bound_keep
     held = lost = 0
     for h in range(1, 41):
         a.decide(_native(hand=h))
-        a._e_call, a._e_end, a._n_call = 0.0004, 0.0002, 100
+        a._e_call, a._e_end, a._n_call = 0.0005, 0.0003, 100
         if not a.inference.tail_open():
             pytest.skip("this spot has no tail")
         a.hand_end(h, -20)

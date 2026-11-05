@@ -97,7 +97,7 @@ def transplant_rngs(old, fresh) -> int:
 
 
 TELEMETRY = {"counts", "fired", "last", "last_path", "_t0", "_states", "_props", "last_section", "calls", "worst",
-             "errors", "overruns", "level_changes", "inferred"}  # counters and per-decision scratch: never read to decide
+             "errors", "overruns", "level_changes", "inferred", "life", "lvl_calls", "reports"}  # counters and per-decision scratch: never read to decide
 
 
 def state_diff(a, b, path: str = "bot", seen: set | None = None, depth: int = 0, out: list | None = None) -> list:
