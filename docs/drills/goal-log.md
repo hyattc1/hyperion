@@ -1752,3 +1752,12 @@ and (in judges) `elite_judge`.
   The owner decided the governor must count the whole call: G1.
 - Git: `git pull --rebase` flattens a local merge and conflicts; after a merge, push directly or use `--rebase=merges`. The
   attempt was aborted before anything was pushed.
+
+## 23:55: the strong room's follow-up: F is not the best bot there
+- `outside_d_strong` on a second seed set (70400-70799, batch 8, runout term; reading only, wt_od2's extra cell): 8..1 F third of
+  eight, 4.851; out_reads 5.028 (F -0.177 ± 0.078, DOWN, repeats the first set's -0.138), elite5 4.909 (-0.058 ± 0.089 level).
+  On 10/7/5/4/3/2/1/0: F third, 4.339; out_reads 4.762 (-0.424 ± 0.117), elite5 4.551 (-0.212 ± 0.118), both DOWN. F's first places
+  12.3% (an even share is 12.5%), out_reads 22%, elite5 18%; F's bust rate 85.5%, out_reads 77%. Batch 8 against batch 7 level to up
+  in both. So: F is consistent, not dominant, at the strongest tables, and the gap widens the more first place pays. The real
+  point table is unknown until the night. Judges stay untuned: nobody reads their code; S23 studies the same question on tuning
+  rooms only.
