@@ -165,8 +165,12 @@ fixed environment never passes `HYPERION_CHECK=1` on: a `check.on` file beside t
 **Plain module-level functions, one module a session** (drill 11's kit I: start/table/act/done, an int of chips back,
 the folder off sys.path and our modules out of sys.modules right after the import, an Overtime BaseException at each
 limit): `hyperion/drills/module_entry_template.py`, with `module_gate_seat_template.py` as the gate seat, which loads
-the entry as the kit's loader does and raises its Overtime. Every template's hand end asks whether the kit's `won` is
-chips collected or the net change, with both formulas: drill 11 pasted kit G's net onto kit I's collected chips.
+the entry as the kit's loader does and raises its Overtime. **One module function returning a closure** (drill 12's kit
+J: `sit_down(table)` returns `decide(v)`, a finished hand inside the next timed decide, no other callback):
+`hyperion/drills/closure_entry_template.py`, with `closure_gate_seat_template.py` as the gate seat. An adapter holds
+one table: a kit that interleaves tables in one process is `TABLES_AT_ONCE` there, and fails loudly otherwise. Every
+template's hand end asks whether the kit's `won` is chips collected or the net change, with both formulas: drill 11
+pasted kit G's net onto kit I's collected chips.
 
 **The organisers' checker on a loaded box** (prompt 02 step 6). Its wall clock flags every bot under load, the kit's own
 sample bots too (drill 11 at load 17). Run it on its CPU clock when it has one. It passes when the layout, the size caps
@@ -281,8 +285,8 @@ nothing; there is no retry inside the window (§3.5). Minutes 15 to 20: three
 lines in `NIGHT.md`.
 
 Hard rules: one change per window; no new modules; nothing unverified; timeouts or errors in any log
-override everything (`latency` first: no shadow decisions, points level; `timeouts`, every decision Hero's cheap path,
-for errors or timeouts it did not cure; verify in the kit's own simulator, paired, then submit). Tournaments 5 and 6 are 52% of
+override everything (`latency` first: no shadow decisions, points level; `timeouts`, every decision Hero's cheap path, a
+third of the time and several points, for errors or timeouts it did not cure; verify in the kit's own simulator, paired, then submit). Tournaments 5 and 6 are 52% of
 the score: the bot that plays T6 should be a bot that has already played T4 or T5 clean.
 
 ---
@@ -542,6 +546,7 @@ The track is decided in Stage 0, never on the night.
 | 2026-11-03 | Drill 10's fixes (H6, docs/drills/prompt-drill-10.md): `hyperion/drills/process_entry_template.py` and `process_gate_seat_template.py` for a kit whose bot is its own process (answer first, hand end skipped while a request waits, a `check.on` marker for a stripped environment; the gate drives the real stdin loop); on a table Hero plays whole the composite's base sleeps (one hand end, not two); Hero's must-use path reads a board shorter than it must supply (`mu_short_board`, Solo's flop); `hyperion/drills/solo_example.py`; gen_tables `--preset loaded`, progress, `--resume`; pack `--max-zip-mb`; hard rule 9, kill by PID | H6 |
 | 2026-11-03 | Drill 11's fixes (H7, docs/drills/prompt-drill-11.md): `hyperion/drills/module_entry_template.py` and `module_gate_seat_template.py` for a kit of plain module-level functions (kit I: everything built at import, the loader's purge, the kit's Overtime never swallowed; the gate seat loads the entry as the kit's loader and raises the Overtime); every template's hand end asks "won: chips collected or net change?" and counts deltas that do not sum to 0; `extras.full_bb_call` for the full big blind after a short post; the organisers' checker's pass rule on a loaded box; `pytest -m night`, the one-minute subset; a latency recipe kept only by the kit's own simulator; one keep rule for a Stage 5 patch (prompt 05); the Stage 0 clause skipped on a solo night; `hyperion.ship --set` keeps the line | H7 |
 | 2026-11-04 | Freezing a batch: `tools/pack.py` ships what the recorded bot needs and fails by name on a table the package lacks (batch 8's R6 table was left out, and the bot played on without it, silently); `tools/gate.py` fails the same way; new `tools/zip_parity.py` (zip against source, decision for decision, the specialist's routes counted) and `tools/zip_timing.py` (the zip's bot at load and on a 3x slower clock) | batch 8 freeze |
+| 2026-11-05 | Drill 12's fixes (H8, docs/drills/prompt-drill-12.md): a table start never collects (Hero froze and collected one table in 16: 20-29 ms against kit J's 25, 6% of tables on autopilot; now p99 0.8 ms at four copies), and `tools/latency.py --table-start` and the gate's `--setup-budget-ms` state p99 and max against the kit's limit; `hyperion/drills/closure_entry_template.py` and `closure_gate_seat_template.py` for a closure kit; prompt 05's section on what a stack can lose; `--variant` for a function patch, with the gate's warning; the `timeouts` recipe pays only for what it reads (88 us a decision through kit J's adapter, was 221); one table per adapter stated and enforced. |
 ---
 
 ## 10. The email (send before the event)

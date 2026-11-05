@@ -7,7 +7,8 @@ adapters for four fake kits: `hyperion/drills/adapter.py`. If one of them fits t
 instead of filling this in. The bot behind it is `hyperion.ship.make_bot()` (the ship bot the switch names;
 `tools/pack.py --bot cheap` makes the same entry play Hero.cheap() at Stage 2). The entry that imports this file:
 `hyperion/drills/entry_template.py` (a kit that builds a bot object: it builds, starts and warms the bot at import,
-pins the package there, and defers a timed hand end), or event_player_template.py for an event-driven kit.
+pins the package there, and defers a timed hand end), or event_player_template.py for an event-driven kit. An adapter and
+its bot hold one table's state: one table at a time per adapter (closure_entry_template.py's TABLES_AT_ONCE if not).
 
 While the kit simulator runs, check every decision against the Observation invariants:
     HYPERION_CHECK=1 python -m <kit runner> submission/<entry>.py      # conformance report at exit
@@ -19,6 +20,10 @@ from typing import Any
 from hyperion.core.types import Action, ActionKind, Observation, Rules, parse_card  # noqa: F401
 from hyperion.drills.adapter import Adapter, make_observation  # noqa: F401
 from hyperion.drills.conformance import maybe_checked
+
+# A function here that changes play under tonight's twist (prompt 05) gets a name, and then the gate needs --variant: on
+# plain rules the patch fires with no twist in the engine, and tools/gate.py warns when this is set and --variant is not.
+TWIST_PATCH = None  # e.g. "past the stop, shove"
 
 # TODO 1  CARD ENCODING -> obs.hole, obs.board. Ours: int rank*4 + suit with 2=0 ... T=8 ... A=12 and
 #   c d h s = 0..3 (`parse_card("Th") == 34`). parse_card reads every string shape kits use ("Th", "th", "10h",

@@ -29,6 +29,15 @@ the per-call minimum over the passes (a preempted call reports the scheduler, no
 replay, and each table's first decision. Each table starts with the ICM memos empty, as in a fresh process per table
 (the worst case: a kit that keeps one process warms them over the tables). Exit 1 if the minimum's p99 exceeds
 --p99-us.
+
+    python tools/latency.py --table-start [--budget-ms 25] [--copies 4] [--tables 128] [--bot ...] [--rules ...]
+
+`--table-start` times what a kit's table-start call costs (sit_down, table(), new_game): the bot's new_table under
+quick_start, as the entries call it, per table for `--copies` copies of the package in this one process, each with its own
+modules, as a kit's simulator loads one copy per seat (a collection walks every copy; drill 12: 4.4 ms for one, 17 ms for
+four, 20-29 ms under load, against kit J's 25 ms, and 6% of the tables on autopilot). It prints p50, p99 and max on the
+wall clock and the thread's CPU clock against `--budget-ms`, the kit's table-start limit. Exit 1 if the wall p99 is over
+the budget, or two or more starts are over it on the CPU clock; one start over it alone, a preemption, is a WARN.
 """
 from __future__ import annotations
 
@@ -345,13 +354,13 @@ def hand_end_main(a, rules: Rules, dials) -> int:
             return ship.make_bot(a.bot, {} if dials is None else dials, seed=seed)
         return load_bot(a.bot, dials)
 
-    logs = record_tables(make, rules, a.field, a.tables, a.seed, variant)
+    logs = record_tables(make, rules, a.field, a.tables or 20, a.seed, variant)
     passes = [replay(make, logs, a.seed, a.defer) for _ in range(max(1, a.reps))]
     best = {k: [min(p[k][i] for p in passes) for i in range(len(passes[0][k]))]
             for k in ("he", "act", "first", "idle", "vd")}
     label = ship.describe(None, dials) if a.bot == "ship" else a.bot
     print(f"bot {label}  rules {a.rules or (a.variant and 'variant ' + a.variant) or 'default'}  payouts {rules.payouts}  "
-          f"field {a.field}  tables {a.tables}  seed {a.seed}  reps {len(passes)}{'  defer' if a.defer else ''}  "
+          f"field {a.field}  tables {a.tables or 20}  seed {a.seed}  reps {len(passes)}{'  defer' if a.defer else ''}  "
           f"load {os.getloadavg()[0]:.1f}")
     nul = {"wall": 0.0, "cpu": 0.0, "gc": [0, 0, 0]}
     print(line("hand_end", {**nul, "times": passes[0]["he"]}) + "   (first pass)")
@@ -367,6 +376,56 @@ def hand_end_main(a, rules: Rules, dials) -> int:
         print(f"FAIL hand_end p99 {p99 * 1e6:.1f} µs > {a.p99_us:g} µs")
         return 1
     print(f"OK hand_end p99 {p99 * 1e6:.1f} µs <= {a.p99_us:g} µs")
+    return 0
+
+
+def table_start_copy(a, dials):
+    """One copy of the package as a kit's seat loads it, this copy's modules fresh: (bot, its quick_start, its Rules)."""
+    bot = load_bot(a.bot, dials)
+    quick = importlib.import_module("hyperion.strategy.tables").quick_start
+    types_ = importlib.import_module("hyperion.core.types")
+    rules = load_rules(a.rules, a.variant) if (a.rules or a.variant) else types_.Rules()
+    if a.payouts:
+        rules = dataclasses.replace(rules, payouts=tuple(float(x) for x in a.payouts.split(",")))
+    with quick():
+        bot.new_table(rules, a.seat, rules.n_players)  # as an entry's warm-up does, at import
+    return bot, quick, rules
+
+
+def table_start_main(a, dials) -> int:
+    copies = [table_start_copy(a, dials)]
+    for _ in range(max(1, a.copies) - 1):
+        for name in [m for m in sys.modules if m.split(".")[0] == "hyperion"]:
+            del sys.modules[name]
+        copies.append(table_start_copy(a, dials))
+    tables = a.tables or 128
+    n = tables * len(copies)
+    wall, cpu = [0.0] * n, [0.0] * n
+    pc, tt = time.perf_counter, time.thread_time
+    i = 0
+    for _ in range(tables):
+        for bot, quick, rules in copies:
+            t0, c0 = pc(), tt()
+            with quick():
+                bot.new_table(rules, a.seat, rules.n_players)
+            wall[i], cpu[i] = pc() - t0, tt() - c0
+            i += 1
+    w, c = stats(wall), stats(cpu)
+    budget = a.budget_ms / 1e3
+    over_wall = sum(1 for t in wall if t > budget)
+    over_cpu = sum(1 for t in cpu if t > budget)
+    print(f"bot {a.bot}  rules {a.rules or (a.variant and 'variant ' + a.variant) or 'default'}  copies {len(copies)}  "
+          f"tables {tables}  load {os.getloadavg()[0]:.1f}")
+    print(f"table start  n={n}  wall ms: mean {w['mean'] * 1e3:.2f}  p50 {w['p50'] * 1e3:.2f}  p99 {w['p99'] * 1e3:.2f}  "
+          f"max {w['max'] * 1e3:.2f}  over {a.budget_ms:g} ms: {over_wall}   cpu ms: p50 {c['p50'] * 1e3:.2f}  "
+          f"p99 {c['p99'] * 1e3:.2f}  max {c['max'] * 1e3:.2f}  over: {over_cpu}")
+    if w["p99"] > budget or over_cpu >= 2:
+        print(f"FAIL table start: wall p99 {w['p99'] * 1e3:.2f} ms, {over_cpu} starts over the {a.budget_ms:g} ms budget "
+              f"on the CPU clock (an overrun plays the table on autopilot)")
+        return 1
+    if over_wall or over_cpu:
+        print(f"WARN table start: max {w['max'] * 1e3:.2f} ms over the {a.budget_ms:g} ms budget, once (a preemption?)")
+    print(f"OK table start p99 {w['p99'] * 1e3:.2f} ms, max {w['max'] * 1e3:.2f} ms against {a.budget_ms:g} ms")
     return 0
 
 
@@ -386,11 +445,17 @@ def main(argv=None) -> int:
     p.add_argument("--seat", type=int, default=0, help="our seat in every observation (default 0)")
     p.add_argument("--p99-us", type=float, default=500.0, help="exit 1 above this p99 (default 500)")
     p.add_argument("--hand-end", action="store_true", help="time the bot's hand end on recorded tables (module doc)")
-    p.add_argument("--tables", type=int, default=20, help="--hand-end: tables to record (default 20)")
+    p.add_argument("--tables", type=int, help="--hand-end: tables to record (default 20); --table-start: tables to "
+                                              "start, each copy (default 128)")
     p.add_argument("--field", default="realistic", help="--hand-end: the field, the bot in Hero's seat")
     p.add_argument("--reps", type=int, default=3, help="--hand-end: replays; each call's minimum is kept (default 3)")
     p.add_argument("--defer", action="store_true", help="--hand-end: the bot's defer_hand_end(True), idle() timed after "
                                                         "each hand end (a kit that times its events)")
+    p.add_argument("--table-start", action="store_true", help="time the bot's table start against --budget-ms (module doc)")
+    p.add_argument("--budget-ms", type=float, default=25.0, help="--table-start: the kit's table-start limit (default 25, "
+                                                                 "kit J's, the tightest a kit has set)")
+    p.add_argument("--copies", type=int, default=1, help="--table-start: copies of the package in this process (a kit's "
+                                                         "simulator with our zip in N seats: N)")
     p.add_argument("--payouts", help="comma-separated points by finish on top of the rules (e.g. 50,25,15,10,0,0,0,0)")
     a = p.parse_args(argv)
 
@@ -402,6 +467,8 @@ def main(argv=None) -> int:
     dials = ship.parse_dials(a.dials, None if a.bot == "ship" else a.bot) if a.dials else None
     if a.hand_end:
         return hand_end_main(a, rules, dials)
+    if a.table_start:
+        return table_start_main(a, dials)
     bot = load_bot(a.bot, dials)
     obs = observations(a.n, a.seed, rules.n_players, a.seat, rules)
     warm = obs[: min(a.warm, len(obs))]
@@ -415,8 +482,8 @@ def main(argv=None) -> int:
         adapter.start(a.seat, rules.n_players, rules)
         build = native_builder(a.native)
         # hand numbers in order, as one table deals them: the generator's random numbers would go back about every
-        # other call, which the adapter reads as a new table with no table-start hook (a restart, and every 16th one a
-        # full collection), so the round trip would time table starts rather than decisions
+        # other call, which the adapter reads as a new table with no table-start hook (a restart), so the round trip
+        # would time table starts rather than decisions
         hands = sorted(o.hand_no for o in obs)
         lo = hands[0] if hands else 0
         natives_warm = [build(dataclasses.replace(o, hand_no=lo)) for o in warm]

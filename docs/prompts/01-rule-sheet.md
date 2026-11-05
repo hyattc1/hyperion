@@ -31,7 +31,8 @@ RULE SHEET
   action format (type, string, dict), legal-action discovery, per-decision time limit, how a table
   start and a hand end are signalled, one instance per table or per tournament, whether state persists.
 - Setup budget per table (import + construction + table start) and whether each table gets a fresh module, a
-  fresh instance, or one object for the tournament (kit E: 1 s, a fresh module per table).
+  fresh instance, or one object for the tournament (kit E: 1 s, a fresh module per table). Tables at
+  once in one process? (Our adapter plays one table at a time; over one: a table per adapter, TABLES_AT_ONCE.)
 - Event callbacks (table or hand start, cards, actions, showdown, hand end): timed or not, and what an overrun
   does (skipped, interrupted mid-call, counted as a timeout).
 - Submission size cap, zipped and unzipped (kit E's was 10 MB zipped, not 100 MB): tools/pack.py `--max-mb`.
@@ -41,7 +42,7 @@ RULE SHEET
 AXIS CLASSIFICATION (every axis that moved; usually one)
 - Hand strength ordering moved? (permuted ranks, short deck, new categories) -> Y/N, how.
 - Information moved? (extra/fewer hole cards, swaps, exposed cards, extra boards) -> Y/N, how.
-- Payoff moved? (bounties, auctions) -> Y/N, how. A point table unlike ours is not a moved axis:
+- Payoff moved? (bounties, auctions, a stop or floor that changes what a stack can lose) -> Y/N, how. A point table unlike ours is not a moved axis:
   ASSUMPTION DIFF and `Rules.payouts`.
 - Betting structure moved? (limits, sizes, schedule, antes) -> Y/N, how.
 

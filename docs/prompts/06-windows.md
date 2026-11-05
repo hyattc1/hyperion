@@ -64,8 +64,9 @@ improvement.
   p99; on a box 5-8x slower a fifth to a third fewer timeouts, points level), verified in the kit's own simulator, the
   same tables paired with and without it (prompt 04 step 4), not by tools/latency.py alone: in drill 11 latency.py
   showed half the act time and the kit's simulator the same timeouts. Errors, or timeouts that `latency` did
-  not cure: `timeouts` (every decision Hero's cheap path, -1.6 points a table on 8..1 and -14 of 100 on a top-heavy
-  table, even on a slow box: the governor already steps down on its own, so this is for errors, an emergency).
+  not cure: `timeouts` (every decision Hero's cheap path, about a third of the ship bot's time through a kit; -1.6 points
+  a table on 8..1, -3.7 on kit J's 14..0 and -14 of 100 on a top-heavy table, even on a slow box: the governor already
+  steps down on its own, so this is for errors, an emergency).
   Verify, submit.
 
 Between windows, do not touch the bot. Write in `NIGHT.md` what we changed, why, the window line (`climb_accept`

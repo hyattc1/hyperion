@@ -99,6 +99,8 @@ Each resolves for the bot the switch names: on the composite its own (the core's
 | `latency` | `{'late_us': 0}` | `{'exploit': None}` | {'use_profiler': False} |
 | `timeouts` | `{'cheap': True}` | `{'cheap': True}` | {'cheap': True} |
 
+The timing dials on the composite, through kit J's adapter (mean / p99 per decision, the hand end included; drill 12): the ship bot 255 / 520 us; `latency` 215 / 490 us, points level, the first dial to try; `timeouts` 88 / 230 us and 1.6 to 3.7 points a table, for errors or timeouts `latency` did not cure. Keep either only by prompt 04 step 4's paired run in the kit's simulator.
+
 ## Dials of rival 3's core bots (one flat dict: `--dials '{"r3.open_scale": 1.2}'`)
 
 Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
@@ -582,6 +584,7 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 - Check the zip plays as the source does, decision for decision (the freeze; about 90 s at 3 workers): `python tools/zip_parity.py dist/submission.zip`
 - Gate the zip against the same bot in-sim: `python tools/gate.py dist/submission.zip --kit a|b|c|d --tables 100 --rules rules_tonight.json`
 - Decision latency of the ship bot: `python tools/latency.py --n 2000 --rules rules_tonight.json`
+- Table start against the kit's limit (p99, max; N copies of the package in one process): `python tools/latency.py --table-start --budget-ms 25 --copies 4 --rules rules_tonight.json`
 - Regenerate every table for a variant: `python tools/gen_tables.py --rules rules_tonight.json --out tables/`
 - List variant presets / write a rules JSON: `python -m hyperion.drills.variants --list   |   --rules NAME --out rules_NAME.json`
 - Timed drill against a fake kit: `python -m hyperion.drills.run --variant NAME --kit a|b|c|d --seed 1`

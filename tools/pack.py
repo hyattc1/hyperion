@@ -59,7 +59,7 @@ PROBE = ROOT / "tools" / "table_probe.py"
 # entry_template.py, process_entry_template.py, module_entry_template.py: the player's copy is the entry; the vendored
 # one would only import a sibling `adapter` that is not in the package, which a kit's static import check fails on
 SKIP_NAMES = {"__pycache__", "tests", "docs", ".benchmarks", ".pytest_cache", ".git", "entry_template.py",
-              "process_entry_template.py", "module_entry_template.py"}
+              "process_entry_template.py", "module_entry_template.py", "closure_entry_template.py"}
 SLIM_SKIPS = {ROOT / "hyperion" / "drills": {"fakekits"}, ROOT / "hyperion" / "sim": {"bestiary.py", "aware.py", "field"}}
 # --slim leaves the simulator's opponents out: every field bot, judge and test opponent (hyperion/sim/field), the
 # variant-aware opponents (sim/aware.py) and every rival but rival 3, whose core hybrid3_x and the composite's base

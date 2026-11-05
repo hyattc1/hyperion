@@ -38,7 +38,11 @@ loop through a pipe, and its `close()` (called at the gate's close) ends the bot
 module-level functions, one module a session, drill 11's kit I): hyperion/drills/module_gate_seat_template.py, whose
 `load_entry(path)` this host calls instead of its own import, so the entry is loaded as the kit's loader loads it (the
 folder off sys.path and its modules out of sys.modules right after); a seat's `gate_counts` dict goes back with the
-close and the gate prints the sums.
+close and the gate prints the sums. A closure kit (a module function returning the decide closure, drill 12's kit J):
+hyperion/drills/closure_gate_seat_template.py, on the same `load_entry`.
+
+The `table_starts` op calls the seat's `start` N times and sends each call's time back (tools/gate.py's table-start line,
+in a process of its own that plays no hand); a process seat answers with none, its start launches a process.
 """
 from __future__ import annotations
 
@@ -223,6 +227,7 @@ def serve(kind: str, pkg: str, entry: str, kit_dir: str, seat_file: str | None) 
 
     _setup_path(pkg, kit_dir)
     errors, notes = 0, []
+    process_seat = False
 
     def note(text: str) -> None:
         if len(notes) < 8:
@@ -241,6 +246,7 @@ def serve(kind: str, pkg: str, entry: str, kit_dir: str, seat_file: str | None) 
                 # a process kit's seat (hyperion/drills/process_gate_seat_template.py) launches the entry itself, as
                 # the kit does: it gets the entry's path, never an in-process import
                 module = types.SimpleNamespace(__file__=os.path.join(pkg, entry), __name__="submission")
+                process_seat = True
             elif seat_mod is not None and callable(getattr(seat_mod, "load_entry", None)):
                 # a module-function kit's seat (hyperion/drills/module_gate_seat_template.py) loads the entry as the
                 # kit's loader does: the folder on sys.path for the import only, its modules out of sys.modules after
@@ -299,6 +305,17 @@ def serve(kind: str, pkg: str, entry: str, kit_dir: str, seat_file: str | None) 
             except Exception as e:  # noqa: BLE001
                 errors += 1
                 note(f"start raised {type(e).__name__}: {e}")
+        elif op == "table_starts":
+            times = []
+            for _ in range(0 if process_seat else int(msg["tables"])):
+                t = pc()
+                try:
+                    seat.start(msg["seat"], msg["n"], msg["stack"], msg["blinds"])
+                except Exception as e:  # noqa: BLE001
+                    errors += 1
+                    note(f"start raised {type(e).__name__}: {e}")
+                times.append(pc() - t)
+            send({"table_starts": times})
         elif op == "end":
             try:
                 seat.end(msg["hand_no"], msg["delta"], msg.get("result"))
