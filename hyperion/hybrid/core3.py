@@ -164,6 +164,28 @@ def oa_scan(hist, me: int, my_chips: float, sbs, bbs) -> list:
     return out
 
 
+def bb_scan(hist, bbs, start) -> int | None:
+    """O5: one hand's big-blind answer to its first-in raise by any seat (kit shape (seat, (kind, amount)), preflop
+    first): every action before the raise a fold, the raise by a seat other than the big blind to under 95% of that
+    seat's chips at the hand's start; then the big blind's first action unless a re-raise or the raiser comes first.
+    1 if it folded, 0 if it called or re-raised, None where the hand had no such answer."""
+    opener = None
+    for s, a in hist:
+        k = a[0]
+        if opener is None:
+            if k == 'fold':
+                continue
+            if k != 'raise' or s == bbs or (a[1] or 0) >= 0.95 * start[s]:
+                return None
+            opener = s
+            continue
+        if s == bbs:
+            return 1 if k == 'fold' else 0
+        if k == 'raise' or s == opener:
+            return None
+    return None
+
+
 def o3_scan(hist, opened: list, folded: list) -> None:
     """Add one hand's fold-to-3-bet read (kit shape (seat, (kind, amount)), preflop first): the hand's first raise is
     the open; the first raise after it by another seat is a 3-bet; the opener's next action is its reply to it."""
@@ -258,6 +280,9 @@ class Rival3Core(R3.Bot):
         self.oar = [0.0] * 12
         self.oa_tn = [0.0, 0.0, 0.0]
         self.oa_tf = [0.0, 0.0, 0.0]
+        # O5's big-blind read (r3.bb_read; bb_scan): per seat, its answers as the big blind to any first-in raise
+        self.bbn = [0.0] * 12
+        self.bbf = [0.0] * 12
 
     def start_hand(self, kit_hand_no: int, totals) -> None:
         """Rival 3 prices each all-in from the stacks it sees. With r3.icm_horizon, the next hand's blinds owed are
@@ -292,6 +317,7 @@ class Rival3Core(R3.Bot):
         return best
 
     oa_count = False  # count the open-answer read without r3.oa_read (the layer's exploit.open_read, set by the composite)
+    oa_on = True  # S21: the composite's gate (oa_strong) sets it before each preflop decision; False: the read waits
     _oa_h = False
 
     def end(self, result: HandResult) -> None:
@@ -311,6 +337,11 @@ class Rival3Core(R3.Bot):
                 for s, p, f, r in ans:
                     self.oa_tn[p] += 1.0
                     self.oa_tf[p] += 1.0 if f else 0.0
+                if self.k.bb_read and bbs is not None and 0 <= bbs < len(self.bbn):
+                    b = bb_scan(hist, bbs, start)
+                    if b is not None:
+                        self.bbn[bbs] += 1.0
+                        self.bbf[bbs] += b
             except Exception:  # noqa: BLE001 - a malformed history leaves the reads as they were
                 pass
         self.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas, "history": hist})
@@ -418,12 +449,16 @@ class Rival3Core(R3.Bot):
                     return self._raise(legal, o, o.max_raise)
                 return self._fold(legal) if to_call > 0 else self._call_or_check(legal)
             # deeper: raise-first-in / isolate
-            if kn.oa_read and self._oa_h and not limpers and n_alive >= kn.oa_min_alive:  # S16b: the open-answer read
+            if kn.oa_read and self._oa_h and self.oa_on and not limpers and n_alive >= kn.oa_min_alive:  # S16b, S21
                 pf = 1.0
                 cap = kn.oa_cap
+                bb_only = kn.oa_bb_only
                 for s in behind:
                     if self._rates(s)[7]:
                         continue  # a dead seat folds
+                    if bb_only and s != bbs:
+                        pf *= fp(s, False)  # O5: only the big blind takes the read
+                        continue
                     f = self.oa_fold(s, 1 if s == sbs else 2 if s == bbs else 0)
                     if cap:
                         g = self._fold_prob(s, False)
@@ -694,6 +729,10 @@ class Rival3Core(R3.Bot):
         """Seat s's fold to my first-in raise from position `blind` (0 not a blind, 1 the small blind, 2 the big):
         this table's rate from that position plus the seat's excess folds over the table's rates, shrunk by oa_s."""
         kn = self.k
+        if blind == 2 and kn.bb_read:  # O5: the big blind's answers to anyone's open, F's own read as the prior
+            n = self.bbn[s] if 0 <= s < len(self.bbn) else 0.0
+            f = ((self.bbf[s] if n else 0.0) + self._fold_prob(s, False) * kn.bb_k) / (n + kn.bb_k)
+            return 0.05 if f < 0.05 else (0.97 if f > 0.97 else f)
         f = self._oa_table(blind)
         if 0 <= s < len(self.oan):
             n = self.oan[s]

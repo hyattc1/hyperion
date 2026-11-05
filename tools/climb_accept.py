@@ -111,14 +111,16 @@ JUDGES = [("judge", "lin", None), ("judge2", "lin", None), ("judge2_night", "lin
           ("outside", "lin", None), ("outside_strong", "lin", None), ("elite_judge", "lin", None),
           ("elite_judge_b", "lin", None),  # elite5 held out (second wave, 2026-11-02)
           ("adapt_judge", "brief", None), ("adapt_judge_hu", "lin", "hu"), ("adapt_judge_3", "lin", "three"),  # adapt2
-          ("outside_b", "lin", None)]  # the outside judges' second wave (addendum 10)
+          ("outside_b", "lin", None),  # the outside judges' second wave (addendum 10)
+          ("outside_c", "lin", None)]  # the third wave (addendum 14): out_reads
 ELITE = [("elite", "lin", None), ("elite_night", "lin", None), ("mirror", "lin", None),
          ("elite_b", "lin", None), ("mirror_b", "lin", None)]  # elite4 joined 2026-11-02 (second wave)
 EXPLOIT = [("exploit", "brief", None), ("exploit_hu", "lin", "hu"), ("exploit_3", "lin", "three"),
            ("exploit2", "brief", None), ("exploit2_hu", "lin", "hu"), ("exploit2_3", "lin", "three"),
            ("exploit3", "brief", None), ("exploit3_hu", "lin", "hu"), ("exploit3_3", "lin", "three"),  # of batch 5
+           ("exploit4", "brief", None), ("exploit4_hu", "lin", "hu"), ("exploit4_3", "lin", "three"),  # of batch 7
            ("adapt", "brief", None), ("adapt_hu", "lin", "hu"), ("adapt_3", "lin", "three")]  # R6, addendum 9
-EXPLOIT_BOTS = ("exploiter1", "exploiter2", "exploiter3", "adapt1", "adapt2")  # the one seated in a cell is printed beside us
+EXPLOIT_BOTS = ("exploiter1", "exploiter2", "exploiter3", "exploiter4", "adapt1", "adapt2")  # the one seated in a cell is printed beside us
 VARIANT_FIELD = "realistic"
 VARIANT_SEEDS = 200
 CHUNK = 25

@@ -1,0 +1,13 @@
+{
+ "dials": {
+  "short_route": "pre_3way=short",
+  "short.three2": true,
+  "short.three2_file": "3b",
+  "short.defer_3bet": 0.25,
+  "short_strong": true,
+  "short.three2_keep_defence": true,
+  "short.three2_roles": "btn,sb",
+  "short.defer": "dead,station,maniac,random,nit",
+  "short.three2_seat_rr": 1
+ }
+}

@@ -1569,3 +1569,149 @@ and (in judges) `elite_judge`.
   +0.017 ± 0.050, all level (window check passes); timeouts -1.579 ± 0.139 (the emergency cheap path, as prompt 06
   states: -1.58 ± 0.14), now without the specialist (batch 7's cheap fix). 0 timeouts, 0 errors in every run.
   Prompt 06 needs no change for batch 7.
+- 09:21: the public export check: denylist 0 hits. H1 started (S20's worker, climb/s20-h1): heads-up preflop solved
+  per seat for strong tables, S20's method, coexisting with S7's gated heads-up routes; measuring half only before
+  the pause (diagnostics 14000-14999), solve and screen after.
+
+## 09:45: a switch for the tighter open range that does not leak (offline); O8 being built
+- Offline, points-valued, O7's data re-collected with the switch fields (12,960 tables replayed identically): veto
+  rival 3's losing first-in opens (base range or fold equity; the measured points price says they lose) only where a
+  switch reads the table strong. Against O5, per table seed, fit 13000-13099 / check 13100-13179:
+  (a) O5's big-blind read < 0.6: strong +0.120 / +0.105 UP; realistic -0.048 / -0.070 (DOWN on check): leaks.
+  (b) the seats behind's pooled fold to every open < 0.80 (shrunk to 0.80, weight 10): strong +0.256 ± 0.143 /
+      +0.264 ± 0.163 UP; realistic + night -0.039 ± 0.158 / +0.015 ± 0.193 level (realistic -0.156 ± 0.188 on fit,
+      +0.044 on check); on at 34% of realistic and 27% of night decisions, 48-76% at strong tables.
+  (c) the table strong read (as shipped): strong +0.020 / +0.029, night -0.112 DOWN on check: leaks.
+- (b) is about +0.03 a table at strong tables: a 200-seed screen can only just see it. O8 (climb/s21-o8, on O5) built
+  before the pause; screened against batch 7 after it.
+
+## 09:50: H1's measuring half (heads-up at strong tables)
+- climb/s20-h1 (ddb9200; log docs/drills/climb/s20-h1-log.md, fit s20-h1-real.json), batch 7's F, seeds
+  14000-14799: F loses heads-up at strong tables almost only at 10-20 bb: its button -0.28 to -0.32 bb a hand (elite1
+  -0.06 to +0.06), its big blind +0.22 (elites +0.38 to +0.50); level below 10 bb and at 20-40. Lines: F's button
+  min-raises every hand above the weakest fifth and never jams (elite1 jams about 40%, elite2 30%), then faces a
+  re-shove 3,062 times (elite1 1,153) and folds 90%, -1.48 bb a hand there; F's big blind folds two thirds of its
+  weaker hands to a min-raise and flats 55% of its best (elite1 re-shoves 59-96%).
+- Worth: F reaches heads-up at about 23% of strong tables and converts about its chips (48.4% wins on 47.4% chips);
+  elite1 +9.7 points over its chips, elite2 +7.0. Closing that is about +0.02 a table (R6's size).
+- Realization fit by SPR: our button in position +0.135 / +0.082 / +0.098 at SPR 2 / 6 / 15, our big blind +0.027 /
+  -0.053 / -0.101 (the old model +/-0.016 / 0.047 / 0.062); strong and realistic agree; exploit cells lower.
+- Coexisting with S7: S7 plays heads-up only as the big blind against exploiter 2 (none at strong tables). H1 is a
+  second heads-up path (`short.hu2`, off) that plays only where S7's like gates refuse the seat and the strong read
+  is open (passed into the member, not short_strong, which would shut S7's route). Next session: the solve (per hero
+  seat, fitted flops, no button limp under 25 bb, two 3-bet sizes, push/fold check), the path, tests, screen.
+
+## 10:13: O8 built; its screen started (resumes after the pause)
+- climb/s21-o8 (b2fd561; O5 + main f028f50): `r3.veto_read` counts every seat's answers to any first-in raise;
+  `r3.open_veto` drops an open the clause would make where the seats behind's pooled fold (shrunk to 0.80, weight
+  10) is under `r3.veto_t` 0.80 and the points price (hyperion/hybrid/open_ev.py, generated from s21-o7-table.json:
+  10 hand bands x 5 seats behind x 3 depths) says it loses. All off; tests/test_s21_o8.py; identity 14 of 14 against
+  batch 7's F (idchk34/post); suite 1,423 passed (2 kit round-trip timing tests pass alone).
+- Offline it acts on 2-4% of first-in decisions (4% of rival 3's opens in the realistic room, 9-16% at strong tables).
+  Without O5 (F's reads in the price): strong +0.35 / +0.43 UP but realistic -0.210 ± 0.144 DOWN on fit seeds: O8
+  alone is the riskier form.
+- Screen (10000-10199, every stage, --aim strong, against batch 7, F fresh) started now with spare cores
+  (goal/s21o8/screen_O8.sh, output screen_O8.md, screen_O8.done); stopped at the pause and resumed after from its
+  cached chunks.
+
+## 10:34: the third outside judge wired in (addendum 14); H1's code half; O5 nearly done
+- o8 (fresh agent, no repo access, reads first; about 80 minutes): an ICM-priced baseline with live per-seat reads
+  (priors worth 4-6 hands) and a range-weighted, time-boxed postflop simulation; harness 0 exceptions, 0 illegal,
+  import 0.2-0.3 s; its own sparring: 5.7-8.0 a table against tight, loose, maniac, push/fold and mixed fields.
+  Wired as `out_reads` (md5 e51fb439; docs/drills/field/out_reads*.{py,md}); field outside_c = hero, out_reads,
+  out_cfr, out_press, out_charts, elite5, rival4, one night seat; a 13th judge cell from batch 8's judges on. Fixed
+  speed in model mode (15 µs a clock read, the measured median at load 8), its generator seeded per table: two
+  model-mode runs identical. Merged (climb/outside-c); F's code unchanged.
+- H1's code half (climb/s20-h1, 1f263e2): the heads-up tree (button limps only from 25 bb; big blind fold, call, 2.3x
+  or 3.3x 3-bet or re-shove; 4-bet 2.2x or jam), flops from the heads-up fit, push/fold check within 0.02, small solves
+  converge (15 bb 0.24 mbb a hand, 40 bb 2.0-2.6 at 400 iterations); `short.hu2` behind S7's own path (S7's decisions
+  unchanged over 50 against exploiter 2). Open: with the strong read forced open against exploiter 2, H1's early
+  preflop keeps exploiter 2's probe read low and S7 never plays (at the shipped threshold it does not happen); options
+  for next session: hold H1 until S7's gate has refused the seat, or read S7's gate from 8-max play only; plus R6's
+  exploiter-1 guards.
+
+## 10:47: exploiter 4 (against batch 7): F still wins 8-max; heads-up leaks found
+- Exploiter 4 (goal/exploiter4, NOTEBOOK.md; fresh red-team agent, black box against batch 7 at 038c3f0; 16
+  versions): 8-max F 5.59 vs 5.13 (450 tables, 10/7/5/4/3/2/1/0; first places equal at 28%, F more 2nd-4th);
+  heads-up exploiter 4 wins 56-59% (600 tables, payouts 2/1); three-handed level (2.15 vs 2.14, 400 tables).
+- Its findings, each from 100-300 heads-up tables: (1) F folds a lot before its reads warm: first ~5 flop bets at a
+  table get 72-77% folds, first 3 all-ins over F's open at 30+ bb get 80%; (2) F adapts by counting the opponent's
+  actions (not its shown cards): after 5-14 flop bets it folds 37-51% and raises 18-21%; after 3+ any-two shoves it
+  calls 58-64%; (3) F's flop read lags a change of style by 20-40 hands; (4) **F over-folds the river and does not
+  adapt there**: 66-81% folds to a 0.7-pot river bet (break-even 41%), still 74% after 5-14 river bets; river stabs
+  took exploiter 4 from 52% to 59% heads-up wins; (5) F's small blind steals by the big blind's fold rate (folds 2%
+  against a folder, 42% against a wide defender); (6) heads-up F 4-bets 25-32% of 3-bets and calls 5-bet shoves 88%;
+  (7) F's sizes are fixed (heads-up opens 2.2 bb, half-pot c-bets, third-pot leads, small river bets); (8) at 8-max F
+  gains when opponents are too tight.
+- Next (after the pause): wire exploiter 4 in as a tuning field (exploit4, exploit4_hu, exploit4_3, as exploiter 3);
+  S22 on (4): a river defence read (call more against a seat that bets rivers often, behind a gate like S15e's),
+  screened with every exploit cell.
+
+## 11:30: O5 accepted on H33 (joins batch 8); one worker hang fixed by a re-run
+- O5 (the big blind's fold read from its answers to every first-in raise, prior F's read, weight 10; climb/s21-o5,
+  2de5070) on H33 (53000-53399) against batch 6, --aim strong, every stage, runout term: **ACCEPT**. elite +0.065 ±
+  0.035, mirror +0.073 ± 0.041, elite_b +0.080 ± 0.037, mirror_b +0.043 ± 0.039, top +0.045 ± 0.037 UP; realistic
+  +0.008 ± 0.027, night +0.028 ± 0.034, night_hard +0.032, the payout guards, every exploit and adapt cell, the
+  variants and aware cells level; nothing down. W +0.0130 ± 0.0095 (lower bound +0.0035), W-min lower bound -0.0024.
+  H33 used. O3's strong-table gain without its realistic loss. It joins batch 8 (C3h + R6 + O5).
+- The run hung at 678 of 681 candidate chunks (about 10:47-11:28: the three pool workers asleep on a futex and a
+  pipe, no CPU; a worker had died mid-chunk, which multiprocessing.Pool never returns from). Killed by PID (run.sh
+  first, so no "done" was written), no partial result read, and re-run with the same command and cache: the 1,359
+  saved chunks stood and the 3 missing ones played in under two minutes (goal/b31/rerun.sh). Rule for the climb: a
+  run whose chunk count stops moving with its workers asleep is re-run the same way.
+
+## 11:39: exploiter 4 wired in (addendum 15); batch 8's combined check running on H34
+- Exploiter 4 (md5 fc1fdc77; docs/drills/exploiter4/ with its notebook, brief and arena) as `exploiter4`: fields
+  exploit4 (six night seats), exploit4_hu, exploit4_3; climb_accept's exploit stage gains three cells; the weighted
+  score's adapter family gives five bots a fifth each (a quarter before; family weight and range unchanged; the
+  review's historical rows keep the quarter they were scored by). Fixed speed in model mode (3.2 µs a clock read,
+  the measured median at load 7), RNG reseeded per table; two model-mode runs identical. Merged; F unchanged.
+- Batch 8 (C3h + R6 scoped + O5, 21 dials; climb/batch8 ac1f18c, O5 merged with one conflict resolved: the read flag
+  keeps the strong read for the strong routes, the specialist's gate and S21's gate) against batch 7 on H34
+  (54000-54399), every stage, --aim strong, runout term, then judges 60400-60799 (13 cells) and timing
+  (goal/b34/run.sh, RUN_DONE). It started before addendum 15, so its exploit stage has exploiters 1-3 and adapt1.
+  Identity of the branch with its dials off against batch 7's F: goal/idchk35.
+- S20's three-handed table loads once at the specialist's construction (bot build), not at a decision: setup time,
+  about 0.3 s; checked against the kit budgets at batch 8's pack.
+- 11:40: batch 8's branch with its dials off plays batch 7 exactly (idchk35: 14 of 14). S22 started (climb/s22-river):
+  exploiter 4's river over-fold, a gated per-seat river-bet read, diagnostics 15000-15999, screen --aim exploit.
+
+## 14:05: O8 passes its screen; on H35 on top of batch 8
+- O8's screen (O5 + O8 against batch 7, 10000-10199, every stage, --aim strong, runout term; started before
+  addendum 15, so exploiters 1-3 and adapt1): **ACCEPT**. Against O5's own screen on the same seeds, O8 adds where the
+  offline price said it would: elite +0.070, elite_night +0.047, elite_b +0.050, mirror_b +0.052; realistic +0.020;
+  top -0.048, night @10/7/5/4/3/2/1/0 -0.046, night +double -0.037 (all inside noise). W +0.0144 ± 0.0167 (lower
+  bound -0.0023), W-min lower bound -0.0120.
+- Held-out on top of what it would ship with: climb/b8-o8 (batch 8 + main, for exploiter 4, + climb/s21-o8; both
+  merges clean; tests for O8, the batch 7 scope, exploiter 4 and climb_accept: 54 passed). goal/b35/run.sh: identity
+  with dials off against batch 7's F (idchk36 against idchk34), then batch 8 + O8 against batch 8 on H35
+  (55000-55399), every stage, --aim strong, runout term, exploiter 4 in the exploit stage. H35 used; next fresh H36.
+- Batch 8's combined check: base done, candidate 470 of 681 chunks; S22's screen about two thirds through.
+
+## 14:30: S22 passes its screen; on H36 on top of batch 8
+- S22 (climb/s22-river, 3627f1f; log docs/drills/climb/s22-log.md): exploiter 4 bets 0.72 of its heads-up river
+  chances (night seats 0.29-0.31) and F folds 74% there, weak and middle pairs that win 66% at a 0.29 price. The fix,
+  `hero.postflop.rbet_*` (off by default): a seat's river bets per river chance in heads-up pots against F (leads and
+  bets after F's check), prior 0.35 worth 4, no read before 3; above 0.5 (full at 0.65) F's equity moves toward its
+  equity against a whole range and its margin toward 0.03; calls only, three or fewer alive, plain hold'em only.
+  Settings fixed from the diagnosis (15000-15999) before the screen.
+- Screen (10000-10199, every stage, --aim exploit, runout term, against batch 7, exploiter 4 in): **ACCEPT**.
+  exploit4_hu +0.123 ± 0.054 UP; exploit4_3 +0.042 ± 0.043, exploit4 +0.005, exploiter 1 heads-up and three-handed
+  +0.013 / +0.020, the rest within ±0.002 or identical; timeouts and errors 0. W +0.0005 ± 0.0009, W-min lower bound
+  -0.0008. Identity with the dials off 14 of 14; tests 11; suite 1,419 passed, 4 timing tests flaky under load (pass
+  alone).
+- Held-out on top of batch 8: climb/b8-s22 (batch 8 + main + S22, clean; 59 tests passed), goal/b36/run.sh: identity
+  (idchk37 against idchk34), then batch 8 + S22 against batch 8 on H36 (56000-56399), every stage, --aim exploit,
+  runout term. H36 used; next fresh H37. O8's identity on climb/b8-o8 passed (idchk36: identical); its H35 run is on.
+
+## 15:10: batch 8 accepted on H34; its judges running; freeze being staged
+- Batch 8 (C3h + R6 scoped + O5, 21 dials; climb/batch8 ac1f18c) against batch 7 on H34 (54000-54399), every stage,
+  --aim strong, runout term (exploiters 1-3 and adapt1: started before addendum 15): **ACCEPT**. UP: elite +0.077 ±
+  0.037, mirror +0.090 ± 0.039, elite_b +0.084 ± 0.037, mirror_b +0.058 ± 0.040, night_hard +0.039 ± 0.036, exploit_hu
+  +0.059, exploit2 +0.067, exploit2_hu +0.052, exploit2_3 +0.190, exploit3 +0.075, exploit3_hu +0.086, adapt_hu +0.150,
+  adapt_3 +0.121. Level: night +0.021 ± 0.034, realistic +0.016 ± 0.026, top +0.013, the payout guards, elite_night,
+  every variant and aware cell. Nothing down. W +0.0179 ± 0.0101 (lower bound +0.0078); W-min +0.0127 ± 0.0130
+  (lower bound -0.0003); cap holds. 176 minutes.
+- Judges (13 cells, 60400-60799) running (goal/b34/judges.md), then timing. Freeze staging by a worker on
+  climb/batch8-freeze (goal/wt_b8f: SHIP_DIALS + BATCH8_OFF, identity both ways, suite, setup time); pack, gate,
+  merge and docs after the judges.

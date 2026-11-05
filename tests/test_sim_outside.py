@@ -28,6 +28,8 @@ FROZEN = {  # registry name -> (archived original, copy in the package, header l
     "out_press": ("docs/drills/field/out_press_bot.py", "hyperion/sim/field/out_press.py", 6, "1d724a694a88ab2b05df763801dddb99"),
     "out_charts": ("docs/drills/field/out_charts_bot.py", "hyperion/sim/field/out_charts.py", 6,
                    "7ada9e818fe730583053e7b0c6f7a18b"),
+    "out_reads": ("docs/drills/field/out_reads_bot.py", "hyperion/sim/field/out_reads.py", 6,
+                  "e51fb4390f9ed57c44c003a474151afc"),
 }
 ELITE = {"elite1", "elite2", "elite3", "elite4", "elite5"}
 
@@ -44,9 +46,9 @@ def test_frozen_source_matches_its_archive_and_md5(name):
 
 
 def test_outside_bots_are_registered_and_in_no_pool():
-    assert set(FROZEN) <= set(B.REGISTRY) and set(B.OUTSIDE) | set(B.OUTSIDE_B) == set(FROZEN) - ELITE
+    assert set(FROZEN) <= set(B.REGISTRY) and set(B.OUTSIDE) | set(B.OUTSIDE_B) | set(B.OUTSIDE_C) == set(FROZEN) - ELITE
     for name, members in B.FIELDS.items():  # the second wave is held out: judge fields only
-        if set(B.OUTSIDE_B) & set(members):
+        if (set(B.OUTSIDE_B) | set(B.OUTSIDE_C)) & set(members):
             assert name.startswith("outside"), name
     for name, pool in N.POOLS.items():
         drawn = {b for _, _, ms in pool.groups for b, _ in ms}
@@ -58,11 +60,11 @@ def test_outside_bots_are_registered_and_in_no_pool():
 def test_elite3_is_held_out_of_every_tuning_field():
     for name, members in B.FIELDS.items():
         if "elite3" in members or "elite5" in members:
-            assert name.startswith("elite_judge") or name == "outside_b", name  # judge fields only
+            assert name.startswith("elite_judge") or name in ("outside_b", "outside_c"), name  # judge fields only
 
 
 @pytest.mark.parametrize("field", ["outside", "outside_strong", "elite", "elite_night", "elite_judge", "elite_b",
-                                   "elite_judge_b", "outside_b"])
+                                   "elite_judge_b", "outside_b", "outside_c"])
 def test_outside_fields_play_legally_and_replay_exactly_in_model_mode(field):
     # Hero's panic mode reads the wall clock (under heavy load a replay can differ); climb_accept turns it off, so does
     # this

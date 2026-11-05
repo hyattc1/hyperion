@@ -1492,6 +1492,40 @@ class OutChartsBot(_OutsideBBot):
     SALT = 0x0C7
 
 
+class OutReadsBot(_FixedSpeedInModel, PersonaBot):
+    """Outside `out_reads` (decisions addendum 14): a reads-first team. An ICM-priced baseline (positional opens, push/fold
+    under about 13.5 bb, value 3-bets sized to the raiser's range), live per-seat reads with priors worth 4-6 hands, and
+    a postflop simulation that weights each opponent's range by his own action frequencies, stopped by its wall clock at
+    200 us (hard 350). Its sampler reads a module-level `_PC`; in mode "model" that clock advances STEP_US per read (15
+    us: the median wall time between its reads, measured at load 8), so every run replays exactly. Its module-level
+    generator `_R` is reseeded from the seat seed at every table start. Frozen at md5 e51fb439."""
+
+    MODULE = "out_reads"
+    STEP_US = 15.0
+    SALT = 0x0C8
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self.mod = sys.modules[type(self.impl).__module__]
+        self._seed = seed or 0
+        self._now = 0.0
+
+    def _clock(self) -> float:
+        self._now += self.STEP_US * 1e-6
+        return self._now
+
+    def _set_speed(self, fixed: bool) -> None:
+        pass  # read at every act()
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self.mod._R.seed(self._seed * 1_000_003 + self.SALT)
+
+    def act(self, obs: Observation) -> Action:
+        self.mod._PC = self._clock if self.fixed_speed else time.perf_counter
+        return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
+
+
 class OutsideQuantsBot(_FixedSpeedInModel, PersonaBot):
     """Outside `out_quants`: two quant interns. An embedded 169x169 all-in equity table and fictitious-play push/fold
     equilibria for 1-7 players behind and 1-30 bb, exact ICM for 10/7/5/4/3/2/1/0 (hard-coded), push/fold at 16 bb or
@@ -1682,6 +1716,42 @@ class Exploiter3Bot(PersonaBot):
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
         super().new_table(rules, seat, n_players)
         self.impl.rng = random.Random(self._seed * 1_000_003 + 0xE3)
+
+
+class Exploiter4Bot(_FixedSpeedInModel, PersonaBot):
+    """Test opponent `exploiter4`: the climb's fourth red-team exploiter (docs/drills/exploiter4/, decisions addendum 15),
+    built in about 100 minutes by a fresh agent that played batch 7's ship (038c3f0) only as a black box. Its arena put
+    it behind batch 7 at 8-max (5.13 against 5.59 over 450 tables), ahead heads-up (56-59% of matches) and level
+    three-handed. A tight survival-minded base with per-seat all-in call rates; heads-up it stabs rivers and turns,
+    re-shoves wide 4-bets and plays against F's fixed sizes. Its equity sampler stops on a 160 us wall-clock budget,
+    reading a module-level `_pc` every sample after the sixth; in mode "model" that clock advances STEP_US per read (3.2
+    us: the median wall time between its reads, measured here at load 7), so runs replay exactly. Its RNG (seeded once
+    at construction) is reseeded from the seat seed at every table. Never in a night pool (fields `exploit4`,
+    `exploit4_hu`, `exploit4_3`)."""
+
+    MODULE = "exploiter4"
+    STEP_US = 3.2
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self.mod = sys.modules[type(self.impl).__module__]
+        self._seed = seed or 0
+        self._now = 0.0
+
+    def _clock(self) -> float:
+        self._now += self.STEP_US * 1e-6
+        return self._now
+
+    def _set_speed(self, fixed: bool) -> None:
+        pass  # read at every act()
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self.impl.rng = random.Random(self._seed * 1_000_003 + 0xE4)
+
+    def act(self, obs: Observation) -> Action:
+        self.mod._pc = self._clock if self.fixed_speed else time.perf_counter
+        return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
 
 
 class Exploiter2Bot(PersonaBot):
@@ -1888,6 +1958,7 @@ REGISTRY: dict[str, type] = {
     "out_cfr": OutCfrBot,  # outside judges, second wave (addendum 10): self-play trained, never tuned on
     "out_press": OutPressBot,  # outside judges, second wave: hyper-aggressive, never tuned on
     "out_charts": OutChartsBot,  # outside judges, second wave: solver charts, never tuned on
+    "out_reads": OutReadsBot,  # outside judges, third wave (addendum 14): reads first, never tuned on
     "elite1": Elite1Bot,  # elite field (prepared top-team build): tuning fields elite, elite_night
     "elite2": Elite2Bot,  # elite field: tuning fields elite, elite_night
     "elite4": Elite4Bot,  # elite field, second wave: tuning fields elite_b, mirror_b
@@ -1896,6 +1967,7 @@ REGISTRY: dict[str, type] = {
     "exploiter1": Exploiter1Bot,  # the S2 exploiter of F (black-box attacker): a test opponent, never in a night pool
     "exploiter2": Exploiter2Bot,  # the second exploiter (S11), of F with FIN: a test opponent, never in a night pool
     "exploiter3": Exploiter3Bot,  # the third exploiter, of batch 5: a test opponent, never in a night pool
+    "exploiter4": Exploiter4Bot,  # the fourth exploiter, of batch 7 (addendum 15): a test opponent, never in a night pool
     "adapt1": Adapt1Bot,  # the adaptive opponent (R6), tuning copy: a test opponent, never in a night pool
     "adapt1_off": Adapt1OffBot,  # adapt1 with its counters off (its twin): a test opponent, never in a night pool
     "adapt2": Adapt2Bot,  # the held-out adaptive opponent (addendum 9): a judge, never tuned on, never in a night pool
@@ -2010,6 +2082,8 @@ FIELDS["outside_strong"] = ("hero",) + OUTSIDE + ("rival4", "rival5", "agent_pus
 # the second wave (addendum 10): the three with the other held-out bots and one night seat; judges only
 OUTSIDE_B = ("out_cfr", "out_press", "out_charts")
 FIELDS["outside_b"] = ("hero",) + OUTSIDE_B + ("rival4", "rival5", "elite5") + _night.seat_names("night")[:1]
+OUTSIDE_C = ("out_reads",)
+FIELDS["outside_c"] = ("hero",) + OUTSIDE_C + OUTSIDE_B + ("elite5", "rival4") + _night.seat_names("night")[:1]
 # the elite field (owner's direction): three prepared top-team builds. elite1 and elite2 are a tuning field, alone with
 # the strong tunable bots (`elite`, a top table) or in a night room (`elite_night`); elite3 is held out with both judges
 # and two outside builds (`elite_judge`, the strongest room we have): measured once per batch, never tuned on.
@@ -2033,7 +2107,7 @@ FIELDS["mirror_night"] = ("hero", "f_copy", "f_copy", "elite1", "elite2") + _nig
 # the exploiter's fields (S2, docs/drills/exploiter/): as its arena seated it, the hero seat and exploiter1 with six
 # night-pool seats at 8-max, alone heads-up, and with the first night-pool seat three-handed (play them with Rules of
 # n_players 2 / 3: docs/drills/climb/rules/hu.json, three.json). A test opponent, never in a night pool.
-EXPLOITERS = ("exploiter1", "exploiter2", "exploiter3")
+EXPLOITERS = ("exploiter1", "exploiter2", "exploiter3", "exploiter4")
 FIELDS["exploit"] = ("hero", "exploiter1") + _night.seat_names("night")[:6]
 FIELDS["exploit_hu"] = ("hero", "exploiter1")
 FIELDS["exploit_3"] = ("hero", "exploiter1") + _night.seat_names("night")[:1]
@@ -2046,6 +2120,10 @@ FIELDS["exploit2_3"] = ("hero", "exploiter2") + _night.seat_names("night")[:1]
 FIELDS["exploit3"] = ("hero", "exploiter3") + _night.seat_names("night")[:6]
 FIELDS["exploit3_hu"] = ("hero", "exploiter3")
 FIELDS["exploit3_3"] = ("hero", "exploiter3") + _night.seat_names("night")[:1]
+# the fourth exploiter's (of batch 7, docs/drills/exploiter4/, addendum 15), seated as its arena did
+FIELDS["exploit4"] = ("hero", "exploiter4") + _night.seat_names("night")[:6]
+FIELDS["exploit4_hu"] = ("hero", "exploiter4")
+FIELDS["exploit4_3"] = ("hero", "exploiter4") + _night.seat_names("night")[:1]
 # the adaptive opponent's (R6, addendum 9: the tuning copy), seated as the exploiters are: with six night-pool seats at
 # 8-max, heads-up, and with the first night-pool seat three-handed
 ADAPTERS = ("adapt1", "adapt1_off", "adapt2")
@@ -2058,7 +2136,8 @@ FIELDS["adapt_judge_hu"] = ("hero", "adapt2")
 FIELDS["adapt_judge_3"] = ("hero", "adapt2") + _night.seat_names("night")[:1]
 # fields of fewer than eight seats, with the player count their Rules must carry (every other field seats eight)
 FIELD_PLAYERS: dict[str, int] = {"exploit_hu": 2, "exploit_3": 3, "exploit2_hu": 2, "exploit2_3": 3,
-                                  "exploit3_hu": 2, "exploit3_3": 3, "adapt_hu": 2, "adapt_3": 3,
+                                  "exploit3_hu": 2, "exploit3_3": 3, "exploit4_hu": 2, "exploit4_3": 3,
+                                  "adapt_hu": 2, "adapt_3": 3,
                                   "adapt_judge_hu": 2, "adapt_judge_3": 3}
 
 # fields that seat an optional bot: present in FIELDS only when every bot in them is registered
