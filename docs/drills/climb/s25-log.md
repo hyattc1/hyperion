@@ -152,3 +152,6 @@ exactly where the counterfactual said it would be: the floors' arm calls q2 and 
 loses -0.005 / -0.006 there**, while its q4 calls are the positive part at the strong rooms (+0.004). So the second fixed rule from the
 same diagnosis, written above before the fit: **candidate B = `r3.hu_jam_w` 0.20 (the re-jam floor reaches q4 alone: 15.5% of hands
 at 15 bb), `r3.hu_openjam_scale` 1.0**. Run on the fit seeds again (`B_*`) and on the check seeds 19320-19439 (`D_*`), both rooms sets.
+- 08:45 **Identity** (`goal/s25/run_idchk.sh`: climb_accept `--cand goal/s25/b9spec.json` (batch 9's dials, S25's absent) on 10000:10040
+  confirm,guards, run on this branch at c14393e and on climb/batch9 ded60ba (worktree goal/wt_s25ref), chunk samples compared with
+  `idcmp.py`): **14 of 14 chunks identical** for batch 9's dials and 14 of 14 for F (SHIP_DIALS) too.
