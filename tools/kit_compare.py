@@ -2,7 +2,8 @@
 """Two zips through a kit's adapter, the same tables, the same hour: the timing and the points of the kit path, paired.
 
     python tools/kit_compare.py A.zip B.zip [--kit SEAT.py --entry bot.py] [--slow K] [--tables 40] [--t0 0] [--seed 7]
-                                [--rotations 1] [--field realistic] [--rules FILE] [--workers 3] [--json OUT] [--det]
+                                [--rotations 1] [--field realistic] [--rules FILE] [--variant NAME] [--fixed-room] [--workers 3]
+                                [--json OUT] [--det]
 
 tools/gate.py pairs a package against an in-sim baseline; this pairs two packages. Each (table, rotation) is played by A, then
 by B, in the gate's own seat (tools/gate.py GateTable and HostProxy: one fresh `python -I -B` per table, the bot behind
@@ -12,6 +13,11 @@ seed is fixed too, so two bots that decide alike play alike, and the pairs are a
 each package's copy gets `entry_compare.py`, kit B's adapter around ship.make_bot(seed=...) and --rules; with --kit, a seat file
 (drill 12's kit J: closure_gate_seat_template.py), the package's --entry with its `ship.make_bot()` so seeded (its rules are its
 own rules_tonight.json).
+
+--fixed-room: every other seat at fixed speed and without its wall-clock settings (the engine's model mode, tools/swap.py's setup_process), and
+only the package's seat strict, so two plays differ by the package and nothing else: the room's own timeouts under load, and a copy of F's
+governor at the table, are out of the pair. --variant: a catalog twist's hooks and its Rules (kit B's seat answers no variant prompt: the dealer's
+default plays them, as in the gate).
 
 --det is the identity check: both packages' records get tools/slowbox.py's DET dials (panic, soft deadlines, late_us off), the
 table runs in model mode (opponents at fixed speed, nothing enforced), and every reply must be the same, table by table: the
@@ -116,6 +122,14 @@ def play_chunk(job: dict) -> dict:
             return r
 
     rules = load_rules(job["rules"])
+    variant = None
+    if job["variant"]:
+        from hyperion.drills import variants as _variants
+
+        variant = _variants.get(job["variant"], seed=job["seed"])
+        rules = variant.rules
+    if job["fixed_room"]:
+        load_tool("swap").setup_process("model")
     names = job["names"]
     n = rules.n_players
     out = {"pairs": [], "sides": [{"ns": [], "late": 0, "exc": 0, "ill": 0, "imports": [], "gov": {}, "notes": []} for _ in job["pkgs"]],
@@ -143,7 +157,12 @@ def play_chunk(job: dict) -> dict:
                 bots[g] = proxy
                 stats = [BotStats(nm) for nm in seating]
                 try:
-                    res = gate.GateTable(bots, rules, table_seed, mode, None, stats, g, proxy, rotation=rot).play()
+                    hooks = variant.new_hooks() if variant is not None else None
+                    room = "model" if job["fixed_room"] else mode
+                    tbl = gate.GateTable(bots, rules, table_seed, room, hooks, stats, g, proxy, rotation=rot)
+                    if job["fixed_room"] and not job["det"]:
+                        tbl.strict = True  # the package's seat alone: GateTable._ask holds it to 1 ms on this flag
+                    res = tbl.play()
                 finally:
                     proxy.close()
                 side = out["sides"][i]
@@ -191,6 +210,8 @@ def main(argv=None) -> int:
     p.add_argument("--rotations", type=int, default=1)
     p.add_argument("--field", default="realistic")
     p.add_argument("--rules", default="default")
+    p.add_argument("--variant", default=None, help="a catalog twist: its hooks and its Rules")
+    p.add_argument("--fixed-room", action="store_true", help="every other seat at fixed speed (the doc above)")
     p.add_argument("--workers", type=int, default=3)
     p.add_argument("--chunk", type=int, default=8)
     p.add_argument("--json")
@@ -199,6 +220,11 @@ def main(argv=None) -> int:
 
     if a.rules != "default":
         os.environ["KIT_COMPARE_RULES"] = Path(a.rules).read_text()
+    if a.variant:
+        from hyperion.drills import variants as _variants
+        from hyperion.tablegen import rules_to_dict
+
+        os.environ["KIT_COMPARE_RULES"] = json.dumps(rules_to_dict(_variants.get(a.variant, seed=a.seed).rules))
     gate = load_tool("gate")
     from hyperion.sim import bestiary
 
@@ -214,7 +240,8 @@ def main(argv=None) -> int:
             d.mkdir()
             pkgs.append(str(prepare(Path(src), d, a.det, a.entry if a.kit else None)))
         jobs = [{"pkgs": pkgs, "tables": tables[i:i + a.chunk], "seed": a.seed, "slow": a.slow, "rules": a.rules, "names": names,
-                 "det": a.det, "seat_file": str(Path(a.kit).resolve()) if a.kit else None} for i in range(0, len(tables), a.chunk)]
+                 "det": a.det, "seat_file": str(Path(a.kit).resolve()) if a.kit else None, "variant": a.variant,
+                 "fixed_room": a.fixed_room} for i in range(0, len(tables), a.chunk)]
         sides = [{"ns": [], "late": 0, "exc": 0, "ill": 0, "imports": [], "gov": {}, "notes": []} for _ in pkgs]
         pairs, mismatch = [], []
         done = 0
@@ -236,7 +263,8 @@ def main(argv=None) -> int:
     res = {"a": a.a, "b": a.b, "kit": a.kit or "b", "slow": a.slow, "field": a.field, "rules": a.rules, "t0": a.t0, "tables": a.tables,
            "rotations": a.rotations, "det": a.det, "secs": round(time.perf_counter() - t00, 1),
            "load": list(os.getloadavg()), "sides": []}
-    print(f"kit path, {'kit ' + Path(a.kit).name if a.kit else 'fake kit B'}: k {a.slow or 1}, {len(tables)} tables (t {a.t0}.. x {a.rotations}), field {a.field}, rules {a.rules}, "
+    print(f"kit path, {'kit ' + Path(a.kit).name if a.kit else 'fake kit B'}: k {a.slow or 1}, {len(tables)} tables (t {a.t0}.. x {a.rotations}), field {a.field}, rules {a.rules}"
+          f"{', variant ' + a.variant if a.variant else ''}{', fixed room' if a.fixed_room else ''}, "
           f"{'model mode, DET' if a.det else 'strict'}; {res['secs']} s, load {os.getloadavg()[0]:.1f}")
     for label, s, idx in (("A", sides[0], 2), ("B", sides[1], 3)):
         ns = sorted(s["ns"])
