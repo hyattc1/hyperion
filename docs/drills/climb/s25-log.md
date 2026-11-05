@@ -155,3 +155,21 @@ at 15 bb), `r3.hu_openjam_scale` 1.0**. Run on the fit seeds again (`B_*`) and o
 - 08:45 **Identity** (`goal/s25/run_idchk.sh`: climb_accept `--cand goal/s25/b9spec.json` (batch 9's dials, S25's absent) on 10000:10040
   confirm,guards, run on this branch at c14393e and on climb/batch9 ded60ba (worktree goal/wt_s25ref), chunk samples compared with
   `idcmp.py`): **14 of 14 chunks identical** for batch 9's dials and 14 of 14 for F (SHIP_DIALS) too.
+
+### Candidate B: the fit again and the check (`B_*` seeds 19200-19319, `D_*` seeds 19320-19439; 10/7/5; floors - F, points a table-rotation)
+
+| room | B on the fit seeds | **B on the check seeds** | of which open-jam floor (fit / check) | re-jam floor (fit / check) |
+|---|---|---|---|---|
+| four strong rooms pooled | +0.017 ± 0.018 | **+0.024 ± 0.017 UP** | +0.015 ± 0.014 / +0.008 ± 0.013 | +0.002 ± 0.012 / +0.016 ± 0.012 |
+| realistic | -0.014 ± 0.034 | +0.001 ± 0.038 | +0.004 / -0.015 | -0.018 / +0.016 |
+| night | -0.012 ± 0.055 | +0.035 ± 0.046 | -0.006 / +0.027 | -0.006 / +0.008 |
+| top | +0.017 ± 0.031 | +0.011 ± 0.036 | -0.005 / +0.010 | +0.021 / +0.001 |
+
+Fit and check together at the strong rooms: about **+0.02 ± 0.012 a table under 10/7/5 (about +0.007 under 8..1)**, the two floors
+sharing it (open-jam q3 calls +0.010 on both sets; re-jam q4 calls +0.002 / +0.010); the ordinary rooms level on both sets (every cell
+inside its noise, the signs split). A coin that says yes at the strong rooms and no harm elsewhere: the screen runs.
+- 09:20 **Screen started** (`run_screen.sh`, CAND goal/s25/s25bspec.json = batch 9's dials + `{"r3.hu_jam_w": 0.20,
+  "r3.hu_openjam_scale": 1.0}`, `--base goal/s25/b9spec.json` (batch 9), --set screen, every stage, --aim strong, --runout-term, 4
+  workers, nice 5; out goal/s25/S25_screen.md / .json; then elite under 10/7/5/4/3/2/1/0, S25_elite_brief.md; RUN_DONE in screen.done).
+  The candidate as a file: docs/drills/climb/s25-candidate.json (the two dials on top of batch 9's). To resume after a stop: run
+  run_screen.sh again at the same tree (cached chunks stand); do not change hyperion/ or tools/ in wt_s25 while it runs.
