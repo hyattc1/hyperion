@@ -503,6 +503,8 @@ class Config:
     panic_ladder: bool = False
     panic_recover: int = 0
     panic_backoff: float = 2.0
+    whole_call: bool = False  # G1: the governor counts the whole timed call an adapter reports (the slow_box recipe)
+    hand_end_ms: float = 0.0  # G1: a kit's held hand end minds this budget (hyperion/drills/adapter.py Adapter.hand_end)
     seed: int | None = None  # postflop frequency RNG; None = nondeterministic
 
     @staticmethod
@@ -2041,7 +2043,8 @@ class Hero:
         self.core = HeroCore(config, tables)
         c = self.core.cfg
         self.safe = SafeBot(self.core, c.deadline_ms, c.panic_after, c.panic_rate,
-                            governor(c.panic_window, c.panic_ladder, c.panic_recover, c.panic_backoff))
+                            governor(c.panic_window, c.panic_ladder, c.panic_recover, c.panic_backoff),
+                            whole_call=c.whole_call, hand_end_ms=c.hand_end_ms)
 
     @classmethod
     def cheap(cls, tables: Tables | None = None) -> "Hero":

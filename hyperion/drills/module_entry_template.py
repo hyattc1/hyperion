@@ -21,6 +21,8 @@ What it does without being asked, each from drill 11:
   line breaks nothing: tests/test_hand_end_interrupt.py), table() runs inside the adapter's start (a cut one sits the
   table out on the kit and the next table() starts clean), and an act() cut at any line leaves the next decision
   clean (tests/test_h7_drill11.py). Keep anything you add that must not be half done short, and after the work.
+- The governor sees what the kit times (G1): act() passes its first clock read to Adapter.decide, which reports the whole call to
+  the bot's SafeBot; tools/gate.py fails a package whose decisions do not report.
 - done() is timed (kit I: 1 ms, an overrun only counted): HAND_END "defer" makes the bot's hand end deferrable
   (`defer_hand_end(True)`: the light part here, the ICM curve and the dials in the next decision's Hero).
 - act() always returns one int: the adapter's answer when it is one, else the kit's check-or-fold (0).
@@ -43,6 +45,7 @@ import json
 import os
 import sys
 from collections import Counter
+from time import perf_counter
 from types import SimpleNamespace
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -94,6 +97,7 @@ def build():
     if HAND_END != "eager":
         bot.defer_hand_end(True)
     ad = make_adapter(bot, RULES)
+    ad.hand_end_timed = HAND_END != "eager"
     ad.start(0, SEATS, RULES)
     return ad
 
@@ -222,9 +226,10 @@ def table(info) -> None:
 
 
 def act(v):
+    t0 = perf_counter()  # first, always: the kit's clock is running (Adapter.decide reports the whole call to the governor)
     repin_package()
     try:
-        out = AD.decide(v)  # Adapter.decide: a translation or bot failure is already the kit's check-or-fold
+        out = AD.decide(v, t0)  # Adapter.decide: a translation or bot failure is already the kit's check-or-fold
         if answer_ok(out):
             return out
         ERRORS["bad_answer"] += 1

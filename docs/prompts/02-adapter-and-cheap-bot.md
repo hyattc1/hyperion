@@ -39,6 +39,10 @@ Track A (repo present):
    late one check/folds the next decision), `"defer"`: `bot.defer_hand_end(True)`, the callback runs only the light
    part and the ICM curve waits for the next decision (`"store"` moves all of it there: on kit G, twice the late
    decisions); untimed, `"eager"`.
+   The kit's clock runs through the whole call, so the governor must see the whole call: every decision goes through
+   `Adapter.decide(native, t0)`, `t0 = perf_counter()` the first line of the kit's method (the templates have both lines:
+   keep them). Never call `bot.act` from your own `decide`: `tools/gate.py` fails a package that does, because that bot
+   never steps down on a slow sandbox. `to_observation` is on the clock too: no sorting, no regexes, no logging.
    The kit's entry point builds `bot = hyperion.ship.make_bot()` behind `make_adapter(bot, rules)`, with
    everything imported and warmed at module import, not on the first decision; if the kit has no
    per-table hook, `start()` a throwaway adapter at import so every cache is hot before the first

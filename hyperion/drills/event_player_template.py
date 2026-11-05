@@ -10,6 +10,9 @@ kit: hyperion/drills/event_example.py (run it: `python -m hyperion.drills.fakeki
 Checks, in order: the kit's simulator with `HYPERION_CHECK=1` (0 violations, 0 exceptions, 0 illegal); the gate with
 hyperion/drills/gate_seat_template.py copied to submission/gate_seat.py; tools/pack.py --max-mb <the kit's cap>.
 
+The governor sees what the kit times (G1): `decide` passes its first clock read to Adapter.decide, which reports the whole call to
+the bot's SafeBot; tools/gate.py fails a package whose decisions do not report.
+
 The bot is built and started at module import and the package pinned there (`pin_package`): a kit loader may unload
 our modules before it builds the player (drill 9's kit G) or after (drill 8's kit F), and every method that runs bot
 code starts with `repin_package()` (hyperion/drills/entry_template.py has the same for a state kit).
@@ -19,6 +22,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from time import perf_counter
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 # inside the package tools/pack.py builds, hyperion/ sits beside this file; run from the repo's submission/, one up
@@ -87,6 +91,7 @@ class TonightAdapter(EventAdapter):
 def build() -> TonightAdapter:
     """The ship bot behind the adapter, started for a table: its tables and modules load now, at import."""
     a = maybe_checked(TonightAdapter(ship.make_bot(), RULES))
+    a.hand_end_timed = HAND_END_TIMED
     if HAND_END_TIMED:
         a.defer_hand_end(True)
     a.start(0, RULES.n_players, RULES)
@@ -155,4 +160,5 @@ class Player:  # TODO 6  the kit's class name and method names; every method wra
             pass
 
     def decide(self, req):
-        return self.a.decide(req)
+        t0 = perf_counter()  # first, always: the kit's clock is running (Adapter.decide reports the whole call to the governor)
+        return self.a.decide(req, t0)

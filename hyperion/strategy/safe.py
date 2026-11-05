@@ -17,10 +17,23 @@ were one noisy call apart. Three dials, each independent:
   recover  after `recover` calls in a row with no overrun at a level, step back up one level (the box was busy, now
            it is not); each step back up multiplies the calls the next one needs by `backoff`.
 `degrade_level` is the level in play (0 = full strength, levels + 1 = panic); `level_max` the deepest this table.
+
+**The whole timed call** (G1, `whole_call`, off by default; on in the composite's SHIP_DIALS and the `slow_box` recipe). What
+a kit times runs from its call to our return: the adapter's translation, the history inference, a hand end delivered at
+the top of the decision, then `act`. `act` alone is about half of it, so a governor that times only `act` never sees a
+slow box through a kit (batch 8: 12% timeouts at 3x with no level reached, docs/drills/climb/b8-timing.md). With the dial on,
+`hyperion.drills.adapter.Adapter` tells this SafeBot that reports are coming (`expect_reports`, at its build) and sends every
+decision's whole call to `report_call(seconds)`; the overruns are counted there, on the same deadline and the same
+window, and `act`'s own time counts for nothing. A SafeBot with no adapter in front of it (the simulator, the tests) has no
+reports and times `act`, as before. An entry that does not go through Adapter.decide must call `report_call` itself:
+tools/gate.py fails a package whose decisions do not report.
 """
 from __future__ import annotations
 
+import atexit
+import json
 import logging
+import os
 from dataclasses import dataclass
 from time import perf_counter
 
@@ -68,16 +81,36 @@ def governor(window: int = 0, ladder: bool = False, recover: int = 0, backoff: f
     return g if g.active else None
 
 
+_BOTS: list = []  # every SafeBot in this process, kept only for tools/gate.py's report (GATE_GOV_REPORT below)
+_REPORT_PATH = os.environ.get("GATE_GOV_REPORT")
+
+
 class SafeBot:
     __slots__ = (
         "inner", "deadline", "panic_after", "panic_rate", "errors", "overruns", "calls", "worst", "panic_mode",
         "_has_panic", "gov", "degrade_level", "level_max", "level_changes", "_levels", "_has_level", "_ring",
-        "_cnt", "_c0", "_quiet", "_need",
+        "_cnt", "_c0", "_quiet", "_need", "whole_on", "_whole", "reports", "life", "lvl_calls", "end_budget", "_floor",
     )
 
     def __init__(self, inner: Bot, deadline_ms: float = 0.5, panic_after: int = 5, panic_rate: float = 0.02,
-                 gov: Governor | None = None):
+                 gov: Governor | None = None, whole_call: bool = False, hand_end_ms: float = 0.0):
         self.inner = inner
+        self.whole_on = bool(whole_call)  # the dial: count the whole timed call when an adapter reports it
+        # G1: what a kit's held hand end may cost: its Adapter holds it for the next decision only while a typical
+        # decision with it stays under this (hyperion/drills/adapter.py Adapter.hand_end); 0 = always. Off with no governor
+        # or none that can fire (a model-mode run, panic_after 10^9): it reads the clock
+        live = whole_call and gov is not None and gov.active and panic_after < 10 ** 6
+        self.end_budget = float(hand_end_ms) / 1000.0 if live else 0.0
+        self._whole = False  # ... and one does (expect_reports)
+        self.reports = 0  # whole calls reported this table
+        self.life = {"acts": 0, "reports": 0, "overruns": 0, "tables": 0, "level_tables": 0, "panic_tables": 0,
+                     "level_max": 0, "lvl_calls": {}, "tail_lost": 0, "forced": 0,
+                     "dropped": 0}  # every table so far in this process (tools/gate.py's report); the last three, the
+        #                             adapter's budget-aware hand end (Adapter.hand_end)
+        self.lvl_calls: dict = {}
+        self._floor = 0  # the governor does not recover above this level (set_floor)
+        if _REPORT_PATH:
+            _BOTS.append(self)
         self.deadline = deadline_ms / 1000.0
         self.panic_after = panic_after
         self.panic_rate = panic_rate
@@ -92,6 +125,54 @@ class SafeBot:
         self._levels = int(getattr(inner, "levels", 0) or 0) if self._has_level else 0
         self._reset_gov()
 
+    def expect_reports(self, on: bool = True) -> bool:
+        """An adapter sends the whole timed call (`report_call`). With the dial on, the overruns are counted there and
+        `act`'s own time no longer counts; with it off (G1_OFF: batch 8) nothing changes. Returns whether they count."""
+        self._whole = bool(on) and self.whole_on
+        return self._whole
+
+    def report_call(self, seconds: float) -> None:
+        """One decision's whole timed call: from the kit's call to our return."""
+        self.reports += 1
+        if self._whole:
+            if seconds > self.worst:
+                self.worst = seconds
+            self._count(seconds)
+
+    def set_floor(self, level: int) -> None:
+        """An adapter that has measured this box slow for a table's worth of calls (Adapter._note_call): play at level
+        `level` or below it, without waiting for a cluster of overruns, and do not recover past it. 0 gives the ladder back."""
+        if self.gov is None or not self.gov.ladder or self._levels < 1:
+            return
+        self._floor = level
+        if self.degrade_level < level:
+            self._set_level(level, self._top())
+
+    def _bank(self) -> None:
+        """This table's counters into the process's (`life`), at the table's end."""
+        life = self.life
+        life["acts"] += self.calls
+        life["reports"] += self.reports
+        life["overruns"] += self.overruns
+        if self.calls:
+            life["tables"] += 1
+            life["level_tables"] += self.level_max > 0
+            life["panic_tables"] += self.panic_mode or (self.gov is not None and self.level_max >= self._top())
+        life["level_max"] = max(life["level_max"], self.level_max)
+        self._bank_level()
+        for k, v in self.lvl_calls.items():
+            life["lvl_calls"][k] = life["lvl_calls"].get(k, 0) + v
+        self.lvl_calls = {}
+
+    def _bank_level(self) -> None:
+        if self.calls > self._c0:
+            d = self.degrade_level
+            self.lvl_calls[d] = self.lvl_calls.get(d, 0) + self.calls - self._c0
+            self._c0 = self.calls
+
+    def _top(self) -> int:
+        return (self._levels + 1) if self.gov is not None and self.gov.ladder else 1
+
     def _reset_gov(self) -> None:
         self.degrade_level = 0
         self.level_max = 0
@@ -103,11 +184,14 @@ class SafeBot:
         self._need = self.gov.recover if self.gov is not None else 0
 
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        self._bank()
         self.errors = 0
         self.overruns = 0
         self.calls = 0
+        self.reports = 0
         self.worst = 0.0
         self.panic_mode = False
+        self._floor = 0
         self._reset_gov()
         if self._has_level:
             try:
@@ -135,15 +219,11 @@ class SafeBot:
             self.errors += 1
             if self.errors <= 3:
                 log.exception("act failed; returning safe action")
-        dt = perf_counter() - t0
-        if dt > self.worst:
-            self.worst = dt
-        if self.gov is not None:
-            self._govern(dt > self.deadline)
-        elif dt > self.deadline:
-            self.overruns += 1
-            if not self.panic_mode and self.overruns >= self.panic_after and self.overruns >= self.panic_rate * self.calls:
-                self._enter_panic()
+        if not self._whole:  # an adapter's report counts this call, the whole of it (report_call)
+            dt = perf_counter() - t0
+            if dt > self.worst:
+                self.worst = dt
+            self._count(dt)
         if a is None or a.__class__ is not Action:
             return safe_action(obs)
         try:
@@ -151,6 +231,14 @@ class SafeBot:
         except Exception:
             self.errors += 1
             return safe_action(obs)
+
+    def _count(self, dt: float) -> None:
+        if self.gov is not None:
+            self._govern(dt > self.deadline)
+        elif dt > self.deadline:
+            self.overruns += 1
+            if not self.panic_mode and self.overruns >= self.panic_after and self.overruns >= self.panic_rate * self.calls:
+                self._enter_panic()
 
     def hand_end(self, result: HandResult) -> None:
         try:
@@ -182,7 +270,7 @@ class SafeBot:
             if fire:
                 self._set_level(self.degrade_level + 1 if g.ladder else top, top)
             return
-        if g.recover and self.degrade_level > 0:
+        if g.recover and self.degrade_level > self._floor:
             self._quiet += 1
             if self._quiet >= self._need:
                 self._need = max(1, int(self._need * g.backoff))
@@ -192,6 +280,7 @@ class SafeBot:
         level = max(0, min(level, top))
         if level == self.degrade_level:
             return
+        self._bank_level()
         was_panic = self.panic_mode
         self.degrade_level = level
         self.level_changes += 1
@@ -199,7 +288,7 @@ class SafeBot:
             self.level_max = level
         self._ring = []
         self._cnt = 0
-        self._c0 = self.calls
+        self._c0 = self.calls  # (_govern's count since the last change, and the calls banked at this level)
         self._quiet = 0
         if level >= top:
             self._enter_panic()
@@ -231,5 +320,44 @@ class SafeBot:
         return {
             "calls": self.calls, "errors": self.errors, "overruns": self.overruns,
             "worst_ms": self.worst * 1000, "panic_mode": self.panic_mode, "level": self.degrade_level,
-            "level_max": self.level_max, "level_changes": self.level_changes,
+            "level_max": self.level_max, "level_changes": self.level_changes, "reports": self.reports,
+            "whole_call": self._whole,
         }
+
+    def life_stats(self) -> dict:
+        """Every table so far in this process, the one in play included (tools/gate.py's report)."""
+        self._bank()
+        life = self.life
+        life["whole_on"] = self.whole_on
+        life["whole"] = self._whole
+        self.calls, self.reports, self.overruns, self.level_max = 0, 0, 0, self.degrade_level
+        return life
+
+
+def report() -> dict:
+    """Every SafeBot of this process, summed: decisions, whole calls reported, levels reached."""
+    out: dict = {"acts": 0, "reports": 0, "overruns": 0, "tables": 0, "level_tables": 0, "panic_tables": 0, "tail_lost": 0,
+                 "forced": 0, "dropped": 0, "level_max": 0, "lvl_calls": {}, "whole_on": False, "whole": False,
+                 "bots": len(_BOTS)}
+    for b in _BOTS:
+        life = b.life_stats()
+        for k in ("acts", "reports", "overruns", "tables", "level_tables", "panic_tables", "tail_lost", "forced", "dropped"):
+            out[k] += life[k]
+        out["level_max"] = max(out["level_max"], life["level_max"])
+        out["whole_on"] = out["whole_on"] or life["whole_on"]
+        out["whole"] = out["whole"] or life["whole"]
+        for k, v in life["lvl_calls"].items():
+            out["lvl_calls"][str(k)] = out["lvl_calls"].get(str(k), 0) + v
+    return out
+
+
+def _write_report() -> None:
+    try:
+        with open(_REPORT_PATH, "w") as fh:
+            json.dump(report(), fh)
+    except Exception:  # noqa: BLE001 - a report, at exit: never in the way
+        pass
+
+
+if _REPORT_PATH:  # tools/gate.py sets it for a bot in its own process (kits C, D, a process kit); the night's sandbox never
+    atexit.register(_write_report)

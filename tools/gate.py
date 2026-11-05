@@ -52,10 +52,17 @@ baseline before the inference) it no longer catches an adapter that drops the in
 CPU time, from before the import), the baseline on the real one: the kit path's timing on a slower box. Its points against
 the baseline then show what the slow box costs, and its timeouts are the slow box's.
 
+The governor's line (G1): what the package's SafeBot saw, by table: decisions, whole calls reported, tables that reached
+a level or panic, decisions at each level, the budget-aware hand ends (Adapter.hand_end). SafeBot's governor counts the whole timed call only when the
+adapter reports it (hyperion/drills/adapter.py Adapter.decide does; hyperion/strategy/safe.py), and an adapter that does not
+leaves it blind on a slow box with nothing else to show for it.
+
 FAIL (exit 1) when the package lacks a table its recorded bot needs (tools/table_probe.py, before any table is played: the
 loader that returns None plays on, so no table would show it) or trails the baseline by more than the paired 95% interval, raises, sends
-an illegal action, never imports, or times out on more than --max-tmo-pct of its decisions (a warning
-instead when the load average exceeds the core count, the playbook's load clause). Otherwise PASS.
+an illegal action, never imports, its decisions do not report the whole timed call (its `whole_call` dial on, and under 99%
+of its decisions reported: go through Adapter.decide, or call bot.safe.report_call), or times out on more than --max-tmo-pct of its
+decisions (a warning instead when the load average exceeds the core count, the playbook's load clause). Otherwise PASS. A package
+from before G1, or with the dial off (G1_OFF), is warned about and not failed.
 """
 from __future__ import annotations
 
@@ -138,6 +145,34 @@ class Proxy:
         self.rule_mismatch = 0  # kit D raises its rules allow and ours do not (short all-in, no reopen)
         self.import_s: float | None = None
         self.counts: dict = {}  # a seat file's own tallies (gate_counts: the module seat's Overtimes)
+        self.gov: dict | None = None  # what the package's SafeBot did (tools/gate_host.py governor_report)
+        self.gov_path: str | None = None  # ... from a bot in its own process, written at its exit (GATE_GOV_REPORT)
+
+    def report_env(self, env: dict) -> dict:
+        """Ask a bot in its own process for the governor's report at its exit (hyperion/strategy/safe.py)."""
+        fd, self.gov_path = tempfile.mkstemp(prefix="gov_", suffix=".json", dir=self.cfg.scratch)
+        os.close(fd)
+        env["GATE_GOV_REPORT"] = self.gov_path
+        return env
+
+    def read_report(self) -> None:
+        p, self.gov_path = self.gov_path, None
+        if p is None:
+            return
+        try:
+            with open(p) as fh:
+                text = fh.read()
+            if self.gov is None and text.strip():
+                got = json.loads(text)
+                if got.get("acts") or got.get("reports"):
+                    self.gov = {"capable": True, **got}
+        except (OSError, ValueError):
+            pass
+        finally:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
 
     def note(self, text: str) -> None:
         if len(self.notes) < 12:
@@ -188,6 +223,8 @@ class HostProxy(Proxy):
         env = _env()
         if c.slow:
             env["GATE_SLOW_K"] = str(c.slow)
+        if self.kind == "seat":  # a process seat's bot runs in a process of its own (process_gate_seat_template.py)
+            env = self.report_env(env)
         self.proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.log,
                                      text=True, bufsize=1, cwd=c.scratch, env=env)
         msg = self._read(READY_TIMEOUT_S)
@@ -301,6 +338,7 @@ class HostProxy(Proxy):
                 for n in msg.get("notes", []):
                     self.note(n)
             self.counts = dict(msg.get("counts") or {})
+            self.gov = msg.get("gov")
         try:
             self.proc.stdin.close()
         except OSError:
@@ -311,6 +349,7 @@ class HostProxy(Proxy):
             self.proc.kill()
             self.proc.wait()
         self.log.close()
+        self.read_report()
 
 
 def _json_extras(extras: dict) -> dict:
@@ -342,7 +381,7 @@ class PooledProxy(Proxy):
         if kw.get("stdout") == "log":  # kit D bots print their logs; the protocol is the socket
             kw["stdout"] = self.log
         return subprocess.Popen([sys.executable, "-I", "-B", str(HOST), "launch", str(c.pkg), c.entry, str(c.kit_dir),
-                                 *extra], stderr=self.log, cwd=c.scratch, env=_env(), **kw)
+                                 *extra], stderr=self.log, cwd=c.scratch, env=self.report_env(_env()), **kw)
 
     def _stderr_tail(self) -> str:
         try:
@@ -435,6 +474,7 @@ class KitCProxy(PooledProxy):
             self.proc.kill()
             self.proc.wait()
         self.log.close()
+        self.read_report()
 
 
 _D_ACTION = {"fold": "F", "call": "C", "check": "K"}
@@ -558,6 +598,7 @@ class KitDProxy(PooledProxy):
             self.proc.kill()
             self.proc.wait()
         self.log.close()
+        self.read_report()
 
 
 # ------------------------------------------------------------------ the table
@@ -569,7 +610,7 @@ class GateTable(Table):
     the hand in play, the stacks and pips right after the blinds, where each street's history begins, and the forced
     bets, from which each history entry's street and chips follow (history_tags, posts)."""
 
-    def __init__(self, bots, rules, seed, mode, variant, stats, gate_seat=None, proxy=None):
+    def __init__(self, bots, rules, seed, mode, variant, stats, gate_seat=None, proxy=None, rotation=0):
         self.gate_seat, self.proxy = gate_seat, proxy
         self.cur = None
         self.pre = None
@@ -578,7 +619,7 @@ class GateTable(Table):
         self.posts: list[list] = []  # this hand's forced bets [seat, "ante" | "sb" | "bb" | "straddle", chips]
         if proxy is not None:
             proxy.table = self
-        super().__init__(bots, rules, seed, 0, mode, variant, stats)
+        super().__init__(bots, rules, seed, rotation, mode, variant, stats)
 
     def _needs_betting(self, hs) -> bool:
         if hs is not self.cur:  # street 0 of a new hand: the blinds (and a straddle) are in, nobody has acted
@@ -743,6 +784,7 @@ class Side:
     unsupported: int = 0
     rule_mismatch: int = 0
     counts: dict = field(default_factory=dict)  # the seat file's tallies, summed over the tables
+    gov: dict = field(default_factory=dict)  # the package's SafeBot, summed over the tables (add_gov)
     lifecycle: int = 0
     notes: list[str] = field(default_factory=list)
     import_s: list[float] = field(default_factory=list)
@@ -757,6 +799,53 @@ class Side:
     def tmo(self) -> int:
         """Decisions the time rule turned into a check or fold (counted in measure mode too, not enforced)."""
         return self.late if self.proxied else self.stats.over_budget
+
+
+def add_gov(total: dict, one: dict | None) -> None:
+    """One table's governor report into the run's (tools/gate_host.py governor_report). Tables with no report are counted."""
+    if not one:
+        total["no_report"] = total.get("no_report", 0) + 1
+        return
+    for k in ("acts", "reports", "overruns", "tables", "level_tables", "panic_tables", "tail_lost", "forced", "dropped"):
+        total[k] = total.get(k, 0) + int(one.get(k, 0) or 0)
+    total["level_max"] = max(total.get("level_max", 0), int(one.get("level_max", 0) or 0))
+    total["capable"] = bool(total.get("capable") or one.get("capable"))
+    total["whole_on"] = bool(total.get("whole_on") or one.get("whole_on"))
+    total["whole"] = bool(total.get("whole") or one.get("whole"))
+    lv = total.setdefault("lvl_calls", {})
+    for k, v in (one.get("lvl_calls") or {}).items():
+        lv[str(k)] = lv.get(str(k), 0) + int(v)
+
+
+def gov_line(gov: dict) -> str:
+    """The governor's line of the report: decisions by level, tables that left full strength, hand ends held."""
+    if not gov.get("acts") and not gov.get("reports"):
+        return "governor: no report from the package's SafeBot"
+    lv = gov.get("lvl_calls") or {}
+    by = ", ".join(f"level {k} {v}" for k, v in sorted(lv.items(), key=lambda kv: int(kv[0])) if int(k) > 0) or "none below 0"
+    return (f"governor: {gov.get('acts', 0)} decisions, {gov.get('reports', 0)} whole calls reported "
+            f"({'counted' if gov.get('whole') else 'not counted'}), {gov.get('overruns', 0)} overruns; level_max "
+            f"{gov.get('level_max', 0)}, {gov.get('level_tables', 0)} of {gov.get('tables', 0)} tables left level 0, "
+            f"{gov.get('panic_tables', 0)} panicked; decisions {by}; budget-aware hand ends: {gov.get('tail_lost', 0)} without "
+            f"their tail, {gov.get('forced', 0)} kept by the bound, {gov.get('dropped', 0)} dropped")
+
+
+def gov_verdict(gov: dict) -> tuple[list[str], list[str]]:
+    """(fails, warns): does the governor see what the kit times? hyperion/strategy/safe.py, G1."""
+    acts = gov.get("acts", 0)
+    if not acts and not gov.get("reports"):
+        return [], [f"no governor report from {gov.get('no_report', 0)} tables: the bot has no SafeBot, or its process was "
+                    f"killed before it could write one, or it predates G1; nothing shows the whole timed call reaching the "
+                    f"governor"]
+    if not gov.get("capable"):
+        return [], ["the package predates G1: its governor times `act` alone, whatever the adapter costs (repack)"]
+    if not gov.get("whole_on"):
+        return [], ["whole_call is off (G1_OFF): the governor times `act` alone, whatever the adapter costs"]
+    if gov.get("reports", 0) < 0.99 * acts:
+        return [f"the whole timed call reached the governor on {gov.get('reports', 0)} of {acts} decisions: the adapter does "
+                f"not report it, so on a slow box the governor sees `act` alone and never steps down (go through "
+                f"Adapter.decide, or call bot.safe.report_call(seconds) with the time since the kit's call)"], []
+    return [], []
 
 
 def mean_ci(xs: list[float]) -> tuple[float, float]:
@@ -842,6 +931,7 @@ def play(cfg: Config, names: list[str], tables: int, seed: int, rules: Rules, va
                 side.lifecycle += proxy.lifecycle_errors
                 for k, c in proxy.counts.items():
                     side.counts[k] = side.counts.get(k, 0) + int(c)
+                add_gov(side.gov, proxy.gov)
                 if proxy.import_s is not None:
                     side.import_s.append(proxy.import_s)
                 side.fatal = side.fatal or proxy.fatal
@@ -887,6 +977,9 @@ def verdict(pkg: Side, base: Side, max_tmo_pct: float, load_clause: bool) -> tup
         fails.append(f"the package trails {base.label} by {-dm:.3f} points a table, beyond the paired 95% interval "
                      f"(±{dci:.3f}): the upload is not the bot the sim measured (drill 6: an adapter that dropped "
                      f"history cost 2.5)")
+    gf, gw = gov_verdict(pkg.gov)
+    fails.extend(gf)
+    warns.extend(gw)
     return not fails, fails, warns
 
 
@@ -1106,6 +1199,7 @@ def main(argv=None) -> int:
               + ", ".join(f"{k} {v}" for k, v in sorted(pkg_side.counts.items())))
     for x in pkg_side.notes:
         print(f"note: {x}")
+    print(gov_line(pkg_side.gov))
     load = os.getloadavg()[0] if hasattr(os, "getloadavg") else 0.0
     ok, fails, warns = verdict(pkg_side, base_side, a.max_tmo_pct, load > (os.cpu_count() or 1))
     for w in warns:

@@ -80,7 +80,7 @@ class Seat:
     def _launch(self) -> None:
         self.proc = subprocess.Popen([sys.executable, "-u", self.entry], cwd=self.pkg, stdin=subprocess.PIPE,
                                      stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=0, close_fds=True,
-                                     env=dict(KIT_ENV))
+                                     env={**KIT_ENV, **{k: os.environ[k] for k in ("GATE_GOV_REPORT",) if k in os.environ}})
         self.in_fd, self.out_fd = self.proc.stdin.fileno(), self.proc.stdout.fileno()
 
     def _ask(self, msg: dict, timeout: float = REPLY_S) -> dict:

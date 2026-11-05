@@ -155,6 +155,15 @@ limits from the rule sheet: `--import-budget` its start budget, `--max-mb` its u
 zipped one (drill 10: kit H allowed 2 s to answer hello and 5 MB zipped / 20 MB unzipped; pack's 5 s default and a
 `--max-mb 5` that checked the unzipped size were both wrong for it).
 
+**The clock is the kit's, not `act`'s** (G1, docs/drills/climb/g1-log.md). What the kit times runs from its call to our return:
+translation, inference, a held hand end, then `act`. `Adapter.decide` reports that whole call to the bot's SafeBot, and the
+governor counts it, so a slow sandbox steps the bot down instead of timing out one decision in eight. Nothing to wire if the
+entry goes through `Adapter.decide` (every template does, and passes its first clock read as `decide(native, t0)`); do not write a
+`decide` of your own around `bot.act`: `tools/gate.py` FAILS a package whose decisions do not report, by name. Keep
+`to_observation` cheap, it is on the clock. The gate prints a `governor:` line; on this box it must read `level_max 0` and
+`0 without their tail`. Anything else at this box's speed means the adapter is slow (profile it:
+docs/drills/climb/g1_profile_entry.py), not that the governor is wrong.
+
 The entry template follows the kit's shape: a kit that imports a file and builds a bot object,
 `hyperion/drills/entry_template.py`; one call per event, `event_player_template.py`; **the bot as its own process on
 JSON lines** (kit H), `hyperion/drills/process_entry_template.py`, with `process_gate_seat_template.py` as the gate
