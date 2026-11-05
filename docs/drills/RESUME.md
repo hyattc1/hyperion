@@ -89,6 +89,7 @@ Nothing is lost: everything decided is committed and pushed; the scratchpad (goa
 - S21 done: rejected on its screen (O3 parked). O5 (2de5070) passed its screen: on H33 after C3h (goal/b31/run.sh,
   output goal/b31/o5_h33.md, RUN_DONE). O6 (climb/s21-o6, the non-blind seats' fold read) with the same worker.
 - Drill 11 done (docs/drills/prompt-drill-11.md); H7 and V-j merged. Future organiser briefs exclude tranche_holdem.
+- Drill 12 done (docs/drills/prompt-drill-12.md); fixes on climb/h8-drill12-fixes. Future organiser briefs exclude trailing_stop.
 - start-vs-now done (the leaderboard's "Since the start" table).
 
 ## Dated items
