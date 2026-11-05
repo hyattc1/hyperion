@@ -186,6 +186,31 @@ def bb_scan(hist, bbs, start) -> int | None:
     return None
 
 
+def sr_scan(hist, start, bb: float, depth: float) -> dict:
+    """S24: one hand's shove-read counts (kit shape (seat, (kind, amount)), preflop first): {seat: all-in?} for each seat
+    whose first action came with no all-in before it and whose chips at the hand's start were at most `depth` big
+    blinds. A raise to at least 85% of those chips is an all-in, as rival 3's own count; a blind posted as a raise is
+    not an action."""
+    out = {}
+    seen = set()
+    raises = 0
+    allin = False
+    for s, a in hist:
+        k = a[0]
+        amt = (a[1] or 0) if len(a) > 1 else 0
+        if k in R3._POSTS or not 0 <= s < len(start) or (k == 'raise' and amt <= bb and not raises):
+            continue
+        chips = start[s]
+        if s not in seen:
+            seen.add(s)
+            if not allin and chips <= depth * bb:
+                out[s] = k == 'raise' and amt >= 0.85 * chips
+        if k == 'raise':
+            raises += 1
+            allin = amt >= 0.85 * chips
+    return out
+
+
 def o3_scan(hist, opened: list, folded: list) -> None:
     """Add one hand's fold-to-3-bet read (kit shape (seat, (kind, amount)), preflop first): the hand's first raise is
     the open; the first raise after it by another seat is a 3-bet; the opener's next action is its reply to it."""
@@ -283,6 +308,9 @@ class Rival3Core(R3.Bot):
         # O5's big-blind read (r3.bb_read; bb_scan): per seat, its answers as the big blind to any first-in raise
         self.bbn = [0.0] * 12
         self.bbf = [0.0] * 12
+        # the shove read (r3.sr_depth; sr_scan): per seat, its chances at that depth or under and its all-ins among them
+        self.srn = [0.0] * 12
+        self.srk = [0.0] * 12
 
     def start_hand(self, kit_hand_no: int, totals) -> None:
         """Rival 3 prices each all-in from the stacks it sees. With r3.icm_horizon, the next hand's blinds owed are
@@ -343,6 +371,14 @@ class Rival3Core(R3.Bot):
                         self.bbn[bbs] += 1.0
                         self.bbf[bbs] += b
             except Exception:  # noqa: BLE001 - a malformed history leaves the reads as they were
+                pass
+        if self.k.sr_depth > 0.0 and self._oa_h and start is not None:
+            try:
+                for s, sh in sr_scan(hist, start, self.bb, self.k.sr_depth).items():
+                    if s < 12:
+                        self.srn[s] += 1.0
+                        self.srk[s] += 1.0 if sh else 0.0
+            except Exception:  # noqa: BLE001 - a malformed history leaves the read as it was
                 pass
         self.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas, "history": hist})
         if self.k.v3_defend:
@@ -496,6 +532,9 @@ class Rival3Core(R3.Bot):
                 w = min(1.0, max(0.05, pfr * 1.1))
         else:
             w = min(0.6, max(0.03, r3 * 0.9 + 0.02))
+        if kn.sr_depth > 0.0 and agg_allin and self._oa_h and tot[agg] <= kn.sr_depth * bb \
+                and sum(1 for s in opp_in if bets[s] > bb) == 1:
+            w = self._shove_width(o, agg, w)
         eq = _eqvs(ci, w)
         # multiway: every other opponent who put money in beyond the blind must also be beaten
         k = sum(1 for s in opp_in if bets[s] > bb)
@@ -795,6 +834,23 @@ class Rival3Core(R3.Bot):
         if f * (pot_tot - bets[seat]) - (1.0 - f) * risk * kn.l3_lose <= 0.0:
             return None
         return self._raise(legal, o, size)
+
+    def _shove_width(self, o, agg: int, w: float) -> float:
+        """The shove read (r3.sr_depth): the width of seat agg's all-in range is at least its smoothed rate of all-ins per
+        chance at that depth or under, this hand's action counted; `w` while fewer than sr_min chances are seen."""
+        kn = self.k
+        n, k = self.srn[agg], self.srk[agg]
+        try:
+            sh = sr_scan(o.history, self.start, self.bb, kn.sr_depth).get(agg)
+        except Exception:  # noqa: BLE001 - a malformed history: the counts so far
+            sh = None
+        if sh is not None:
+            n += 1.0
+            k += 1.0 if sh else 0.0
+        if n < kn.sr_min:
+            return w
+        r = (k + kn.sr_prior * kn.sr_n) / (n + kn.sr_n)
+        return r if r > w else w
 
     def _replay(self, hist, o, final=False):
         try:

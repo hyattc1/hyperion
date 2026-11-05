@@ -10,6 +10,7 @@ sense is only meant for two cards.
 from __future__ import annotations
 
 import dataclasses
+import gc
 import os
 import random
 import sys
@@ -1820,6 +1821,26 @@ class Exploiter4Bot(_FixedSpeedInModel, PersonaBot):
         return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
 
 
+class Exploiter5Bot(PersonaBot):
+    """Test opponent `exploiter5`: the climb's fifth red-team exploiter (docs/drills/exploiter5/, decisions addendum 17,
+    proposed), built by a fresh agent that played batch 8's ship only as a black box. Its arena put it behind batch 8 at
+    8-max (4.68-4.92 against 5.85-5.96), three-handed (2.01 against 2.36) and level heads-up on 2/1 points (1.47-1.50
+    against 1.51-1.54). Generic, evidence-gated aggression: big c-bets and double barrels, pot-size donks and check-raises
+    while the seat folds, push/fold under 15 bb, value-only rivers. Deterministic: it imports no random, and its one clock
+    read (a guard around act() whose branch is `pass`) cannot change an action, so it needs no fixed speed in model mode;
+    tests/test_sim_exploiter.py checks both. At import it freezes the collector and raises the collector's threshold
+    process-wide (its own process in the tournament); the threshold is put back here, as hyperion.sim.field.load does for a
+    collector switched off, since here the collector is everyone's. Never in a night pool (fields `exploit5`,
+    `exploit5_hu`, `exploit5_3`)."""
+
+    MODULE = "exploiter5"
+
+    def __init__(self, seed: Optional[int] = None):
+        gc_threshold = gc.get_threshold()
+        super().__init__(seed)
+        gc.set_threshold(*gc_threshold)
+
+
 class Exploiter2Bot(PersonaBot):
     """Test opponent `exploiter2`: the climb's second red-team exploiter (docs/drills/exploiter2/FINDINGS.md), built in
     ~2 hours by a fresh agent that played F with FIN (r3.v3_defend, half-pot dry c-bet) only as a black box. Against
@@ -2037,6 +2058,7 @@ REGISTRY: dict[str, type] = {
     "exploiter2": Exploiter2Bot,  # the second exploiter (S11), of F with FIN: a test opponent, never in a night pool
     "exploiter3": Exploiter3Bot,  # the third exploiter, of batch 5: a test opponent, never in a night pool
     "exploiter4": Exploiter4Bot,  # the fourth exploiter, of batch 7 (addendum 15): a test opponent, never in a night pool
+    "exploiter5": Exploiter5Bot,  # the fifth exploiter, of batch 8 (addendum 17): a test opponent, never in a night pool
     "adapt1": Adapt1Bot,  # the adaptive opponent (R6), tuning copy: a test opponent, never in a night pool
     "adapt1_off": Adapt1OffBot,  # adapt1 with its counters off (its twin): a test opponent, never in a night pool
     "adapt2": Adapt2Bot,  # the held-out adaptive opponent (addendum 9): a judge, never tuned on, never in a night pool
@@ -2184,7 +2206,7 @@ FIELDS["mirror_night"] = ("hero", "f_copy", "f_copy", "elite1", "elite2") + _nig
 # the exploiter's fields (S2, docs/drills/exploiter/): as its arena seated it, the hero seat and exploiter1 with six
 # night-pool seats at 8-max, alone heads-up, and with the first night-pool seat three-handed (play them with Rules of
 # n_players 2 / 3: docs/drills/climb/rules/hu.json, three.json). A test opponent, never in a night pool.
-EXPLOITERS = ("exploiter1", "exploiter2", "exploiter3", "exploiter4")
+EXPLOITERS = ("exploiter1", "exploiter2", "exploiter3", "exploiter4", "exploiter5")
 FIELDS["exploit"] = ("hero", "exploiter1") + _night.seat_names("night")[:6]
 FIELDS["exploit_hu"] = ("hero", "exploiter1")
 FIELDS["exploit_3"] = ("hero", "exploiter1") + _night.seat_names("night")[:1]
@@ -2201,6 +2223,10 @@ FIELDS["exploit3_3"] = ("hero", "exploiter3") + _night.seat_names("night")[:1]
 FIELDS["exploit4"] = ("hero", "exploiter4") + _night.seat_names("night")[:6]
 FIELDS["exploit4_hu"] = ("hero", "exploiter4")
 FIELDS["exploit4_3"] = ("hero", "exploiter4") + _night.seat_names("night")[:1]
+# the fifth exploiter's (of batch 8, docs/drills/exploiter5/, addendum 17), seated as its arena did
+FIELDS["exploit5"] = ("hero", "exploiter5") + _night.seat_names("night")[:6]
+FIELDS["exploit5_hu"] = ("hero", "exploiter5")
+FIELDS["exploit5_3"] = ("hero", "exploiter5") + _night.seat_names("night")[:1]
 # the adaptive opponent's (R6, addendum 9: the tuning copy), seated as the exploiters are: with six night-pool seats at
 # 8-max, heads-up, and with the first night-pool seat three-handed
 ADAPTERS = ("adapt1", "adapt1_off", "adapt2")
@@ -2214,6 +2240,7 @@ FIELDS["adapt_judge_3"] = ("hero", "adapt2") + _night.seat_names("night")[:1]
 # fields of fewer than eight seats, with the player count their Rules must carry (every other field seats eight)
 FIELD_PLAYERS: dict[str, int] = {"exploit_hu": 2, "exploit_3": 3, "exploit2_hu": 2, "exploit2_3": 3,
                                   "exploit3_hu": 2, "exploit3_3": 3, "exploit4_hu": 2, "exploit4_3": 3,
+                                  "exploit5_hu": 2, "exploit5_3": 3,
                                   "adapt_hu": 2, "adapt_3": 3,
                                   "adapt_judge_hu": 2, "adapt_judge_3": 3,
                                   "outside_d_o9_hu": 2, "outside_d_o9_3": 3, "outside_d_o10_hu": 2, "outside_d_o10_3": 3,

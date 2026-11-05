@@ -310,6 +310,20 @@ class PostflopParams:
     rbet_margin: float = -1.0
     rbet_max_alive: int = 0
     rbet_holdem_only: bool = False
+    # a c-bettor's frequency (S24, docs/drills/climb/s24-log.md). Facing the bet of the last aggressor of the earlier streets
+    # heads-up (a c-bet or a barrel, nothing of mine in) on a street of cbr_streets (bit mask: 1 flop, 2 turn), while at most
+    # cbr_max_alive players have chips, from a seat whose rate of those bets (Profiler.aggr_bet_rate: its flop and turn
+    # chances pooled, prior cbr_prior worth cbr_n; no read before cbr_min chances) is r above cbr_from: my equity moves from
+    # the tier's proxy toward WIDE_EQUITY by the weight (r - from) / (cbr_full - from), at most 1, and the call margin toward
+    # cbr_margin by the same weight. Calls only: no raise, no bluff. 1.0 = off
+    cbr_from: float = 1.0
+    cbr_full: float = 1.0
+    cbr_prior: float = 0.6
+    cbr_n: float = 6.0
+    cbr_min: int = 4
+    cbr_margin: float = 0.03
+    cbr_streets: int = 3
+    cbr_max_alive: int = 2
     # S12 reads (docs/drills/climb/s12-log.md); every one off by default.
     # size_read: facing a single bet heads-up (or a raise of my bet), the bettor's range for a bet of that size (bucket
     # of the pot before the bet, Profiler.SZ_EDGES; a raise is its own bucket) is a tier histogram: the population's
@@ -1294,6 +1308,11 @@ class Postflop:
                     we = (WIDE_EQUITY_FLOP, WIDE_EQUITY_TURN, WIDE_EQUITY_RIVER)[street - 1][tier]
                     if we > eq_pre:
                         eq = eq_pre + w * (we - eq_pre)
+        # The order of S22's read and S24's (batch 9, docs/drills/climb/batch9-log.md): S22 acts on the river alone and S24 on the
+        # flop and turn alone, so at most one of them moves a decision, and each is inert unless its `*_from` is under 1.0.
+        # Neither reads or writes the other's weight. Against the stab read: S22's weight replaces it where larger (its
+        # equity and its margin both); S24's equity is the higher of its own and the one the stab or wide read left, and its
+        # margin moves after theirs.
         rbet_w = 0.0
         if p.rbet_from < 1.0 and street == 3 and n_opp == 1 and bettor >= 0 and prof is not None and not cheap \
                 and obs.bets[spot.me] == 0 and (self._holdem or not p.rbet_holdem_only) \
@@ -1308,6 +1327,18 @@ class Postflop:
                     rbet_w = w
                     we = WIDE_EQUITY_RIVER[tier]
                     eq = eq_pre + w * (we - eq_pre) if we > eq_pre else eq_pre
+        cbr_w = 0.0
+        if p.cbr_from < 1.0 and n_opp == 1 and bettor >= 0 and prof is not None and not cheap and street <= 2 \
+                and self._holdem and p.cbr_streets >> (street - 1) & 1 and obs.bets[spot.me] == 0 \
+                and obs.players_left <= p.cbr_max_alive and bettor == prof.prev_aggressor(street) \
+                and prof.ab_opp[bettor] >= p.cbr_min:
+            r = prof.aggr_bet_rate(bettor, p.cbr_prior, p.cbr_n)
+            if r > p.cbr_from:
+                w = (r - p.cbr_from) / (p.cbr_full - p.cbr_from) if p.cbr_full > p.cbr_from else 1.0
+                cbr_w = w if w < 1.0 else 1.0
+                e2 = eq_pre + cbr_w * ((WIDE_EQUITY_FLOP if street == 1 else WIDE_EQUITY_TURN)[tier] - eq_pre)
+                if e2 > eq:
+                    eq = e2
         base_margin = p.call_margin
         if p.vs_cbet_margin >= 0.0 and street == 1 and n_opp == 1 and bettor >= 0 and prof is not None \
                 and prof.pre_raiser == bettor and obs.bets[spot.me] == 0 and obs.pot > 0 \
@@ -1322,6 +1353,8 @@ class Postflop:
                 base_margin += rbet_w * (p.rbet_margin - base_margin)
         elif stab_w > 0.0 and 0.0 <= p.stab_margin < base_margin:
             base_margin += stab_w * (p.stab_margin - base_margin)
+        if cbr_w > 0.0 and 0.0 <= p.cbr_margin < base_margin:
+            base_margin += cbr_w * (p.cbr_margin - base_margin)
         margin = base_margin / call_down if call_down > 0 else base_margin
         if p.tight_aggro_margin > 0.0 and street >= 2 and bettor >= 0 and prof is not None and not cheap \
                 and prof.vpip_rate(bettor) < p.tight_vpip and prof.aggression(bettor) > p.tight_agg:

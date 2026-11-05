@@ -42,7 +42,7 @@ Stages (comma-separated; default confirm,guards,variants):
 - exploit: the S2 exploiter (`exploiter1`, docs/drills/exploiter/) at 8-max (`exploit`, payouts 10/7/5/4/3/2/1/0),
   heads-up (`exploit_hu`, rules hu.json: 10/7) and three-handed (`exploit_3`, three.json: 10/7/5), and the second
   exploiter (`exploiter2`, docs/drills/exploiter2/) in the same three formats (`exploit2`, `exploit2_hu`,
-  `exploit2_3`), the third (`exploit3*`), and the adaptive opponent's tuning copy (`adapt1`, R6: `adapt`, `adapt_hu`,
+  `exploit2_3`), the third (`exploit3*`), the fourth (`exploit4*`), the fifth (`exploit5*`), and the adaptive opponent's tuning copy (`adapt1`, R6: `adapt`, `adapt_hu`,
   `adapt_3`; it learns each seat inside the table, tools/adapt_curve.py); the exploiter's own points are printed too. Part of the rule only with `--aim exploit` (addendum 6:
   an exploit field up, night not down); `--aim strong` is addendum 8 (elite, elite_night or mirror up, night not down).
 - timing: tools/latency.py p99 for both specs (20,000 calls).
@@ -128,8 +128,9 @@ EXPLOIT = [("exploit", "brief", None), ("exploit_hu", "lin", "hu"), ("exploit_3"
            ("exploit2", "brief", None), ("exploit2_hu", "lin", "hu"), ("exploit2_3", "lin", "three"),
            ("exploit3", "brief", None), ("exploit3_hu", "lin", "hu"), ("exploit3_3", "lin", "three"),  # of batch 5
            ("exploit4", "brief", None), ("exploit4_hu", "lin", "hu"), ("exploit4_3", "lin", "three"),  # of batch 7
+           ("exploit5", "brief", None), ("exploit5_hu", "lin", "hu"), ("exploit5_3", "lin", "three"),  # of batch 8
            ("adapt", "brief", None), ("adapt_hu", "lin", "hu"), ("adapt_3", "lin", "three")]  # R6, addendum 9
-EXPLOIT_BOTS = ("exploiter1", "exploiter2", "exploiter3", "exploiter4", "adapt1", "adapt2")  # the one seated in a cell is printed beside us
+EXPLOIT_BOTS = ("exploiter1", "exploiter2", "exploiter3", "exploiter4", "exploiter5", "adapt1", "adapt2")  # the one seated in a cell is printed beside us
 VARIANT_FIELD = "realistic"
 VARIANT_SEEDS = 200
 CHUNK = 25
