@@ -115,6 +115,20 @@ caption every line "on hold'em tables" and expect the patch to do nothing. Patch
   No ICM-premium key exists; `preflop.shove_call_margin` (Hero) and `r3.push_margin` / `r3.call_margin` (the
   core) are window dials, not this patch. Override `{}`.
 
+## What a stack can lose moved (a stop, a floor, an elimination threshold, chips you cannot fully lose)
+First write in `NIGHT.md`, in three lines, what makes a normal fold or a normal call wrong under tonight's rule. The ones
+to check:
+- Folding past the point of no return: if folding now ends the table anyway (kit J: chips behind under the stop, where a
+  posted blind can put you), the fold is worth nothing. Test it before the bot is asked: all-in if we can raise, else call,
+  else check. `native_safe` answers the same; the kit's own timeout still folds, so the milliseconds matter more tonight.
+- A stack you cannot fully lose: the depth at risk is the stack minus the threshold, and a call that crosses it risks all of
+  it. Our ICM curve and push/fold values read chips and know neither; a calculator in the kit may not either.
+Smallest first: a class in front of `bot.act` in the adapter, the thresholds passed as `make_observation(...,
+extras={"floors": ...})`, its name in `TWIST_PATCH` (`StopBot`, mode A, in docs/drills/drill12/adapter.py). Drill 12's
+first rule alone: +1.55, +2.03, +1.83 over 1,100 kit-sim tables, kept; reading depth as stack minus stop and pricing a
+crossing call as the whole stack both lost to it on screens (5.03 vs 5.74, 5.37 vs 6.30, about ± 0.5). The kit's simulator
+measures it by the keep rule; write the rule as a hooks file for `tools/gate.py --variant` (prompt 02 step 7).
+
 ## Betting structure moved (pot limit, fixed sizes, antes, different schedule)
 - Pot limit (the core): the adapter clamps to `max_raise`, and the core's all-in is `max_raise`, the pot cap:
   no dial. With `--bot hero`: set `Config.postflop` all-in sizes to pot; push/fold below 12 bb becomes

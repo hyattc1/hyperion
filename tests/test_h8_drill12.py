@@ -395,3 +395,20 @@ def test_the_gate_times_table_starts_through_the_entry_in_a_process_of_their_own
     assert gate.table_start_report(times, 25.0)[1] is not None
 
 
+# ---------------------------------------------------------------------------------------------- item 3
+@pytest.mark.night
+def test_prompt_05_has_a_section_for_what_a_stack_can_lose():
+    """Short, and general: the list comes first, then the two checks, then the drill's kept patch and the keep rule."""
+    text = _read("docs/prompts/05-variant-patch.md")
+    head = "## What a stack can lose moved"
+    assert head in text
+    sec = text[text.index(head):text.index("## Betting structure moved")]
+    flat = _flat(sec)
+    assert len(sec.splitlines()) <= 16
+    assert "what makes a normal fold or a normal call wrong under tonight's rule" in flat
+    for words in ("past the point of no return", "a stack you cannot fully lose", "elimination threshold",
+                  "the keep rule", "TWIST_PATCH", "StopBot"):
+        assert words.lower() in flat.lower(), words
+    assert "class StopBot" in (DRILL12 / "adapter.py").read_text()
+
+
