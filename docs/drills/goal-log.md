@@ -1840,3 +1840,8 @@ and (in judges) `elite_judge`.
 
 ## 07:20: G1 accepted; batch 8 + G1 is the known-good upload (zip 94136077)
 - See the decisions entry. Fresh seeds 80000-80199, slow-box table: nothing down; elite 2x -0.047 ± 0.072 (does not exclude bare's -0.11), elite 3x timeouts 15.1% to 2.4%. Suite on the merge 1558 passed, 0 failed. Batch 9 staging started (climb/batch9).
+
+## 08:20: S24 rejected on H40 (adapt_hu); its shove read alone on H41
+- S24 (shove read + c-bettor read) against batch 8 on H40 (81000-81399), every stage, --aim exploit, runout term, exploiters 1-5: **REJECT**. adapt_hu -0.015 ± 0.011 DOWN. Up: elite +0.025 ± 0.017, elite_night +0.015, mirror +0.026, mirror_b +0.026, top +0.019, exploit +0.036, exploit3 +0.054, exploit4 +0.051, exploit5_hu +0.042, adapt 8-max +0.036;
+  elite_b +0.016, night +0.006, realistic +0.005, night_hard +0.008 level. W +0.0059 ± 0.0041 (lower bound +0.0017); W-min lower bound -0.0010, so route 2 fails too. H40 used.
+- The worker said before H40 that the 8-max gain looks like the shove read's and that the c-bettor read showed nothing alone on its screen. So S24sr = `r3.sr_*` only, on fresh H41 (82000-82399), every stage, --aim strong. That split is chosen after seeing H40, which is why it gets seeds nobody has seen. Next fresh H42 = 83000-83399.
