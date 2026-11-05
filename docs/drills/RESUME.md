@@ -11,6 +11,9 @@ The new /goal's deadlines: last bot change Nov 10 18:00 ET; final rehearsal and 
 runs were restarted (workers 6 + 4 + 4); the goal log's newest entry says what else is live. Agents from session e2efc890
 cannot be messaged; resume them from their logs and branches. Outside builds in goal/outside4, drill 12 in goal/drill12.
 
+## 2026-11-05 07:20: the known-good upload is batch 8 + G1 (frozen/B8G-e370fb3, zip 94136077)
+Main 92b8e45 has H8, G1 and exploiter-free batch 8. Accepted for batch 9: S22 (H36), H1 (H38), B18 (H39). On held-out: S24 (H40 = 81000-81399; goal/b40/run.sh). Staging: climb/batch9, goal/wt_b9. Next fresh held-out H41 = 82000-82399, +1000 each. Next judge seeds 70800-71199. Final rehearsal's kit is ready and unseen: goal/drill13/kit (One-Shot Hold'em); keep its organiser notes from the player. Timers for the reveal searches live in the session: if it restarts, Nov 7 08:00 and Nov 10 08:00 ET must be re-armed. Plan: `strong_room` window recipe from O8 after batch 9.
+
 ## 2026-11-04 23:30: batch 8 is the ship (frozen/B8-77c5ea6, zip 0d07654e)
 Merged to main at eac472a. Live on branches, each with its log: climb/g1-governor (G1, the whole-call governor; worktree
 goal/wt_g1, docs/drills/climb/g1-log.md), climb/outside-d (o9, o10, o11 as judges; goal/wt_od), climb/s20-h1 (H1's screen). Drill 12:

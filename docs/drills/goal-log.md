@@ -1837,3 +1837,6 @@ and (in judges) `elite_judge`.
 - B18 (climb/s23-firsts 8f5c4d1; goal/b39/b18.json) against batch 8 on H39 (59000-59399), every stage, --aim strong, runout term: **ACCEPT**. elite_night +0.007 ± 0.005, mirror +0.009 ± 0.005, top +0.008 ± 0.005, night_hard +0.007 ± 0.006, exploit4 +0.019 ± 0.015 UP; elite +0.001,
   elite_b +0.005, mirror_b +0.005, night +0.005, realistic -0.000 level; nothing down. W +0.0018 ± 0.0020 (lower bound -0.0002), W-min lower bound -0.0013. Screen said +0.008 to +0.010; held-out a little less. H39 used.
 - Batch 9 so far: S22, H1, B18. Waiting: G1's slow-box table at elite, S24 on H40.
+
+## 07:20: G1 accepted; batch 8 + G1 is the known-good upload (zip 94136077)
+- See the decisions entry. Fresh seeds 80000-80199, slow-box table: nothing down; elite 2x -0.047 ± 0.072 (does not exclude bare's -0.11), elite 3x timeouts 15.1% to 2.4%. Suite on the merge 1558 passed, 0 failed. Batch 9 staging started (climb/batch9).

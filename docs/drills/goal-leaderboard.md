@@ -5,9 +5,9 @@ in all eight seat rotations; "margin" is F minus the other bot on the same deals
 
 ## Where we stand (2026-11-04 23:30 ET, batch 8)
 
-Batch 8 is the known-good upload (frozen/B8-77c5ea6). Against batch 7 on held-out H34: strong tables +0.06 to +0.09, exploit and
-adapt cells up to +0.19, ordinary rooms level, nothing down. Judges on fresh seeds: five up, eight level, none down. Open risk:
-through a kit's adapter, timeouts pass the gate's limit from about 1.5-2x slower than this box (12% at 3x); G1 is on it.
+Batch 8 + G1 is the known-good upload (frozen/B8G-e370fb3, zip 94136077): batch 8's play with a governor that sees the whole timed call. Against batch 7 on held-out H34: strong tables +0.06 to +0.09, exploit and
+adapt cells up to +0.19, ordinary rooms level, nothing down. Judges on fresh seeds: five up, eight level, none down. With G1 through a kit: elite 3x timeouts 2.4% (15.1% before), 2x 0.11% at load 9-13.
+**Against the strongest room F is not first:** `outside_d_strong` on two seed sets F 2nd and 3rd of 8; the older out_reads leads by 0.14-0.18 (8..1) and 0.42 (10/7/5). F wins 1st 12.3% (even share 12.5%). S23: its margin is all from 8 to 4 alive.
 The tables below are batch 5's unless they say otherwise.
 
 ### Batch 7
@@ -93,5 +93,6 @@ On ordinary rooms F was already first, and it has not measurably moved there.
 | 2026-11-03 13:37 (batch 6) | + per-family twist dials, known opponent cards | 91014ae | a66eb4b3...d6666f77 | twist tables only: exposed card +0.22, knockout bounty +0.11, bounty-aware +0.03 (held-out H21); plain hold'em identical |
 | 2026-11-04 08:40 (batch 7) | + heads-up specialist (gated), stab read, value of information, street-settled twin | 038c3f0 | 51c37f02...9848bdc4 | exploiter 2 heads-up +0.31, three-handed +0.09, exploiter 3 heads-up +0.10, auction +0.06, tranche +0.18 (H31); judges level; gate pass on plain, auction, bonus_card, tranche (load 4) |
 | 2026-11-04 23:30 (batch 8) | + one stab size, solved three-handed button, big blind fold read | 77c5ea6 (merged eac472a) | 0d07654e...9372ba19 | H34: elite +0.08, mirror +0.09, elite_b +0.08, mirror_b +0.06, night_hard +0.04, exploit and adapt cells up to +0.19; ordinary rooms level; judges nothing down, five up; zip parity pass; gate pass |
+| 2026-11-05 07:20 (batch 8 + G1) | + the governor counts the whole timed call, no panic rung, faster R6 table | e370fb3 (merged 92b8e45) | 94136077...e4cd4040f | same play at normal speed; elite 3x timeouts 15.1% to 2.4%; points level on fresh seeds; setup 659 to 428 ms; zip 3.7 to 3.0 MB |
 
 Zips live in `frozen/` (git-ignored); each is rebuilt from its commit with `tools/pack.py --slim`.
