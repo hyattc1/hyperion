@@ -4,6 +4,7 @@ position shrunk to the survey's priors."""
 from dataclasses import replace
 
 from hyperion import ship
+from hyperion.compose.bot import BATCH8_OFF
 from hyperion.core.types import Action, ActionKind, Observation, Rules
 from hyperion.core.types import parse_cards as parse
 from hyperion.hybrid.core3 import Rival3Core, oa_scan
@@ -67,7 +68,7 @@ def _digest(dials, table, names=STRONG, rules=None):
     for b in bots:
         if hasattr(b, "use_cost_model"):
             b.use_cost_model(True)
-    bot = ship.make_bot("composite", {**QUIET, "late_us": 1e9, **dials}, seed=seed * 64)
+    bot = ship.make_bot("composite", {**QUIET, "late_us": 1e9, **BATCH8_OFF, **dials}, seed=seed * 64)  # on batch 7's F (batch 8 ships O5)
     rec = bots[0] = _Recorder(bot)
     play_table(bots, rules or Rules(), seed=seed, mode="model")
     return rec.h.hexdigest(), bot

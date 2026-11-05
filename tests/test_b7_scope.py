@@ -11,16 +11,17 @@ from hyperion.core.types import Rules
 from hyperion.strategy import short as SH
 from hyperion.strategy.tables import TABLES_DIR
 
-from hyperion.compose.bot import BATCH7_OFF
+from hyperion.compose.bot import BATCH7_OFF, BATCH8_OFF
 
 from .test_s2_dials import _digest
 
 R3 = Rules(n_players=3, payouts=(10, 7, 5))
+B6 = {**BATCH8_OFF, **BATCH7_OFF}  # batch 6's F (batch 8 ships R6 and the scoping): these parts were accepted on it
 THREE = ["hero", "exploiter2", "loose_aggro"]
 has_table = pytest.mark.skipif(not os.path.exists(os.path.join(TABLES_DIR, "extra", "short_3b.json")),
                                reason="no second three-handed table")
-ON3 = {**BATCH7_OFF, "short_route": "pre_3way=short", "short.three2": True, "short.defer_3bet": 1.0}
-S7 = {**BATCH7_OFF, "short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short", "short.pre_roles": "bb",
+ON3 = {**B6, "short_route": "pre_3way=short", "short.three2": True, "short.defer_3bet": 1.0}
+S7 = {**B6, "short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short", "short.pre_roles": "bb",
       "short.pre_open_min": 0.65, "short.like_probe": 0.75, "short.like_bet": 0.6, "short.like_pfr": 0.3,
       "short.like_vpip_min": 0.5, "short.like_vpip_max": 0.88}
 SCOPE = {"short.like_max_alive": 2, "short.defer_three": "dead,station,maniac,random,nit",
@@ -74,7 +75,7 @@ def test_s7_alone_plays_as_accepted_with_the_scoping_on(table):
 @has_table
 @pytest.mark.parametrize("table", [0, 1, 2])
 def test_r5_alone_plays_as_accepted_with_the_scoping_on(table):
-    r5 = {**BATCH7_OFF, "short_route": "pre_3way=short", "short.three2": True, "short.three2_file": "3b", "short.defer_3bet": 0.25,
+    r5 = {**B6, "short_route": "pre_3way=short", "short.three2": True, "short.three2_file": "3b", "short.defer_3bet": 0.25,
           "short_strong": True, "short.three2_keep_defence": True, "short.three2_roles": "btn,sb",
           "short.defer": "dead,station,maniac,random,nit", "short.three2_seat_rr": 1, "strong_rr": 0.01}
     scoped = {**r5, "short.defer_3bet": 0.4, "short.defer": "dead,station", "short_strong": "pre_3way",

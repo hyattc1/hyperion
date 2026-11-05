@@ -10,7 +10,7 @@ from hyperion.core.types import Action, ActionKind, Observation, Rules
 from hyperion.strategy import short as SH
 from hyperion.strategy.tables import CLASS_INDEX, TABLES_DIR
 
-from hyperion.compose.bot import BATCH7_OFF
+from hyperion.compose.bot import BATCH7_OFF, BATCH8_OFF
 
 from .test_s2_dials import _digest
 
@@ -19,7 +19,7 @@ R3 = Rules(n_players=3, payouts=(10, 7, 5))
 THREE = ["hero", "exploiter2", "loose_aggro"]
 T3B = os.path.join(TABLES_DIR, "extra", "short_3b.json")
 ROUTE = "pre_3way=short,pre_allin=short"
-OFF = BATCH7_OFF  # batch 6's F: S20 was built and measured on it (batch 7 ships S7's heads-up routes)
+OFF = {**BATCH8_OFF, **BATCH7_OFF}  # batch 6's F: S20 was built and measured on it (batch 7 ships S7's heads-up routes)
 ON = {**OFF, "short_route": ROUTE, "short.three2": True, "short.defer_3bet": 1.0}
 has_table = pytest.mark.skipif(not os.path.exists(T3B), reason="no second three-handed table")
 
@@ -199,7 +199,10 @@ def test_f_builds_no_specialist_and_the_new_dials_are_off():
     from hyperion.compose import bot as CB
 
     assert ship.make_bot("composite", OFF).core.short is None  # batch 6's F builds no specialist
-    assert not any(k.startswith("short.three") or k == "short_strong" for k in CB.SHIP_DIALS)
+    # batch 8 ships R6 (button, behind the strong read); BATCH8_OFF takes every one of its dials back off
+    assert CB.SHIP_DIALS["short.three2"] is True and CB.SHIP_DIALS["short_strong"] == "pre_3way"
+    assert OFF["short.three2"] is False and OFF["short_strong"] is False and OFF["short.defer_three"] is None
+    assert {k for k in CB.SHIP_DIALS if k.startswith("short.three") or k == "short_strong"} <= set(CB.BATCH8_OFF)
     assert SH.ShortParams().three2 is False and CB.ComposeConfig().short_strong is False
     # the gate alone (no route) changes nothing
     assert _digest({**OFF, "short_strong": True}, 2, THREE, R3)[0] == _digest(OFF, 2, THREE, R3)[0]
