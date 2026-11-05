@@ -74,3 +74,17 @@ H8 (a worker): the items above; see "H8" below and docs/drills/climb/h8-log.md.
 `tranche_holdem (...)`: `trailing_stop (a public stop at a share of each player's highest closing stack; closing a hand
 below it eliminates them, however many chips they hold, and the chips go to the survivors)`. The interface sentence
 gains: a module function returning a decide closure per table, with recaps inside the timed decide.
+
+## H8 (drill 12 fixes)
+
+Branch climb/h8-drill12-fixes from main ad63e00; running log and every number: docs/drills/climb/h8-log.md. Tests: tests/test_h8_drill12.py.
+
+1. **A table start never collects.** `table_freeze` only freezes, and only a bot at its second table or the process's first start. Four copies, `sit_down` p99 24.3 to 0.9 ms, max 29.2 to 3.1 ms (one copy: 5.85 to 0.67); kit simulator `setup` 100 of 1,600 to 0, autopilot 14,404 decisions to 0, in 400 tables. Decisions and hand ends level (mean 297.5 and 293.8 us; hand_end p99 211.8 and 208.9 us; no gen 1 or 2 collection in act either way), RSS level. `tools/latency.py --table-start` and the gate's `--setup-budget-ms` state p99 and max against the kit's limit; the old code fails the first.
+2. **A closure template and seat.** `closure_entry_template.py`, `closure_gate_seat_template.py`. Kit J's simulator: 0 errors, 0 violations, `setup` 0; the gate passes on plain rules and with the stop as a hooks file.
+3. **Prompt 05** asks what makes a normal fold or call wrong under tonight's rule, then the two checks, smallest patch first.
+4. **`--variant` for a function patch**: prompt 02 step 7, a gate WARN (`TWIST_PATCH`, or a class in front of `bot.act`), and the seat reports no stop unless the engine plays one.
+5. **`timeouts` pays only for what it reads.** It computed the ICM curve and ran the profiler and the core's replay on every hand. Through kit J's adapter 220.9 to 88.1 us, p99 620 to 230 us, timeouts 2.04% to 0.13% at a 500 us limit, against the ship bot's 255.0, 520 and 1.15%. `latency` (215.2, 490, points level) stays the first dial.
+6. **One adapter, one table at a time**: the rule sheet asks, the templates say so, `TABLES_AT_ONCE` handles it, and past that the table that lost its adapter check-folds and is counted.
+7. **The other notes**: the kit's `setup` column, one paired recipe run, name eight bots, a function patch's aware check.
+
+**Identity.** `climb_accept --set 10000:10040 --stages confirm,guards`: all seven rows' points, timeouts and errors as goal/idchk39.md. **Suite** 1514 passed, 5 skipped, 1 failed (a scheduler tick in a wall-clock test; passes 4 of 4 alone, on base too). **Parity** PASS, 112,522 decisions. **Gate** PASS on plain.

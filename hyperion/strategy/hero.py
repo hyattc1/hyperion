@@ -67,7 +67,7 @@ ICM_ME_SUBDIV = 4  # default Config.icm_me_subdiv: my own units are chosen so my
 # - An import collects first (`refreeze`, setup time): a sandbox that imports this package afresh per table frees the
 #   earlier copy (31 MB a table) there.
 # - A table start never collects. Unfreezing walks every object of every copy of this package in the process: 4.4 ms for
-#   one copy on a quiet box, 17 ms for four, 20-29 ms under load, against kit J's 25 ms setup budget (one table start in
+#   one copy at best, 17 ms for four, 20-37 ms in a table start under load, against kit J's 25 ms setup budget (one table start in
 #   32 did it until drill 12, and tables went to autopilot); a kit with no table-start hook pays it inside a 1 ms decision.
 #   It only freezes, which costs nothing, and only a bot at its second table or later: a bot's first start leaves it
 #   unfrozen, so a runner that builds a fresh bot per table never pins the old ones (70 KB a table before R2); the first

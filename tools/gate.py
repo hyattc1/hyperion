@@ -27,7 +27,9 @@ Action:
          per-street log (hyperion/drills/gate_seat_template.py by_street) and the gate tests the adapter's parser.
          A process kit's seat: process_gate_seat_template.py; a module-function kit's (drill 11's kit I):
          module_gate_seat_template.py, which loads the entry as the kit's loader does (the folder off sys.path and
-         its modules out of sys.modules after the import) and raises the kit's Overtime inside it at each limit.
+         its modules out of sys.modules after the import) and raises the kit's Overtime inside it at each limit; a closure
+         kit's (drill 12's kit J): closure_gate_seat_template.py, on the same loader. GATE_VARIANT in the package's environment
+         says what --variant names, for a seat that invents the twist's public state.
 Illegal replies and exceptions are a check or fold, as the rules score them. One exception: kit D's legal set
 lets a seat re-raise after a short all-in, which our engine does not reopen; that raise is played as a call
 and reported as a rule mismatch, since the bot followed its kit.
