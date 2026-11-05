@@ -347,3 +347,8 @@ is the hand's chips / total chips x (1st - 2nd): heads-up ICM is linear, so here
 - 22:37 **Size and setup**: `tools/pack.py --dials` (candidate; freeze's packer, merged at 77c5ea6): 12.5 MB unzipped, 4.8 MB zipped, import
   0.69 s + build 0.02 s (batch 8 alone 0.67 + 0.02), budget 5 s; "needs 12 tables at the build and first table ... all in the package"
   (batch 8 11): tables/short_hu2.json is top level and opened at the build, so the probe sees it.
+- 22:58 **Identity at the screen's head** (b4553bb, `goal/s20/idchk8`): 14 of 14 identical to batch 8's reference.
+- 22:59 **Screen started**: `goal/s20/h1d/screen.sh` (climb_accept, cand goal/s20/h1d/cand_H1.json, base F = batch 8, --set screen, --aim
+  strong, every stage, --runout-term, workers 4, nice 5; out goal/s20/h1screen, goal/s20/h1d/H1_screen.md and .json, RUN_DONE in
+  screen.done). To resume: run screen.sh again at the same `hyperion/` tree (cached chunks stand). Do not change `hyperion/` or leave
+  uncommitted changes in `tools/` while it runs: the cache key would move.
