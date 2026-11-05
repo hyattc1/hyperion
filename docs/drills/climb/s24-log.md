@@ -5,7 +5,7 @@ Branch climb/s24-overfold, worktree goal/wt_s24, from main 6138ef0 (batch 8 is F
 seeds 20000-59999, judge seeds 60000+ and 70000+, and the judge bots (out_*, elite5, rival4, rival5, adapt2) are not used. Workers
 at most 3, nice 5.
 
-**Where I am / next:** the rule is fixed below and committed; identity, then the screen (goal/s24/run.sh, RUN_DONE; screen.md, screen.json). Then the suite.
+**Where I am / next:** the rule is fixed below and committed (3d5dab6); identity passed (14 of 14); the screen is running at 3d5dab6 (goal/s24/run.sh; ends with goal/s24/RUN_DONE; goal/s24/screen.md, screen.json; re-running run.sh resumes from its cache). Then the suite, then the report.
 
 ## Part 1: exploiter 5 wired in
 
@@ -111,3 +111,7 @@ Played on diagnostics, 200 seeds, 18500-18699 (goal/s24/q2.out): exploit5_hu +0.
 -0.128 ± 0.125 DOWN. At three alive it does not apply (exploiter 5's rate there, 0.54, is an ordinary seat's).
 
 Not done, on the evidence: no change to the big blind's defence, the 3-bet defence, the turn or river outside the read, or check-raises (the table above).
+
+## Identity
+
+The branch with the new dials off (3d5dab6; SHIP_DIALS = batch 8) against batch 8's F (goal/idchk39/post): `climb_accept --cand '{"dials": {}}' --set 10000:10040 --stages confirm,guards`, chunk by chunk (goal/s24/idcmp.py): **14 of 14 identical**, night 5.928, night_hard 5.735, realistic 6.265, top 5.047, matching goal/idchk39.md row for row. Exploiter 5's wiring is in that tree, so it moved none of those cells.
