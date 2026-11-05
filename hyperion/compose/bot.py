@@ -110,7 +110,8 @@ the big blind to a first-in raise by any seat this table, with its fold-to-any-r
 member's dials are `short.<name>` (short_params). Plain hold'em tables only (holdem_only, plain_only), like the elite
 builds; its light shadow records only the hand's starting chips. With `short_strong` (S20; True, or the sections it
 names) the route is open only while the table reads strong (the strong route's read: `strong_rr`, `strong_prior`,
-`strong_prior_n`).
+`strong_prior_n`). With `short.hu2` (S20 H1) the composite hands the member its strong-table read before each
+`wants` (the member's second heads-up path plays only while it is open).
 """
 from __future__ import annotations
 
@@ -743,6 +744,8 @@ class CompositeCore:
         self._sstrong = [bool(ss is True or (isinstance(ss, set) and s in ss)) for s in SECTIONS]
         # keep the read (the strong routes, the specialist's strong gate, S21's gate on the open-answer read)
         self._rr_on = self.strong is not None or self.strong2 is not None or any(self._sstrong) or cfg.oa_strong
+        if any(getattr(m, "needs_strong", False) for m in self.members):  # S20 H1: a member reads it too
+            self._rr_on = True
         hr = cfg.short_route
         self.short = [(idx[DONORS[hr[s]][0]], DONORS[hr[s]][1]) if s in hr else None for s in SECTIONS] if hr else None
         self._rr_reset()
@@ -1007,8 +1010,11 @@ class CompositeCore:
                 if alive <= self.cfg.short_alive:
                     hi = self._hero_idx
                     prof = getattr(self.members[hi], "prof", None) if hi >= 0 else None
+                    mem = self.members[si]
+                    if getattr(mem, "needs_strong", False):  # S20 H1: the member's second heads-up path reads it
+                        mem.strong_open = self.strong_table()
                     try:
-                        ok = self.members[si].wants(obs, prof, self.base)
+                        ok = mem.wants(obs, prof, self.base)
                     except Exception:  # noqa: BLE001 - a slip in the read keeps F's route
                         ok = False
                         counts["short:error"] += 1
