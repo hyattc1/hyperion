@@ -25,7 +25,8 @@ rules_tonight.json --variant <name> --workers 2` (F with and without them on the
 seeds x 8 = 1,600 paired tables, about 3 minutes cold; the spec wraps the dials: `{"dials": {"hero.multi_call_shift":
 1}}`). A fallback ship bot climb_accept cannot build (hybrid3_x, Hero): `python -m hyperion.sim --tables 600 --seed 11
 --mode model --field realistic@ship --rules rules_tonight.json` once as it is and once with `--dials '<the dict>'` (the
-same seed is the same tables). A patch that is a function in the adapter, not dials: the kit's simulator, as above.
+same seed is the same tables). A patch that is a function in the adapter, not dials: the kit's simulator, as above, its
+twist-aware sample bot in the lineup as the aware check below (which only dials can run).
 Kept: `python -m hyperion.ship --set '<the dict>'` writes it into `DIALS` in `hyperion/ship.py` (the kit simulator,
 latency, pack and the sim all read it), then one strict run: errors zero.
 
