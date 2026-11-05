@@ -1,0 +1,102 @@
+"""S26's heads-up re-jam read (docs/drills/climb/s26-log.md; hyperion/compose/bot.py ComposeConfig.hu_rejam_*): behind dials that
+default to the shipped play. It sees the opener's fold rate before it widens, keeps to heads-up plain hold'em, and off it does not
+exist."""
+from hyperion.compose.bot import ComposeConfig, CompositeCore
+from hyperion.core.types import Action, ActionKind, Observation, Rules
+
+from .test_s2_dials import _digest
+
+HU = ["hero", "f_copy"]
+THREE = ["hero", "elite1", "elite2"]
+R2, R3 = Rules(n_players=2, payouts=(10, 7)), Rules(n_players=3, payouts=(10, 7, 5))
+S26 = {"hu_rejam_t": 0.7}
+
+
+class _Prof:
+    def __init__(self, n, f):
+        self.oft_opp, self.oft_fold = [0, n], [0, f]
+
+    def open_fold_to_reraise(self, s, prior, n0):
+        return (self.oft_fold[s] + prior * n0) / (self.oft_opp[s] + n0)
+
+
+def _core(n, f, **kw):
+    c = CompositeCore.__new__(CompositeCore)
+    c.cfg = ComposeConfig(hu_rejam_t=0.7, **kw)
+    c._rj_prof = _Prof(n, f)
+    c._rj_n, c._rj_f = [0, 0], [0, 0]
+    from hyperion.sim.rivals.rival3 import PCT, _cls, _eqvs
+
+    c._rj_r3 = (PCT, _cls, _eqvs)
+    return c
+
+
+def _obs(stack_me=1500, stack_opp=1500, amount=200, hole=(0, 5), hist=None):
+    """Heads-up, our big blind (seat 0) facing the button's (seat 1) first-in raise to `amount`; blinds 50/100."""
+    return Observation.__new__(Observation), dict(
+        seat=0, stacks=[stack_me - 100, stack_opp - amount], bets=[100, amount], in_hand=[True, True], blinds=(50, 100),
+        pot=0, street=0, hole=hole, to_call=amount - 100, max_raise=stack_me, min_raise=2 * amount - 100,
+        legal=(ActionKind.FOLD, ActionKind.CALL, ActionKind.RAISE),
+        history=hist if hist is not None else [(1, Action(ActionKind.RAISE, amount))])
+
+
+def _o(**kw):
+    o, d = _obs(**kw)
+    for k, v in d.items():
+        object.__setattr__(o, k, v)
+    return o
+
+
+FOLD = Action(ActionKind.FOLD)
+
+
+def test_it_needs_answers_and_a_high_fold_rate_before_it_widens():
+    assert not _core(2, 2)._hu_rejam(_o(), FOLD)  # too few answers seen
+    assert _core(9, 9)._hu_rejam(_o(), FOLD)  # 72o-grade hand against an opener folding everything
+    assert not _core(9, 2)._hu_rejam(_o(), FOLD)  # this opener calls
+
+
+def test_our_own_jams_answers_count_for_more_than_the_table():
+    c = _core(9, 9)
+    c._rj_n[1], c._rj_f[1] = 6, 1
+    assert not c._hu_rejam(_o(), FOLD)  # it folded 9 of 9 at the table, then called five of our six
+
+
+def test_the_lines_it_leaves_alone():
+    c = _core(9, 9)
+    assert not c._hu_rejam(_o(stack_me=800), FOLD)  # under the depth floor
+    assert not c._hu_rejam(_o(stack_me=2500, stack_opp=2500), FOLD)  # over the depth cap
+    assert not c._hu_rejam(_o(amount=700), FOLD)  # a raise committing it
+    assert not c._hu_rejam(_o(), Action(ActionKind.RAISE, 600))  # the members already raise
+    assert not c._hu_rejam(_o(hist=[(1, Action(ActionKind.RAISE, 200)), (0, Action(ActionKind.RAISE, 500))]), FOLD)
+    assert not _core(9, 9, hu_rejam_cap=0.1)._hu_rejam(_o(), FOLD)  # outside the top share of hands
+
+
+def test_absent_it_does_not_exist():
+    assert ComposeConfig().hu_rejam_t == 0.0
+    from hyperion.compose.bot import SHIP_DIALS
+
+    assert not any(k.startswith("hu_rejam") for k in SHIP_DIALS)
+    _, bot = _digest({}, 0, HU, R2)
+    assert bot.core._rj_prof is None and not any("hu_rejam" in k for k in bot.core.counts)
+
+
+def test_it_reaches_heads_up_decisions_and_replays():
+    # f_copy does not replay in this harness with or without the read; rival 3 does
+    assert any(_digest(S26, t, HU, R2)[1].core.counts.get("hu_rejam", 0) for t in range(12))
+    for t in range(6):
+        assert _digest(S26, t, ["hero", "rival3"], R2)[0] == _digest(S26, t, ["hero", "rival3"], R2)[0]
+
+
+def test_three_handed_tables_play_as_f_until_two_are_left():
+    # no decision with three alive consults the read: the read's counts move only heads-up
+    _, bot = _digest({"hu_rejam_t": 0.01, "hu_rejam_min": 0, "hu_rejam_max_bb": 0.0}, 3, THREE, R3)
+    assert not any("hu_rejam" in k for k in bot.core.counts)
+    assert _digest({"hu_rejam_t": 0.01, "hu_rejam_max_bb": 0.0}, 3, THREE, R3)[0] == _digest({}, 3, THREE, R3)[0]
+
+
+def test_twist_tables_stay_off():
+    r = Rules(n_players=2, payouts=(10, 7), hole_cards=3)
+    c = CompositeCore(ComposeConfig(hu_rejam_t=0.7))
+    c.new_table(r, 0, 2)
+    assert c._rj_prof is None
