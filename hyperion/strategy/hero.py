@@ -815,6 +815,28 @@ _TWINS: dict = {}  # HeroCore._twins' cache: (variant, extras, hole cards, thres
 
 
 
+class LazyCurve(IcmCurve):
+    """Config.cheap's curve (drill 12, docs/drills/climb/h8-log.md): the same curve from the same chips, computed when a
+    decision reads it. The cheap path reads it only to price an all-in, so most hands never pay for it; an IcmCurve there
+    cost 120 us on every hand this Hero met, which is why `timeouts` ran slower than the ship bot through a kit."""
+
+    __slots__ = ("todo",)
+
+    def __init__(self):
+        super().__init__()
+        self.todo = None
+
+    def compute(self, *args, **kw) -> None:
+        self.todo = (args, kw)
+
+    def value(self, x: float) -> float:
+        todo = self.todo
+        if todo is not None:
+            IcmCurve.compute(self, *todo[0], **todo[1])
+            self.todo = None
+        return IcmCurve.value(self, x)
+
+
 class HeroCore:
     """The unguarded strategy. Hero wraps it in SafeBot; tests may poke it directly."""
 
@@ -825,7 +847,7 @@ class HeroCore:
                              dial_strength=cfg.profiler_dial_strength, calldown_slope=cfg.profiler_calldown_slope,
                              dead_after=cfg.profiler_dead_after, station_after=cfg.profiler_station_after,
                              nit_after=cfg.profiler_nit_after, maniac_after=cfg.profiler_maniac_after,
-                             random_after=cfg.profiler_random_after) if cfg.use_profiler else None
+                             random_after=cfg.profiler_random_after) if cfg.use_profiler and not cfg.cheap else None  # cheap reads no seat
         self.preflop = Preflop(cfg.preflop, self.tables)
         self.pushfold = PushFold(cfg.pushfold, self.tables)
         self.postflop = Postflop(cfg.postflop, cfg.seed)
@@ -838,7 +860,7 @@ class HeroCore:
             self.prof.track_s12 = True  # S12 reads: count bet sizes, shown tiers and check-raises (off: no cost)
         self._base = (self.preflop, self.pushfold)
         self._modules: dict = {}  # (tables dir, scheme) -> (Preflop, PushFold) built for a variant set
-        self.curve = IcmCurve()
+        self.curve = LazyCurve() if cfg.cheap else IcmCurve()
         if cfg.use_icm:
             self.pushfold.curve = self.curve
             self.preflop.curve = self.curve

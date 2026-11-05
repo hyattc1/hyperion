@@ -454,3 +454,82 @@ def test_the_gate_warns_when_a_patch_has_no_variant(tmp_path, capsys):
     assert "WARN adapter.py carries a twist patch" not in capsys.readouterr().out
 
 
+# ---------------------------------------------------------------------------------------------- item 5
+def _cheap_composite():
+    from hyperion import ship
+
+    return ship.make_bot("composite", {"panic_after": 10 ** 9, "soft_us": 1e6, "cheap": True}, seed=3)
+
+
+def _play_with(bot, rules, seed=5):
+    from hyperion.sim import bestiary as B
+    from hyperion.sim.engine import play_table
+
+    names = B.field_names("realistic")
+    bots = [B.make_bot(nm, seed=s) for s, nm in enumerate(names)]
+    bots[0] = bot
+    return play_table(bots, rules, seed=seed, mode="model")
+
+
+@pytest.mark.night
+def test_lazy_curve_is_the_same_curve_computed_when_read(monkeypatch):
+    from hyperion.strategy import hero
+
+    args = ([4000, 2000, 1000, 500], 1, (14.0, 9.0, 6.0, 4.0), (0.5, 1.0, 1.5, 2.0, 3.0))
+    plain, lazy = hero.IcmCurve(), hero.LazyCurve()
+    plain.compute(*args)
+    calls = []
+    real = hero.IcmCurve.compute
+    monkeypatch.setattr(hero.IcmCurve, "compute", lambda self, *a, **k: (calls.append(1), real(self, *a, **k))[1])
+    lazy.compute(*args)
+    assert calls == []  # nothing read: nothing computed
+    for x in (0.0, 500.0, 1500.0, 2000.0, 3100.0, 7500.0):
+        assert lazy.value(x) == plain.value(x)
+    assert calls == [1]  # read: once
+
+
+def test_the_cheap_recipe_pays_for_nothing_it_does_not_read(monkeypatch):
+    """Item 5's diagnosis, as counts: on `timeouts` the ICM curve is computed only for the decisions that read it, the
+    profiler is gone and the base's core replays no hand. The same points, places and hands as with Hero's curve computed
+    on every hand: the laziness changes no decision. Normal play keeps all three."""
+    from hyperion import ship
+    from hyperion.core.types import Rules
+    from hyperion.hybrid import bot as HB
+    from hyperion.strategy import hero
+
+    rules = Rules(payouts=(14, 9, 6, 4, 3, 2, 1, 0), max_hands=120)
+    core_ends, computes = [0], [0]
+    real_compute = hero.IcmCurve.compute
+    monkeypatch.setattr(hero.IcmCurve, "compute", lambda self, *a, **k: (computes.__setitem__(0, computes[0] + 1),
+                                                                         real_compute(self, *a, **k))[1])
+    bot = _cheap_composite()
+    member = bot.core.members[0]
+    assert member.hero.prof is None and isinstance(member.hero.curve, hero.LazyCurve)
+    real_end = member.core.end
+    member.core.end = lambda r: (core_ends.__setitem__(0, core_ends[0] + 1), real_end(r))[1]
+    res = _play_with(bot, rules)
+    hands = res.hands
+    assert core_ends[0] == 0 and hands > 20
+    assert computes[0] < hands / 2, (computes[0], hands)
+
+    monkeypatch.setattr(hero, "LazyCurve", hero.IcmCurve)  # the curve computed on every hand, as before
+    res2 = _play_with(_cheap_composite(), rules)
+    assert (res.points, res.places, res.hands, res.stacks) == (res2.points, res2.places, res2.hands, res2.stacks)
+
+    normal = ship.make_bot("composite", {"panic_after": 10 ** 9, "soft_us": 1e6}, seed=3)
+    base = normal.core.members[0]
+    assert isinstance(base, HB.HybridCore) and not base._cheap
+    assert base.hero.prof is not None and type(base.hero.curve) is hero.IcmCurve
+
+
+@pytest.mark.night
+def test_the_docs_say_which_dial_cuts_time():
+    for rel in ("docs/prompts/04-wire-hero.md", "docs/prompts/06-windows.md", "PLAYBOOK.md"):
+        flat = _flat(_read(rel))
+        assert "`latency`" in flat and "`timeouts`" in flat, rel
+    flat = _flat(_read("docs/packet/CONTRACTS.md"))
+    assert "`latency` 215 / 490 us, points level, the first dial to try" in flat
+    assert "`timeouts` 88 / 230 us" in flat
+    assert "tools/latency.py --table-start" in flat
+
+
