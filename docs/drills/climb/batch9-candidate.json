@@ -15,6 +15,10 @@
   "short.hu2_max": 40,
   "short.hu2_btn_max": 22,
   "short_strong_free_bb": 18,
-  "short.three2_free_max": 18
+  "short.three2_free_max": 18,
+  "r3.sr_depth": 15.0,
+  "r3.sr_prior": 0.15,
+  "r3.sr_n": 6.0,
+  "r3.sr_min": 3
  }
 }
