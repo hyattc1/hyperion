@@ -5,6 +5,7 @@
                          [--tables 100] [--seed 11] [--field realistic | --bots a,b,...] [--mode strict]
                          [--rules rules_tonight.json] [--variant NAME] [--bot NAME] [--dials JSON]
                          [--hero-config JSON|cheap] [--baseline sim|package] [--kit-module path/to/kit.py] [--slow K]
+                         [--setup-budget-ms 25] [--setup-starts 64]
 
 Every Stage 4 number before drill 6 measured the simulator's own Hero, which the engine feeds its full
 history. The bot we upload sees only what its adapter passes, and in drill 6 that was 2.5 points a table
@@ -51,6 +52,12 @@ baseline before the inference) it no longer catches an adapter that drops the in
 `--slow K` (kits a, b, a seat file) puts the package's process on a K-times slower clock (tools/slowbox.py's method: K x its
 CPU time, from before the import), the baseline on the real one: the kit path's timing on a slower box. Its points against
 the baseline then show what the slow box costs, and its timeouts are the slow box's.
+
+A table start through the entry: kits a, b and a seat file also get `--setup-starts` table starts (default 64) in one extra
+process of the package, which plays no hand, since each gated table is a fresh process and never shows a cost that comes
+back every so many tables (drill 12's collection, one table start in 16). It prints p50, p99 and max; with
+`--setup-budget-ms` (the kit's table-start limit) a p99 over it is a FAIL and a max over it a WARN. `tools/latency.py
+--table-start --copies N` does the same with N copies of the package in one process.
 
 FAIL (exit 1) when the package lacks a table its recorded bot needs (tools/table_probe.py, before any table is played: the
 loader that returns None plays on, so no table would show it) or trails the baseline by more than the paired 95% interval, raises, sends
@@ -188,6 +195,8 @@ class HostProxy(Proxy):
         env = _env()
         if c.slow:
             env["GATE_SLOW_K"] = str(c.slow)
+        if c.variant:
+            env["GATE_VARIANT"] = str(c.variant)
         self.proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.log,
                                      text=True, bufsize=1, cwd=c.scratch, env=env)
         msg = self._read(READY_TIMEOUT_S)
@@ -728,6 +737,7 @@ class Config:
     seat_file: Path | None = None
     budget_ns: int = BUDGET_NS
     slow: float = 0.0  # --slow K: the package's process on a K-times slower clock
+    variant: str | None = None  # --variant: GATE_VARIANT in the package's environment, for a seat that invents the twist's state
 
 
 @dataclass
@@ -864,6 +874,37 @@ def row(side: Side, n_places: int) -> str:
             f"{100 * side.busts / max(1, len(side.points)):5.1f} {st.exceptions:>4} {st.illegal:>4} {side.tmo:>5} "
             f"{100 * side.tmo / d:5.2f} {side.decisions:>6} {st.percentile_us(0.5):>6.0f} {st.percentile_us(0.99):>6.0f} "
             f"{st.max_ns / 1000:>7.0f}")
+
+
+def table_starts(cfg: "Config", rules: Rules, count: int) -> list[float]:
+    """Milliseconds of `count` table starts through the entry, in a process of their own (module doc); [] if the kit has
+    none to time (a subprocess kit, a process seat) or the package never imported (the tables report that)."""
+    if cfg.kit not in ("a", "b", "seat") or count <= 0:
+        return []
+    proxy = HostProxy(cfg, cfg.kit)
+    proxy.new_table(rules, 0, rules.n_players)
+    try:
+        if proxy.fatal or not proxy._send({"op": "table_starts", "tables": count, "seat": 0, "n": rules.n_players,
+                                           "stack": rules.starting_stack, "blinds": list(rules.blinds_at(0))}):
+            return []
+        msg = proxy._read(READY_TIMEOUT_S) or {}
+        return [ns / 1e6 for ns in msg.get("table_starts") or ()]
+    finally:
+        proxy.close()
+
+
+def table_start_report(times: list[float], budget_ms: float | None) -> tuple[str, str | None, str | None]:
+    """(the line to print, a FAIL reason or None, a WARN or None): p99 and max against the kit's table-start limit."""
+    s = sorted(times)
+    n = len(s)
+    p99, top = s[min(n - 1, int(0.99 * n))], s[-1]
+    line = f"table start through the entry: {n} starts, p50 {s[n // 2]:.2f} ms, p99 {p99:.2f} ms, max {top:.2f} ms" + (
+        f", budget {budget_ms:g} ms" if budget_ms else ", no --setup-budget-ms given")
+    if budget_ms and p99 > budget_ms:
+        return line, f"table start p99 {p99:.2f} ms over the kit's {budget_ms:g} ms (an overrun can lose the table)", None
+    if budget_ms and top > budget_ms:
+        return line, None, f"table start max {top:.2f} ms over the kit's {budget_ms:g} ms"
+    return line, None, None
 
 
 def verdict(pkg: Side, base: Side, max_tmo_pct: float, load_clause: bool) -> tuple[bool, list[str], list[str]]:
@@ -1004,6 +1045,8 @@ def main(argv=None) -> int:
     p.add_argument("--baseline", choices=("sim", "package"), default="sim")
     p.add_argument("--max-tmo-pct", type=float, default=0.3, help="timeouts as a share of decisions (default 0.3)")
     p.add_argument("--slow", type=float, default=0.0, help="the package's process on a K-times slower clock (doc above)")
+    p.add_argument("--setup-budget-ms", type=float, help="the kit's table-start limit: a p99 over it fails the gate (module doc)")
+    p.add_argument("--setup-starts", type=int, default=64, help="table starts timed through the entry (default 64; 0: none)")
     p.add_argument("--kit-log", choices=("auto", "yes", "no", "bets"), default="auto",
                    help="does the kit give an action log? no = the in-sim baseline sees the bare states with the log "
                         "inferred from them, as the package's adapter does (hyperion/drills/infer_history.py); bets = "
@@ -1054,7 +1097,7 @@ def main(argv=None) -> int:
                   + "; ".join(lacking))
             return 1
         cfg = Config(pkg=pkg, entry=a.entry, kit=kit, kit_dir=kit_dir, scratch=str(scratch),
-                     seat_file=Path(a.kit).resolve() if kit == "seat" else None, slow=a.slow)
+                     seat_file=Path(a.kit).resolve() if kit == "seat" else None, slow=a.slow, variant=a.variant)
         bot, where = baseline_bot(pkg, a.bot, a.dials, a.hero_config, hero_config)
         digest = sha256(src) if src.is_file() else "(directory)"
         field_label = f"--bots {a.bots}" if a.bots else f"field {a.field}"
@@ -1082,6 +1125,7 @@ def main(argv=None) -> int:
 
         pkg_side, base_side = play(cfg, names, a.tables, a.seed, rules, variant, a.mode, a.baseline, progress,
                                    bot=bot, no_log=no_log)
+        starts = table_starts(cfg, rules, a.setup_starts)
 
     n_places = rules.n_players
     print(f"{'seat':<27} {'n':>4} {'pts':>6} {'±95%':>5}  " + " ".join(f"{'p' + str(i + 1):>3}" for i in range(n_places))
@@ -1094,6 +1138,10 @@ def main(argv=None) -> int:
           f"({time.perf_counter() - t0:.0f} s)")
     if pkg_side.import_s:
         print(f"package import {max(pkg_side.import_s):.2f} s at worst over {len(pkg_side.import_s)} fresh processes")
+    start_fail = start_warn = None
+    if starts:
+        line_, start_fail, start_warn = table_start_report(starts, a.setup_budget_ms)
+        print(line_)
     if kit in ("c", "d"):
         print(f"tmo for kit {kit} counts decisions after the pooled clock ran out; p50/p99/max are round trips")
     if pkg_side.rule_mismatch:
@@ -1108,6 +1156,11 @@ def main(argv=None) -> int:
         print(f"note: {x}")
     load = os.getloadavg()[0] if hasattr(os, "getloadavg") else 0.0
     ok, fails, warns = verdict(pkg_side, base_side, a.max_tmo_pct, load > (os.cpu_count() or 1))
+    if start_fail:
+        ok = False
+        fails.append(start_fail)
+    if start_warn:
+        warns.append(start_warn)
     for w in warns:
         print(f"WARN {w}")
     if ok:

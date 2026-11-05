@@ -89,6 +89,7 @@ def test_a_fresh_import_per_table_frees_the_earlier_copy():
 
 def test_a_fresh_object_per_table_in_one_process_frees_the_old_one():
     """Kit E's own runner: a fresh Player per table, the package cached. Before the fix every old bot object stayed
-    frozen (+70 KB and ~26 tracked objects a table, 1,000 tables 70 MB); now one table start in 32 collects."""
+    frozen (+70 KB and ~26 tracked objects a table, 1,000 tables 70 MB); now a bot's first table start leaves it unfrozen,
+    with no collection at any table start (drill 12)."""
     mb, frozen = _probe("cached", 66)
-    assert frozen < 26 * 32, frozen
+    assert frozen < 26, frozen
