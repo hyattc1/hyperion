@@ -682,6 +682,11 @@ class ComposeConfig:
     hu_rejam_cap: float = 1.0
     hu_rejam_margin: float = 0.0
     hu_rejam_jk: float = 0.0
+    # ... and with more alive, up to hu_rejam_alive (2 = heads-up only): the raiser our only opponent left, no one behind us, the
+    # gain in ICM points over folding, above hu_rejam_margin3; its opens' width is then hu_rejam_open_w3
+    hu_rejam_alive: int = 2
+    hu_rejam_open_w3: float = 0.5
+    hu_rejam_margin3: float = 0.0
     seed: int | None = None
 
 
@@ -845,27 +850,40 @@ class CompositeCore:
     hu_rejam_on = True  # the re-jam read acts (the coin recorder toggles it per hand)
     hu_rejam_would = None  # ... and the last decision's would-be re-jam: (read, answers seen, equity called, gain in bb, depth)
 
-    @staticmethod
-    def _two_alive(obs: Observation) -> bool:
+    def _rj_opener(self, obs: Observation) -> int:
+        """The seat we would re-jam: one first-in raise this hand and every other action a fold, so the raiser is our only
+        opponent left and no one acts behind us, at most hu_rejam_alive alive; -1 otherwise."""
+        opp = -1
+        for seat, act in obs.history:
+            if act.kind is _RAISE:
+                if opp >= 0:
+                    return -1
+                opp = seat
+            elif act.kind is not ActionKind.FOLD:
+                return -1
+        if opp < 0 or opp == obs.seat:
+            return -1
         n = 0
-        for s_, b_, h_ in zip(obs.stacks, obs.bets, obs.in_hand):
+        me = obs.seat
+        for j, (s_, b_, h_) in enumerate(zip(obs.stacks, obs.bets, obs.in_hand)):
+            if h_ and j != me and j != opp:
+                return -1
             if s_ + b_ > 0 or h_:
                 n += 1
-        return n == 2
+        return opp if n <= self.cfg.hu_rejam_alive else -1
 
     def _hu_rejam(self, obs: Observation, a: Action) -> bool:
         """S26: this decision, answered `a` by the members, should be a re-jam (ComposeConfig.hu_rejam_*). The gain over
-        folding, in chips (heads-up ICM is linear in chips): the read of the opener's fold wins the pot; otherwise it calls
-        with the top (1 - read) of its opens and the jam runs at the rival-3 equity table's price."""
-        hist = obs.history
-        if len(hist) != 1 or a.kind is _RAISE or _RAISE not in obs.legal:
+        folding: the read of the opener's fold wins the pot; otherwise it calls with the top (1 - read) of its opens and the
+        jam runs at the rival-3 equity table's price. In chips heads-up (ICM is linear there), in ICM points above that."""
+        if a.kind is _RAISE or _RAISE not in obs.legal:
             return False
-        opp, op = hist[0]
+        opp = self._rj_opener(obs)
+        if opp < 0:
+            return False
         me = obs.seat
         st, bt = obs.stacks, obs.bets
-        if op.kind is not _RAISE or opp == me or st[opp] <= 0:
-            return False
-        if not self._two_alive(obs):
+        if st[opp] <= 0:
             return False
         c = self.cfg
         bb = obs.blinds[1] or 1
@@ -884,17 +902,39 @@ class CompositeCore:
         r = (self._rj_f[opp] + k * r) / (self._rj_n[opp] + k)
         if r < c.hu_rejam_t:
             return False
-        pct, cls, eqvs = self._rj_r3
+        pct, cls, eqvs, icm = self._rj_r3
         ci = cls(obs.hole)
         if pct[ci] > c.hu_rejam_cap:
             return False
-        w = (1.0 - r) * c.hu_rejam_open_w
+        two = not any(x and j != me and j != opp for j, x in enumerate(s_ + b_ > 0 for s_, b_ in zip(st, bt)))
+        w = (1.0 - r) * (c.hu_rejam_open_w if two else c.hu_rejam_open_w3)
         eq = eqvs(ci, 0.01 if w < 0.01 else w)
         pot = obs.pot + sum(bt)
-        gain = r * pot + (1.0 - r) * ((2.0 * eq - 1.0) * R + bt[me])
-        if gain <= c.hu_rejam_margin * bb:
+        if two:
+            gain = r * pot + (1.0 - r) * ((2.0 * eq - 1.0) * R + bt[me])
+            if gain <= c.hu_rejam_margin * bb:
+                return False
+            self.hu_rejam_would = (r, seen, eq, gain / bb, R / bb)
+            return True
+        pay = self._rj_pay
+        x = list(st)
+        dead = pot - bt[me] - bt[opp]
+        x[opp] = st[opp] + pot
+        v_fold = icm(x, me, pay)
+        x[me], x[opp] = st[me] + pot, st[opp]
+        v_steal = icm(x, me, pay)
+        x[me], x[opp] = st[me] + bt[me] + R + dead, st[opp] + bt[opp] - R
+        v_win = icm(x, me, pay)
+        x[me], x[opp] = st[me] + bt[me] - R, st[opp] + bt[opp] + R + dead
+        if x[me] > 0:
+            v_lose = icm(x, me, pay)
+        else:  # the place we bust in
+            n = sum(1 for s_, b_ in zip(st, bt) if s_ + b_ > 0)
+            v_lose = float(pay[n - 1]) if n <= len(pay) else 0.0
+        gain = r * v_steal + (1.0 - r) * (eq * v_win + (1.0 - eq) * v_lose) - v_fold
+        if gain <= c.hu_rejam_margin3:
             return False
-        self.hu_rejam_would = (r, seen, eq, gain / bb, R / bb)
+        self.hu_rejam_would = (r, seen, eq, gain, R / bb)
         return True
 
     # ------------------------------------------------------------------ Bot protocol
@@ -970,9 +1010,11 @@ class CompositeCore:
             from ..strategy.hero import holdem_table
 
             if holdem_table(rules) and not rules.straddle:
+                from ..hybrid.core3 import icm_points
                 from ..sim.rivals.rival3 import PCT, _cls, _eqvs
 
-                self._rj_r3 = (PCT, _cls, _eqvs)
+                self._rj_r3 = (PCT, _cls, _eqvs, icm_points)
+                self._rj_pay = tuple(rules.payouts)
                 self._rj_prof = getattr(self.members[self._hero_idx], "prof", None)
                 self._rj_n, self._rj_f = [0] * n_players, [0] * n_players  # our heads-up re-jams' answers, per seat
                 self._rj_pending = -1  # the seat answering our re-jam this hand
@@ -1213,8 +1255,10 @@ class CompositeCore:
                     if self.hu_rejam_on:
                         counts["hu_rejam"] += 1
                         a = Action(_RAISE, obs.max_raise)
-                if a.kind is _RAISE and a.amount >= obs.max_raise and len(obs.history) == 1 and self._two_alive(obs):
-                    self._rj_pending = obs.history[0][0]  # our heads-up re-jam: read its answer at the hand's end
+                if a.kind is _RAISE and a.amount >= obs.max_raise:
+                    j = self._rj_opener(obs)
+                    if j >= 0:
+                        self._rj_pending = j  # our re-jam, the raiser our only opponent left: read its answer at the hand's end
             except Exception:  # noqa: BLE001 - a slip in the read keeps the members' decision
                 counts["hu_rejam:error"] += 1
         if shadowed:

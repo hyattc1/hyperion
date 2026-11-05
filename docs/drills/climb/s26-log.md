@@ -83,3 +83,15 @@ the strong rooms on the fit and holds on the check with no room down; otherwise 
 
 v2 reaches 35% of the spots (v1 28%); elite1's 29% (7%), elite2's 19% (13%). Against the elites on the check: elite1 +0.0027, elite2 +0.0011, elite4 +0.0031, about +0.007 together; opener folds 0.88-0.97. By rank (check): q0 +0.0119, q1 +0.0094, q2 +0.0006, q3 +0.0051, q4 -0.0009: the premium hands level, as on every set so far.
 Its pre-registered test is met (gains over v1 on the fit, holds on the check, no room down). **v2 replaces v1.**
+
+- Identity at 8cc4738 (dials absent, 10000:10040 confirm,guards, against climb/s25-hu at 05dbdef in wt_s26ref; `goal/s26/idcmp2.py` pairs the chunk dirs by spec): **14 of 14 identical for each of F and the b42 candidate.** To be re-run at the code frozen for the screen.
+
+## (c) H1's reach: H1 without the strong read
+
+`short.hu2_free` (off): with the strong read shut, the H1 path plays wherever its other gates (`hu2_like_opp`, `hu2_defer_3bet`, `hu2_min`, `hu2_max`, `hu2_btn_max`) admit it. Coin (`d26h.py`, `ipsh.py`): a fair coin per heads-up hand; eligible = a decision went, or would go, to H1 through the dial alone. Base: F + v2. Fit 20000-20119 (`H_*`), check 20480-20599 (`I_*`) if the fit pays. Heads-up exploit cells on the fit seeds, since exploiter 1 was H1's old loss. Pre-registered: no further split; if the fit is not up at the strong rooms, or any room or exploit cell is down, (c) stops.
+
+## (a) Chips on arriving heads-up: the same read three-handed
+
+Not in the set-aside list or s23b's log: those tried the small blind's first-in tables, calls of jams, and reads of the big blind. **What's untried is F's own re-jam.** `a26t.py` on S25's recordings: three alive, the first answer to a non-jam open: openers fold to a re-jam 0.85-0.96 (F 0.92-0.93, f_copy 0.92-0.93, elite1 0.92 at 15-22 bb and 0.65 at 10-15, elite2 0.81-0.87, rival1-3 0.89-0.96, realistic's and night's openers 0.77-0.96), while F re-jams 8% at 15-22 bb and 28% at 10-15, elite1 24% and 43%, elite2 16% and 33%, rival2 34% and 22%. S23's leak was F being re-jammed; this is F not re-jamming.
+
+The rule, `hu_rejam_alive` 3 (off at 2; tested): with three alive, the raiser our only opponent left and nobody behind us (the small blind folded, or the button did and the small blind opened), the same read and depth window, the gain in ICM points (rival 3's `icm_points` and the bust place: the three-handed risk premium is in it), opens' width 0.5 (`hu_rejam_open_w3`). Pre-registered: as it stands on the fit (20000-20119, `T_*`, `d26t.py`; heads-up as v2 in both arms; `pts` = the hand's change in F's ICM points) and the check (20600-20719, `U_*`). If the weakest hands lose or a room is down: `hu_rejam_cap` 0.66, one fixed fallback. If that does not pay, it stops.
