@@ -237,3 +237,103 @@ with `short.hu2` on and require its decisions and digests unchanged (tests/test_
   of the new table on seeds 14800-14999 (the 10-20 bb lines against F's, `h1a.py`); (4) the screen on 10000-10199,
   every stage, runout term, --aim strong, with candidates H1 (`short.hu2` on, roles sb,bb) and, if the big blind's
   flat-heavy equilibrium loses to F's re-shoves, H1 on the button only; (5) identity against goal/idchk34/post again.
+
+## Resume on the new box (2026-11-04 21:58 ET): H1 on batch 8
+
+- 22:00 **Merged climb/batch8-freeze (9bc51e8)** into the branch (520257f). Three conflicts, all add/add, kept both: the
+  specialist's `three2` and `hu2` dials; `wants` is `_wants_s7` (S7's and R6's path, with `like_max_alive`) and H1 behind it;
+  `tools/solve_short.py` holds both new trees. tests/test_s20_h1.py: 10 of 10.
+- 22:03 **Identity** (`climb_accept --cand '{"dials": {}}' --set 10000:10040 --stages confirm,guards`, `goal/s20/idchk7`,
+  compared with `goal/s20/idcmp8.py`): 14 of 14 chunks identical to batch 8's reference (`goal/idchk39ref/post/c8387dd72470`:
+  ac1f18c with goal/b32/b8.json) and to the freeze's own F (`goal/idchk39/post/610d4f8661f2`).
+- 22:17 **The full solve** (`solve_short.py hu2 --real docs/drills/climb/s20-h1-real.json --iters 1000 --every 250 --workers
+  2`, `goal/s20/h1full/solve.log`; the driver now saves and resumes per depth): 26 depths x 2 seats in about 15 minutes,
+  exploitability in the abstract game 0.02-0.10 mbb a hand at 5-22 bb, 0.23-0.73 at 25-45, 0.8-1.9 at 60-100.
+  tables/short_hu2.json: **139 KB, loads in 0.8 ms** (tables/*.json ship by default: tools/pack.py). What it plays at
+  10-20 bb: the button folds 26-35%, min-raises 54-72%, jams 2-11% (more when shorter), and after its raise is re-shoved folds
+  55-74% (F 90%); the big blind against a min-raise never folds at 12+ bb, flats 64-72%, re-shoves 25-32%, 3-bets 0-6%; 25 bb
+  and deeper the button limps 64-74%. The elites' 60-80% re-shoves are not the equilibrium under our fitted flops.
+
+## The S7 rule: a diagnosis (seeds 14000-14099, F = batch 8 alone; `goal/s20/d7.py`, `h1read.py`, `h1read2.py`)
+
+**What S7's gate can do.** The probe read is (pb_bet + 0.9) / (pb_opp + 2), so at the gate's 0.75 it cannot admit under 3 of
+the opponent's probe chances (2 of 2 reads 0.725). Against exploiter 2 heads-up, by chances so far (F playing):
+
+| pb_opp | 0-2 | 3 | 4 | 5 | 6-7 | 8-9 | 10-14 | 15-19 | 20-29 |
+|---|---|---|---|---|---|---|---|---|---|
+| gate admits (hands), exploit2_hu | 0% | 88% | 89% | 85% | 86% | 94% | 94% | 94% | 100% |
+| the strong read open | 17-23% | 20% | 22% | 20% | 22% | 12% | 21% | 13% | 4% |
+
+Every other heads-up cell: exploiter 1 21% at 3 chances then 15, 7, 11, 0 (and S7 plays 2% at most); exploiter 4 9%, 4, 0, 1, 1,
+0; exploiter 3 and adapt1 0%.
+
+**Where S7 plays at all.** Exploit2_hu only (47% of hands, its big blinds). At every 8-max room S7 plays 0-0.3% of heads-up
+hands and the gate admits 0-0.6% (exploit2 8-max 0.1%: the last opponent is rarely exploiter 2, and its read over 8-max play
+is 0.4-0.5).
+
+**How many chances an 8-max table has given by heads-up.** Chances at the start of heads-up, 10th / 50th / 90th percentile:
+elite 0 / 2 / 5, mirror 0 / 2 / 5, elite_b 0 / 1 / 5, mirror_b 0 / 2 / 5, night 0 / 3 / 10, realistic 0 / 3 / 10. Share of
+heads-up hands with the strong read open (strong rooms) 50-67%, with fewer than 8 chances about 87%.
+
+**The rule.** Option (b), S7's gate read from 8-max play only, is out: S7's only playing cell is the heads-up format, with no
+8-max play to read, so it would remove S7 where it was accepted. Option (a), hold H1 until the gate has had its chances and
+refused: with 8 chances H1 would lose about 87% of its hands at strong tables; **with 3 (`short.hu2_like_opp` 3), the first
+count at which the gate can admit, it loses about 27%** and, against exploiter 2, F plays exactly as batch 8 until the read is
+in (88% admitted by then). To be checked against the forced-open case of 09:58 and at the shipped threshold.
+- 22:32 **Checked, exploit2_hu seeds 14200-14299 (200 tables), preflop decisions by who made them** (`goal/s20/h1d/G*`):
+
+| | S7 | H1 | F | gate admits (hands) | points a table |
+|---|---|---|---|---|---|
+| batch 8 alone | 3,391 | 0 | 6,968 | 71.7% | 8.260 |
+| H1, no hold, read forced open (09:58's case) | **1,290** | 8,010 | 1,616 | 26.5% | 8.200 |
+| H1, hold 3, read forced open | 3,071 | 1,567 | 5,987 | 63.7% | 8.245 |
+| H1, hold 3 and the scope below, read forced open | 3,403 | 47 | 6,915 | 72.0% | 8.290 |
+| H1, no hold, shipped threshold | 2,954 | 1,756 | 5,714 | 62.1% | 8.245 |
+| H1, hold 3 and the scope below, shipped threshold | 3,400 | 25 | 6,942 | 71.9% | 8.290 |
+
+  So the coexistence finding reproduces, and also shows at the shipped threshold (S7 down 13%; 09:58 saw only the two tables of the
+  test): **the rule is `short.hu2_like_opp` 3**, S7's decisions back to batch 8's count with the scope.
+
+## The points-valued judge (a fair coin per heads-up hand)
+
+`goal/s20/d7.py --coin`: with H1's path on and every guard off, a fair per-hand coin says whether H1 may play this hand; on
+the hands its gates want, compare the arms (the same reads, the same hands, a real randomised experiment, as O7's judge; `pts`
+is the hand's chips / total chips x (1st - 2nd): heads-up ICM is linear, so here chips are points; h1ips.py, h1pool.py).
+
+- 22:30 **First coin, unguarded, whole tree, seeds 14000-14299 (strong rooms), 14000-14199 (heads-up cells)**, H1's value in
+  points a table over F's on those hands: elite +0.0077 ± 0.0102, mirror +0.0092 ± 0.0108, elite_b +0.0128 ± 0.0117, mirror_b
+  +0.0174 ± 0.0122, **pooled +0.0118 ± 0.0056** (+0.29 ± 0.14 bb a hand), elite_night +0.0185 ± 0.0101. Against the cells, 10/7
+  payouts: exploit_hu **-0.439 ± 0.186 DOWN**, exploit2_hu +0.016 ± 0.078, exploit3_hu -0.015 ± 0.176, exploit4_hu +0.039 ±
+  0.185, adapt_hu -0.044 ± 0.053.
+- Where it comes from, four strong rooms pooled, bb a hand H1 - F (points a table):
+
+| depth | button | big blind |
+|---|---|---|
+| under 10 | -0.35 ± 0.37 (-0.0014 ± 0.0014) | +0.26 ± 0.43 (+0.0010 ± 0.0015) |
+| 10-14 | **+0.56 ± 0.41** (+0.0025 ± 0.0020) | +0.26 ± 0.55 (+0.0009 ± 0.0020) |
+| 14-20 | **+0.34 ± 0.29** (+0.0031 ± 0.0030) | +0.20 ± 0.35 (+0.0016 ± 0.0024) |
+| 20-25 | +0.19 ± 0.47 (+0.0006 ± 0.0015) | **+0.90 ± 0.64** (+0.0018 ± 0.0013) |
+| 25-40 | +0.14 ± 0.61 (+0.0003 ± 0.0013) | **+0.81 ± 0.65** (+0.0014 ± 0.0011) |
+| 40+ | -1.13 ± 1.76 (-0.0002 ± 0.0004) | +0.72 ± 1.11 (+0.0001 ± 0.0002) |
+
+  By spot: the button first in +0.21 ± 0.18, the big blind against a raise +0.47 ± 0.26, against a jam +0.27 ± 0.39.
+- **Exploiter 1's loss is the button at 25 bb and deeper**: 40+ -0.363 ± 0.135, 25-40 -0.128 ± 0.070 (-2.0 to -2.3 bb a hand: F's
+  button wins +1.7 to +2.1 there, the tree limps 64-74% and gives that up); under 25 bb the button and every big blind are level
+  (-0.03 and +0.09 summed). The limps are the part the fit could not measure. At strong tables they add nothing (+0.0003 ±
+  0.0013; 20-25 +0.0006 ± 0.0015), adapt1's button 25-40 also loses (-0.023 ± 0.023). **The button stops under the tree's limps:
+  `short.hu2_btn_max` 22** (the depth above is 25, the first that limps).
+- **Under 10 bb**: level to slightly down at strong rooms and at every exploit cell's button (F pushes 95% of them, as the
+  elites do; the chip-EV tree folds a third): no gain to keep. **`short.hu2_min` 10.** Over 40 bb no gain at strong tables either
+  (rare) and most of the heads-up format's exposure: **`short.hu2_max` 40.** (The big blind keeps 25-40, where the gain is: F's big
+  blind loses -0.79 bb a hand there.)
+- **R6's exploiter-1 guards.** F's 3-bet read over 0.25: exploit_hu -0.395 ± 0.175 (v3 under: -0.044 ± 0.044), adapt_hu -0.022 ±
+  0.019, exploit2_hu -0.028 ± 0.068, exploit3_hu -0.028 ± 0.112, exploit4_hu +0.004 ± 0.122; strong rooms 0.5% of hands, -0.0001 ±
+  0.0006. **`short.hu2_defer_3bet` 0.25, as R6**: costs nothing where H1 is meant to play. **`hu2_keep_defence` stays off**, unlike R6:
+  when H1's raise is re-raised, its calls beat folding at each strong room (+1.5, +2.7, +4.6, +5.2 bb against folding over 467 calls;
+  it calls 42% of those spots, F 10%, so about +1.4 bb a spot against F's +0.6), which is the leak this exists to close. F's
+  hardened defence is better only against exploiter 1 (+4.4 against +1.9 a spot, F's 4-bets), and the 3-bet read already hands that
+  seat back. No archetype guard: S7's "dead,station" stays and no class stands out at the strong rooms.
+
+**The candidate, fixed here** (goal/s20/h1d/cand_H1.json): `short.hu2` true, `hu2_like_opp` 3, `hu2_defer_3bet` 0.25, `hu2_min`
+10, `hu2_max` 40, `hu2_btn_max` 22. Those scope choices came from the coin above, so the check is the same coin on fresh seeds
+(14300-14599 / 14300-14499), `goal/s20/h1d/coin2.sh`, then the screen.
