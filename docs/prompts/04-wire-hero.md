@@ -9,7 +9,8 @@ Same adapter and `rules_tonight.json`. Verify in this order, pasting every outpu
    `make_bot()` reads the repo's `hyperion/ship.py` outside a package): zero exceptions, illegal actions
    and conformance violations (`history_raise` and `history_prefix` included: the bot reads raises from
    the history; on a kit with no or a partial log also `history_infer` and `history_gap`, the rebuilt log),
-   under 0.3% of decisions over 1 ms.
+   under 0.3% of decisions over 1 ms, and no table lost at its start (a `setup` column, if the kit prints one, reads 0:
+   drill 12's 6% of tables on autopilot showed nowhere else).
 2. Print one flop decision of `make_bot()` through the adapter on remapped cards (state built from a round
    start, or the pot reads 0). Then `python -m hyperion.sim --tables 300 --seed 11 --mode strict
    --field realistic@ship --rules rules_tonight.json` (and `--variant <name>` if the catalog has tonight's
@@ -25,14 +26,18 @@ Same adapter and `rules_tonight.json`. Verify in this order, pasting every outpu
    `python tools/latency.py --n 2000 --rules rules_tonight.json` (the ship bot by default; add `--adapter
    submission.adapter:TonightAdapter --native kit_<a|b|c|d>`; real kit: `module:build`, see
    `latency.py`'s kit_d builder; it deals the rules' hole cards and board). Required: exit 0 (p99 under
-   500 µs), over 1 ms under 0.3%; if not, the recipe `latency` (no shadow decisions on the composite; the core's
-   exploit layer off, ~6 µs, on hybrid3_x; Hero's profiler off), then `timeouts` (every decision Hero's cheap path; a
-   point or two), each with `--dials` on latency and the sim. A recipe is kept (`python -m hyperion.ship --set
+   500 µs), over 1 ms under 0.3%; if not, the recipe `latency` (no shadow decisions on the composite, about a sixth off
+   through a kit, points level; the core's exploit layer off, ~6 µs, on hybrid3_x; Hero's profiler off), then `timeouts`
+   (every decision Hero's cheap path, about a third of the ship bot's time through a kit; it cost 1.6 to 3.7 points
+   a table: for errors, or timeouts `latency` did not cure), each with `--dials` on latency and the sim. A recipe is kept (`python -m hyperion.ship --set
    <recipe>`) only when the kit's own simulator shows it: the same tables with and without it, paired (two seats
    each, the same seed; its CPU clock if it has one), fewer timeouts and points not down beyond noise.
    tools/latency.py alone is not the check: in drill 11 it showed `latency` halving the act time while the kit's
-   simulator showed the same timeouts and lower points (reverted). Kill the generator by its PID (`kill
+   simulator showed the same timeouts and lower points (reverted). One paired run of a recipe, no tuning beyond it
+   (drill 12: 3 minutes on smaller cuts left p99 where it was). Kill the generator by its PID (`kill
    $(cat load.pid)`), never `pkill -f` (it matches your own shell).
+   The table start: `python tools/latency.py --table-start --budget-ms <the kit's table-start limit> --copies <our seats
+   in one process in the kit's simulator> --rules rules_tonight.json`: exit 0, p99 and max printed against the budget.
    A kit that times its hand-end callback (rule sheet): the entry's `HAND_END_TIMED` defers the bot's hand end to `idle()` at the next event; check `python tools/latency.py --hand-end --defer --payouts <tonight's table>` (hand_end and idle p99 under 300 µs) as well.
 5. `python tools/pack.py --entry submission/<entry>.py --out dist/ --extra submission/adapter.py
    submission/rules_tonight.json --note "ship bot" --import-budget <the kit's start budget> --max-mb <its unzipped
@@ -47,7 +52,8 @@ Same adapter and `rules_tonight.json`. Verify in this order, pasting every outpu
    0 here means the kit path is slow on a fast box: run docs/drills/climb/g1_profile_entry.py and fix the adapter before
    anything else.
 6. Gate the zip itself, the step 2 sim measured the in-sim bot: `python tools/gate.py dist/submission.zip
-   --kit <same as Stage 2> --tables 100 --rules rules_tonight.json` (plus `--variant <name>`; about
+   --kit <same as Stage 2> --tables 100 --rules rules_tonight.json --setup-budget-ms <the kit's table-start limit>` (plus
+   `--variant <name>`, which a function patch must have, prompt 02 step 7; about
    3 minutes; `--kit-log no` as in Stage 2 if the kit has no action log). It pairs against the bot the
    package records (`baseline bot <SHIP>` line). Required:
    `GATE PASS` (0 exceptions, 0 illegal, and the package not behind the in-sim bot beyond the paired

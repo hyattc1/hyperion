@@ -1739,3 +1739,47 @@ and (in judges) `elite_judge`.
   adapt_judge_hu +0.037, outside_b +0.040). Nothing beyond noise down. Timing against batch 7 at load 16: act p99 133 µs
   (134), hand end p99 201 µs (192), max 268 (249), none over 1 ms. Batch 8 goes to its freeze when the staging worker
   reports. Timing here is the new CPU's: the proof that counts is the zip under load and at 3x slowdown.
+
+## 23:45: batch 8 ships; the fourth wave of outside judges measured once
+- Batch 8 merged (eac472a), suite 1462 passed, 0 failed; frozen/B8-77c5ea6, zip 0d07654e: the known-good upload.
+- o9, o10, o11 (addendum 16) on batch 8, 70000-70399: F first in `outside_d` (5.871; o11 4.729, F +1.142 ± 0.092) and in every
+  heads-up and three-handed cell. `outside_d_strong`: F second of eight (4.906), behind the older out_reads (5.044; -0.138 ±
+  0.093), level with elite5 (4.895) on points, third by first places (12.9% against 22.3% and 17.8%). Batch 8 against batch 7:
+  outside_d +0.037 ± 0.034, outside_d_strong +0.091 ± 0.038 UP, nothing down. Not tuned on.
+- Reading: F is consistent but wins a strong table about as often as an even share. Two follow-ups, for reading only:
+  the strong room on a second seed set, and on 10/7/5/4/3/2/1/0, since these cells pay a flat 8..1.
+- Timing: the governor sees act() alone; through a kit's adapter 1.1% timeouts at 2x and 12% at 3x (docs/drills/climb/b8-timing.md).
+  The owner decided the governor must count the whole call: G1.
+- Git: `git pull --rebase` flattens a local merge and conflicts; after a merge, push directly or use `--rebase=merges`. The
+  attempt was aborted before anything was pushed.
+
+## 23:55: the strong room's follow-up: F is not the best bot there
+- `outside_d_strong` on a second seed set (70400-70799, batch 8, runout term; reading only, wt_od2's extra cell): 8..1 F third of
+  eight, 4.851; out_reads 5.028 (F -0.177 ± 0.078, DOWN, repeats the first set's -0.138), elite5 4.909 (-0.058 ± 0.089 level).
+  On 10/7/5/4/3/2/1/0: F third, 4.339; out_reads 4.762 (-0.424 ± 0.117), elite5 4.551 (-0.212 ± 0.118), both DOWN. F's first places
+  12.3% (an even share is 12.5%), out_reads 22%, elite5 18%; F's bust rate 85.5%, out_reads 77%. Batch 8 against batch 7 level to up
+  in both. So: F is consistent, not dominant, at the strongest tables, and the gap widens the more first place pays. The real
+  point table is unknown until the night. Judges stay untuned: nobody reads their code; S23 studies the same question on tuning
+  rooms only.
+
+## 00:07: O8 on H35: rejected on a twist cell's replicate; scoping it from a diagnosis
+- O8 on top of batch 8, H35 (55000-55399), every stage, --aim strong, runout term, exploiter 4 in: elite_night +0.050 ± 0.035,
+  elite_b +0.048 ± 0.046, mirror_b +0.053 ± 0.048 UP; elite +0.029, mirror +0.029, night -0.003, realistic -0.017 ± 0.029 level. One
+  cell DOWN, fast_schedule (realistic) -0.055 ± 0.043; addendum 7's replicate on H37 (57000-57399, 400 seeds) -0.039 ± 0.032 DOWN again.
+  **REJECT.** H35 and H37 used; next fresh H38 = 58000-58399.
+- O8s (climb/o8s): why the veto loses under faster blinds, by depth, on diagnostic seeds 17000-17999; a general gate if the
+  diagnosis supports one, not a gate on the twist's name, since the night's blind schedule is unpublished.
+
+## 00:50: S22 accepted on H36 (joins batch 9)
+- S22 (the river-bet read; climb/b8-s22, batch 8 + main + S22) against batch 8 on H36 (56000-56399), every stage, --aim exploit, runout
+  term, exploiter 4 in: **ACCEPT**. exploit4_hu +0.102 ± 0.043, exploit4_3 +0.048 ± 0.034, exploit4 +0.014 ± 0.007, exploit_hu +0.023 ±
+  0.022 UP; night, realistic, top, elite within ±0.001; every other cell level; nothing down. W +0.0006 ± 0.0007 (lower bound -0.0001),
+  W-min +0.0000 ± 0.0005; cap holds. The gate stays shut against honest bettors, which is why ordinary and strong rooms do not move.
+  Dials: goal/b36/b8s22.json. H36 used.
+- Batch 9 so far: S22, G1 when it reports. Candidates still in test: H1 (screen), O8s, S24, S23.
+- Exploiter 5 (goal/exploiter5, black box against batch 8, about an hour, a different model): F wins 8-max 5.85-5.96 vs 4.68-4.92 (100
+  tables total), three-handed 2.36 vs 2.01, heads-up level. Leaks it calls general: F folds 83-100% to flop bets of 0.75 pot and up out of
+  position, 98% to a half-pot turn bet after calling the flop out of position, calls shoves 28% at 13-25 bb. Heads-up probes; S24
+  measures them at full tables first, fixes behind a per-seat read.
+- Drill 12 (kit J, Trailing Stop Hold'em, batch 8's ship): first valid minute 3, ship gated minute 8, final minute 17, stop minute 20; final
+  zip 8.15 ± 0.41 a table against the kit's aware bot's 6.59 (fair share 4.875). H8 fixes what it found.

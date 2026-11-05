@@ -3500,3 +3500,53 @@ adapter bots take a fixed fifth each inside a format (a quarter each before); th
 unchanged. In model mode it plays at a fixed speed (its equity sampler's clock advances a measured step per read)
 and its generator is reseeded from the seat seed at every table. From the first climb_accept run started after its
 wiring merges; runs already started (batch 8's combined check on H34) keep the protocol they started under.
+
+## The climb: batch 8 (strong tables, its three-handed table, the package checked) (2026-11-04, builder: the climb's coordinator)
+
+**Batch 8 (merged eac472a; zip packed at 77c5ea6).** On top of batch 7's ship, three parts, each accepted alone on its own
+held-out set, then together, then the judges.
+- **C3h** (one stab size, plain hold'em only; H28), **R6** (S20's solved three-handed preflop, on the button at strong
+  tables; H32, scoped so S7's route stays) and **O5** (the big blind's fold read from its answers to every first-in raise;
+  H33). 21 dials.
+- **Together** on H34 (54000-54399), every stage, --aim strong, runout term: elite +0.077 ± 0.037, mirror +0.090 ± 0.039,
+  elite_b +0.084 ± 0.037, mirror_b +0.058 ± 0.040, night_hard +0.039 ± 0.036, exploit_hu +0.059, exploit2 +0.067,
+  exploit2_hu +0.052, exploit2_3 +0.190, exploit3 +0.075, exploit3_hu +0.086, adapt_hu +0.150, adapt_3 +0.121 UP; night
+  +0.021 ± 0.034, realistic +0.016 ± 0.026, top +0.013, the payout guards, elite_night, every variant and aware cell level;
+  nothing down. W +0.0179 ± 0.0101 (lower bound +0.0078). ACCEPT. Exploiters 1-3 and adapt1 only: the run started before
+  addendum 15.
+- **Judges** on fresh seeds 60400-60799, 13 cells: judge_top +0.052 ± 0.041, elite_judge_b +0.052 ± 0.039, adapt_judge +0.107
+  ± 0.064, adapt_judge_3 +0.102 ± 0.070, outside_c +0.081 ± 0.038 UP; the rest level, the ordinary-room judges within
+  ±0.025; nothing down. ACCEPT.
+- **Identity:** SHIP_DIALS + BATCH8_OFF plays batch 7 (9 of 9 rows); the new default plays batch 8's candidate on its own
+  branch (7 rows, 91 effective dials equal, per-seed samples of 14 chunks equal).
+- **The new CPU.** Batch 7's F played identically on it (9 of 9 rows against idchk34), so results saved on the old CPU pair
+  with new ones.
+- **The package now gets checked, not assumed** (the owner's goal): tools/pack.py ships every table the recorded bot needs
+  and fails by name on a missing one (tools/table_probe.py: an audit hook on file opens plus a declared map for lazy
+  tables; it had silently dropped R6's short_3b.json, so R6 would not have played in the upload). tools/zip_parity.py plays
+  the zip's own package against the source, decision for decision: 112,522 decisions and 1,779 variant decisions equal over
+  730 tables, the strong route, the specialist and R6 all seen firing; it fails on a zip without the table. It caught the
+  same silent gap on twist tables (a zip packed without tonight's rules had no tables/generic/), now shipped. **Batch 7's
+  zip has that gap: fine on plain hold'em; repack it before using it on a twist.** PLAYBOOK "Freezing a batch".
+- **Frozen:** frozen/B8-77c5ea6, kit B zip sha256 0d07654e6fb801e24b7ebb4db0995b3e9b76879407633de2bd5e5f959372ba19 (3.7 MB, 8.5 MB
+  unzipped, 1.1 MB before; freeze that file itself, a re-pack differs in timestamps). Gate, 40 tables strict, 0 exceptions, 0
+  illegal: plain 0.47% timeouts (under the load clause, load above the core count), auction 0.00%, bonus_card 0.11%,
+  tranche_holdem 0.06%.
+- **Timing proof, and what it found** (docs/drills/climb/b8-timing.md): at this box's speed batch 8 is level with batch 7 (bot
+  alone p50 about 120 µs, p99 about 250 µs, timeouts 0.01-0.03%, every thread busy). The bot alone holds at 3x (0.11%).
+  **Through a kit's adapter it does not:** 0.36% at 1.5x, 1.1% at 2x, 12.0% at 3x (batch 7: 0.47%, 1.1%, 7.2%). SafeBot's
+  governor times act() alone, and the adapter and the deferred hand end run inside the timed call. Setup 0.35 -> 0.63 s,
+  about 2 s at 3x (the rules name no start budget; kit H's was 2 s). This CPU is among the fastest single-thread chips sold, so
+  1.5-3x is a realistic sandbox. No budget loosened. **Not fixed in batch 8:** the owner decided the governor must count the
+  whole timed call; that is G1 (climb/g1-governor), measured on its own. Batch 8 ships now because it is level with batch 7
+  up to 2x and stronger; its 3x row is worse until G1 lands.
+- Tests pinned to batch 7 start from BATCH8_OFF. A test that could never fail (test_s21_o5's "ship dials leave O5 off", which
+  read the knobs before a table start) now starts a table.
+
+## The climb: addendum 16 (a fourth wave of outside judges) (2026-11-04, builder: the climb's coordinator)
+
+goal.md asks for new outside bots every few rounds. Three fresh agents with no repo access built o9 (an unconventional team), o10 (a strict 60-minute team, built in about 48) and o11 (a prepared top team), on models other than the coordinator's, to widen who wrote our opponents. Frozen at md5 f85066a0bd7e92551dad61a0d559bc89, bedcbd0c079f847c005af61f8807db10 and 5f92fb3b1b7519f06b79234d41cfa5ba.
+
+Fixed before they are measured by a batch's judges: they are held out as `out_o9`, `out_o10` and `out_o11`, never tuned on and never in a night pool. They form the judge cells `outside_d` (hero, the three, four night seats), `outside_d_strong` (hero, the three, out_reads, out_cfr, elite5, rival4) and each bot heads-up and three-handed with the first night seat (`outside_d_<bot>_hu`, `outside_d_<bot>_3`, rules hu and three), in the judges stage from the first judge run started after the wiring merges; runs already started keep the protocol they started under. The cells are appended, so no earlier cell's seeds, file names or samples move; they carry no weight in addendum 11's score. These eight alone record every seat's points and finishes, printed with F's rank. In model mode each bot's clock advances a measured step per read (18.8, 19.7 and 53.2 µs, the median within a decision at load 15), bound at act() after the module has loaded, and its generator is reseeded from the seat seed at every table, so runs replay exactly; at these steps their time guards do not bite.
+
+Measured once on batch 8 (70000-70399, runout term, paired against batch 7; docs/drills/climb/outside-d-log.md): no new bot beats F in any cell, and no cell is down against batch 7. At `outside_d_strong` the older out_reads leads F by 0.138 ± 0.093, with F second of eight by points and third by first places. These numbers are for reading, not for tuning. The cells pay 8..1, as the outside fields do; the strong room on the brief's payouts is unmeasured.

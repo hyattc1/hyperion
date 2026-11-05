@@ -14,6 +14,8 @@ What it does without being asked, each from a drill:
   1-5 ms under load and forced 0.3-0.9% of the next decisions). "store" moves even the light part into the next
   decision; measured on kit G it trades the forced check/folds for twice the late decisions (TODO 0).
 - The warm-up's made-up decisions never reach the HYPERION_CHECK=1 conformance report (`warmed`).
+- One module-level adapter plays ONE TABLE AT A TIME per process. Ask the rule sheet; a kit that interleaves tables in one
+  process needs a table per adapter, as closure_entry_template.py's TABLES_AT_ONCE does it.
 - Every kit call is wrapped: nothing raises into the kit; an answer outside the kit's set is its check-or-fold.
 - The governor sees what the kit times (G1): `decide` reads the clock on its first line and passes it to Adapter.decide, which
   reports the whole call to the bot's SafeBot. A stored hand end (HAND_END "store") that would break the timed call it lands in

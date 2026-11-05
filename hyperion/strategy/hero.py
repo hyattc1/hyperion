@@ -60,14 +60,19 @@ ICM_BUCKETS = 100  # default Config.icm_buckets: opponents' stacks are rounded t
 ICM_ME_SUBDIV = 4  # default Config.icm_me_subdiv: my own units are chosen so my *share* of the chips is kept, to 1/4 of an opponent unit
 
 
-# The collector and the tables (backlog R2, docs/drills/climb/r2-log.md). gc.freeze() takes every object the collector
-# tracks out of its reach, so no full collection over the tables lands inside a timed act(). A frozen object is never
-# collected, though: one that dies later in a reference cycle stays in memory for good. One bot object for many tables,
-# a fresh one per table in one process (an earlier table's bot), or a sandbox that imports this package afresh per table
-# (the whole earlier copy, 31 MB a table) all leave such objects behind. So the freezes first unfreeze and collect: at
-# import always (setup time, ~10-20 ms), at a table start one time in REFREEZE_TABLES (a full collection is ~10-20 ms,
-# which a kit with no table-start hook pays inside the table's first decision); the other table starts only freeze.
-REFREEZE_TABLES = 32  # Hero table starts between full collections (16 tables of the composite, which holds two Heroes)
+# The collector and the tables (backlog R2, docs/drills/climb/r2-log.md; drill 12, docs/drills/climb/h8-log.md).
+# gc.freeze() takes every object the collector tracks out of its reach, so no full collection over the tables lands
+# inside a timed act(). A frozen object is never collected, though: one that dies later in a reference cycle stays in
+# memory for good. So:
+# - An import collects first (`refreeze`, setup time): a sandbox that imports this package afresh per table frees the
+#   earlier copy (31 MB a table) there.
+# - A table start never collects. Unfreezing walks every object of every copy of this package in the process: 4.4 ms for
+#   one copy at best, 17 ms for four, 20-37 ms in a table start under load, against kit J's 25 ms setup budget (one table start in
+#   32 did it until drill 12, and tables went to autopilot); a kit with no table-start hook pays it inside a 1 ms decision.
+#   It only freezes, which costs nothing, and only a bot at its second table or later: a bot's first start leaves it
+#   unfrozen, so a runner that builds a fresh bot per table never pins the old ones (70 KB a table before R2); the first
+#   start in a process always freezes, for what it loaded. The collector reaches the unfrozen bots at no more than their
+#   own size.
 _table_starts = 0
 
 
@@ -79,11 +84,12 @@ def refreeze(collect: bool = True) -> None:
     gc.freeze()
 
 
-def table_freeze() -> None:
-    """HeroCore.new_table's freeze: a full collection first one time in REFREEZE_TABLES."""
+def table_freeze(bot_started: bool = True) -> None:
+    """HeroCore.new_table's freeze (the block above): `bot_started` False on that bot's first table start."""
     global _table_starts
     _table_starts += 1
-    refreeze(_table_starts % REFREEZE_TABLES == 0)
+    if bot_started or _table_starts == 1:
+        gc.freeze()
 
 
 def _linear_step(pays) -> float | None:
@@ -810,6 +816,29 @@ def twist_family(rules: Rules) -> str | None:
 _TWINS: dict = {}  # HeroCore._twins' cache: (variant, extras, hole cards, threshold, tables) -> twin map or None
 
 
+
+class LazyCurve(IcmCurve):
+    """Config.cheap's curve (drill 12, docs/drills/climb/h8-log.md): the same curve from the same chips, computed when a
+    decision reads it. The cheap path reads it only to price an all-in, so most hands never pay for it; an IcmCurve there
+    cost 120 us on every hand this Hero met, which is why `timeouts` ran slower than the ship bot through a kit."""
+
+    __slots__ = ("todo",)
+
+    def __init__(self):
+        super().__init__()
+        self.todo = None
+
+    def compute(self, *args, **kw) -> None:
+        self.todo = (args, kw)
+
+    def value(self, x: float) -> float:
+        todo = self.todo
+        if todo is not None:
+            IcmCurve.compute(self, *todo[0], **todo[1])
+            self.todo = None
+        return IcmCurve.value(self, x)
+
+
 class HeroCore:
     """The unguarded strategy. Hero wraps it in SafeBot; tests may poke it directly."""
 
@@ -820,7 +849,7 @@ class HeroCore:
                              dial_strength=cfg.profiler_dial_strength, calldown_slope=cfg.profiler_calldown_slope,
                              dead_after=cfg.profiler_dead_after, station_after=cfg.profiler_station_after,
                              nit_after=cfg.profiler_nit_after, maniac_after=cfg.profiler_maniac_after,
-                             random_after=cfg.profiler_random_after) if cfg.use_profiler else None
+                             random_after=cfg.profiler_random_after) if cfg.use_profiler and not cfg.cheap else None  # cheap reads no seat
         self.preflop = Preflop(cfg.preflop, self.tables)
         self.pushfold = PushFold(cfg.pushfold, self.tables)
         self.postflop = Postflop(cfg.postflop, cfg.seed)
@@ -833,7 +862,7 @@ class HeroCore:
             self.prof.track_s12 = True  # S12 reads: count bet sizes, shown tiers and check-raises (off: no cost)
         self._base = (self.preflop, self.pushfold)
         self._modules: dict = {}  # (tables dir, scheme) -> (Preflop, PushFold) built for a variant set
-        self.curve = IcmCurve()
+        self.curve = LazyCurve() if cfg.cheap else IcmCurve()
         if cfg.use_icm:
             self.pushfold.curve = self.curve
             self.preflop.curve = self.curve
@@ -876,6 +905,7 @@ class HeroCore:
         self._tax = None
         self._last_obs = None
         self._tr_now = self._tr_sunk = self._tr_allin = False  # V-j: Config.tranche's parts on this table
+        self._table_frozen = False  # table_freeze: this bot has started a table
 
     # ------------------------------------------------------------------ Bot protocol
     def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
@@ -912,7 +942,8 @@ class HeroCore:
         self._curve_todo = None
         if self.cfg.use_icm:
             self._curve(self.last_stacks, 0)
-        table_freeze()  # tables and evaluator dicts leave the collector's reach: no gen-2 pause mid-decision
+        table_freeze(self._table_frozen)  # tables and evaluator dicts leave the collector's reach: no gen-2 pause mid-decision
+        self._table_frozen = True
 
     def _configure(self, rules: Rules) -> None:
         """Per-table variant wiring from Rules: table set, class map, postflop mode, payoff terms."""

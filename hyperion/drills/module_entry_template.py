@@ -14,6 +14,10 @@ What it does without being asked, each from drill 11:
   modules and the folder back. submission/adapter.py too: every import at its top, none inside a function.
 - One module plays the session (a few hundred tables, module globals kept): table() restarts the adapter and the bot
   for each table (Adapter.start -> bot.new_table), so nothing of the last table's carries into the next.
+- ONE ADAPTER, ONE TABLE AT A TIME per process. A kit that interleaves tables in one process has no way to say which
+  table an act() belongs to here: ask the rule sheet. Two tables interleaved send the hand number back and forth, which
+  restarts the bot each time; that is counted on the error line (`hand_went_back`). A kit that names the table in each
+  call: a table per adapter, as closure_entry_template.py's TABLES_AT_ONCE does it.
 - THE KIT'S OVERTIME. At each limit a timer raises `Overtime`, a BaseException, inside our code. Nothing here catches
   it: every wrapper is `except Exception`, never a bare `except:` or `except BaseException:` (that would swallow it and
   run on past the limit, and a late return counts as a timeout anyway). Our state stays consistent wherever it lands:
@@ -248,6 +252,8 @@ def done(h) -> None:
 
 def _report() -> None:
     try:
+        if getattr(AD, "tables_seen", 0):  # table() restarts the adapter, so a hand number that went back is an overlap
+            ERRORS["hand_went_back"] += AD.tables_seen
         sys.stderr.write("entry: swallowed errors " + (", ".join(f"{k} {v}" for k, v in sorted(ERRORS.items())) or "0")
                          + "\n")
     except Exception:  # noqa: BLE001

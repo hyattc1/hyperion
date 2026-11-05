@@ -152,7 +152,9 @@ COMPOSITE_RECIPES = {
     # no shadow decisions (members not chosen skip the call): about 17 us a call and 30 us at p99, points level; the
     # layer stays (off it saves about 5 us and costs 0.22 points)
     "latency": {"late_us": 0},
-    "timeouts": {"cheap": True},  # every decision Hero's cheap path: -1.58 +- 0.14 on night, an emergency
+    # every decision Hero's cheap path: -1.58 +- 0.14 on night, an emergency. Through kit J's adapter 88 us a decision and
+    # p99 230 us, against the ship bot's 255 and 520 and `latency`'s 215 and 490 (docs/drills/climb/h8-log.md)
+    "timeouts": {"cheap": True},
 }
 
 # A slow or noisy sandbox (backlog R1, docs/drills/r1-timing-log.md). Not a window recipe: it is a property of the box,

@@ -35,6 +35,7 @@ COMMANDS = [
     ("Check the zip plays as the source does, decision for decision (the freeze; about 90 s at 3 workers)", "python tools/zip_parity.py dist/submission.zip"),
     ("Gate the zip against the same bot in-sim", "python tools/gate.py dist/submission.zip --kit a|b|c|d --tables 100 --rules rules_tonight.json"),
     ("Decision latency of the ship bot", "python tools/latency.py --n 2000 --rules rules_tonight.json"),
+    ("Table start against the kit's limit (p99, max; N copies of the package in one process)", "python tools/latency.py --table-start --budget-ms 25 --copies 4 --rules rules_tonight.json"),
     ("Regenerate every table for a variant", "python tools/gen_tables.py --rules rules_tonight.json --out tables/"),
     ("List variant presets / write a rules JSON", "python -m hyperion.drills.variants --list   |   --rules NAME --out rules_NAME.json"),
     ("Timed drill against a fake kit", "python -m hyperion.drills.run --variant NAME --kit a|b|c|d --seed 1"),
@@ -148,7 +149,11 @@ def render() -> str:
               "hybrid3_x and hybrid3 the core's dials plus Hero's as `hero.<key>`; on Hero its Config keys. "
               "`slow_box` (the governor) is in the composite's defaults; it gives the fallbacks theirs.", "",
               _table([(n, repr(ship.COMPOSITE_RECIPES[n]), repr(ship.CORE_RECIPES[n]), repr(ship.HERO_RECIPES[n]))
-                      for n in ship.HERO_RECIPES], ("recipe", "composite (ships)", "hybrid3_x, hybrid3", "Hero")), ""]
+                      for n in ship.HERO_RECIPES], ("recipe", "composite (ships)", "hybrid3_x, hybrid3", "Hero")), "",
+              "The timing dials on the composite, through kit J's adapter (mean / p99 per decision, the hand end "
+              "included; drill 12): the ship bot 255 / 520 us; `latency` 215 / 490 us, points level, the first dial to "
+              "try; `timeouts` 88 / 230 us and 1.6 to 3.7 points a table, for errors or timeouts `latency` did not cure. "
+              "Keep either only by prompt 04 step 4's paired run in the kit's simulator.", ""]
     parts += ["## Dials of rival 3's core bots (one flat dict: `--dials '{\"r3.open_scale\": 1.2}'`)", "",
               "Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):", "",
               _table([("r3." + f.name, repr(f.default), f.metadata.get("doc", ""))

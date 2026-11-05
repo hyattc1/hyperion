@@ -428,16 +428,17 @@ class HybridCore:
             if not self.asleep:
                 self.hero.hand_end(result)
         finally:
-            self.core.end(result)
-            if not chained and result.hand_no >= self._start_hand:
-                # a hand end went missing (an interrupted callback): follow Hero's chain from here, never stay stuck
-                hs = self.hero.last_stacks
-                if hs is not None and len(hs) == len(start) and len(result.deltas) == len(start):
-                    self._start = list(hs)
-                    self._start_hand = result.hand_no + 1
-                    chained = True
-            if chained and self._table_why is None and self._start[self.seat] > 0:
-                self.core.start_hand(result.hand_no + 2, self._start)
+            if not self._cheap:  # Hero's cheap path decides everything (cfg.cheap): nothing reads the core's replay
+                self.core.end(result)
+                if not chained and result.hand_no >= self._start_hand:
+                    # a hand end went missing (an interrupted callback): follow Hero's chain from here, never stay stuck
+                    hs = self.hero.last_stacks
+                    if hs is not None and len(hs) == len(start) and len(result.deltas) == len(start):
+                        self._start = list(hs)
+                        self._start_hand = result.hand_no + 1
+                        chained = True
+                if chained and self._table_why is None and self._start[self.seat] > 0:
+                    self.core.start_hand(result.hand_no + 2, self._start)
 
     # ------------------------------------------------------------------ variant decisions
     def variant_decide(self, prompt: dict):

@@ -32,7 +32,8 @@ anything non-standard. A filled rehearsal example: `docs/packet/EXAMPLE-rule-she
   action format (type, string, dict), legal-action discovery, per-decision time limit, how a table
   start and a hand end are signalled, one instance per table or per tournament, whether state persists.
 - Setup budget per table (import + construction + table start) and whether each table gets a fresh module, a
-  fresh instance, or one object for the tournament (kit E: 1 s, a fresh module per table).
+  fresh instance, or one object for the tournament (kit E: 1 s, a fresh module per table). Tables at
+  once in one process? (Our adapter plays one table at a time; over one: a table per adapter, TABLES_AT_ONCE.)
 - Event callbacks (table or hand start, cards, actions, showdown, hand end): timed or not, and what an overrun
   does (skipped, interrupted mid-call, counted as a timeout).
 - Submission size cap, zipped and unzipped (kit E's was 10 MB zipped, not 100 MB): tools/pack.py `--max-mb`.

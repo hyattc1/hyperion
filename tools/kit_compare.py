@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-"""Two zips through fake kit B's adapter, the same tables, the same hour: the timing and the points of the kit path, paired.
+"""Two zips through a kit's adapter, the same tables, the same hour: the timing and the points of the kit path, paired.
 
-    python tools/kit_compare.py A.zip B.zip [--slow K] [--tables 40] [--t0 0] [--seed 7] [--rotations 1] [--field realistic]
-                                [--rules FILE] [--workers 3] [--json OUT] [--det]
+    python tools/kit_compare.py A.zip B.zip [--kit SEAT.py --entry bot.py] [--slow K] [--tables 40] [--t0 0] [--seed 7]
+                                [--rotations 1] [--field realistic] [--rules FILE] [--workers 3] [--json OUT] [--det]
 
 tools/gate.py pairs a package against an in-sim baseline; this pairs two packages. Each (table, rotation) is played by A, then
 by B, in the gate's own seat (tools/gate.py GateTable and HostProxy: one fresh `python -I -B` per table, the bot behind
 the kit's adapter, 1 ms a decision, strict, K-times clock with --slow), with every other seat identical, on the same
 seeds as tools/swap.py (table seed = seed * 1,000,003 + t, seats' seeds table_seed * 64 + rotation * 8 + seat). The bot's own
-seed is fixed too (each package's copy gets `entry_compare.py`, make_kit_b_module around ship.make_bot(seed=...)), so two
-bots that decide alike play alike, and the pairs are as tight as they can be.
+seed is fixed too, so two bots that decide alike play alike, and the pairs are as tight as they can be: on fake kit B (the default)
+each package's copy gets `entry_compare.py`, make_kit_b_module around ship.make_bot(seed=...); with --kit, a seat file (drill 12's
+kit J: closure_gate_seat_template.py), the package's --entry with its `ship.make_bot()` so seeded.
 
 --det is the identity check: both packages' records get tools/slowbox.py's DET dials (panic, soft deadlines, late_us off), the
 table runs in model mode (opponents at fixed speed, nothing enforced), and every reply must be the same, table by table: the
@@ -58,11 +59,17 @@ def load_tool(name: str):
     return mod
 
 
-def prepare(src: Path, into: Path, det: bool) -> Path:
+def prepare(src: Path, into: Path, det: bool, entry: str | None = None) -> Path:
     """The package of `src` in `into`, with the entry that seeds the bot; --det: its record's dials with DET on top."""
     with zipfile.ZipFile(src) as zf:
         zf.extractall(into)
-    (into / ENTRY).write_text(ENTRY_TEXT)
+    if entry is None:
+        (into / ENTRY).write_text(ENTRY_TEXT)
+    else:
+        text = (into / entry).read_text()
+        if "ship.make_bot()" not in text or "import os" not in text:
+            raise SystemExit(f"FAIL {entry}: no ship.make_bot() to seed")
+        (into / ENTRY).write_text(text.replace("ship.make_bot()", 'ship.make_bot(seed=int(os.environ["KIT_COMPARE_SEED"]))'))
     if det:
         from hyperion import ship
 
@@ -83,7 +90,7 @@ def play_chunk(job: dict) -> dict:
         """The gate's proxy, its replies recorded."""
 
         def __init__(self, cfg):
-            super().__init__(cfg, "b")
+            super().__init__(cfg, "seat" if job["seat_file"] else "b")
             self.trace, self.ns = [], []
 
         def decide(self, obs):
@@ -101,7 +108,8 @@ def play_chunk(job: dict) -> dict:
     with tempfile.TemporaryDirectory(prefix="kitcmp_") as tmp:
         kit_dir = Path(tmp) / "kit"
         kit_dir.mkdir()
-        shutil.copy2(gate.FAKEKITS / "kit_b" / "kit.py", kit_dir / "kit.py")
+        if not job["seat_file"]:
+            shutil.copy2(gate.FAKEKITS / "kit_b" / "kit.py", kit_dir / "kit.py")
         scratch = Path(tmp) / "cwd"
         scratch.mkdir()
         mode = "model" if job["det"] else "strict"
@@ -112,7 +120,9 @@ def play_chunk(job: dict) -> dict:
             os.environ["KIT_COMPARE_SEED"] = str((table_seed * 64 + rot * 8 + g) * BOT_SEED_MUL % (2 ** 31))
             traces, points = [], []
             for i, pkg in enumerate(job["pkgs"]):
-                cfg = gate.Config(pkg=Path(pkg), entry=ENTRY, kit="b", kit_dir=kit_dir, scratch=str(scratch), slow=job["slow"])
+                seat_file = Path(job["seat_file"]) if job["seat_file"] else None
+                cfg = gate.Config(pkg=Path(pkg), entry=ENTRY, kit="seat" if seat_file else "b", kit_dir=kit_dir,
+                                  scratch=str(scratch), slow=job["slow"], seat_file=seat_file)
                 bots = [bestiary.make_bot(nm, seed=table_seed * 64 + rot * 8 + s) for s, nm in enumerate(seating)]
                 proxy = Traced(cfg)
                 bots[g] = proxy
@@ -157,6 +167,8 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("a")
     p.add_argument("b")
+    p.add_argument("--kit", default=None, help="a seat file for another kit (default: fake kit B)")
+    p.add_argument("--entry", default=None, help="with --kit: the package's entry, its ship.make_bot() seeded here")
     p.add_argument("--slow", type=float, default=0.0)
     p.add_argument("--tables", type=int, default=40)
     p.add_argument("--t0", type=int, default=0, help="the first table's number (screen seeds: 10000-10199)")
@@ -183,9 +195,9 @@ def main(argv=None) -> int:
         for i, src in enumerate((a.a, a.b)):
             d = Path(tmp) / f"p{i}"
             d.mkdir()
-            pkgs.append(str(prepare(Path(src), d, a.det)))
+            pkgs.append(str(prepare(Path(src), d, a.det, a.entry if a.kit else None)))
         jobs = [{"pkgs": pkgs, "tables": tables[i:i + a.chunk], "seed": a.seed, "slow": a.slow, "rules": a.rules, "names": names,
-                 "det": a.det} for i in range(0, len(tables), a.chunk)]
+                 "det": a.det, "seat_file": str(Path(a.kit).resolve()) if a.kit else None} for i in range(0, len(tables), a.chunk)]
         sides = [{"ns": [], "late": 0, "exc": 0, "ill": 0, "imports": [], "gov": {}, "notes": []} for _ in pkgs]
         pairs, mismatch = [], []
         done = 0
@@ -204,10 +216,10 @@ def main(argv=None) -> int:
                             s["notes"].append(x)
                 done += len(r["pairs"])
                 print(f"   {done}/{len(tables)} tables ({time.perf_counter() - t00:.0f} s)", file=sys.stderr, flush=True)
-    res = {"a": a.a, "b": a.b, "slow": a.slow, "field": a.field, "rules": a.rules, "t0": a.t0, "tables": a.tables,
+    res = {"a": a.a, "b": a.b, "kit": a.kit or "b", "slow": a.slow, "field": a.field, "rules": a.rules, "t0": a.t0, "tables": a.tables,
            "rotations": a.rotations, "det": a.det, "secs": round(time.perf_counter() - t00, 1),
            "load": list(os.getloadavg()), "sides": []}
-    print(f"kit path, fake kit B: k {a.slow or 1}, {len(tables)} tables (t {a.t0}.. x {a.rotations}), field {a.field}, rules {a.rules}, "
+    print(f"kit path, {'kit ' + Path(a.kit).name if a.kit else 'fake kit B'}: k {a.slow or 1}, {len(tables)} tables (t {a.t0}.. x {a.rotations}), field {a.field}, rules {a.rules}, "
           f"{'model mode, DET' if a.det else 'strict'}; {res['secs']} s, load {os.getloadavg()[0]:.1f}")
     for label, s, idx in (("A", sides[0], 2), ("B", sides[1], 3)):
         ns = sorted(s["ns"])

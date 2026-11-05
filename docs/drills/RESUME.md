@@ -11,6 +11,13 @@ The new /goal's deadlines: last bot change Nov 10 18:00 ET; final rehearsal and 
 runs were restarted (workers 6 + 4 + 4); the goal log's newest entry says what else is live. Agents from session e2efc890
 cannot be messaged; resume them from their logs and branches. Outside builds in goal/outside4, drill 12 in goal/drill12.
 
+## 2026-11-04 23:30: batch 8 is the ship (frozen/B8-77c5ea6, zip 0d07654e)
+Merged to main at eac472a. Live on branches, each with its log: climb/g1-governor (G1, the whole-call governor; worktree
+goal/wt_g1, docs/drills/climb/g1-log.md), climb/outside-d (o9, o10, o11 as judges; goal/wt_od), climb/s20-h1 (H1's screen). Drill 12:
+goal/drill12 (kit J Trailing Stop Hold'em; player on eac472a). Exploiter 5: goal/exploiter5 (target goal/wt_target8). O8 and S22:
+goal/b35, goal/b36. Identity reference for later branches is now batch 8's F. Next fresh held-out H37 = 57000-57399; judge seeds
+70000-70399 used by outside-d, next 70400-70799.
+
 ## Batch 6 (frozen 2026-11-03 13:37)
 - V-f (H15) + V-h (H18), twist tables only; H21 ACCEPT (exposed card +0.216, knockout bounty +0.111, bounty-aware
   +0.026 up, none down). Gate pass plain, exposed_card, knockout_bounty. Nothing left to do for it.
@@ -82,6 +89,7 @@ Nothing is lost: everything decided is committed and pushed; the scratchpad (goa
 - S21 done: rejected on its screen (O3 parked). O5 (2de5070) passed its screen: on H33 after C3h (goal/b31/run.sh,
   output goal/b31/o5_h33.md, RUN_DONE). O6 (climb/s21-o6, the non-blind seats' fold read) with the same worker.
 - Drill 11 done (docs/drills/prompt-drill-11.md); H7 and V-j merged. Future organiser briefs exclude tranche_holdem.
+- Drill 12 done (docs/drills/prompt-drill-12.md); fixes on climb/h8-drill12-fixes. Future organiser briefs exclude trailing_stop.
 - start-vs-now done (the leaderboard's "Since the start" table).
 
 ## Dated items

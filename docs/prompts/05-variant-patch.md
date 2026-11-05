@@ -14,7 +14,8 @@ Hero patch below reaches such a bot only on Hero's tables, written `hero.<key>`;
 **The keep rule** (the one rule for this patch; PLAYBOOK Stage 5, hard rule 6 and prompt 00 point here). Measure it
 paired, the same tables with and without it: in our simulator with `--variant` when it can play tonight's twist (a
 catalog entry, or its hooks as a file), else in the kit's own simulator (the patched and the unpatched zip in the same
-tables, two seats each, the same seeds; its CPU clock if it has one). Use the most tables the box allows in the box's
+tables, two seats each, the same seeds; its CPU clock if it has one; name eight bots, since a kit repeats a short list:
+drill 12's five gave four of one, three of the other and one opponent). Use the most tables the box allows in the box's
 time, never fewer than 600 paired tables in all (pool runs on different seeds). Keep it when the pooled point estimate
 is above zero and no paired check is down beyond its 95% interval (each run, and the aware check below). Otherwise
 revert it and say so. Drill 11's twin: +0.35 over 1,000 kit-sim tables, every run up: kept.
@@ -24,7 +25,8 @@ rules_tonight.json --variant <name> --workers 2` (F with and without them on the
 seeds x 8 = 1,600 paired tables, about 3 minutes cold; the spec wraps the dials: `{"dials": {"hero.multi_call_shift":
 1}}`). A fallback ship bot climb_accept cannot build (hybrid3_x, Hero): `python -m hyperion.sim --tables 600 --seed 11
 --mode model --field realistic@ship --rules rules_tonight.json` once as it is and once with `--dials '<the dict>'` (the
-same seed is the same tables). A patch that is a function in the adapter, not dials: the kit's simulator, as above.
+same seed is the same tables). A patch that is a function in the adapter, not dials: the kit's simulator, as above, its
+twist-aware sample bot in the lineup as the aware check below (which only dials can run).
 Kept: `python -m hyperion.ship --set '<the dict>'` writes it into `DIALS` in `hyperion/ship.py` (the kit simulator,
 latency, pack and the sim all read it), then one strict run: errors zero.
 
@@ -114,6 +116,20 @@ caption every line "on hold'em tables" and expect the patch to do nothing. Patch
   all-in prices are both built from it (print the payouts of the `Rules` passed to `new_table` to confirm).
   No ICM-premium key exists; `preflop.shove_call_margin` (Hero) and `r3.push_margin` / `r3.call_margin` (the
   core) are window dials, not this patch. Override `{}`.
+
+## What a stack can lose moved (a stop, a floor, an elimination threshold, chips you cannot fully lose)
+First write in `NIGHT.md`, in three lines, what makes a normal fold or a normal call wrong under tonight's rule. The ones
+to check:
+- Folding past the point of no return: if folding now ends the table anyway (kit J: chips behind under the stop, where a
+  posted blind can put you), the fold is worth nothing. Test it before the bot is asked: all-in if we can raise, else call,
+  else check. `native_safe` answers the same; the kit's own timeout still folds, so the milliseconds matter more tonight.
+- A stack you cannot fully lose: the depth at risk is the stack minus the threshold, and a call that crosses it risks all of
+  it. Our ICM curve and push/fold values read chips and know neither; a calculator in the kit may not either.
+Smallest first: a class in front of `bot.act` in the adapter, the thresholds passed as `make_observation(...,
+extras={"floors": ...})`, its name in `TWIST_PATCH` (`StopBot`, mode A, in docs/drills/drill12/adapter.py). Drill 12's
+first rule alone: +1.55, +2.03, +1.83 over 1,100 kit-sim tables, kept; reading depth as stack minus stop and pricing a
+crossing call as the whole stack both lost to it on screens (5.03 vs 5.74, 5.37 vs 6.30, about ± 0.5). The kit's simulator
+measures it by the keep rule; write the rule as a hooks file for `tools/gate.py --variant` (prompt 02 step 7).
 
 ## Betting structure moved (pot limit, fixed sizes, antes, different schedule)
 - Pot limit (the core): the adapter clamps to `max_raise`, and the core's all-in is `max_raise`, the pot cap:
