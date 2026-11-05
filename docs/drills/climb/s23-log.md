@@ -251,3 +251,30 @@ commit c80753d): at 18 bb effective or less, the button's three2 tables play whe
 under 8..1 that is below what a 200-seed screen resolves (elite cells ±0.01-0.04); under 10/7/5 about the elite cells'
 noise. The check is the same coin with B18's own gates on fresh seeds 16520-16639 (`run_check.sh`, `D_*`), then the
 screen (`screen.sh`: F's chunks pinned to H1's cache of batch 8 on the screen seeds, version c985750f5a, 473 chunks).
+
+### The check (B18's own gates on, fresh seeds 16520-16639; `D_<room>_<pay>.jsonl.gz`)
+
+Identity at the head c80753d with the dials off (`goal/s23/idchk2`): **14 of 14 chunks identical** to idchk39's rows.
+The coin with B18's gates: eligible hands are the button's at R6's cell (strong, all>=1) plus the two new shallow cells;
+tables - F in points a table (95%), four strong rooms pooled:
+
+| cell | 10/7/5 fit | **10/7/5 check** | 8..1 fit | **8..1 check** |
+|---|---|---|---|---|
+| strong, all>=1 (R6's, in batch 8 already) | +0.032 ± 0.014 | +0.029 ± 0.020 | +0.009 ± 0.006 | +0.011 ± 0.007 |
+| strong, some 0 (new, 18 bb or less) | +0.016 ± 0.010 | +0.006 ± 0.011 | +0.003 ± 0.004 | +0.002 ± 0.005 |
+| weak, all>=1 (new, 18 bb or less) | +0.010 ± 0.007 | +0.009 ± 0.008 | +0.003 ± 0.003 | +0.005 ± 0.003 |
+| **B18's increment over batch 8** | +0.026 ± 0.012 | **+0.015 ± 0.013** | +0.005 ± 0.005 | **+0.007 ± 0.006** |
+
+Ordinary rooms on the check, the two new cells summed: realistic +0.006 / -0.004 (10/7/5 / 8..1), night +0.004 /
+0.000, top +0.006 / +0.004; no room, no cell down beyond noise in either set. Read: the direction holds on fresh seeds,
+at about half the fit's size under 10/7/5 and the fit's size under 8..1: **about +0.01 to +0.015 a table at a strong
+table under 10/7/5, +0.007 under 8..1, level elsewhere.** That is a third of R6's size: below what the 200-seed screen
+resolves under 8..1 (so the --aim strong rule, which needs a strong cell beyond noise up, will most likely read it as
+level), and about the elite cells' noise under 10/7/5. The screen runs because the protocol asks for it; its reading
+is written below as it comes.
+
+- Screen started (`screen.sh`, cand goal/s23/cand_B18.json, base F = batch 8 with its chunks pinned to H1's cache
+  c985750f5a, --set screen, every stage, --aim strong, --runout-term, exploiter 4 in, 3 workers, nice 5; output
+  `goal/s23/B18_screen.md` and `.json`); then `elite` under 10/7/5/4/3/2/1/0 (`B18_elite_brief.md`). `screen.done`
+  holds RUN_DONE at the end. To resume after a stop: run screen.sh again at the same `hyperion/` tree (cached chunks
+  stand); do not change hyperion/ in wt_s23 or leave uncommitted changes under tools/ while it runs.
