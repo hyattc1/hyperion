@@ -102,6 +102,7 @@ def build(tmp_path, name, source):
     entry.write_text(source)
     dest = tmp_path / name
     pack.build(dest, entry, [], False, None)
+    pack.ship_needed_tables(dest, pack.table_probe(pack.ROOT), None)  # as tools/pack.py's main: the gate checks them
     return dest
 
 

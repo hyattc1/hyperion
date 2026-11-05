@@ -48,7 +48,8 @@ the full log, the in-sim bot is a bar no package on such a kit can reach (kit B 
 -0.83 +- 0.46, hybrid3_x -1.23 +- 0.71 at 60 tables); fed the bets alone (`--kit-log bets`, NoLogSeat, the
 baseline before the inference) it no longer catches an adapter that drops the inference (worth 0.4-0.8 points).
 
-FAIL (exit 1) when the package trails the baseline by more than the paired 95% interval, raises, sends
+FAIL (exit 1) when the package lacks a table its recorded bot needs (tools/table_probe.py, before any table is played: the
+loader that returns None plays on, so no table would show it) or trails the baseline by more than the paired 95% interval, raises, sends
 an illegal action, never imports, or times out on more than --max-tmo-pct of its decisions (a warning
 instead when the load average exceeds the core count, the playbook's load clause). Otherwise PASS.
 """
@@ -953,6 +954,21 @@ def find_entry(pkg: Path, entry: str | None) -> tuple:
     return None, (f"several .py files ({', '.join(tops)}): pass --entry <the kit's entry>" if tops else "no .py file")
 
 
+def lacking_tables(pkg: Path, scratch: Path) -> list[str]:
+    """The tables the package's recorded bot needs and the package does not hold, by name (tools/table_probe.py in a fresh
+    `python -I -B`). A package with no ship.py records no bot to check. A bot that does not build is the gate's to report
+    when it plays, so it is not a table failure here."""
+    if not (pkg / "hyperion" / "ship.py").is_file():
+        return []
+    proc = subprocess.run([sys.executable, "-I", "-B", str(ROOT / "tools" / "table_probe.py"), str(pkg)], cwd=scratch,
+                          env=_env(), capture_output=True, text=True, timeout=300)
+    if proc.returncode != 0:
+        return []
+    rep = json.loads(proc.stdout.strip().splitlines()[-1])
+    return [f"tables/{t}" for t in rep["lacking"]] + [f"the specialist's short_{k}: {why}"
+                                                      for k, why in sorted(rep["specialist_missing"].items())]
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("package", help="the submission zip, or the directory it was zipped from")
@@ -1017,6 +1033,11 @@ def main(argv=None) -> int:
             shutil.copy2(kit_src, kit_dir / "kit.py")
         scratch = tmp / "cwd"
         scratch.mkdir()
+        lacking = lacking_tables(pkg, scratch)
+        if lacking:
+            print(f"GATE FAIL: {src} lacks tables its recorded bot needs, and would play without them, silently: "
+                  + "; ".join(lacking))
+            return 1
         cfg = Config(pkg=pkg, entry=a.entry, kit=kit, kit_dir=kit_dir, scratch=str(scratch),
                      seat_file=Path(a.kit).resolve() if kit == "seat" else None)
         bot, where = baseline_bot(pkg, a.bot, a.dials, a.hero_config, hero_config)
