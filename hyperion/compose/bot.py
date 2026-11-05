@@ -64,7 +64,9 @@ the box turns out fine; each level adds its saving to the ones above it:
 Counted `level:<n>` once per decision played at level n > 0. The shipped ladder is "bare,lean,hero" since G1: `bare` takes a
 quarter off a decision for little play in model mode (a whole table at the level, 200 x 8: night +0.02 ± 0.05, realistic -0.02 ± 0.05,
 elite -0.11 ± 0.07, th -0.6 ± 0.7 of 100; `hero` costs night -0.17 ± 0.12), where `noshadow` saved nothing on the shipped routes. Behind a kit's adapter the governor counts the whole timed call (hyperion/strategy/safe.py),
-and an adapter that has measured a slow box holds the first rung without waiting for a cluster (Adapter._note_call).
+and an adapter that has measured a slow box holds the first rung without waiting for a cluster (Adapter._note_call). With that
+ladder and the whole-call clock (`whole_call`) panic is no rung: its last level is as fast as the cheap path, for a fraction of the
+price.
 
 Routes: a dict or "section=donor,..." (sections.parse_route: section names, "pre", "post", "*"). Unrouted sections go
 to the base's donor (`base`).
@@ -1179,6 +1181,10 @@ class Composite:
         self.safe = SafeBot(self.core, cfg.deadline_ms, cfg.panic_after, cfg.panic_rate,
                             governor(cfg.panic_window, cfg.panic_ladder, cfg.panic_recover, cfg.panic_backoff),
                             whole_call=cfg.whole_call, hand_end_ms=cfg.hand_end_ms)
+        # G1: a ladder that ends with no shadows and every section to Hero is as fast as the cheap path, at a fraction of its
+        # price (night -0.24 ± 0.12 against -1.58, th -2.0 against -13.2): the cheap path is no rung of it
+        lv = degrade_levels(cfg.degrade)
+        self.safe.no_panic = bool(cfg.whole_call and "bare" in lv and "hero" in lv)
 
     @property
     def config(self) -> ComposeConfig:

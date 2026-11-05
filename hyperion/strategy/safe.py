@@ -89,7 +89,7 @@ class SafeBot:
     __slots__ = (
         "inner", "deadline", "panic_after", "panic_rate", "errors", "overruns", "calls", "worst", "panic_mode",
         "_has_panic", "gov", "degrade_level", "level_max", "level_changes", "_levels", "_has_level", "_ring",
-        "_cnt", "_c0", "_quiet", "_need", "whole_on", "_whole", "reports", "life", "lvl_calls", "end_budget", "_floor",
+        "_cnt", "_c0", "_quiet", "_need", "whole_on", "_whole", "reports", "life", "lvl_calls", "end_budget", "_floor", "no_panic",
     )
 
     def __init__(self, inner: Bot, deadline_ms: float = 0.5, panic_after: int = 5, panic_rate: float = 0.02,
@@ -109,6 +109,7 @@ class SafeBot:
         #                             adapter's budget-aware hand end (Adapter.hand_end)
         self.lvl_calls: dict = {}
         self._floor = 0  # the governor does not recover above this level (set_floor)
+        self.no_panic = False  # the ladder ends at its last level: the composite's, whose last level is as fast as the cheap path
         if _REPORT_PATH:
             _BOTS.append(self)
         self.deadline = deadline_ms / 1000.0
@@ -173,7 +174,9 @@ class SafeBot:
             self._c0 = self.calls
 
     def _top(self) -> int:
-        return (self._levels + 1) if self.gov is not None and self.gov.ladder else 1
+        if self.gov is None or not self.gov.ladder:
+            return 1
+        return self._levels if self.no_panic and self._levels else self._levels + 1
 
     def _reset_gov(self) -> None:
         self.degrade_level = 0
@@ -253,7 +256,7 @@ class SafeBot:
     # ------------------------------------------------------------------ the governor (module doc)
     def _govern(self, over: bool) -> None:
         g = self.gov
-        top = (self._levels + 1) if g.ladder else 1
+        top = self._top()
         if over:
             self.overruns += 1
             self._quiet = 0
@@ -292,7 +295,7 @@ class SafeBot:
         self._cnt = 0
         self._c0 = self.calls  # (_govern's count since the last change, and the calls banked at this level)
         self._quiet = 0
-        if level >= top:
+        if level >= top and not (self.no_panic and self._levels):
             self._enter_panic()
             return
         if was_panic:

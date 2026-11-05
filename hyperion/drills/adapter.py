@@ -130,7 +130,7 @@ class Adapter:
             if fn is not None:
                 fn(True)
         self._budget = self._safe.end_budget if self._whole else 0.0  # the hand end's budget (hand_end): 0 = no budget
-        self._e_call = self._e_end = 0.0  # what a decision costs without a hand end, and a hand end: running means
+        self._e_call = self._e_end = self._e_slow = 0.0  # what a decision costs without a hand end, and a hand end: running means
         self._n_call = 0
         self._floored = False
         self._tail_skips = 0
@@ -158,7 +158,7 @@ class Adapter:
         self.started = True
         self._pending = None
         self._hand_seen = None
-        self._e_call = self._e_end = 0.0  # a warm-up's cold calls and the last table say nothing about this one's
+        self._e_call = self._e_end = self._e_slow = 0.0  # a warm-up's cold calls and the last table say nothing about this one's
         self._n_call = 0
         self._floored = False
         self._tail_skips = 0
@@ -198,9 +198,11 @@ class Adapter:
         if safe is not None:
             dt = perf_counter() - t0
             cpu = _cpu_clock() - c0 + now - t0  # (what the entry did before this line: short, and taken as run, not stalled)
-            safe.report_call(dt, cpu)
             if self._budget:
                 self._note_call(cpu)
+                if self._n_call < 32 or self._e_slow < SLOW_BOX_S:  # this box is not slow: a late call here is noise
+                    cpu = 0.0
+            safe.report_call(dt, cpu)
         return reply
 
     # The budget-aware hand end (G1, hand_end). A decision's cost and a hand end's, in this thread's CPU time this table: the
@@ -210,9 +212,12 @@ class Adapter:
         dt -= self._end_now  # the hand end has its own mean
         self._end_now = 0.0
         x = dt if dt < 0.001 else 0.001
-        self._n_call += 1
-        e = self._e_call = x if self._n_call == 1 else self._e_call + (x - self._e_call) / 16.0
-        if self._n_call >= 16:
+        n = self._n_call = self._n_call + 1
+        self._e_call = x if n == 1 else self._e_call + (x - self._e_call) / 16.0
+        # the box's speed: an average to the 64th call, a slow mean after, so a burst of stalls the thread's clock counts (5 at
+        # 1 ms in 16 calls) never reads as a slow box. The floor and the governor's overruns go by it (decide)
+        e = self._e_slow = self._e_slow + (x - self._e_slow) / (n if n < 64 else 64)
+        if n >= 32:
             # a box this slow plays the first rung of the governor's ladder from now on, without waiting for a cluster of
             # overruns: no shadows, a quarter of a decision for little play (the composite's module doc). A loaded 1x box's
             # mean is under 0.2 ms; coming back is lower than going down, as the rung itself takes a quarter off the mean
@@ -625,6 +630,7 @@ def drop_blind_posts(history, big_blind: int, street: int = 0) -> tuple[list, in
 
 
 FLOOR_ON_S, FLOOR_OFF_S = 0.0003, 0.00019  # a decision's mean, without a hand end, that holds the ladder's first rung (_note_call)
+SLOW_BOX_S = 0.00026  # ... under which a late call is noise, not a slow box: at 1x under load the mean is about 0.2 ms (decide)
 _STAND_IN = True  # False while Adapter.decide translates for a kit with no log: the rebuilt log replaces the stand-in
 
 

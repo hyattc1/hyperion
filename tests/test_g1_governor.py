@@ -143,9 +143,9 @@ def test_the_governor_sees_a_slow_translation_through_the_adapter():
     a = Slow(bot)
     a.start(3, 8)
     a.slow = 0.0009
-    for i in range(6):
+    for i in range(40):  # (a table's worth of calls first: the box must read slow, not just late)
         a.decide(_native(hand=i + 1))
-    assert bot.safe.overruns >= 5 and bot.safe.degrade_level >= 1 and bot.safe.reports == 6
+    assert bot.safe.overruns >= 5 and bot.safe.degrade_level >= 1 and bot.safe.reports == 40
 
 
 def test_batch_8s_clock_is_blind_to_it():
@@ -153,7 +153,7 @@ def test_batch_8s_clock_is_blind_to_it():
     a = Slow(bot)
     a.start(3, 8)
     a.slow = 0.0009
-    for i in range(6):
+    for i in range(40):
         a.decide(_native(hand=i + 1))
     assert bot.safe.level_max == 0
 
@@ -412,16 +412,21 @@ def test_the_gate_fails_an_adapter_that_does_not_report(pkg_dir):
 def test_a_box_measured_slow_holds_the_first_rung_and_a_normal_one_never():
     bot = ship.make_bot(seed=1)
     a = _adapter(bot)
-    for _ in range(400):  # a loaded 1x box: the mean stays under 0.6 of the budget
+    for _ in range(400):  # a loaded 1x box: the mean stays under the floor's line
         a._note_call(0.00019)
     assert bot.safe.degrade_level == 0 and bot.safe.level_max == 0
-    for _ in range(100):  # a 2x box
+    for _ in range(5):  # a burst the thread's clock counts as running: not a slow box
+        a._note_call(0.001)
+    for _ in range(11):
+        a._note_call(0.00019)
+    assert bot.safe.degrade_level == 0 and not a._floored
+    for _ in range(300):  # a 2x box
         a._note_call(0.00034)
     assert bot.safe.degrade_level == 1 and a._floored
-    for _ in range(100):  # the rung takes a quarter off: it stays
+    for _ in range(300):  # the rung takes a quarter off: it stays
         a._note_call(0.00026)
     assert bot.safe.degrade_level == 1 and a._floored
-    for _ in range(100):  # the box was busy, now it is not
+    for _ in range(300):  # the box was busy, now it is not
         a._note_call(0.00012)
     assert not a._floored and bot.safe._floor == 0
 
@@ -526,3 +531,32 @@ def test_a_real_stall_through_the_adapter_counts_for_nothing():
 def test_the_gate_dilates_the_thread_clock_too():
     for tool in ("gate_host.py", "zip_host.py"):
         assert "time.thread_time = lambda" in (ROOT / "tools" / tool).read_text()
+
+
+# ---------------------------------------------------------------------------- the ladder's end
+def test_the_shipped_ladder_ends_at_its_last_level_and_batch_8s_at_the_cheap_path():
+    bot = ship.make_bot(seed=1)
+    a = _adapter(bot)
+    s = bot.safe
+    assert s.no_panic is True and s._levels == 3 and s._top() == 3
+    for _ in range(500):
+        s.calls += 1
+        s._count(0.0009)
+    assert s.degrade_level == 3 and s.panic_mode is False and bot.core.panic is False and bot.core.level == 3
+    assert a is not None
+    off = ship.make_bot(dials=G1_OFF, seed=1).safe
+    assert off.no_panic is False and off._top() == 4
+    for _ in range(500):
+        off.calls += 1
+        off._count(0.0009)
+    assert off.panic_mode is True
+
+
+def test_a_late_call_on_a_box_that_is_not_slow_is_noise():
+    bot = ship.make_bot(seed=1)
+    a = _adapter(bot)
+    for _ in range(100):
+        a._note_call(0.00019)
+    for i in range(4):  # 2 ms since the kit's call, and the entry's part is taken as run: late, and the box still reads normal
+        a.decide(_native(hand=i + 1), time.perf_counter() - 0.002)
+    assert bot.safe.worst >= 0.002 and bot.safe.overruns == 0 and bot.safe.degrade_level == 0
