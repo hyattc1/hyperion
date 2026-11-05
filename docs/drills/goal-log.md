@@ -1815,3 +1815,13 @@ and (in judges) `elite_judge`.
   so read those as noise or knock-on); realistic, top level; nothing down. W +0.0023 ± 0.0013 (lower bound +0.0009), W-min lower bound -0.0002. H38 used. It matches the coin's +0.0078 ± 0.0037, which is the point
   of pricing in points first.
 - Batch 9 so far: S22, H1. Waiting: B18 (H39), G1, S24, O8s.
+
+## S24: exploiter 5 wired; its leaks measured; shove read on held-out H40
+- S24 (climb/s24-overfold ee281d3): the probes overstate it. At full tables F's folds are right or level on every street; the turn's 98% costs only against air barrels, and exploiter 5's own turn bets hold 2-15% air;
+  check-raise folds are right except exploiter 2 three-handed; calling every fold to a shove loses points in every format though it looks +2 to +16 bb in chips. The real leak heads-up: a seat that bets nearly
+  every flop (pot c-bet, F folds 90%, air 0.55). And at 4+ alive, a short seat's re-shoves over F's open.
+- Two off-by-default reads: `r3.sr_*` (shover's width at least its all-in rate per chance at that depth, up to 15 bb) and `hero.postflop.cbr_*` (heads-up flop and turn against a seat betting above 0.8). Screen
+  10000-10199, --aim exploit, exploiters 1-5: ACCEPT. exploit4 +0.080 ± 0.054, night +0.024 ± 0.020, top +0.025, elite +0.029 ± 0.024, elite_b +0.037 ± 0.025, mirror +0.026 UP; realistic -0.000, night_hard -0.006 level (raw -0.031 ± 0.030);
+  W +0.0064 (lower bound +0.0004), W-min lower bound -0.0028. Cautions from the worker: first-order points say about +0.01 and played diagnostics about zero, so expect less on held-out; the c-bettor read alone scored level on
+  exploit5_hu; never measured with S22, and 13 conflict blocks with climb/b8-s22 to resolve at batch 9. Tested as screened, not split: splitting now would be a choice made after seeing the screen.
+- **H40 = 81000-81399** (80000-80399 went to G1's slow-box table); then +1000 each. Next fresh H41 = 82000-82399.
