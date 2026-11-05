@@ -173,3 +173,79 @@ inside its noise, the signs split). A coin that says yes at the strong rooms and
   workers, nice 5; out goal/s25/S25_screen.md / .json; then elite under 10/7/5/4/3/2/1/0, S25_elite_brief.md; RUN_DONE in screen.done).
   The candidate as a file: docs/drills/climb/s25-candidate.json (the two dials on top of batch 9's). To resume after a stop: run
   run_screen.sh again at the same tree (cached chunks stand); do not change hyperion/ or tools/ in wt_s25 while it runs.
+
+## Step 4: candidate B's screen (10000-10199, every stage, --aim strong, runout term; against batch 9)
+
+11:00 **ACCEPT** (`goal/s25/S25_screen.md`, `.json`; code 299c1568cb = f30854d's hyperion/ (c14393e's code); 95 minutes, 4 workers;
+0 timeouts, 0 errors). Corrected deltas, cand - batch 9, 200 seeds x 8:
+
+| stage | cell | batch 9 | cand | cand - base | | raw |
+|---|---|---|---|---|---|---|
+| confirm | night | 6.023 | 6.023 | -0.001 ± 0.004 | level | +0.006 ± 0.006 |
+| guards | night_hard / realistic / top | | | +0.001 / +0.000 / +0.001 (± 0.003-0.004) | level | |
+| | night @10/7/5/4/3/2/1/0 | 6.333 | 6.329 | -0.004 ± 0.011 | level | +0.010 ± 0.018 |
+| | night @50/25/12/6/3/2/1/1 | 25.240 | 25.221 | -0.018 ± 0.100 | level | |
+| | night, doubling blinds | 5.909 | 5.908 | -0.001 ± 0.006 | level | |
+| elite | elite | 4.902 | 4.906 | **+0.004 ± 0.004** | **UP** | +0.006 ± 0.007 |
+| | elite_night | 5.468 | 5.473 | **+0.005 ± 0.003** | **UP** | +0.002 ± 0.006 |
+| | mirror | 4.504 | 4.508 | **+0.004 ± 0.003** | **UP** | +0.003 ± 0.005 |
+| | elite_b | 4.703 | 4.709 | **+0.005 ± 0.004** | **UP** | +0.008 ± 0.006 UP |
+| | mirror_b | 4.525 | 4.532 | **+0.007 ± 0.003** | **UP** | +0.002 ± 0.006 |
+| exploit | exploit / 2 / 3 / 4 / 5 (8-max @10/7/5) | | | -0.005 / +0.014 UP / +0.020 UP / +0.009 / -0.005 (± 0.009-0.013) | | |
+| | the five heads-up cells, adapt_hu | | | 0 (exploit_hu identical) / +0.007 / +0.003 / +0.007 / +0.008 / -0.003 | level | |
+| | the five three-handed cells, adapt, adapt_3 | | | -0.004 / +0.004 / -0.001 / +0.004 / -0.014 / +0.010 / +0.032 ± 0.031 UP | level | |
+| variants | 22 of 26 identical; top_heavy -0.009 ± 0.081, antes_from_level_3 +0.001 ± 0.004, fast_schedule +0.000 ± 0.005 | | | | level | |
+| aware | all five identical | | | | | |
+
+Weighted (addendum 11): W +0.0009 ± 0.0016 (lower bound -0.0007), W-min +0.0007 ± 0.0029 (lower bound -0.0021); cap holds. p99 base /
+cand 170-190 µs in every hold'em cell (the floor is two comparisons).
+
+**elite under 10/7/5/4/3/2/1/0** (`S25_elite_brief.md`, 21 min): **ACCEPT**; elite **+0.013 ± 0.010 UP**, elite_night **+0.014 ± 0.012
+UP**, mirror +0.009 ± 0.010, elite_b **+0.017 ± 0.011 UP**, mirror_b **+0.013 ± 0.010 UP**; W +0.0130 ± 0.0106 (lower bound +0.0024).
+So the screen reads the candidate where the coin put it: about +0.005 at the strong rooms under 8..1 (five of five cells beyond noise
+with the term), +0.013 under 10/7/5, the ordinary rooms, every exploit cell and every twist cell level or identical.
+
+**For a held-out run** (on top of batch 9; `--aim strong`, every stage, runout term): branch climb/s25-hu at the head this entry is
+committed on (code of hyperion/ as at c14393e), candidate docs/drills/climb/s25-candidate.json = `{"r3.hu_jam_w": 0.2,
+"r3.hu_openjam_scale": 1.0}` on batch 9's dials (goal/s25/s25bspec.json is the full spec). Identity with the dials absent: 14 of 14
+against climb/batch9 (goal/s25/idchk_*). No new table file (tables/pushfold_hu.json ships already); the zip is unchanged.
+
+## Summary (what this found, and what to try next)
+
+1. **The heads-up gap splits 70 / 30 chips / play, and batch 9 had already closed most of the play part.** At a strong table under
+   10/7/5 the elites take +0.37 to +0.41 a heads-up arrival over an even split, F +0.13: of the 0.25-0.27 gap, chips on arrival are
+   0.19-0.21 (F arrives at 0.50 of the chips, the elites at 0.56-0.58: the three-handed and earlier stages, S23's leak) and play
+   0.10-0.11 ± 0.06 (0.04 ± 0.02 under 8..1). On the same seeds batch 8's F made -0.03 ± 0.04 a heads-up arrival in play and batch 9's
+   +0.10 ± 0.04: H1 is worth about +0.13 per arrival (+0.033 a table under 10/7/5), more than its coin or screen could resolve. Against
+   the elites themselves F is now level (-0.02 / -0.06 ± 0.10 per arrival; +0.0006 ± 0.008 a table); the remaining play gap is what the
+   elites take from F-like bots (the copies: elite1 +0.32, elite2 +0.51, F +0.13 per arrival) by re-jamming their min-raises 55-74% of
+   the time. S23's "F converts at 45-53% against 67-70%" also counted every capped table as a loss for both players (the engine pays
+   the ICM of the stacks at the cap); the points are right in the table above.
+2. **By line and street**: postflop F is level with the elites per decision (it folds more facing a bet, 75% against 55-61%, and
+   loses less per decision); the preflop jam answers are the leak that is left. The counterfactual with the jammer's actual hand
+   (fair per bucket) prices F's folds: the button's open re-jammed, folded with a top-quintile hand, +9.3 milli-points a table-rotation
+   under 10/7/5 (263 folds; +227 each), with q3 +15.1 at strong rooms but -2.3 / -1.0 in realistic / night (narrow re-jammers: tag 2%,
+   pushfold 2%, rival1 22%, the night pool 11%, against the elites' 55-74%); the big blind's fold to the button's open-jam with q3 / q4
+   +7.0 / +1.2 at strong rooms, positive in every room. Rival 3's core, which plays F's heads-up where H1 does not (H1 plays 26% of the
+   decisions at 10-22 bb: the strong read is shut on half, `hu2_like_opp` takes a fifth), prices the re-jammer as its 8-max re-raise
+   rate (0.10-0.16) and the open-jammer as 1.1 x its 8-max PFR.
+3. **Built: S25 = two floors on a heads-up all-in opponent's width in rival 3's core** (`r3.hu_jam_w` 0.20 for a re-jam of our open,
+   `r3.hu_openjam_scale` 1.0 x the push/fold Nash push width for the button's open-jam, both at or under 20 bb, plain hold'em, calls
+   only; the all-in price still decides). Coin: fit +0.017 ± 0.018, check **+0.024 ± 0.017** a table under 10/7/5 at the strong rooms,
+   the ordinary rooms level on both sets; the first version (re-jam floor 0.30, reaching q3) was down in the realistic room (-0.018 ±
+   0.021) as the counterfactual predicted and was replaced by the pre-registered fallback, not a sweep. **Screen ACCEPT: five of five
+   strong cells UP under 8..1 (+0.004 to +0.007), four of five under 10/7/5 (+0.009 to +0.017), nothing down anywhere.** About a third
+   of the play part of the gap; the chips part is not a heads-up fix.
+4. **Next, in order.** (a) The chips on arrival (0.2 a heads-up arrival, +0.05 a table under 10/7/5) are the three-handed stage: S23's
+   diagnosis stands, B18 took the clean piece; the rest needs a read of the big blind's answers to short-handed opens (S23b). (b) The
+   elites' edge over F-like bots: a heads-up read of the opener's fold to a re-jam (the profiler's `open_fold_to_reraise` exists, unused
+   heads-up) to re-jam min-raises wider from the big blind; F's big blind re-jams 12% of the elites' opens, calls 51%; the copies fold
+   91% to a re-jam. Price it with the same coin; `pushfold.reshove_exploit` was rejected at 8-max in 2026-10 because Hero's copies
+   re-shoved into each other, so the read must see the fold rate before it widens. (c) H1's reach: the strong read shuts it on half
+   its decisions at strong tables; whether H1 without the strong read keeps its gain is a coin away (the first H1 coin, unguarded,
+   was +0.0118 against +0.0078 gated, but lost -0.44 to exploiter 1 before `hu2_btn_max`). (d) Nothing in the postflop heads-up lines
+   was worth a rule: the called pots sum to a few milli-points a table either way.
+
+**Ruled out here, so nobody repeats it blind**: the cap (F's play with under 20 hands left is level with the elites'); F's postflop
+heads-up folds (its results per decision are the elites' or better); a re-jam floor that reaches q3 hands (0.30: the realistic room's
+narrow re-jammers punish it); a heads-up play gap against the elites themselves with H1 on (none within ±0.03 a table).
