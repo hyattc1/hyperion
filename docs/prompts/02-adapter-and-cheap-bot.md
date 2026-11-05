@@ -32,7 +32,11 @@ Track A (repo present):
    right after the import, an Overtime BaseException at each limit): copy `hyperion/drills/module_entry_template.py`
    (kit I's shape worked through). Its TODO 3a asks what every template's hand end now asks: is the kit's `won` chips
    collected (deltas = won - paid) or the net change (deltas = won)? Drill 11 pasted kit G's line onto kit I's
-   collected chips. Never a bare `except:` or `except BaseException:`: the kit's Overtime must end the call.
+   collected chips. Never a bare `except:` or `except BaseException:`: the kit's Overtime must end the call. A kit whose
+   bot is ONE MODULE FUNCTION RETURNING A CLOSURE (drill 12's kit J: `sit_down(table)` returns `decide(v)`, a finished
+   hand inside the next timed decide, no other callback): copy `hyperion/drills/closure_entry_template.py` (kit J's
+   shape worked through, its adapter `docs/drills/drill12/adapter.py`; `TABLES_AT_ONCE` is the rule sheet's tables at
+   once in one process).
    The entry pins the package at import (`pin_package()` after the bot is built and warmed, `repin_package()` at the
    top of every method): kit G's loader unloaded our modules before `Agent()` was built (drill 9), kit F's after it.
    The rule sheet's timed hand-end callback (prompt 01) sets the template's `HAND_END`: timed (kits E, F, G: 1 ms, a
@@ -104,7 +108,8 @@ Track A (repo present):
    (drill 10's in-process seat never tested the loop). A module-function kit (step 2):
    `hyperion/drills/module_gate_seat_template.py` as `submission/gate_seat.py`, `--kit submission/gate_seat.py --entry
    bot.py`: it loads the entry as the kit's loader does (the folder off sys.path, our modules out of sys.modules) and
-   raises the kit's Overtime at its limits; an entry that swallows one fails the gate. Another subprocess kit unlike c
+   raises the kit's Overtime at its limits; an entry that swallows one fails the gate. A closure kit (step 2):
+   `hyperion/drills/closure_gate_seat_template.py`, the same flags. Another subprocess kit unlike c
    or d: say the gate cannot run. Required: `GATE PASS`. It proves the reverse adapter now, so Stage 4's gate
    is one command; a FAIL on the delta means the adapter loses something the sim's Hero has.
 

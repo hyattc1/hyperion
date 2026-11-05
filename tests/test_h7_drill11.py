@@ -501,7 +501,7 @@ def test_every_template_asks_how_to_read_won():
     """Every entry, adapter and gate seat template's hand end asks "won: chips collected or net change?"; the entry
     templates give both formulas."""
     names = sorted(p.name for p in DRILLS.glob("*template*.py"))
-    assert len(names) == 8, names
+    assert len(names) == 10, names
     for name in names:
         text = (DRILLS / name).read_text()
         assert "chips collected or net change?" in text, name
