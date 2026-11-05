@@ -150,7 +150,7 @@ Import, build and first table, cold, no bytecode cache, tools/zip_timing.py, the
 | 3x, load 15 | 1266 / 1313 | 1937 / 2043 |
 | 3x, load 22 | 1299 / 1347 | 1997 / 2080 |
 
-Kit H's 2 s start, at 3x: was over at the worst table, now 1.35 s. The zip: 2,966,693 bytes against 3,692,371; 7.1 MB unzipped against 8.5. The bot alone
+Kit H's 2 s start, at 3x: was over at the worst table, now 1.35 s. The zip: 2,966,703 bytes against 3,692,371; 7.1 MB unzipped against 8.5. The bot alone
 (no adapter, zip_timing): p50 and p99 level with batch 8, as they should be; the bot's `act` did not change.
 
 ## The final state (e370fb3; the timing, points and normal-box runs above are 742377d, one telemetry line behind)
