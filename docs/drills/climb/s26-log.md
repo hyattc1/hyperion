@@ -71,3 +71,15 @@ So an elite's first all-in answers open the rule, and our premium re-jams, which
 the strong rooms on the fit and holds on the check with no room down; otherwise v1 goes to the screen.
 
 (c)'s dial `short.hu2_free` went in at the same commit, off.
+
+### Coin v2 (t 0.70, 10-22 bb, `hu_rejam_jk` 2): fit 20000-20119 (`C_*`, the same seeds as v1) and check 20240-20359 (`D_*`); points a table-rotation under 10/7/5
+
+| room | v1 on the fit | **v2 on the fit** | **v2 on the check** |
+|---|---|---|---|
+| four strong rooms pooled | +0.0195 ± 0.0104 | **+0.0273 ± 0.0112 UP** (1,019 eligible) | **+0.0261 ± 0.0105 UP** (1,070 eligible, opener folds 0.91) |
+| realistic | +0.0164 ± 0.0166 | +0.0133 ± 0.0209 | +0.0061 ± 0.0153 |
+| night | +0.0287 ± 0.0193 | **+0.0320 ± 0.0235 UP** | +0.0161 ± 0.0220 |
+| top | +0.0092 ± 0.0205 | +0.0155 ± 0.0213 | **+0.0266 ± 0.0230 UP** |
+
+v2 reaches 35% of the spots (v1 28%); elite1's 29% (7%), elite2's 19% (13%). Against the elites on the check: elite1 +0.0027, elite2 +0.0011, elite4 +0.0031, about +0.007 together; opener folds 0.88-0.97. By rank (check): q0 +0.0119, q1 +0.0094, q2 +0.0006, q3 +0.0051, q4 -0.0009: the premium hands level, as on every set so far.
+Its pre-registered test is met (gains over v1 on the fit, holds on the check, no room down). **v2 replaces v1.**
