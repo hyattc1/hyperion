@@ -124,3 +124,27 @@ def test_the_timing_tool_times_the_zips_bot_and_measures_the_slowdown(packed):
     assert rep["all"]["decisions"] > 0 and rep["setup_ms"]["total"]["n"] > 0 and rep["all"]["max_us"] > 0
     assert 2.9 < rep["work_clock_ms"] / rep["work_cpu_ms"] < 3.1, rep  # the bot's clock reads 3x its CPU time
     assert "errors" not in rep
+
+
+def test_the_gate_can_put_the_package_on_a_slower_clock(packed):
+    gate = ROOT / "tools" / "gate.py"
+    r = subprocess.run([sys.executable, str(gate), str(packed), "--kit", "b", "--entry", "agent.py", "--tables", "1", "--mode",
+                        "measure", "--max-tmo-pct", "100", "--slow", "3"], cwd=packed.parent, capture_output=True, text=True,
+                       timeout=300)
+    assert "package import" in r.stdout and "exc" in r.stdout, r.stdout + r.stderr
+    secs = float(r.stdout.split("package import ")[1].split()[0])
+    assert secs > 0.6, r.stdout  # the import and build, three times what it takes on this box's own clock
+
+
+def test_a_bot_that_never_sleeps_plays_the_same_table(packed):
+    """--spin changes how the process waits, nothing else."""
+    timing = ROOT / "tools" / "zip_timing.py"
+    res = []
+    for extra in ((), ("--spin",)):
+        out = packed.parent / f"s{len(extra)}.json"
+        r = subprocess.run([sys.executable, str(timing), str(packed), "--scale", "0.05", "--json", str(out), *extra],
+                           cwd=packed.parent, capture_output=True, text=True, timeout=300)
+        assert r.returncode == 0, r.stdout + r.stderr
+        res.append(json.loads(out.read_text()))
+    assert res[0]["all"]["decisions"] > 0 and "errors" not in res[1]
+    assert abs(res[0]["all"]["decisions"] - res[1]["all"]["decisions"]) < res[0]["all"]["decisions"] / 5

@@ -196,7 +196,8 @@ def table_failures(need: dict, have: dict, dest: Path) -> list[str]:
         if "error" in side:
             return [f"the recorded bot fails at its build or first table, so its tables cannot be checked: {side['error']}"]
     out = sorted(set(have["lacking"]) | {t for t in set(need["opened"]) | set(need["declared"])
-                                         if not (dest / "tables" / t).is_file()})
+                                         if not (dest / "tables" / t).is_file()
+                                         and not (t.startswith("generic/") and have.get("lacking_twist"))})
     msgs = [f"tables/{t} (the recorded bot {have['bot']} needs it)" for t in out]
     msgs += [f"tables/short_{k}.json or tables/extra/short_{k}.json (the specialist's loader: {why})"
              for k, why in sorted(have["specialist_missing"].items()) if not any(f"short_{k}.json" in t for t in out)]
@@ -516,7 +517,11 @@ def main(argv=None) -> int:
         print("imports  stdlib and the package only")
     if not ok:
         return 1
-    missing = table_failures(need, table_probe(dest, rules=rules_path), dest)
+    have = table_probe(dest, rules=rules_path)
+    if have.get("lacking_twist"):
+        print(f"tables   WARN no {', '.join(have['lacking_twist'])} in --tables-dir: every twist not named by the rules plays "
+              f"without its own preflop table")
+    missing = table_failures(need, have, dest)
     if missing:
         if "entry does not import hyperion" in detail:  # no bot plays here (the build check above skips it too)
             print("tables   WARN the entry does not import hyperion, so nothing reads them, but the recorded bot "

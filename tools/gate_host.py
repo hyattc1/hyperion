@@ -199,7 +199,21 @@ class Direct:
 
 # ------------------------------------------------------------------ serve: JSON lines
 
+def _dilate(k: float) -> None:
+    """tools/gate.py --slow K: every clock here reads K x this thread's CPU time, from before the package is imported, so its
+    deadlines, its governor and the host's own timer are all on the slow box's clock (batch 2's method, tools/slowbox.py)."""
+    src = time.thread_time_ns
+    s0, p0, pn0 = src(), time.perf_counter(), time.perf_counter_ns()
+    m0, mn0 = time.monotonic(), time.monotonic_ns()
+    time.perf_counter = lambda: p0 + (src() - s0) * k * 1e-9
+    time.perf_counter_ns = lambda: pn0 + int((src() - s0) * k)
+    time.monotonic = lambda: m0 + (src() - s0) * k * 1e-9
+    time.monotonic_ns = lambda: mn0 + int((src() - s0) * k)
+
+
 def serve(kind: str, pkg: str, entry: str, kit_dir: str, seat_file: str | None) -> int:
+    if os.environ.get("GATE_SLOW_K"):
+        _dilate(float(os.environ["GATE_SLOW_K"]))
     proto = os.fdopen(os.dup(1), "w", buffering=1)
     os.dup2(2, 1)  # anything the bot prints goes to stderr, never into the protocol
 

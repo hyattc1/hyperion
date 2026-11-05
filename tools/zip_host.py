@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Child side of tools/zip_parity.py and tools/zip_timing.py: one bot, built from one tree, in a process of its own.
 
-    python -I -B tools/zip_host.py <root> <bot> <dials JSON> [--k K]
+    python -I -B tools/zip_host.py <root> <bot> <dials JSON> [--k K] [--spin 1]
 
 Standard library and <root> only, and it never imports this repo unless <root> is this repo: started with -I, PYTHONPATH
 cleared and a scratch working directory, <root> first on sys.path, so `import hyperion` resolves to <root>'s package (the
@@ -13,6 +13,10 @@ With --k the clocks read k times this thread's CPU time from the start of the pr
 every binding of perf_counter sees them, and the bot's own deadlines, the governor and the timers here are all on the
 slow box's clock: batch 2's method, tools/slowbox.py's install with --clock cpu, written out here because that module
 brings this repo's hyperion with it.
+
+With --spin the process spins on its stdin between calls instead of sleeping in the read, as a bot does whose runner plays
+every seat in one process: it never sleeps, so the scheduler gives it no sleeper's wake-up priority and a busy CPU preempts it
+mid-decision.
 
 Requests: ("table", seed, rules, seat, n) builds a bot and starts its table; ("act", obs); ("end", result);
 ("variant", prompt); ("state",) the routes it carries, its counters and the table files opened so far; ("work",) times
@@ -62,6 +66,29 @@ def main(argv: list[str]) -> int:
             return None
         n = struct.unpack("<I", head)[0]
         return pickle.loads(inp.read(n))
+
+    if opts.get("--spin"):
+        os.set_blocking(0, False)
+        buf = bytearray()
+
+        def read_exact(n: int) -> bytes:
+            while len(buf) < n:
+                try:
+                    got = os.read(0, 1 << 16)
+                except BlockingIOError:
+                    continue
+                if not got:
+                    raise EOFError
+                buf.extend(got)
+            out_ = bytes(buf[:n])
+            del buf[:n]
+            return out_
+
+        def recv():  # noqa: F811
+            try:
+                return pickle.loads(read_exact(struct.unpack("<I", read_exact(4))[0]))
+            except EOFError:
+                return None
 
     k = float(opts.get("--k", 1.0))
     if k != 1.0:  # first: every later `from time import perf_counter` binds the slow box's clock
