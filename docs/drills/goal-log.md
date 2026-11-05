@@ -1769,3 +1769,17 @@ and (in judges) `elite_judge`.
   **REJECT.** H35 and H37 used; next fresh H38 = 58000-58399.
 - O8s (climb/o8s): why the veto loses under faster blinds, by depth, on diagnostic seeds 17000-17999; a general gate if the
   diagnosis supports one, not a gate on the twist's name, since the night's blind schedule is unpublished.
+
+## 00:50: S22 accepted on H36 (joins batch 9)
+- S22 (the river-bet read; climb/b8-s22, batch 8 + main + S22) against batch 8 on H36 (56000-56399), every stage, --aim exploit, runout
+  term, exploiter 4 in: **ACCEPT**. exploit4_hu +0.102 ± 0.043, exploit4_3 +0.048 ± 0.034, exploit4 +0.014 ± 0.007, exploit_hu +0.023 ±
+  0.022 UP; night, realistic, top, elite within ±0.001; every other cell level; nothing down. W +0.0006 ± 0.0007 (lower bound -0.0001),
+  W-min +0.0000 ± 0.0005; cap holds. The gate stays shut against honest bettors, which is why ordinary and strong rooms do not move.
+  Dials: goal/b36/b8s22.json. H36 used.
+- Batch 9 so far: S22, G1 when it reports. Candidates still in test: H1 (screen), O8s, S24, S23.
+- Exploiter 5 (goal/exploiter5, black box against batch 8, about an hour, a different model): F wins 8-max 5.85-5.96 vs 4.68-4.92 (100
+  tables total), three-handed 2.36 vs 2.01, heads-up level. Leaks it calls general: F folds 83-100% to flop bets of 0.75 pot and up out of
+  position, 98% to a half-pot turn bet after calling the flop out of position, calls shoves 28% at 13-25 bb. Heads-up probes; S24
+  measures them at full tables first, fixes behind a per-seat read.
+- Drill 12 (kit J, Trailing Stop Hold'em, batch 8's ship): first valid minute 3, ship gated minute 8, final minute 17, stop minute 20; final
+  zip 8.15 ± 0.41 a table against the kit's aware bot's 6.59 (fair share 4.875). H8 fixes what it found.
