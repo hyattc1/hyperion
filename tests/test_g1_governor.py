@@ -451,3 +451,43 @@ def test_a_bot_with_no_ladder_has_no_floor():
     s = SafeBot(Inner(), deadline_ms=0.8, gov=Governor(window=60, recover=40), whole_call=True)
     s.set_floor(1)
     assert s.degrade_level == 0 and s.panic_mode is False
+
+
+# ---------------------------------------------------------------------------- a kit that gives the whole log
+def test_a_log_kits_hand_end_is_the_kits_log_and_the_walk_needs_no_keeping():
+    from hyperion.drills.adapter import make_observation
+
+    class LogKit(KitBAdapter):
+        history_source = "log"
+
+        def to_observation(self, o):
+            obs = super().to_observation(o)
+            obs.history = [(4, Action.fold())]
+            obs.extras = {}
+            return obs
+
+    got = []
+    bot = ship.make_bot(seed=1)
+    orig = bot.hand_end
+    bot.hand_end = lambda r: (got.append(r), orig(r))
+    a = LogKit(bot)
+    a.log_at_end = True
+    a.start(3, 8)
+    a.decide(_native())
+    assert a.inference.hand_no is None  # nothing walked
+    log = [(4, Action.fold()), (3, Action.call())]
+    a.hand_end(1, -20, 8, history=log, deltas=[0, 0, 0, -20, 0, 0, 20, 0], showdown={}, board=())
+    assert got and got[-1].history == log and got[-1].deltas[3] == -20
+    assert make_observation is not None
+
+
+def test_a_recap_dropped_for_the_budget_still_keeps_the_chips():
+    src = (ROOT / "hyperion" / "drills" / "closure_entry_template.py").read_text()
+    assert "t0 = perf_counter()" in src and "ad.decide(v, t0)" in src and "ad.short_of_time()" in src
+    assert "if not deliver:\n        return\n" in src  # after the chip chain, before the bot's hand end
+
+
+@pytest.mark.parametrize("name", ["entry_template", "module_entry_template", "closure_entry_template"])
+def test_every_state_entry_passes_its_first_clock_read(name):
+    src = (ROOT / "hyperion" / "drills" / f"{name}.py").read_text()
+    assert "from time import perf_counter" in src and "t0 = perf_counter()" in src and ", t0)" in src

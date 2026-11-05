@@ -154,7 +154,7 @@ class SafeBot:
         life["acts"] += self.calls
         life["reports"] += self.reports
         life["overruns"] += self.overruns
-        if self.calls:
+        if self.calls >= 8:  # (not an entry's warm-up, a few made-up decisions)
             life["tables"] += 1
             life["level_tables"] += self.level_max > 0
             life["panic_tables"] += self.panic_mode or (self.gov is not None and self.level_max >= self._top())

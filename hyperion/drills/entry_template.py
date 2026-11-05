@@ -73,7 +73,7 @@ ERRORS: Counter = Counter()  # what the wrappers swallowed; printed at exit unde
 #   tables, defer 1-33, store 0-3; late decisions eager 15-223, defer 48-206, store 77-452 (the stored hand end puts
 #   p50 +90 us and p99 +300 us on the first decision of every hand). Points level within noise.
 HAND_END = "defer"
-STORE_SKIP_MAX = 3  # "store": stored hand ends dropped in a row while the budget is short (the next one is delivered)
+STORE_SKIP_MAX = 7  # "store": stored hand ends dropped in a row while the budget is short (the next one is delivered)
 
 # TODO 1  the kit's answers: the closed set it accepts (kit G's tokens), or None when it takes values (kit F's int
 #   chips, kit A's "RAISE:<total>"), and its fold, the answer when even native_safe fails.

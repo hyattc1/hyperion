@@ -171,7 +171,8 @@ class Adapter:
         kit it only watches."""
         kit = [] if (obs.extras and obs.extras.get("history_from_bets")) else obs.history
         if self.history_source == "log" and kit:
-            self.inference.history(obs)
+            if not self.log_at_end or self.conformance is not None:
+                self.inference.history(obs)
             out = obs
         else:
             out = self.inference.observe(obs, kit if self.history_source == "partial" else None)
@@ -334,7 +335,8 @@ class Adapter:
     hold_all = False  # hold every hand end we acted in: every seat's chip change for the bot's stacks (Hero's ICM
     #                  curve), at the cost of the bot's hand end inside the next decision on every hand
     hand_end_timed = False  # the kit times its hand-end callback (the entry templates set it from HAND_END: "eager" is False)
-    hand_end_stored = False  # an entry calls hand_end at the top of the next decision (entry_template.py, HAND_END "store")
+    hand_end_stored = False  # an entry calls hand_end inside the next decision (entry_template.py "store", the closure template)
+    log_at_end = False  # a "log" kit whose hand end carries the whole log: the inference has nothing to watch for (closure template)
     tail_every = 8  # short of time: one hand end in this many still waits for the next state, for its tail (hand_end)
 
     def _life(self, key: str) -> None:
@@ -343,7 +345,7 @@ class Adapter:
             safe.life[key] += 1
 
     def drop_hand_end(self, n: int = 1) -> None:
-        """An entry's stored hand end, not delivered for the budget (entry_template.py, HAND_END "store")."""
+        """An entry's stored hand end, not delivered for the budget (entry_template.py "store", the closure template's recap)."""
         self.ends_dropped += n
         safe = self._safe
         if safe is not None:
@@ -368,14 +370,20 @@ class Adapter:
     def _end(self, hand_no, delta, n_players, history, deltas, final_stacks, showdown, board) -> None:
         try:
             n = n_players or getattr(self, "n_players", 0) or max(1, self.seat + 1)
-            shown = None if showdown is None else dict(showdown)
-            hist = self.inference.hand_end(final_stacks=final_stacks, deltas=deltas, shown=shown, hand_no=hand_no)
-            if self.history_source != "bets":  # (with no log, what the last decision saw starts this: the same walk)
-                seen = self._last_hist if self._last_hand == hand_no else []
-                hist = self.inference.merge(hist, list(seen))
             kit = list(history or [])
-            if kit:
-                hist = kit if self.history_source == "log" else self.inference.merge(hist, kit)
+            if kit and self.history_source == "log":  # the kit's whole log is the answer: nothing to rebuild on the clock
+                hist = kit
+                inf = self.inference
+                inf.live = inf.paused = False
+                inf.sent = None
+            else:
+                shown = None if showdown is None else dict(showdown)
+                hist = self.inference.hand_end(final_stacks=final_stacks, deltas=deltas, shown=shown, hand_no=hand_no)
+                if self.history_source != "bets":  # (with no log, what the last decision saw starts this: the same walk)
+                    seen = self._last_hist if self._last_hand == hand_no else []
+                    hist = self.inference.merge(hist, list(seen))
+                if kit:
+                    hist = self.inference.merge(hist, kit)
             if deltas is None:
                 deltas = [0] * n
                 deltas[self.seat] = delta

@@ -80,7 +80,7 @@ TABLES_AT_ONCE = 1
 
 # TODO 1  from the RULE SHEET: is the hand end timed? Kit J: inside the next decide, "defer". Untimed: "eager".
 HAND_END = "defer"
-RECAP_SKIP_MAX = 3  # recaps whose bot hand end is dropped in a row while the budget is short (the next one is delivered)
+RECAP_SKIP_MAX = 7  # recaps whose bot hand end is dropped in a row while the budget is short (the next one is delivered)
 
 
 def safe_answer(v):
@@ -177,6 +177,7 @@ def build() -> _Slot:
     ad = make_adapter(bot, RULES)
     ad.hand_end_timed = HAND_END != "eager"
     ad.hand_end_stored = True  # hand_end runs inside the timed decide: it has its own mean (Adapter._note_call)
+    ad.log_at_end = True  # the recap carries the hand's whole log (TODO 5): no walk of the states to keep up on the clock
     table_start(ad, _WARM_TABLE)
     return _Slot(ad)
 
