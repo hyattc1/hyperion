@@ -1832,3 +1832,8 @@ and (in judges) `elite_judge`.
   tables; fast_schedule's twice-down cell sits on that leak. The one repeating cut (hand band p 0.1-0.3) failed table for table. An over-20-bb veto would pass on size alone; not built. The coordinator's shallow-stack guess was wrong.
 - Decision: O8 is not in the default. The trade depends on the room, which the night's standings reveal: T5 and T6 are 52% of the score and the windows may switch dials. **Plan: merge O8's code off by default in batch 9 and offer it as a window recipe (`strong_room`), with a
   signal from real standings for when to use it, measured as a recipe.** S21's parked O3 is the same shape and gets the same look.
+
+## 06:25: B18 accepted on H39 (joins batch 9)
+- B18 (climb/s23-firsts 8f5c4d1; goal/b39/b18.json) against batch 8 on H39 (59000-59399), every stage, --aim strong, runout term: **ACCEPT**. elite_night +0.007 ± 0.005, mirror +0.009 ± 0.005, top +0.008 ± 0.005, night_hard +0.007 ± 0.006, exploit4 +0.019 ± 0.015 UP; elite +0.001,
+  elite_b +0.005, mirror_b +0.005, night +0.005, realistic -0.000 level; nothing down. W +0.0018 ± 0.0020 (lower bound -0.0002), W-min lower bound -0.0013. Screen said +0.008 to +0.010; held-out a little less. H39 used.
+- Batch 9 so far: S22, H1, B18. Waiting: G1's slow-box table at elite, S24 on H40.
