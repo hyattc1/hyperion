@@ -181,7 +181,7 @@ pair differs by the package alone; a zip against itself there is reply for reply
 | night | 2x | 8..1 | -0.004 ± 0.039 | 0.039 / 0.094 | 47 / 0 / 0 | 8.6 |
 | realistic + bonus_card | 2x | the twist's | +0.001 ± 0.039 | 0.042 / 0.101 | 59 / 0 / 0 | 8.9 |
 
-Read: elite at 2x is level within ±0.07, and that interval's low end (-0.119) still holds model mode's -0.11, so a small real cost is not excluded; at 3x fewer timeouts more than cover it.
+Read: elite at 2x is level within ±0.07, and that interval's low end (-0.119) still holds model mode's -0.11, so a small real cost is not excluded. At 3x it is level too, with the rung held on 70% of decisions and timeouts a sixth of batch 8's.
 At 1.5x the rung barely holds (1% of decisions), so 1.5x carries no such risk. 0.3% at 2x holds in every cell at load 9-13 but one: **elite under 10/7/5 at 0.82%** (batch 8 7.0%), where exact
 ICM makes the box's slowest decisions slower still. Twist: bonus_card only (auction was not run).
 
