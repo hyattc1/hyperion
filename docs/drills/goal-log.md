@@ -1731,3 +1731,11 @@ and (in judges) `elite_judge`.
   blind, no repo access, nobody tunes on them (goal/outside4): o9 unconventional and o11 prepared top team (built by a
   different model, to widen the opponents' authorship), o10 a strict 60-minute team (a third model). Exploiter 5 waits for
   batch 8's zip.
+
+## 21:57: batch 8's judges: nothing down (ACCEPT); O8 and S22 running
+- Judges (13 cells, fresh seeds 60400-60799, 400 x 8, against batch 7, runout-corrected): UP judge_top +0.052 ± 0.041,
+  elite_judge_b +0.052 ± 0.039, adapt_judge +0.107 ± 0.064, adapt_judge_3 +0.102 ± 0.070, outside_c +0.081 ± 0.038. Level
+  the rest (judge -0.002, judge2 -0.005, judge2_night +0.025, outside +0.021, outside_strong +0.021, elite_judge -0.018,
+  adapt_judge_hu +0.037, outside_b +0.040). Nothing beyond noise down. Timing against batch 7 at load 16: act p99 133 µs
+  (134), hand end p99 201 µs (192), max 268 (249), none over 1 ms. Batch 8 goes to its freeze when the staging worker
+  reports. Timing here is the new CPU's: the proof that counts is the zip under load and at 3x slowdown.
