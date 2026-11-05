@@ -589,3 +589,18 @@ def test_module_entry_counts_a_hand_number_that_went_back(tmp_path):
     assert 'ERRORS["hand_went_back"] += AD.tables_seen' in text
 
 
+# ---------------------------------------------------------------------------------------------- item 7
+@pytest.mark.night
+def test_the_rest_of_the_drills_notes():
+    """The kit's `setup` column in prompt 04, the short-list slip in the keep rule, one recipe run, the budget on the gate."""
+    p04 = _flat(_read("docs/prompts/04-wire-hero.md"))
+    assert "a `setup` column, if the kit prints one, reads 0" in p04
+    assert "One paired run of a recipe, no tuning beyond it" in p04
+    assert "--setup-budget-ms <the kit's table-start limit>" in p04
+    assert "tools/latency.py --table-start --budget-ms" in p04
+    assert "a kit repeats a short list" in _flat(_read("docs/prompts/05-variant-patch.md"))
+    assert "trailing_stop" in _read("docs/drills/prompt-drill-12.md")
+    assert "trailing_stop" in _read("docs/drills/RESUME.md")
+    for name in ("NIGHT.md", "adapter.py", "bot.py", "gate_seat.py", "tonight.py", "rules_tonight.json", "kitJ-README.md",
+                 "kitJ-ORGANISER-NOTES.md"):
+        assert (DRILL12 / name).exists(), name

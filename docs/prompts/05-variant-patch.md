@@ -14,7 +14,8 @@ Hero patch below reaches such a bot only on Hero's tables, written `hero.<key>`;
 **The keep rule** (the one rule for this patch; PLAYBOOK Stage 5, hard rule 6 and prompt 00 point here). Measure it
 paired, the same tables with and without it: in our simulator with `--variant` when it can play tonight's twist (a
 catalog entry, or its hooks as a file), else in the kit's own simulator (the patched and the unpatched zip in the same
-tables, two seats each, the same seeds; its CPU clock if it has one). Use the most tables the box allows in the box's
+tables, two seats each, the same seeds; its CPU clock if it has one; name eight bots, since a kit repeats a short list:
+drill 12's five gave four of one, three of the other and one opponent). Use the most tables the box allows in the box's
 time, never fewer than 600 paired tables in all (pool runs on different seeds). Keep it when the pooled point estimate
 is above zero and no paired check is down beyond its 95% interval (each run, and the aware check below). Otherwise
 revert it and say so. Drill 11's twin: +0.35 over 1,000 kit-sim tables, every run up: kept.
