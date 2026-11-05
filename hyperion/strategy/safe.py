@@ -24,7 +24,7 @@ the top of the decision, then `act`. `act` alone is about half of it, so a gover
 slow box through a kit (batch 8: 12% timeouts at 3x with no level reached, docs/drills/climb/b8-timing.md). With the dial on,
 `hyperion.drills.adapter.Adapter` tells this SafeBot that reports are coming (`expect_reports`, at its build) and sends every
 decision's whole call to `report_call(seconds)`; the overruns are counted there, on the same deadline and the same
-window, and `act`'s own time counts for nothing. A SafeBot with no adapter in front of it (the simulator, the tests) has no
+window (the scheduler's stalls apart: report_call), and `act`'s own time counts for nothing. A SafeBot with no adapter in front of it (the simulator, the tests) has no
 reports and times `act`, as before. An entry that does not go through Adapter.decide must call `report_call` itself:
 tools/gate.py fails a package whose decisions do not report.
 """
@@ -131,13 +131,15 @@ class SafeBot:
         self._whole = bool(on) and self.whole_on
         return self._whole
 
-    def report_call(self, seconds: float) -> None:
-        """One decision's whole timed call: from the kit's call to our return."""
+    def report_call(self, seconds: float, cpu: float | None = None) -> None:
+        """One decision's whole timed call: from the kit's call to our return, and (`cpu`) how much of it our thread ran. A
+        call the scheduler stalled is late however cheap its code, and stepping down answers nothing: it counts as an overrun
+        only when the code itself used most of the line. A normal box under load then never fires, a slow CPU still does."""
         self.reports += 1
         if self._whole:
             if seconds > self.worst:
                 self.worst = seconds
-            self._count(seconds)
+            self._count(seconds if cpu is None or cpu > 0.6 * self.deadline else 0.0)
 
     def set_floor(self, level: int) -> None:
         """An adapter that has measured this box slow for a table's worth of calls (Adapter._note_call): play at level

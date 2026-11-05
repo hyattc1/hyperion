@@ -11,6 +11,11 @@ import sys
 from time import perf_counter
 from typing import Any, Callable, Iterable
 
+try:
+    from time import thread_time as _cpu_clock  # about 0.15 us a read
+except ImportError:  # a platform without it: the wall clock, stalls and all
+    _cpu_clock = perf_counter
+
 from hyperion.core.types import Action, ActionKind, Bot, HandResult, Observation, Rules, parse_card
 from hyperion.strategy.safe import SafeBot
 from hyperion.strategy.tables import quick_start
@@ -184,19 +189,23 @@ class Adapter:
     def decide(self, native: Any, t0: float | None = None) -> Any:
         """The kit's timed call, and its report: `t0` the kit's call as the entry's first line read the clock (default:
         now), and the whole call goes to the bot's SafeBot on every way out."""
+        now = perf_counter()
         if t0 is None:
-            t0 = perf_counter()
+            t0 = now
+        c0 = _cpu_clock()
         reply = self._decide(native)
         safe = self._safe
         if safe is not None:
             dt = perf_counter() - t0
-            safe.report_call(dt)
+            cpu = _cpu_clock() - c0 + now - t0  # (what the entry did before this line: short, and taken as run, not stalled)
+            safe.report_call(dt, cpu)
             if self._budget:
-                self._note_call(dt)
+                self._note_call(cpu)
         return reply
 
-    # The budget-aware hand end (G1, hand_end). A decision's cost and a hand end's, on this box's clock this table. A sample is
-    # clipped at 1 ms: one stall of the scheduler says nothing about the box, and these means must never move on a normal one
+    # The budget-aware hand end (G1, hand_end). A decision's cost and a hand end's, in this thread's CPU time this table: the
+    # scheduler's stalls say nothing about the box, and these means must never move on a normal one. A sample is clipped at
+    # 1 ms, for what the thread's clock cannot tell from running (a hypervisor's stall, a page fault)
     def _note_call(self, dt: float) -> None:
         dt -= self._end_now  # the hand end has its own mean
         self._end_now = 0.0
@@ -259,9 +268,9 @@ class Adapter:
             self._hand_seen = obs.hand_no
             if self._pending is not None:
                 if self._budget:
-                    t = perf_counter()
+                    t = _cpu_clock()
                     self._deliver(obs)
-                    self._end_now = perf_counter() - t
+                    self._end_now = _cpu_clock() - t
                     self._note_end(self._end_now)
                 else:
                     self._deliver(obs)
@@ -320,14 +329,14 @@ class Adapter:
                     return
                 self.tails_lost += 1
                 self._life("tail_lost")
-            t = perf_counter()
+            t = _cpu_clock()
             self._end(hand_no, delta, n_players, history, deltas, final_stacks, showdown, board)
             if self._whole and not self.hand_end_timed:
                 fn = getattr(self.bot, "idle", None)  # this call is on no clock: the curve and the dials, now
                 if fn is not None:
                     fn()
             if self._budget:
-                t = perf_counter() - t
+                t = _cpu_clock() - t
                 self._note_end(t)
                 if self.hand_end_stored:
                     self._end_now += t

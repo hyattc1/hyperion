@@ -491,3 +491,38 @@ def test_a_recap_dropped_for_the_budget_still_keeps_the_chips():
 def test_every_state_entry_passes_its_first_clock_read(name):
     src = (ROOT / "hyperion" / "drills" / f"{name}.py").read_text()
     assert "from time import perf_counter" in src and "t0 = perf_counter()" in src and ", t0)" in src
+
+
+# ---------------------------------------------------------------------------- a stall is not a slow box
+def test_a_stall_is_late_and_counts_for_nothing():
+    s = safe()
+    s.expect_reports()
+    for _ in range(50):  # 3 ms on the wall, 0.2 ms of CPU: the scheduler's, and stepping down answers nothing
+        s.act(Obs())
+        s.report_call(0.003, 0.0002)
+    assert s.overruns == 0 and s.degrade_level == 0 and s.worst == 0.003
+    for _ in range(5):  # a slow CPU: the code itself used the time
+        s.act(Obs())
+        s.report_call(0.0009, 0.00085)
+    assert s.overruns == 5 and s.degrade_level == 1
+
+
+def test_a_real_stall_through_the_adapter_counts_for_nothing():
+    bot = ship.make_bot(seed=1)
+    a = Slow(bot)
+    a.start(3, 8)
+
+    def stalled(o):
+        time.sleep(0.002)
+        return KitBAdapter.to_observation(a, o)
+
+    a.to_observation = stalled
+    for i in range(8):
+        a.decide(_native(hand=i + 1))
+    assert bot.safe.worst > 0.002 and bot.safe.overruns == 0 and bot.safe.degrade_level == 0
+    assert a._e_call < 0.001 and not a._floored
+
+
+def test_the_gate_dilates_the_thread_clock_too():
+    for tool in ("gate_host.py", "zip_host.py"):
+        assert "time.thread_time = lambda" in (ROOT / "tools" / tool).read_text()
