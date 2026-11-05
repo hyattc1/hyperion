@@ -61,6 +61,10 @@ the box turns out fine; each level adds its saving to the ones above it:
   hero       every section to Hero (the hero member, the layer on), no full shadows (light ones stay)
   lean       under payouts with no closed form (top-heavy), a decision the base would price with exact ICM (~50 us a
              call, four an all-in) is Hero's (the base's own Hero, its ICM precomputed at hand_end: `hero:lean`)
+`bare_reads` (G2, off by default) keeps the hero member's profiler whole at a level with no shadows. Without a shadow it meets a hand late or only at its end, and
+that blank pass has no chips, blinds or button: `rr_by`, the first-in opens and the shoves starve, and a seat's walks fall out of `hands`, so R6's and S7's gates refuse. With
+the dial the composite appends each observation to the profiler (Profiler.pend_obs), which feeds them at Hero's next decision or at the hand's end: the same counters as level 0 on the same
+hands, one hand later inside a hand, paid at the hand end (docs/drills/climb/g2-log.md).
 Counted `level:<n>` once per decision played at level n > 0. The shipped ladder is "bare,lean,hero" since G1: `bare` takes a
 quarter off a decision for little play in model mode (a whole table at the level, 200 x 8: night +0.02 ± 0.05, realistic -0.02 ± 0.05,
 elite -0.11 ± 0.07, th -0.6 ± 0.7 of 100; `hero` costs night -0.17 ± 0.12), where `noshadow` saved nothing on the shipped routes. Behind a kit's adapter the governor counts the whole timed call (hyperion/strategy/safe.py),
@@ -610,6 +614,7 @@ class ComposeConfig:
     degrade: str = ""  # "noshadow,base": the intermediate levels, in order (module doc)
     whole_call: bool = False  # G1: the governor counts the whole timed call an adapter reports (hyperion/strategy/safe.py)
     hand_end_ms: float = 0.0  # G1: a kit's held hand end minds this budget (hyperion/drills/adapter.py Adapter.hand_end)
+    bare_reads: bool = False  # G2: the hero member's profiler keeps every hand at a level with no shadows (module doc)
     start_level: int = 0  # measurement: play every table at this level from its first decision (a level's strength)
     # the strong-table route (backlog S9, module doc): these sections go to these donors while the table reads strong,
     # i.e. while the share of our first-in preflop raises that were re-raised, smoothed toward `strong_prior` with the
@@ -793,6 +798,7 @@ class CompositeCore:
         self._shadows = True
         self._force = None  # (member index, layer) every section goes to at a base / hero level
         self._hero_idx = names.index("hero") if "hero" in names else -1
+        self._late_prof = None  # G2: the profiler that takes this level's observations (set_level)
         # H6 (module doc): the hero member plays the tables the base's core cannot, when its Config is the base's Hero's
         hm = self.members[self._hero_idx] if self._hero_idx >= 0 else None
         bh = getattr(self.base, "hero", None)
@@ -927,6 +933,10 @@ class CompositeCore:
             self._force = (self._hero_idx, True)
         elif "base" in on:
             self._force = (0, DONORS[self.cfg.base_donor][1])
+        # G2: no shadow feeds Hero's profiler here, and Hero is not every section's donor: it takes the observations, for later
+        self._late_prof = None
+        if self.cfg.bare_reads and not self._shadows and self._hero_idx >= 0 and (self._force is None or self._force[0] != self._hero_idx):
+            self._late_prof = getattr(self.members[self._hero_idx], "prof", None)
         # a forced level saves the full shadows too (the point of it); light ones keep the members' state
         self._full_shadows = self._shadows and "noshadow" not in on and self._force is None
         lean = "lean" in on
@@ -1039,6 +1049,9 @@ class CompositeCore:
                         counts["short"] += 1
         if self.level:
             counts["level:%d" % self.level] += 1
+            lp = self._late_prof
+            if lp is not None:
+                lp.pend_obs.append(obs)
             if self._force is not None and not self.panic:
                 mi, layer = self._force
         if self.panic:  # SafeBot saw repeated overruns: the base alone (Hero's cheap path) for the rest of the table
@@ -1376,6 +1389,7 @@ def parse_dials(dials: dict | None) -> tuple:
       late_us, deadline_ms, panic_after, panic_rate   the shell's clocks
       panic_window, panic_ladder, panic_recover, panic_backoff, degrade   SafeBot's governor and the composite's
                      degradation levels (module doc; off by default)
+      bare_reads     the hero member's profiler keeps every hand at a level with no shadows (G2)
       whole_call, hand_end_ms   the governor counts the whole timed call an adapter reports, and a kit's held hand end
                      minds this budget (G1; G1_OFF: batch 8's clock)
       light          light shadows (ship() turns them on)

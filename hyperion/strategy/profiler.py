@@ -34,6 +34,9 @@ class Profiler:
     # a bet), with the bettor's tier (Postflop.read) when its cards are shown; and check-raises (a seat that checked
     # this street, then faced a bet: did it raise)
     track_s12 = False
+    # G2 (docs/drills/climb/g2-log.md): at a level with no shadows a composite hands over each observation here instead of feeding it,
+    # one append (`pend_obs`, CompositeCore.set_level). They are fed at the next observe or at the hand's end, so the counters
+    # at a hand's end are the ones a profiler fed at every decision has, and the decisions pay nothing for them
     SZ_EDGES = (0.4, 0.6, 0.85, 1.2)
     SHOVE_BUCKETS_BB = (12.0, 25.0, 50.0)  # depth buckets (bb at its first preflop action) for shove_counts
     LATE_BEHIND = 3  # an open with at most this many players behind (cutoff, button, small blind) is a late open
@@ -151,6 +154,7 @@ class Profiler:
         self.last_bb = 20
         self.hand_no = -1
         self._finished = True
+        self.pend_obs = []
         self._start_blank()
 
     def _start_blank(self) -> None:
@@ -228,8 +232,20 @@ class Profiler:
             self.pre_order_known = True
 
     # ------------------------------------------------------------------ updates
+    def _feed_pending(self, skip=None) -> None:
+        """The observations handed over (`pend_obs`), in order, as a light shadow feeds them: a slip costs that one."""
+        pend, self.pend_obs = self.pend_obs, []
+        for o in pend:
+            if o is not skip:
+                try:
+                    self.observe(o)
+                except Exception:  # noqa: BLE001 - as in HeroCore.act: the profiler is best effort
+                    pass
+
     def observe(self, obs: Observation) -> None:
         """Consume the new tail of obs.history. Call once per act(); cost is O(new actions)."""
+        if self.pend_obs:
+            self._feed_pending(obs)
         if self._stale:
             self._settle()
         hist = obs.history
@@ -280,6 +296,8 @@ class Profiler:
 
     def hand_end(self, result: HandResult) -> None:
         self._stale = False  # recomputed below from this hand's counters; nothing reads them in between
+        if self.pend_obs:
+            self._feed_pending()
         hist = result.history
         if self._finished or result.hand_no != self.hand_no:
             # never observed this hand (we were out or all-in): degraded pass without blind info
