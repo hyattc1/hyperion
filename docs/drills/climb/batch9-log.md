@@ -71,7 +71,7 @@ Whole candidate on the 40 screen seeds, a first look, not a verdict: nothing bey
 Panic is no rung with this ladder (`no_panic`); if it did fire, all of them are off, as they need `not cheap`.
 
 **Found at `bare`, already on main, not caused by a merge:** Hero's profiler misses preflop without its light shadow, and two gates that read it starve.
-- `rr_by` (R6's per-seat gate): elite 1,672 -> 43 on F, 1,648 -> 41 on the candidate. **F's R6 falls from 254 hands to 0.** On the candidate it falls 458 -> 236, and all of those can only come through B18's either-or.
+- `rr_by` (R6's per-seat gate): elite 1,672 -> 43 on F, 1,648 -> 41 on the candidate. **F's R6 falls from 254 hands to 0.** On the candidate it falls 458 -> 236; since F's reads alone give 0 there, nearly all of those come through B18's either-or.
 - S7 against exploiter 2: preflop decisions 1,307 -> 312 on F, 1,313 -> 467 on the candidate; postflop 3,306 -> 1,635 on F. H1 picks up what the gate now refuses: 13 -> 131 hands.
 - Points, raw, 40 seeds, no interval: elite F 4.826 -> 4.641, candidate 4.900 -> 4.722; exploit2_hu F 8.312 -> 8.088, candidate 8.312 -> 8.125.
 The likely cause of `rr_by`, read from the code and not tested: a hand the profiler catches up at hand end has blank `chips`, so `amt < chips * 0.95` never opens the count. S7's drop is not root-caused. It may be part of G1's
@@ -92,7 +92,7 @@ tools/zip_parity.py and tools/zip_host.py now require H1's route to fire when th
 
 ## Package, parity, timing (the candidate at 7e42384, dials recorded)
 
-goal/b9_stage/final/submission.zip, sha256 de59ff6c9092e3bfc13435b59539b0e29fb9c8730d53cbfb7ca57580c3f3d0e7, a trial pack, not a freeze. **3.0 MB zipped, 7.2 MB unzipped**, 121 files or so, 12 tables at the build, all in the package; passes kit H's caps (2 s, 20 MB, 5 MB).
+goal/b9_stage/final/submission.zip, sha256 de59ff6c9092e3bfc13435b59539b0e29fb9c8730d53cbfb7ca57580c3f3d0e7, a trial pack, not a freeze. **3.0 MB zipped, 7.2 MB unzipped**, 121 files, 12 tables at the build, all in the package; passes kit H's caps (2 s, 20 MB, 5 MB).
 **Parity PASS:** 112,128 decisions and 1,780 variant decisions identical over 730 tables; strong 1,029, specialist 1,525, H1 358, R6 505.
 
 H1's log's 12.5 MB does not apply here. Its head re-packed today with `--slim` gives 8.6 MB, 3.7 MB zipped, so the figure was not reproduced (why not is not established). It would pass either way: the tightest kit seen allows 20 MB.
