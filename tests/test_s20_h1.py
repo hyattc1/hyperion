@@ -202,3 +202,16 @@ def test_the_hold_waits_for_s7s_gate():
     assert not m.wants(o, _Prof(2, 0))  # two chances, refused so far: the gate could not have admitted yet
     assert m.wants(o, _Prof(3, 1)) and m._hu2_mode  # three chances, refused
     assert not m.wants(o, _Prof(4, 4))  # admitted: never H1's (and S7 takes only the big blind)
+
+
+@has_dev
+def test_h1_plays_plain_holdem_only():
+    """The composite's strong_route_twists opens the member at bounty, knockout and buy tables: H1 stays out; payouts and
+    schedules are still hold'em (heads-up the tree's chip EV is exact whatever the payouts)."""
+    o = _obs([], bets=(10, 20), stacks=(290, 280), to_call=10, seat=0)
+    for extras, want in (({"variant": "bounty", "bounty_ratio": 1.0}, False), ({"variant": "auction"}, False),
+                         ({"variant": "top_heavy"}, True), ({"variant": "fast_schedule"}, True), ({}, True)):
+        m = SH.ShortMember(SH.ShortParams(hu2=True, hu2_file="hu2_dev", pre_roles="bb"))
+        m.new_table(Rules(n_players=2, payouts=(10, 7), extras=extras), 0, 2)
+        m.strong_open = True
+        assert m.wants(o, None) is want, extras

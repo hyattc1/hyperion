@@ -263,6 +263,7 @@ class ShortMember:
         self.needs_strong = self.hu2 is not None  # the composite passes its strong-table read (`strong_open`)
         self.strong_open = False
         self._hu2_mode = False  # the last `wants` gave the decision to the second heads-up path
+        self._hu2_holdem = False  # this table is plain hold'em (new_table)
         self.payouts = (1.0, 0.0)
         self.rho = 0.4
         self.n = 0
@@ -281,6 +282,10 @@ class ShortMember:
         self.rho = (pay[1] - pay[2]) / (pay[0] - pay[2]) if len(pay) >= 3 and pay[0] > pay[2] else 0.4
         self._hand = -1
         self._start = []  # the last table's last hand (light_observe refills it; reset so a new table keeps nothing)
+        if self.hu2 is not None:  # H1 is for plain hold'em: the composite's strong_route_twists also opens this member at
+            from .hero import holdem_table  # bounty, knockout and buy tables, where the tree's chip EV is not the game
+
+            self._hu2_holdem = holdem_table(rules)
 
     def hand_end(self, result) -> None:
         """The heads-up read of `sb_ftb_max`: in a hand two started, the button's first action an open (a raise), the
@@ -432,7 +437,7 @@ class ShortMember:
 
     # ------------------------------------------------------------------ preflop: heads-up, the second tree (S20 H1)
     def _wants_hu2(self, obs: Observation, prof, base=None) -> bool:
-        if obs.street != 0 or not self.strong_open or obs.pot > 0:
+        if obs.street != 0 or not self.strong_open or obs.pot > 0 or not self._hu2_holdem:
             return False
         alive = [j for j in range(len(obs.stacks)) if obs.stacks[j] + obs.bets[j] > 0 or obs.in_hand[j]]
         if len(alive) != 2:
