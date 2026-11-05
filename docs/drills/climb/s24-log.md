@@ -145,7 +145,7 @@ Exploiter 5's wiring against the rest of the exploit and elite stages: raw sampl
 | | mirror | 4.484 | 4.510 | **+0.026 ± 0.026** | **UP** | +0.027 ± 0.038 | |
 | | mirror_b | 4.508 | 4.533 | +0.025 ± 0.028 | level | +0.037 ± 0.044 | |
 | | elite_night | 5.452 | 5.451 | -0.001 ± 0.018 | level | -0.001 ± 0.026 | |
-| variants | 27 catalog entries (realistic) | | | 23 identical; top_heavy +0.154 ± 0.212, antes_from_level_3 -0.010 ± 0.014, fast_schedule -0.002 ± 0.015, pot_limit identical to the printed digit | level | | |
+| variants | 27 catalog entries (realistic) | | | 24 identical chunk by chunk; top_heavy +0.154 ± 0.212, antes_from_level_3 -0.010 ± 0.014, fast_schedule -0.002 ± 0.015 | level | | |
 | aware | five aware fields | | | identical | level | | |
 
 0 timeouts and 0 errors in every chunk for both specs. Weighted score (addendum 11, six adapter bots): W +0.0064 ± 0.0060 night points, lower bound **+0.0004**; W-min +0.0049 ± 0.0077, lower bound -0.0028; the cap holds. Families: ordinary +0.0097 ± 0.0216, strong +0.0219 ± 0.0232, adapters +0.0077 ± 0.0158, twist on realistic +0.0002 ± 0.0012, twist aware 0.
@@ -165,6 +165,7 @@ Exploiter 5's wiring against the rest of the exploit and elite stages: raw sampl
 ## Tests
 
 tests/test_s24_reads.py (12: the shove read's counts, first actions only, no chance behind an all-in, a blind posted as a raise; both reads reach the decisions; shut gates play as F; twist tables play as F; a table replays exactly). tests/test_sim_exploiter.py and tests/test_climb_accept.py gain exploiter 5. docs/packet/CONTRACTS.md regenerated (the apicard test asked).
+Full suite at 7a841e1 (`pytest -q -m "not timing"`, goal/s24/suite.out): **1507 passed, 5 skipped, 0 failed**. The first run, at 3d5dab6's tree plus the log, had the one failure of the stale contracts card, fixed by regenerating it. Nothing under hyperion/ or tools/ changed after the screen's 3d5dab6.
 
 ## Addendum 17, proposed (not in docs/decisions.md; the coordinator's)
 
