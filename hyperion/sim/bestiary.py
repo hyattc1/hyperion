@@ -1526,6 +1526,72 @@ class OutReadsBot(_FixedSpeedInModel, PersonaBot):
         return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
 
 
+class _OutsideDBot(_FixedSpeedInModel, PersonaBot):
+    """The outside judges' fourth wave (proposed decisions addendum 16): fresh agents with no repo access, measured
+    against F and never tuned on. Each reads `time.perf_counter` through its module's `time` to guard a sampler or an
+    exact ICM step and otherwise plays alone; in mode "model" that name is bound, at every act() (after the module has
+    loaded), to a clock of this seat's that advances STEP_US per read (the median wall time between its reads inside
+    one decision, measured on this box at load 15), so a time guard cuts the same samples at any load and runs replay exactly. In
+    strict and measure modes the module has the real clock. `self.rng` (each seeds it from seat and table size alone)
+    is reseeded from the seat seed at every table, so every table draws its own stream."""
+
+    STEP_US = 0.0
+    SALT = 0
+
+    def __init__(self, seed: Optional[int] = None):
+        super().__init__(seed)
+        self.mod = sys.modules[type(self.impl).__module__]
+        self._seed = seed or 0
+        self._now = 0.0
+        self._fixed_time = types.SimpleNamespace(perf_counter=self._clock)
+
+    def _clock(self) -> float:
+        self._now += self.STEP_US * 1e-6
+        return self._now
+
+    def _set_speed(self, fixed: bool) -> None:
+        pass  # read at every act()
+
+    def new_table(self, rules: Rules, seat: int, n_players: int) -> None:
+        super().new_table(rules, seat, n_players)
+        self.impl.rng = random.Random(self._seed * 1_000_003 + self.SALT)
+
+    def act(self, obs: Observation) -> Action:
+        self.mod.time = self._fixed_time if self.fixed_speed else time
+        return self.from_kit(self.impl.act(self.to_kit(obs)), obs)
+
+
+class OutO9Bot(_OutsideDBot):
+    """Outside `out_o9`: an unconventional team. Limp-traps with premiums in front of aggressors, tiny 3-bets, over-limps,
+    push/fold short; postflop a Monte Carlo against random hands (12-40 samples, a 500 us guard read every fourth
+    sample), small probes and leads against folders, big and polarised sizes against callers. Frozen at md5 f85066a0."""
+
+    MODULE = "out_o9"
+    STEP_US = 18.8
+    SALT = 0x0C9
+
+
+class OutO10Bot(_OutsideDBot):
+    """Outside `out_o10`: a strict 60-minute team (built in about 48). Percentile opens by seats behind, push/fold at 11
+    bb or less, ranges for a raiser scaled by his seat's raise rate; postflop a range-cut Monte Carlo with a 500 us guard
+    read every fourth trial. Pauses the collector inside each decision. Needs the brief's `kit` at import
+    (hyperion.sim.field.load gives it). Frozen at md5 bedcbd0c."""
+
+    MODULE = "out_o10"
+    STEP_US = 19.7
+    SALT = 0x0CA
+
+
+class OutO11Bot(_OutsideDBot):
+    """Outside `out_o11`: a prepared top team. Embedded preflop and postflop equity tables, a jam and call-a-jam model in
+    ICM points, per-seat reads with priors. No sampler; its one guard falls back from exact ICM on the two likeliest
+    callers to a linear estimate once a decision has run 450 us. gc.freeze() at import. Frozen at md5 5f92fb3b."""
+
+    MODULE = "out_o11"
+    STEP_US = 53.2
+    SALT = 0x0CB
+
+
 class OutsideQuantsBot(_FixedSpeedInModel, PersonaBot):
     """Outside `out_quants`: two quant interns. An embedded 169x169 all-in equity table and fictitious-play push/fold
     equilibria for 1-7 players behind and 1-30 bb, exact ICM for 10/7/5/4/3/2/1/0 (hard-coded), push/fold at 16 bb or
@@ -1959,6 +2025,9 @@ REGISTRY: dict[str, type] = {
     "out_press": OutPressBot,  # outside judges, second wave: hyper-aggressive, never tuned on
     "out_charts": OutChartsBot,  # outside judges, second wave: solver charts, never tuned on
     "out_reads": OutReadsBot,  # outside judges, third wave (addendum 14): reads first, never tuned on
+    "out_o9": OutO9Bot,  # outside judges, fourth wave (proposed addendum 16): unconventional, never tuned on
+    "out_o10": OutO10Bot,  # outside judges, fourth wave: a strict 60-minute team, never tuned on
+    "out_o11": OutO11Bot,  # outside judges, fourth wave: a prepared top team, never tuned on
     "elite1": Elite1Bot,  # elite field (prepared top-team build): tuning fields elite, elite_night
     "elite2": Elite2Bot,  # elite field: tuning fields elite, elite_night
     "elite4": Elite4Bot,  # elite field, second wave: tuning fields elite_b, mirror_b
@@ -2084,6 +2153,14 @@ OUTSIDE_B = ("out_cfr", "out_press", "out_charts")
 FIELDS["outside_b"] = ("hero",) + OUTSIDE_B + ("rival4", "rival5", "elite5") + _night.seat_names("night")[:1]
 OUTSIDE_C = ("out_reads",)
 FIELDS["outside_c"] = ("hero",) + OUTSIDE_C + OUTSIDE_B + ("elite5", "rival4") + _night.seat_names("night")[:1]
+# the fourth wave (proposed addendum 16): the three with four night seats; with the strongest held-out bots; and each
+# alone heads-up and with the first night seat three-handed, seated as the exploiters' cells are. Judges only.
+OUTSIDE_D = ("out_o9", "out_o10", "out_o11")
+FIELDS["outside_d"] = ("hero",) + OUTSIDE_D + _night.seat_names("night")[:4]
+FIELDS["outside_d_strong"] = ("hero",) + OUTSIDE_D + ("out_reads", "out_cfr", "elite5", "rival4")
+for _bot in OUTSIDE_D:
+    FIELDS[f"outside_d_{_bot[4:]}_hu"] = ("hero", _bot)
+    FIELDS[f"outside_d_{_bot[4:]}_3"] = ("hero", _bot) + _night.seat_names("night")[:1]
 # the elite field (owner's direction): three prepared top-team builds. elite1 and elite2 are a tuning field, alone with
 # the strong tunable bots (`elite`, a top table) or in a night room (`elite_night`); elite3 is held out with both judges
 # and two outside builds (`elite_judge`, the strongest room we have): measured once per batch, never tuned on.
@@ -2138,7 +2215,9 @@ FIELDS["adapt_judge_3"] = ("hero", "adapt2") + _night.seat_names("night")[:1]
 FIELD_PLAYERS: dict[str, int] = {"exploit_hu": 2, "exploit_3": 3, "exploit2_hu": 2, "exploit2_3": 3,
                                   "exploit3_hu": 2, "exploit3_3": 3, "exploit4_hu": 2, "exploit4_3": 3,
                                   "adapt_hu": 2, "adapt_3": 3,
-                                  "adapt_judge_hu": 2, "adapt_judge_3": 3}
+                                  "adapt_judge_hu": 2, "adapt_judge_3": 3,
+                                  "outside_d_o9_hu": 2, "outside_d_o9_3": 3, "outside_d_o10_hu": 2, "outside_d_o10_3": 3,
+                                  "outside_d_o11_hu": 2, "outside_d_o11_3": 3}
 
 # fields that seat an optional bot: present in FIELDS only when every bot in them is registered
 OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {
