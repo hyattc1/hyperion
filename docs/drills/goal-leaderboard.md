@@ -3,9 +3,16 @@
 One page, updated after every accepted batch. Points are per table, averaged over the seeds shown, every seed played
 in all eight seat rotations; "margin" is F minus the other bot on the same deals, with the 95% interval.
 
-## Where we stand (2026-11-04 08:40 ET, batch 7)
+## Where we stand (2026-11-04 23:30 ET, batch 8)
 
-Batch 7 (frozen, gate pass; the known-good upload) changes plain hold'em only with three or fewer alive against
+Batch 8 is the known-good upload (frozen/B8-77c5ea6). Against batch 7 on held-out H34: strong tables +0.06 to +0.09, exploit and
+adapt cells up to +0.19, ordinary rooms level, nothing down. Judges on fresh seeds: five up, eight level, none down. Open risk:
+through a kit's adapter, timeouts pass the gate's limit from about 1.5-2x slower than this box (12% at 3x); G1 is on it.
+The tables below are batch 5's unless they say otherwise.
+
+### Batch 7
+
+Batch 7 (frozen, gate pass) changes plain hold'em only with three or fewer alive against
 exploiter-like seats (its 8-max, judge and strong-table cells within ±0.002 of batch 6), so the judge, night and
 elite-room numbers below are batch 5's and hold for batches 6 and 7. Batch 7 on held-out H31 against batch 6:
 exploiter 2 heads-up +0.307, three-handed +0.086, exploiter 3 heads-up +0.096, auction +0.060, tranche_holdem +0.180.
@@ -85,5 +92,6 @@ On ordinary rooms F was already first, and it has not measurably moved there.
 | 2026-11-02 20:56 (batch 5) | + strong-table route, size read, S11 fixes, twist play | 3aac34d | cbf2ccb3...95fa4803 | held-out night +0.096, mirror +0.241, every exploit cell up (heads-up vs exploiter 2 +0.30), wild/short deck/omaha/keep up |
 | 2026-11-03 13:37 (batch 6) | + per-family twist dials, known opponent cards | 91014ae | a66eb4b3...d6666f77 | twist tables only: exposed card +0.22, knockout bounty +0.11, bounty-aware +0.03 (held-out H21); plain hold'em identical |
 | 2026-11-04 08:40 (batch 7) | + heads-up specialist (gated), stab read, value of information, street-settled twin | 038c3f0 | 51c37f02...9848bdc4 | exploiter 2 heads-up +0.31, three-handed +0.09, exploiter 3 heads-up +0.10, auction +0.06, tranche +0.18 (H31); judges level; gate pass on plain, auction, bonus_card, tranche (load 4) |
+| 2026-11-04 23:30 (batch 8) | + one stab size, solved three-handed button, big blind fold read | 77c5ea6 (merged eac472a) | 0d07654e...9372ba19 | H34: elite +0.08, mirror +0.09, elite_b +0.08, mirror_b +0.06, night_hard +0.04, exploit and adapt cells up to +0.19; ordinary rooms level; judges nothing down, five up; zip parity pass; gate pass |
 
 Zips live in `frozen/` (git-ignored); each is rebuilt from its commit with `tools/pack.py --slim`.
