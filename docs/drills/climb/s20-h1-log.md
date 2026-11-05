@@ -367,3 +367,14 @@ is the hand's chips / total chips x (1st - 2nd): heads-up ICM is linear, so here
   fast_schedule unchanged. Every chunk re-run (confirm, guards, elite, exploit on 10000-10024; those twist cells on 200 seeds), compared seed by seed with
   the screen's caches: base 83 of 83 same; cand 69 of 83 same, and the 14 that differ are those five twist cells only. So the screen's table stands with those
   five cells at exactly zero.
+- 01:37 **At the head**: identity (`goal/s20/idchk9`) 14 of 14 with batch 8's reference. Timing (`goal/s20/h1d/H1_timing.md`, 20,000 calls): candidate p99 192 µs, max 486 µs, none
+  over 1 ms; batch 8 198, 728, none. Suite (`-m "not timing"`, `goal/s20/h1d/suite.out`): 1,470 passed, 5 skipped, 1 failed (test_apicard: CONTRACTS.md lacked the new dials; regenerated,
+  passes). Merged climb/batch8-freeze again (c758e56: tools and docs, no `hyperion/` change, so the screen's code version stands; note its commit reports 12% timeouts at 3x through a kit's adapter,
+  batch 7 7.2%: batch 8's business, not H1's).
+
+## Result: H1 passes its screen; ready for held-out
+
+Candidate goal/s20/h1d/cand_H1.json, copied to docs/drills/climb/s20-h1-candidate.json: `short.hu2` true, `hu2_like_opp` 3, `hu2_defer_3bet` 0.25, `hu2_min` 10, `hu2_max` 40,
+`hu2_btn_max` 22, on batch 8. Table tables/short_hu2.json, 139 KB, loads in 0.8 ms; package 12.5 MB unzipped, 4.8 MB zipped, import 0.57-0.69 s + build 0.02 s (budget 5 s); the pack finds it.
+Screen ACCEPT (above), strong cells +0.007 to +0.010, each UP, each smaller than R6's +0.013 to +0.026 on the same seeds. What is unproven: the held-out run; the screen's exploit gains (exploit3_hu, exploit4_hu, adapt_hu, exploit3_3) have
+no mechanism I would defend: H1 plays few hands there, and exploit_hu is identical.
