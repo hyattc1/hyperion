@@ -16,8 +16,8 @@ PASS needs all of:
   - the static check (tools/table_probe.py on the unpacked zip) finds no table the recorded bot needs and lacks;
   - no table file the play itself opened, on either side, is absent from the zip (a lazily loaded table the probe's map
     forgot);
-  - every route the recorded bot carries fired, on both sides: the strong-table route, the heads-up specialist and R6's
-    three-handed table. Its decisions are counted and printed; a count of zero fails, so this cannot pass vacuously.
+  - every route the recorded bot carries fired, on both sides: the strong-table route, the heads-up specialist, H1's
+    heads-up table (with its dial) and R6's three-handed table. Its decisions are counted and printed; a count of zero fails, so this cannot pass vacuously.
 
 CELLS are the tables: 8-max rooms (night, the strong tables where the strong route and R6 fire), the heads-up and
 three-handed formats (the specialist behind its looseness gate), and three twists (the lazily loaded tables, each twist's own
@@ -51,7 +51,7 @@ HOST = ROOT / "tools" / "zip_host.py"
 PROBE = ROOT / "tools" / "table_probe.py"
 RULES_DIR = ROOT / "docs" / "drills" / "climb" / "rules"
 SEAT = "zip_parity_seat"
-ROUTES = {"strong": "the strong-table route", "hu": "the heads-up specialist", "3b": "R6's three-handed table"}
+ROUTES = {"strong": "the strong-table route", "hu": "the heads-up specialist", "hu2": "H1's heads-up table", "3b": "R6's three-handed table"}
 # (field, rules file, variant, table seeds, seed offset). A table seed is every rotation of it.
 CELLS = (("night", None, None, 20, 500),
          ("elite", None, None, 16, 520),
@@ -185,7 +185,7 @@ def _job(args):
     det = {**DET.get(bot, {}), **({"hero.panic_after": 10 ** 9} if bot == "composite" else {}), **dials}
     label = field + (f"+{rules_name}" if rules_name else "") + (f"+{variant}" if variant else "")
     tally = {"tables": 0, "decisions": 0, "variant_decisions": 0}
-    seen = {"strong": 0, "hu": 0, "3b": 0, "short": 0}
+    seen = {"strong": 0, "hu": 0, "hu2": 0, "3b": 0, "short": 0}
     routes: set = set()
     opened: set = set()
     bad: list = []
@@ -285,14 +285,14 @@ def main(argv=None) -> int:
             for i in range(0, n, CHUNK):
                 jobs.append((field, rules_name, variant, off + i, min(CHUNK, n - i), str(pkg), bot, dials))
         total = {"tables": 0, "decisions": 0, "variant_decisions": 0}
-        seen = {"strong": 0, "hu": 0, "3b": 0, "short": 0}
+        seen = {"strong": 0, "hu": 0, "hu2": 0, "3b": 0, "short": 0}
         routes: set = set()
         opened: set = set()
         bad: list = []
         with Pool(a.workers) as pool:
             for label, tally, s, r, o, b in pool.imap_unordered(_job, jobs):
                 cell = report["cells"].setdefault(label, {"tables": 0, "decisions": 0, "variant_decisions": 0,
-                                                          "strong": 0, "hu": 0, "3b": 0, "short": 0})
+                                                          "strong": 0, "hu": 0, "hu2": 0, "3b": 0, "short": 0})
                 for k, v in {**tally, **s}.items():
                     cell[k] += v
                 for k in total:
@@ -308,9 +308,9 @@ def main(argv=None) -> int:
                     break
         for label, c in sorted(report["cells"].items()):
             print(f"{label:<28} tables {c['tables']:>4}  decisions {c['decisions']:>7}  variant {c['variant_decisions']:>5}  "
-                  f"strong {c['strong']:>5}  specialist heads-up {c['hu']:>5}  R6 {c['3b']:>5}")
+                  f"strong {c['strong']:>5}  specialist heads-up {c['hu']:>5}  H1 {c['hu2']:>5}  R6 {c['3b']:>5}")
         print(f"{'all':<28} tables {total['tables']:>4}  decisions {total['decisions']:>7}  variant "
-              f"{total['variant_decisions']:>5}  strong {seen['strong']:>5}  specialist heads-up {seen['hu']:>5}  R6 "
+              f"{total['variant_decisions']:>5}  strong {seen['strong']:>5}  specialist heads-up {seen['hu']:>5}  H1 {seen['hu2']:>5}  R6 "
               f"{seen['3b']:>5}")
         lacking = sorted(t for t in opened if not (pkg / "tables" / t).is_file())
         if lacking:
@@ -332,7 +332,7 @@ def main(argv=None) -> int:
         print("PARITY FAIL: " + "; ".join(fails))
         return 1
     print(f"PARITY PASS: {total['decisions']} decisions and {total['variant_decisions']} variant decisions identical over "
-          f"{total['tables']} tables; strong {seen['strong']}, specialist heads-up {seen['hu']}, R6 {seen['3b']}")
+          f"{total['tables']} tables; strong {seen['strong']}, specialist heads-up {seen['hu']}, H1 {seen['hu2']}, R6 {seen['3b']}")
     return 0
 
 

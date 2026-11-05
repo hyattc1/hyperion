@@ -1,0 +1,32 @@
+{
+ "dials": {
+  "hero.postflop.rbet_from": 0.5,
+  "hero.postflop.rbet_full": 0.65,
+  "hero.postflop.rbet_prior": 0.35,
+  "hero.postflop.rbet_n": 4,
+  "hero.postflop.rbet_min": 3,
+  "hero.postflop.rbet_margin": 0.03,
+  "hero.postflop.rbet_max_alive": 3,
+  "hero.postflop.rbet_holdem_only": true,
+  "short.hu2": true,
+  "short.hu2_like_opp": 3,
+  "short.hu2_defer_3bet": 0.25,
+  "short.hu2_min": 10,
+  "short.hu2_max": 40,
+  "short.hu2_btn_max": 22,
+  "short_strong_free_bb": 18,
+  "short.three2_free_max": 18,
+  "r3.sr_depth": 15.0,
+  "r3.sr_prior": 0.15,
+  "r3.sr_n": 6.0,
+  "r3.sr_min": 3,
+  "hero.postflop.cbr_from": 0.8,
+  "hero.postflop.cbr_full": 0.95,
+  "hero.postflop.cbr_prior": 0.6,
+  "hero.postflop.cbr_n": 6.0,
+  "hero.postflop.cbr_min": 4,
+  "hero.postflop.cbr_margin": 0.03,
+  "hero.postflop.cbr_streets": 3,
+  "hero.postflop.cbr_max_alive": 2
+ }
+}

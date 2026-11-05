@@ -157,12 +157,12 @@ def main(argv: list[str]) -> int:
 
 
 def state(bot, opened: list) -> dict:
-    """What fired so far on this bot, by counters: {"strong": n, "hu": n, "3b": n, "short": n}, and the routes it carries:
+    """What fired so far on this bot, by counters: {"strong": n, "hu": n, "hu2": n, "3b": n, "short": n}, and the routes it carries:
     a run proves nothing about a route that never fired, so the parent needs both."""
     core = getattr(bot, "core", None)
     counts = dict(getattr(core, "counts", {}) or {})
     out = {"opened": opened, "routes": [], "strong": int(counts.get("strong", 0)), "short": int(counts.get("short", 0)),
-           "hu": 0, "3b": 0, "counts": {k: v for k, v in counts.items() if isinstance(v, int)}}
+           "hu": 0, "hu2": 0, "3b": 0, "counts": {k: v for k, v in counts.items() if isinstance(v, int)}}
     safe = getattr(bot, "safe", None)
     out["panic"] = bool(getattr(safe, "panic_mode", False))
     out["level"] = int(getattr(safe, "degrade_level", 0) or 0)
@@ -175,6 +175,9 @@ def state(bot, opened: list) -> dict:
         short = core.members[names.index("short")]
         out["routes"].append("hu")
         out["hu"] = sum(v for k, v in short.counts.items() if k.startswith("hu:"))
+        if getattr(short.p, "hu2", False):
+            out["routes"].append("hu2")  # H1's table: asked for by its dials, whether or not it loaded
+        out["hu2"] = sum(v for k, v in short.counts.items() if k.startswith("hu2:"))
         if getattr(short.p, "three2", False):
             out["routes"].append("3b")  # asked for by its dials, whether or not the table loaded
         out["3b"] = sum(v for k, v in short.counts.items() if k.startswith("3b:"))
