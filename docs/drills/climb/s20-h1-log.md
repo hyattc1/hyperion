@@ -337,3 +337,13 @@ is the hand's chips / total chips x (1st - 2nd): heads-up ICM is linear, so here
 **The candidate, fixed here** (goal/s20/h1d/cand_H1.json): `short.hu2` true, `hu2_like_opp` 3, `hu2_defer_3bet` 0.25, `hu2_min`
 10, `hu2_max` 40, `hu2_btn_max` 22. Those scope choices came from the coin above, so the check is the same coin on fresh seeds
 (14300-14599 / 14300-14499), `goal/s20/h1d/coin2.sh`, then the screen.
+- 22:55 **The check: the same coin, the candidate's scope and guards, fresh seeds** (`goal/s20/h1d/D_*`, 14300-14599, heads-up cells
+  14300-14499), points a table: elite +0.0074 ± 0.0070, mirror +0.0032 ± 0.0073, elite_b +0.0082 ± 0.0070, mirror_b +0.0124 ±
+  0.0081, **pooled +0.0078 ± 0.0037 UP** (+0.53 ± 0.23 bb a hand; button first in +0.0051 ± 0.0027, big blind against a raise +0.0023
+  ± 0.0023, against a jam +0.0004 ± 0.0014). Elite_night -0.0009 ± 0.0065 (+0.0185 on the first coin, unscoped), night +0.0031 ± 0.0045,
+  realistic -0.0025 ± 0.0024 (226 hands; +0.0020 on the first coin). Exploit cells, 10/7 payouts: exploit_hu -0.003 ± 0.004 (6 hands: H1
+  has left exploiter 1), exploit2_hu +0.010 ± 0.015 (45 hands), exploit3_hu +0.073 ± 0.090, exploit4_hu -0.048 ± 0.083, adapt_hu +0.016 ±
+  0.068. **The offline value says go**, at about half of R6's size per table, so a 200-seed screen may not be able to see it.
+- 22:37 **Size and setup**: `tools/pack.py --dials` (candidate; freeze's packer, merged at 77c5ea6): 12.5 MB unzipped, 4.8 MB zipped, import
+  0.69 s + build 0.02 s (batch 8 alone 0.67 + 0.02), budget 5 s; "needs 12 tables at the build and first table ... all in the package"
+  (batch 8 11): tables/short_hu2.json is top level and opened at the build, so the probe sees it.
