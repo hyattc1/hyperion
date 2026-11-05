@@ -22,8 +22,11 @@ Conditions:
                governor and the deadlines see the slow clock. Uniform slowness, not a scheduler's stalls.
   --hogs N     N busy processes for the run, this process's niceness: real load. Yours to count against a shared box's
                worker limit, and killed at the end.
-  --pin CPU    the bot's process, and the hogs, on one logical CPU: with 2 hogs a real 3x slowdown of its share, in the
-               scheduler's slices (a 4 ms stall lands on a decision, so it reads worse than a uniformly slow CPU).
+  --pin CPU    the bot's process, and the hogs, on one logical CPU: with 2 hogs a third of it for a process that wants all of
+               it. A process that sleeps between calls wakes ahead of the hogs and barely notices (see --spin).
+  --spin       the bot's process spins between calls instead of sleeping, as under a runner that plays every seat in one
+               process. With --pin and 2 hogs it really gets a third of the CPU, in the scheduler's slices: a stall of some ms
+               lands on a decision, so it reads worse than a uniformly slow CPU.
 The factor is measured, not assumed: a fixed pure-Python workload runs at each table's start in the bot's process and its
 median time is printed, on the bot's clock and on its thread's CPU clock. Compare `work` across conditions.
 """
@@ -116,6 +119,7 @@ def main(argv=None) -> int:
     p.add_argument("--k", type=float, default=1.0)
     p.add_argument("--hogs", type=int, default=0)
     p.add_argument("--pin", type=int, default=None)
+    p.add_argument("--spin", action="store_true", help="the bot's process never sleeps between calls (tools/zip_host.py)")
     p.add_argument("--scale", type=float, default=1.0)
     p.add_argument("--json")
     a = p.parse_args(argv)
@@ -132,7 +136,7 @@ def main(argv=None) -> int:
     from hyperion.sim.engine import BotStats, play_table
 
     B.REGISTRY[SEAT] = TimedSeat
-    extra = ("--k", str(a.k)) if a.k != 1.0 else ()
+    extra = (("--k", str(a.k)) if a.k != 1.0 else ()) + (("--spin", "1") if a.spin else ())
     hogs = []
     env = ZP.clean_env()
     preexec = None

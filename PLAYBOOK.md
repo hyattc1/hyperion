@@ -258,13 +258,14 @@ same commit:
 2. The suite, `pytest -m "not timing"`; tests pinned to the previous batch start from `BATCHn_OFF`.
 3. Pack: `python tools/pack.py --entry entry_kitb.py --out frozen/Bn-<sha>/kitb --slim --night /dev/null`. It ships every table the recorded bot
    needs (tools/table_probe.py) and exits 1, by name, on one the package lacks. Record sha256, size and import time.
-4. **Zip parity: `python tools/zip_parity.py frozen/Bn-<sha>/kitb/submission.zip --workers 3`** (about 5 minutes). The zip's bot and the source
+4. **Zip parity: `python tools/zip_parity.py frozen/Bn-<sha>/kitb/submission.zip --workers 3`** (about 90 s). The zip's bot and the source
    bot play the same deterministic tables and must agree decision for decision, with the strong route, the heads-up specialist and R6's
    three-handed table each counted above zero. A FAIL here means the zip is not the bot we measured: no gate result can overrule it.
 5. Gate: `python tools/gate.py <zip> --kit b --entry entry_kitb.py --tables 40` plain and with `--variant auction`, `bonus_card`,
    `tranche_holdem`.
-6. Timing, when the bot's cost changed: `python tools/zip_timing.py <zip>` at the box's load, with hogs, and `--k 3`, beside the previous batch's zip
-   on the same box the same hour (docs/drills/climb/b8-timing.md has the commands). A new machine flatters us: loosen no budget for it.
+6. Timing, when the bot's cost changed: `python tools/zip_timing.py <zip>` at the box's load, with hogs, and `--k 3`, and the kit path with
+   `tools/gate.py --baseline package --slow 3`, beside the previous batch's zip on the same box the same hour (docs/drills/climb/b8-timing.md has
+   the commands). A new machine flatters us: loosen no budget for it.
 
 ### Stage 6: WINDOWS (after T1, five times)
 

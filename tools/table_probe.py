@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Which tables does a recorded bot need, and does this tree hold them? Standard library and the tree under test only.
 
-    python -I -B tools/table_probe.py <root> [--bot NAME] [--dials JSON] [--rules FILE]
+    python -I -B tools/table_probe.py <root> [--bot NAME] [--dials JSON] [--rules FILE] [--variant NAME]
 
 <root> is the repo or an unpacked package: its `hyperion` and its `tables/`. The bot is the record in <root>'s
 hyperion/ship.py unless --bot / --dials say otherwise. Prints one JSON object as its last line:
@@ -13,6 +13,9 @@ hyperion/ship.py unless --bot / --dials say otherwise. Prints one JSON object as
     declared            the tables DIAL_TABLES names for the bot's effective dials, read later than the build
     specialist_missing  hyperion.strategy.short's record of tables its loader returned None for ({kind: reason})
     lacking             the tables above that <root> does not hold. Empty is the pass.
+    lacking_twist       each twist's own preflop table when <root> holds none and no variant is named (--rules or --variant):
+                        the bot plays plain hold'em as measured and every twist without it. A zip frozen before batch 8.
+                        With a variant named, that variant's table is in `lacking` instead.
 
 tools/pack.py runs it on the repo (what to ship) and on the package (what it lacks: exit 1); tools/gate.py and
 tools/zip_parity.py run it on an unpacked zip.
@@ -72,7 +75,7 @@ def declared_tables(name: str, dials: dict, tables: str) -> set:
 
 def main(argv: list[str]) -> int:
     root = os.path.abspath(argv[0])
-    bot_arg = dials_arg = rules_arg = None
+    bot_arg = dials_arg = rules_arg = variant = None
     i = 1
     while i < len(argv):
         if argv[i] == "--bot":
@@ -81,6 +84,8 @@ def main(argv: list[str]) -> int:
             dials_arg = json.loads(argv[i + 1])
         elif argv[i] == "--rules":
             rules_arg = argv[i + 1]
+        elif argv[i] == "--variant":
+            variant = argv[i + 1]
         else:
             raise SystemExit(f"unknown argument {argv[i]!r}")
         i += 2
@@ -119,8 +124,17 @@ def main(argv: list[str]) -> int:
     declared = declared_tables(name, dials, tables)
     wanted = seen | declared
     lacking = {t for t in wanted if not os.path.isfile(tables + t)}
+    twist = {t for t in lacking if t.startswith("generic/")}
+    lacking -= twist
+    variant = variant or (rules.extras or {}).get("variant")
+    if twist and variant:
+        safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in str(variant))[:40]  # hyperion.strategy.tables
+        if not glob.glob(os.path.join(tables, "generic", f"{safe}-*.json")):
+            lacking.add(f"generic/{safe}-*.json")
+        twist = set()
     report = {"hyperion": sys.modules["hyperion"].__file__, "bot": name, "dials": dials, "opened": sorted(seen),
-              "declared": sorted(declared), "specialist_missing": missing, "lacking": sorted(lacking)}
+              "declared": sorted(declared), "specialist_missing": missing, "lacking": sorted(lacking),
+              "lacking_twist": sorted(twist)}
     print(json.dumps(report), file=out)
     return 0
 

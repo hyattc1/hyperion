@@ -19,9 +19,9 @@ PASS needs all of:
   - every route the recorded bot carries fired, on both sides: the strong-table route, the heads-up specialist and R6's
     three-handed table. Its decisions are counted and printed; a count of zero fails, so this cannot pass vacuously.
 
-CELLS are the tables, sized (1.0) to about 5 minutes at 3 workers on a loaded box; 8-max rooms (night, the strong tables
-where the strong route and R6 fire), the heads-up and three-handed formats (the specialist behind its looseness gate),
-and three twists (the lazily loaded tables). Part of the freeze: PLAYBOOK "Freezing a batch", after tools/pack.py and before
+CELLS are the tables: 8-max rooms (night, the strong tables where the strong route and R6 fire), the heads-up and
+three-handed formats (the specialist behind its looseness gate), and three twists (the lazily loaded tables, each twist's own
+preflop table). Batch 8's zip: 730 tables, about 113,000 decisions, 90 s at 3 workers at load 16. Part of the freeze: PLAYBOOK "Freezing a batch", after tools/pack.py and before
 tools/gate.py. It does not time anything and does not go through a kit's adapter: tools/gate.py does that. Exit 1 on FAIL.
 """
 from __future__ import annotations

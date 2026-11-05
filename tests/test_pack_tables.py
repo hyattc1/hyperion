@@ -131,12 +131,30 @@ def test_the_probe_reports_what_a_package_lacks(tmp_path):
     got = probe(pkg)
     assert "extra/short_3b.json" in got["lacking"]
     assert got["specialist_missing"]  # the loader's own record agrees
-    assert "generic/*.json" in got["lacking"]  # no twist's own preflop table at all: read as lacking, not as nothing to check
+    assert "generic/*.json" in got["lacking_twist"]  # no twist's own table at all: on record, not nothing to check
+    assert "generic/auction-*.json" in probe(pkg, "--variant", "auction")["lacking"]  # on that twist's table it is a need
     shutil.copytree(ROOT / "tables" / "extra", pkg / "tables" / "extra")
     shutil.copytree(ROOT / "tables" / "generic", pkg / "tables" / "generic")
     got = probe(pkg)
     assert got["lacking"] == [] and got["specialist_missing"] == {}
     assert "extra/short_3b.json" in got["opened"] and "auction_bid.json" in got["declared"]
+
+
+def test_a_zip_with_no_twist_tables_warns_on_plain_hold_em_and_fails_the_gate_on_a_twist(tmp_path, entry):
+    """A zip frozen before batch 8 (no tables/generic/): plain hold'em plays as measured, a twist does not."""
+    r = run_pack(tmp_path, "--entry", "agent.py", "--out", "dist", "--slim", "--night", "/dev/null")
+    assert r.returncode == 0, r.stdout + r.stderr
+    bad = tmp_path / "no_generic.zip"
+    with zipfile.ZipFile(tmp_path / "dist" / "submission.zip") as zin, zipfile.ZipFile(bad, "w") as zout:
+        for n in zin.namelist():
+            if not n.startswith("tables/generic/"):
+                zout.writestr(n, zin.read(n))
+    args = [sys.executable, str(GATE), str(bad), "--kit", "b", "--entry", "agent.py", "--tables", "1", "--mode", "measure",
+            "--max-tmo-pct", "100"]
+    g = subprocess.run(args, cwd=tmp_path, capture_output=True, text=True, timeout=300)
+    assert "WARN" in g.stdout and "generic" in g.stdout and "lacks tables" not in g.stdout, g.stdout + g.stderr
+    g = subprocess.run([*args, "--variant", "auction"], cwd=tmp_path, capture_output=True, text=True, timeout=300)
+    assert g.returncode == 1 and "GATE FAIL" in g.stdout and "generic/auction-" in g.stdout, g.stdout + g.stderr
 
 
 def test_a_stripped_zip_fails_the_gate_before_any_table(tmp_path, entry):
