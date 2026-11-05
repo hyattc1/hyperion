@@ -113,6 +113,8 @@ class Profiler:
         # the preflop opener facing a re-raise (3-bet or re-shove), its first answer: how often it folds its open
         self.oft_opp = z()
         self.oft_fold = z()
+        self.ofj_opp = z()  # S26: ... those answers to a re-raise that was all-in
+        self.ofj_fold = z()
         self.cb_opp = z()
         self.cbets = z()
         self.fcb_opp = z()
@@ -398,6 +400,10 @@ class Profiler:
                 self.oft_opp[seat] += 1
                 if kind is _FOLD:
                     self.oft_fold[seat] += 1
+                if self.shove_pending:
+                    self.ofj_opp[seat] += 1
+                    if kind is _FOLD:
+                        self.ofj_fold[seat] += 1
             if self.tstreet == 1 and self.cb_state < 2:
                 self._cbet_obs(seat, kind)
             if not pre and self.track_s12:

@@ -669,7 +669,8 @@ class ComposeConfig:
     # profiler's folds of its opens to a re-raise, shrunk to hu_rejam_prior with weight hu_rejam_n, at least hu_rejam_min
     # answers seen; then our own heads-up re-jams' answers on top, that read counting as hu_rejam_k of them.
     # hu_rejam_open_w: the width of its opens (the call range is the top (1 - read) of it). hu_rejam_cap: no hand outside
-    # this top share of hands. hu_rejam_margin: the chip gain over folding it must show, in big blinds.
+    # this top share of hands. hu_rejam_margin: the chip gain over folding it must show, in big blinds. hu_rejam_jk: above 0,
+    # its answers this table to re-raises that were all-in come before our own jams', the any-re-raise read counting as this many.
     hu_rejam_t: float = 0.0
     hu_rejam_prior: float = 0.5
     hu_rejam_n: float = 5.0
@@ -680,6 +681,7 @@ class ComposeConfig:
     hu_rejam_open_w: float = 0.7
     hu_rejam_cap: float = 1.0
     hu_rejam_margin: float = 0.0
+    hu_rejam_jk: float = 0.0
     seed: int | None = None
 
 
@@ -875,6 +877,9 @@ class CompositeCore:
         if seen < c.hu_rejam_min:
             return False
         r = prof.open_fold_to_reraise(opp, c.hu_rejam_prior, c.hu_rejam_n)
+        k = c.hu_rejam_jk
+        if k > 0.0:
+            r = (prof.ofj_fold[opp] + k * r) / (prof.ofj_opp[opp] + k)
         k = c.hu_rejam_k
         r = (self._rj_f[opp] + k * r) / (self._rj_n[opp] + k)
         if r < c.hu_rejam_t:

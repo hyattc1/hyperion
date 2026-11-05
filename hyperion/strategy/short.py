@@ -327,6 +327,8 @@ class ShortParams:
         # ... and only once S7's gate has had this many of the opponent's probe chances (prof.pb_opp) to admit the seat and
         # has refused it (the probe read cannot admit under 3; goal: H1's early preflop must not keep S7's read low); 0 = off
         self.hu2_like_opp = 0
+        # S26: ... and without the composite's strong read: the path plays at any table its other gates admit
+        self.hu2_free = False
         # S23: ... and only while the opponents alive, pooled, re-raise at least this share of the preflop raises they
         # face (rival 3's fr / fr_r counts over the table, shrunk to three2_rr_prior with weight three2_rr_k); 0 = off
         self.three2_rr_t = 0.0
@@ -553,8 +555,11 @@ class ShortMember:
         return bool(self._start) and self._replay(obs) is not None
 
     # ------------------------------------------------------------------ preflop: heads-up, the second tree (S20 H1)
+    hu2_free_on = True  # S26: hu2_free acts (the coin recorder toggles it per hand)
+    hu2_free_would = False  # ... and a decision this hand went, or would have gone, to the path through hu2_free alone
+
     def _wants_hu2(self, obs: Observation, prof, base=None) -> bool:
-        if obs.street != 0 or not self.strong_open or obs.pot > 0 or not self._hu2_holdem:
+        if obs.street != 0 or obs.pot > 0 or not self._hu2_holdem or not (self.strong_open or self.p.hu2_free):
             return False
         alive = [j for j in range(len(obs.stacks)) if obs.stacks[j] + obs.bets[j] > 0 or obs.in_hand[j]]
         if len(alive) != 2:
@@ -591,7 +596,12 @@ class ShortMember:
         if got is None or got[3] not in self._roles2:
             return False
         S = got[4] / (obs.blinds[1] or 1)
-        return self.p.hu2_min <= S <= (self.p.hu2_btn_max if got[3] == 0 else self.p.hu2_max) and S <= self.p.hu2_max
+        if not (self.p.hu2_min <= S <= (self.p.hu2_btn_max if got[3] == 0 else self.p.hu2_max) and S <= self.p.hu2_max):
+            return False
+        if not self.strong_open:  # only hu2_free reaches here shut
+            self.hu2_free_would = True
+            return self.hu2_free_on
+        return True
 
     def _hu2_node(self, obs: Observation):
         """(depth solve, node key, node, my role, eff chips) in the second heads-up tree, or None. Raises map onto each

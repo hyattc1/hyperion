@@ -15,6 +15,7 @@ S26 = {"hu_rejam_t": 0.7}
 class _Prof:
     def __init__(self, n, f):
         self.oft_opp, self.oft_fold = [0, n], [0, f]
+        self.ofj_opp, self.ofj_fold = [0, 0], [0, 0]
 
     def open_fold_to_reraise(self, s, prior, n0):
         return (self.oft_fold[s] + prior * n0) / (self.oft_opp[s] + n0)
@@ -62,6 +63,15 @@ def test_our_own_jams_answers_count_for_more_than_the_table():
     assert not c._hu_rejam(_o(), FOLD)  # it folded 9 of 9 at the table, then called five of our six
 
 
+def test_all_in_answers_count_before_the_any_reraise_read():
+    assert not _core(9, 3)._hu_rejam(_o(), FOLD)  # calls most re-raises
+    c = _core(9, 3, hu_rejam_jk=2.0)
+    c._rj_prof.ofj_opp[1], c._rj_prof.ofj_fold[1] = 4, 4
+    assert c._hu_rejam(_o(), FOLD)  # ... and folded all four all-in ones
+    c._rj_prof.ofj_fold[1] = 1
+    assert not c._hu_rejam(_o(), FOLD)
+
+
 def test_the_lines_it_leaves_alone():
     c = _core(9, 9)
     assert not c._hu_rejam(_o(stack_me=800), FOLD)  # under the depth floor
@@ -100,3 +110,13 @@ def test_twist_tables_stay_off():
     c = CompositeCore(ComposeConfig(hu_rejam_t=0.7))
     c.new_table(r, 0, 2)
     assert c._rj_prof is None
+
+
+def test_hu2_free_opens_h1_with_the_strong_read_shut_and_off_it_stays_shut():
+    from hyperion.strategy.short import ShortParams
+
+    assert ShortParams().hu2_free is False
+    base = {"short.hu2": True, "short.hu2_like_opp": 0, "short.hu2_min": 10, "short.hu2_max": 40, "strong_rr": 0.99}
+    off = sum(_digest(base, t, ["hero", "rival3"], R2)[1].core.counts.get("short", 0) for t in range(3))
+    on = sum(_digest({**base, "short.hu2_free": True}, t, ["hero", "rival3"], R2)[1].core.counts.get("short", 0) for t in range(3))
+    assert on > off
