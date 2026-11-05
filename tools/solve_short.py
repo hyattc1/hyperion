@@ -934,6 +934,29 @@ def cmd_compact(a):
     print("wrote", a.dst, os.path.getsize(a.dst), "bytes")
 
 
+def cmd_binary(a):
+    """The compact JSON -> the binary form the bot loads first (hyperion/strategy/short.py encode_bin, G1): the same values
+    (checked here), a fifth of the decode. tools/pack.py ships it in the JSON's place."""
+    import base64
+    import zlib
+
+    from hyperion.strategy.short import decode_bin, encode_bin
+
+    with open(a.src) as fh:
+        raw = json.load(fh)
+    if "z" not in raw:
+        raise SystemExit("compact it first: tools/solve_short.py compact")
+    data = encode_bin(raw)
+    nodes = json.loads(zlib.decompress(base64.b85decode(raw["z"])))
+    back = decode_bin(data)
+    want = {k: {"meta": raw["meta"][k]["meta"], "nodes": v} for k, v in nodes.items()}
+    if back["solve"] != want or back["q"] != raw["q"] or back["grid"] != raw["grid"]:
+        raise SystemExit("the binary form does not decode to the same values")
+    with open(a.dst, "wb") as fh:
+        fh.write(data)
+    print("wrote", a.dst, os.path.getsize(a.dst), "bytes (the JSON:", os.path.getsize(a.src), ")")
+
+
 # ------------------------------------------------------------------------------------------------ three-handed, v2 (S20)
 # The second three-handed tree (docs/drills/climb/s20-log.md). What changed from `three` and why:
 # - the small blind may flat the button's open (three-way and heads-up flops), and the big blind then squeezes;
@@ -1462,11 +1485,14 @@ def main(argv=None):
     k = sub.add_parser("compact")
     k.add_argument("src")
     k.add_argument("dst")
+    b = sub.add_parser("binary")
+    b.add_argument("src")
+    b.add_argument("dst")
     c = sub.add_parser("check")
     c.add_argument("--depth", default="10")
     c.add_argument("--iters", type=int, default=300)
     a = p.parse_args(argv)
-    {"hu": cmd_hu, "three": cmd_three, "check": cmd_check, "compact": cmd_compact, "lock": cmd_lock,
+    {"hu": cmd_hu, "three": cmd_three, "check": cmd_check, "compact": cmd_compact, "binary": cmd_binary, "lock": cmd_lock,
      "sizes": cmd_sizes, "three2": cmd_three2}[a.cmd](a)
 
 

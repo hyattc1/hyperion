@@ -24,7 +24,7 @@ tree's raise sizes follow the actual bet: the 3-bet is 3.5 times the open, the 4
   often, raises preflop, and has played loose over the table without being a maniac).
 - Never with antes in the pot (obs.pot > 0 preflop): the trees have none.
 - `three`, `three_max`: three-handed preflop (and its depth cap).
-- `three2` (S20): three-handed preflop from the second tree (tables/extra/short_3b.json: the small blind's flat,
+- `three2` (S20): three-handed preflop from the second tree (tables/extra/short_3b.bin, or its .json: the small blind's flat,
   two 3-bet sizes, 4-bets, the flop's realization fitted from our own postflop; tools/solve_short.py three2). Its
   nodes carry their raise sizes, so the history maps onto them generically (`_three_node2`; a raise at or over 45%
   of the raiser's effective stack is the jam). `three2_roles`: the seats it plays (btn, sb, bb); `three2_keep_defence`:
@@ -85,15 +85,108 @@ MISSING: dict = {}  # kind -> why _load returned None. A None plays on (F's rout
 #                     silent where it counts: tools/table_probe.py reads this, and tools/pack.py and tools/gate.py fail on it
 
 
+# The binary form of a solved tree (tools/solve_short.py binary, G1): `short_<kind>.bin`, the same values as the JSON's
+# compact form, at a fifth of the decode (the JSON's base85 alone is 200 ms in pure Python) and three quarters of the bytes.
+# zlib, json and bytes only, so no Python version can misread it (no marshal, no pickle). Each node's `s` is, per hand class,
+# one character per action, chr(48 + chips of q); they sum to q, so the last action's column is left out and rebuilt.
+#     BIN_MAGIC, 4-byte little-endian length of the head, zlib(head JSON), zlib(the columns, node by node, in head order)
+# head: {"q", "grid", "rho", "classes": 169, "meta": {key: meta}, "nodes": {key: {line: node without "s"}}}.
+BIN_MAGIC = b"HYPERION-SHORT-1\n"
+
+
+def encode_bin(raw: dict) -> bytes:
+    """The compact JSON's dict (tools/solve_short.py compact) -> the binary form. Raises when a node cannot round-trip."""
+    import base64
+    import struct
+    import zlib
+
+    nodes = json.loads(zlib.decompress(base64.b85decode(raw["z"])))
+    q = int(raw["q"])
+    cols = []
+    bare: dict = {}
+    n_cls = None
+    for key, tree in nodes.items():
+        bare[key] = {}
+        for line, node in tree.items():
+            s = node["s"].encode("ascii")
+            na = len(node["a"])
+            c = len(s) // na
+            if n_cls is None:
+                n_cls = c
+            if c != n_cls or len(s) != c * na or na < 2:
+                raise ValueError(f"{key} {line!r}: {len(s)} characters, {na} actions, {n_cls} classes")
+            for i in range(c):
+                if sum(s[i * na + x] - 48 for x in range(na)) != q:
+                    raise ValueError(f"{key} {line!r}: class {i} does not sum to {q}")
+            cols.extend(s[x::na] for x in range(na - 1))
+            bare[key][line] = {k: v for k, v in node.items() if k != "s"}
+    head = {"q": q, "grid": raw["grid"], "rho": raw.get("rho", [0.4]), "classes": n_cls,
+            "meta": {k: raw["meta"][k]["meta"] for k in nodes}, "nodes": bare}
+    h = zlib.compress(json.dumps(head, separators=(",", ":")).encode(), 9)
+    return BIN_MAGIC + struct.pack("<I", len(h)) + h + zlib.compress(b"".join(cols), 9)
+
+
+def decode_bin(data: bytes) -> dict:
+    """The binary form -> {"q", "grid", "rho", "solve": {key: {"meta", "nodes"}}}: what `_load` builds from the JSON."""
+    import zlib
+
+    k = len(BIN_MAGIC)
+    if data[:k] != BIN_MAGIC:
+        raise ValueError("not a short table")
+    n = int.from_bytes(data[k:k + 4], "little")
+    head = json.loads(zlib.decompress(data[k + 4:k + 4 + n]))
+    cols = zlib.decompress(data[k + 4 + n:])
+    q, c = head["q"], head["classes"]
+    ones = int.from_bytes(b"\x01" * c, "little")
+    flip = bytes((2 * 48 + q - x) & 255 for x in range(256))  # two actions: the second column from the first
+    frm = int.from_bytes
+    metas = head["meta"]
+    pos = 0
+    solve = {}
+    for key, tree in head["nodes"].items():
+        for node in tree.values():
+            na = len(node["a"])
+            buf = bytearray(c * na)
+            if na == 2:
+                col = cols[pos:pos + c]
+                buf[0::2] = col
+                buf[1::2] = col.translate(flip)
+                pos += c
+            else:
+                total = (48 * na + q) * ones
+                for x in range(na - 1):
+                    col = cols[pos:pos + c]
+                    buf[x::na] = col
+                    total -= frm(col, "little")
+                    pos += c
+                buf[na - 1::na] = total.to_bytes(c, "little")
+            node["s"] = buf.decode("ascii")
+        solve[key] = {"meta": metas[key], "nodes": tree}
+    if pos != len(cols):
+        raise ValueError("short table: the columns do not match the head")
+    return {"q": q, "grid": head["grid"], "rho": head["rho"], "solve": solve}
+
+
+def _table_path(kind: str, ext: str) -> str:
+    path = os.path.join(TABLES_DIR, f"short_{kind}.{ext}")
+    return path if os.path.exists(path) else os.path.join(TABLES_DIR, "extra", f"short_{kind}.{ext}")
+
+
 def _load(kind: str):
-    """tables/short_<kind>.json (or tables/extra/short_<kind>.json: tools/pack.py ships from there only the tables the
+    """tables/short_<kind>.bin or .json (or under tables/extra/: tools/pack.py ships from there only the tables the
     recorded bot needs, tools/table_probe.py), decoded once per process (None when missing or unreadable, on record in
-    MISSING)."""
+    MISSING). The binary form first (`decode_bin`); the JSON when there is none or it cannot be read."""
     if kind in _TABLES:
         return _TABLES[kind]
-    path = os.path.join(TABLES_DIR, f"short_{kind}.json")
-    if not os.path.exists(path):
-        path = os.path.join(TABLES_DIR, "extra", f"short_{kind}.json")
+    path = _table_path(kind, "bin")
+    if os.path.exists(path):
+        try:
+            with open(path, "rb") as fb:
+                _TABLES[kind] = decode_bin(fb.read())
+            return _TABLES[kind]
+        except Exception:  # noqa: BLE001 - a short file, a zlib.error, anything: the JSON if it is there
+            pass
+    path = _table_path(kind, "json")
     t = None
     try:
         with open(path) as fh:

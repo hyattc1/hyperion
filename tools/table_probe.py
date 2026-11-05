@@ -40,7 +40,7 @@ DIAL_TABLES = {
     "hero.twin_preflop": ("generic/*.json",),  # a twist's own preflop table: at that twist's table start, one per variant.
     "hero.twin_multi": ("generic/*.json",),  # With none, generic_doc returns None and Hero plays without it, silently
     "short.three": ("extra/short_3.json",),  # hyperion/strategy/short.py's three-handed tables (at its build today)
-    "short.three2": ("extra/short_{short.three2_file}.json",),
+    "short.three2": ("extra/short_{short.three2_file}.*",),  # .bin (G1, the loader's first choice) or .json
 }
 ALWAYS_TABLES = {"composite": ("auction_bid.json",), "hybrid3_x": ("auction_bid.json",), "hybrid3": ("auction_bid.json",),
                  "hero": ("auction_bid.json",), "cheap": ()}  # Hero's bid: at the table start of a game that auctions
@@ -67,9 +67,11 @@ def declared_tables(name: str, dials: dict, tables: str) -> set:
     expanded = set()
     for f in out:
         hits = glob.glob(os.path.join(tables, f)) if "*" in f else ()
+        if f.startswith("extra/short_") and hits:  # one form of a solved tree: the one its loader reads first
+            hits = [h for h in hits if h.endswith(".bin")] or [h for h in hits if h.endswith(".json")]
         expanded.update(os.path.relpath(h, tables).replace(os.sep, "/") for h in hits)
         if not hits:
-            expanded.add(f)
+            expanded.add(f.replace(".*", ".bin") if f.startswith("extra/short_") else f)
     return expanded
 
 
@@ -96,7 +98,7 @@ def main(argv: list[str]) -> int:
         if event == "open" and args and isinstance(args[0], (str, bytes, os.PathLike)):
             p = os.fsdecode(args[0])
             p = os.path.abspath(p)
-            if p.startswith(tables) and p.endswith(".json"):
+            if p.startswith(tables) and p.endswith((".json", ".bin")):
                 seen.add(p[len(tables):].replace(os.sep, "/"))
 
     sys.addaudithook(hook)
