@@ -162,16 +162,44 @@ Kit H's 2 s start, at 3x: was over at the worst table, now 1.35 s. The zip: 2,96
 - Identity at the head, kit B reply for reply: 40 of 40 tables, 6,599 decisions.
 - Suite, `-m "not timing"`: 1556 passed, 7 skipped, 0 failed.
 
+## The coordinator's check: strong tables on the kit path, fresh seeds
+
+`bare` is held for about 80% of decisions at 2x and costs -0.11 ± 0.07 at elite in model mode, and elite on the kit path had not been run. Paired against batch 8's zip, zip
+941360774..., dilated clock, kit B, seeds 80000-80199 x 8 (new; used by nobody), 1600 tables a cell, `--fixed-room` (every other seat at fixed speed and only ours strict, so a
+pair differs by the package alone; a zip against itself there is reply for reply). Nothing beyond noise down; no code changed for it.
+
+| field | clock | rules | A - B | tmo % A / B | A at level 1 / 2 / 3, % | load |
+|---|---|---|---|---|---|---|
+| elite | 1.5x | 8..1 | +0.005 ± 0.024 | 0.038 / 0.051 | 1 / 0 / 0 | 12.5 |
+| elite | 2x | 8..1 | -0.047 ± 0.072 | 0.106 / 0.339 | 80 / 0 / 0 | 13.2 |
+| elite | 3x | 8..1 | +0.079 ± 0.106 | 2.44 / 15.09 | 70 / 9 / 1 | 13.8 |
+| mirror | 1.5x | 8..1 | -0.001 ± 0.014 | 0.017 / 0.038 | 0 / 0 / 0 | 8.7 |
+| mirror | 2x | 8..1 | -0.017 ± 0.079 | 0.104 / 0.328 | 80 / 0 / 0 | 12.9 |
+| mirror | 3x | 8..1 | -0.012 ± 0.098 | 0.538 / 3.40 | 80 / 0 / 0 | 8.7 |
+| elite | 2x | 10/7/5/4/3/2/1/0 | -0.047 ± 0.148 | **0.818** / 7.01 | 77 / 2 / 0 | 8.8 |
+| night | 1.5x | 8..1 | +0.001 ± 0.006 | 0.009 / 0.014 | 0 / 0 / 0 | 8.6 |
+| night | 2x | 8..1 | -0.004 ± 0.039 | 0.039 / 0.094 | 47 / 0 / 0 | 8.6 |
+| realistic + bonus_card | 2x | the twist's | +0.001 ± 0.039 | 0.042 / 0.101 | 59 / 0 / 0 | 8.9 |
+
+Read: elite at 2x is level within ±0.07, and that interval's low end (-0.119) still holds model mode's -0.11, so a small real cost is not excluded; at 3x fewer timeouts more than cover it.
+At 1.5x the rung barely holds (1% of decisions), so 1.5x carries no such risk. 0.3% at 2x holds in every cell at load 9-13 but one: **elite under 10/7/5 at 0.82%** (batch 8 7.0%), where exact
+ICM makes the box's slowest decisions slower still. Twist: bonus_card only (auction was not run).
+
+**The CPU-share case.** The governor reads CPU time, so on a quota it stays at level 0, by design. I would not change that: b8-timing.md's c2 and c3 found a bot that sleeps between
+calls barely notices a share, and one that never sleeps loses about 3% in stalls of 8 ms whichever bot it is, and a step down shortens no stall. What is cheap is knowing which case it is:
+`python3 tools/box_check.py` on the run sheet (NIGHT-template, "WHICH BOX"). On this box it reads NORMAL, CPU/wall 1.00, 0 stalls a second; pinned with two hogs on one logical CPU, CPU/wall 0.33, 83
+stalls a second, worst 8 ms, CPU SHARE. Its limit: it describes the machine it ran on, so it only speaks for the sandbox if it can run there.
+
 ## Not verified
 
 - **A really slower CPU.** Every slow row is the dilated clock: K times this thread's CPU time. It scales memory-bound work as much as CPU work, and at
   high load it counts what a sibling thread and the hypervisor take.
 - **A CPU-share sandbox.** By design the governor now ignores time our thread did not run: on a quota that stalls a bot in slices it will not step down,
-  and the box's mean will not read slow. b8-timing.md found no bot code answers those stalls either, but that was measured on the bot alone, not on this clock.
+  and the box's mean will not read slow. b8-timing.md found no bot code answers those stalls either, but that was measured on the bot alone, not through a kit. `tools/box_check.py` tells the case.
 - **The real kit**, its adapter's cost, and whether its hand end is timed. Kit B and kit J are fakes; kit J's numbers are through the gate's closure seat. Its own simulator ran
   the zip at 120 tables with 0 errors at limits of 1000 and 500 us (46 timeouts of 33,903 against batch 8's 63 of 31,459 at 500 us), which does not dilate.
-- **A quiet box**: load never fell under 9. **Elite tables on the kit path at 2x-3x**: not run; `bare` costs -0.11 ± 0.07 there in model mode.
-- **Twists at 2x-3x**: only plain hold'em and one top-heavy table. **Python 3.13+**: not on this box; the table's test skips them.
+- **A quiet box**: load never fell much under 9.
+- **Twists on the kit path**: bonus_card at 2x only. **Python 3.13+**: not on this box; the table's test skips them.
 - **The first 32 decisions of a table on a slow box**: the box must read slow first, so the governor and the floor wait for that; the table's first decision (986 us at 3x
   through a kit with no warm-up) times out about 40% of the time at 3x, as before.
 

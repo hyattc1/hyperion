@@ -162,7 +162,9 @@ entry goes through `Adapter.decide` (every template does, and passes its first c
 `decide` of your own around `bot.act`: `tools/gate.py` FAILS a package whose decisions do not report, by name. Keep
 `to_observation` cheap, it is on the clock. The gate prints a `governor:` line; on this box it must read `level_max 0` and
 `0 without their tail`. Anything else at this box's speed means the adapter is slow (profile it:
-docs/drills/climb/g1_profile_entry.py), not that the governor is wrong.
+docs/drills/climb/g1_profile_entry.py), not that the governor is wrong. `python3 tools/box_check.py`, run where the bot runs, says which box it is
+(NORMAL, SLOW CPU about Nx, CPU SHARE) and what that means: on a share of a CPU the governor stays at level 0 by design, and no bot code
+answers those stalls.
 
 The entry template follows the kit's shape: a kit that imports a file and builds a bot object,
 `hyperion/drills/entry_template.py`; one call per event, `event_player_template.py`; **the bot as its own process on
@@ -473,7 +475,8 @@ layer's keys are `exploit.*`, never `hero.exploit.*`.
   0.51% to 0.21%, 3x 17.4% to 4.1%. So 0.3% at 2x holds on a box not oversubscribed. Points level under 8..1 (+0.04 ± 0.08, +0.03 ± 0.09, +0.01 ±
   0.08, +0.08 ± 0.11), +4.06 ± 1.14 of 100 under 50/25/12/... at 3x. At 1x on the real clock, load 15-22, 900 tables: level 0 throughout.
   A fold after our last reply is worth more than the timeout it costs: the first design dropped those tails and lost 0.4 points a table.
-  Setup 0.66 s to 0.43 s (load 15), zip 3.69 MB to 2.97 MB.
+  Setup 0.66 s to 0.43 s (load 15), zip 3.69 MB to 2.97 MB. On fresh seeds 80000-80199 x 8, at strong tables, where `bare` costs -0.11 in model mode:
+  elite at 2x -0.05 ± 0.07, 1.5x +0.01 ± 0.02, 3x +0.08 ± 0.11; mirror level at all three.
 
 - Windows on F (2026-11-02, docs/drills/f1-windows-log.md; paired, model mode, 200 x 8): each recipe moves F's play
   as stated after the fixes; none gains on night; `dead_seats` gains among timing-out seats (+0.06 ± 0.05) and loses
