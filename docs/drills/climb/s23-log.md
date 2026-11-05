@@ -278,3 +278,76 @@ is written below as it comes.
   `goal/s23/B18_screen.md` and `.json`); then `elite` under 10/7/5/4/3/2/1/0 (`B18_elite_brief.md`). `screen.done`
   holds RUN_DONE at the end. To resume after a stop: run screen.sh again at the same `hyperion/` tree (cached chunks
   stand); do not change hyperion/ in wt_s23 or leave uncommitted changes under tools/ while it runs.
+
+## Step 4: B18's screen (10000-10199, every stage, --aim strong, runout term, exploiter 4 in; against batch 8)
+
+03:36 **ACCEPT** (`goal/s23/B18_screen.md`, `.json`; code 5bf333a48f = c80753d; 82 minutes, 3 workers; 0 timeouts,
+0 errors). Corrected deltas, B18 - F, 200 seeds x 8:
+
+| stage | cell | F | B18 | B18 - F | | raw |
+|---|---|---|---|---|---|---|
+| confirm | night | 6.015 | 6.023 | +0.008 ± 0.008 | level | +0.005 ± 0.012 |
+| guards | night_hard | 5.570 | 5.576 | +0.006 ± 0.008 | level | +0.004 |
+| | realistic | 6.350 | 6.351 | +0.000 ± 0.007 | level | +0.004 |
+| | top | 5.114 | 5.120 | +0.006 ± 0.010 | level | -0.003 |
+| | night @10/7/5/4/3/2/1/0 | 6.311 | 6.331 | **+0.020 ± 0.017** | **UP** | +0.024 ± 0.030 |
+| | night @50/25/12/6/3/2/1/1 | 25.112 | 25.171 | +0.059 ± 0.138 | level | +0.122 |
+| | night, doubling blinds | 5.910 | 5.910 | -0.001 ± 0.010 | level | +0.009 |
+| elite | elite | 4.886 | 4.894 | +0.008 ± 0.009 | level | +0.011 ± 0.012 |
+| | elite_night | 5.452 | 5.455 | +0.003 ± 0.008 | level | +0.004 |
+| | mirror | 4.484 | 4.493 | **+0.009 ± 0.007** | **UP** | +0.012 ± 0.013 |
+| | elite_b | 4.684 | 4.693 | **+0.009 ± 0.009** | **UP** | +0.002 ± 0.013 |
+| | mirror_b | 4.508 | 4.518 | **+0.010 ± 0.009** | **UP** | +0.005 ± 0.014 |
+| exploit | exploit / exploit2 / exploit3 / exploit4 (8-max) | | | -0.006 / -0.007 / +0.013 / -0.001 (± 0.016-0.022) | level | |
+| | the four heads-up cells, adapt_hu | | | 0 | identical | |
+| | exploit_3 / exploit2_3 / exploit3_3 / exploit4_3 | | | 0 / +0.008 ± 0.034 / -0.011 ± 0.027 / -0.002 ± 0.012 | level | exploit2_3 raw -0.062 ± 0.048 |
+| | adapt / adapt_3 | | | +0.012 ± 0.024 / +0.009 ± 0.030 | level | |
+| variants | bonus_card / auction / bounty / knockout_bounty / top_heavy / fast_schedule | | | +0.004 / +0.002 / -0.002 / -0.006 / -0.079 ± 0.146 / -0.006 ± 0.008 | level | |
+| | the other 21 | | | 0 | identical | |
+| aware | bounty_aware | | | -0.003 ± 0.004 | level | |
+| | the other four | | | 0 | identical | |
+
+Weighted (addendum 11): W +0.0021 ± 0.0026 (lower bound -0.0005), W-min +0.0008 ± 0.0025 (lower bound -0.0017); cap
+holds. One raw / corrected flag mismatch to note: exploit2_3 raw -0.062 ± 0.048 DOWN, corrected +0.008 ± 0.034 level
+(the term's difference -0.070 ± 0.037: B18 ran bad on its all-ins there; the protocol reads the corrected delta).
+
+**elite under 10/7/5/4/3/2/1/0** (the brief's extra check; `--stages elite --rules brief.json`, same seeds; 27 min):
+**ACCEPT**; elite +0.014 ± 0.024, elite_night +0.016 ± 0.017, mirror +0.005 ± 0.017, elite_b **+0.025 ± 0.023 UP**,
+mirror_b +0.011 ± 0.019; W +0.0142 ± 0.0198. So the screen reads B18 where the coin put it: about +0.01 at the strong
+rooms under 8..1 (three of five cells beyond noise with the term), +0.015 under 10/7/5, night @10/7/5 +0.020, the
+ordinary rooms, every exploit cell and every twist cell level or identical.
+
+**For a held-out run** (fresh H37 = 57000-57399 per RESUME.md; on top of batch 8; `--aim strong`, every stage,
+runout term, exploiter 4 in): branch climb/s23-firsts at the head this entry is committed on (code c80753d for
+hyperion/), candidate docs/drills/climb/s23-candidate.json = `{"short_strong_free_bb": 18, "short.three2_free_max": 18}`.
+Identity with the dials off: goal/s23/idchk2, 14 of 14 against idchk39. No new table file; the zip is unchanged in size.
+
+## Summary (what this found, and what to try next)
+
+1. **Where F's first places go at strong tables: conversion, not reaching the endgame.** F reaches three and two alive as
+   often as anyone (more than the elites) but arrives short (0.32 of the chips at three, 0.48 heads-up), converts
+   from there at about its chip share, and busts third 35% of the time against the elites' 21%. All of F's margin at a
+   strong table is made from the start to four alive (+0.25 to +0.31 a seat under either table; the elites lose there);
+   with three or two left F is level under 8..1 and loses under 10/7/5 (three alive -0.04 to -0.08 a seat, heads-up
+   -0.02), where the elites gain +0.05 to +0.10 and +0.04 to +0.07. Under 50/25/12 F's late play is the best in the
+   room, and F does adapt to the payout table (its play diverges on 79% of tables under 50/25/12 and 50% under 10/7/5;
+   the adaptation is worth +0.10 and +2.1 a table at elite).
+2. **Points on the table per leak** (F's seat, a strong table, F to the elites' level): three alive **+0.11 to +0.14 under
+   10/7/5** (+0.05 under 8..1; of it the first-in button and small blind about 0.08-0.10, the calls of jams 0.03);
+   heads-up **+0.07 to +0.09 under 10/7/5** (+0.02 to +0.03 under 8..1; against an elite F loses -0.24 to -0.33 per
+   heads-up arrival); four alive at most +0.05; chips on arrival not a leak but a trade against the stage that carries
+   F's margin.
+3. **Built: B18**, the one piece of the three-handed leak that is positive in every room: the button's solved tables
+   reach more hands at 18 bb or less (either read instead of both). Worth about +0.01 (8..1) / +0.015 (10/7/5) a table
+   at a strong table by the coin and by the screen; small, clean, nothing down anywhere. The small blind's half of the
+   leak is real (+0.015 a table at strong rooms with every gate open) but room-dependent (realistic -0.08, night -0.05
+   under 10/7/5) and no recorded read separates the rooms; it stays F's.
+4. **Next, in order.** (a) H1 (climb/s20-h1, solved heads-up per seat behind S7's gates) is the open line on the
+   heads-up leak, which is the bigger of the two per arrival; its screen never ran to the end: resume it (`goal/s20/h1d/screen.sh`).
+   (b) F's calls of jams three-handed (BB vs SB jam, BB vs BTN jam, SB vs BTN jam: F's calls lose -0.1 to -0.3 points
+   each where the elites' win; gap about 0.03 a table under 10/7/5): the all-in answers are rival 3's `_allin` with the
+   caller's range from VPIP x 0.6; a measured jam-call range (the jammer's observed first-in jam rate by depth) is a
+   candidate, points-valued by the same coin first. (c) The small blind three-handed needs a per-seat read of the big
+   blind's answer to small opens when short-handed (the pooled fold-to-raise and re-raise rates over the table do not
+   separate); the recordings here (goal/s23/rec3_*, C_*, D_*) hold the hands to fit it on. (d) The big blind's calls of
+   a jam should not be touched blind: F's folds there are already the elites' (87-90%).
