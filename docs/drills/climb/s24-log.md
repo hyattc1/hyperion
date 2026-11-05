@@ -5,7 +5,7 @@ Branch climb/s24-overfold, worktree goal/wt_s24, from main 6138ef0 (batch 8 is F
 seeds 20000-59999, judge seeds 60000+ and 70000+, and the judge bots (out_*, elite5, rival4, rival5, adapt2) are not used. Workers
 at most 3, nice 5.
 
-**Where I am / next:** the rule is fixed below and committed (3d5dab6); identity passed (14 of 14); the screen is running at 3d5dab6 (goal/s24/run.sh; ends with goal/s24/RUN_DONE; goal/s24/screen.md, screen.json; re-running run.sh resumes from its cache). Then the suite, then the report.
+**Where I am / next:** done, not merged (the coordinator's call). Screen **ACCEPT** under `--aim exploit` at 3d5dab6; the gain is the shove read at 8-max, and the heads-up flop read did not show on the screen's seeds. Identity 14 of 14. Candidate docs/drills/climb/s24-candidate.json. Next, if taken: a held-out run on top of what it would ship with (S22's code is not on main yet; it was not screened together with this).
 
 ## Part 1: exploiter 5 wired in
 
@@ -115,3 +115,59 @@ Not done, on the evidence: no change to the big blind's defence, the 3-bet defen
 ## Identity
 
 The branch with the new dials off (3d5dab6; SHIP_DIALS = batch 8) against batch 8's F (goal/idchk39/post): `climb_accept --cand '{"dials": {}}' --set 10000:10040 --stages confirm,guards`, chunk by chunk (goal/s24/idcmp.py): **14 of 14 identical**, night 5.928, night_hard 5.735, realistic 6.265, top 5.047, matching goal/idchk39.md row for row. Exploiter 5's wiring is in that tree, so it moved none of those cells.
+
+Exploiter 5's wiring against the rest of the exploit and elite stages: raw samples of the first chunk (10000-10024) of all 20 existing cells (15 exploit, 5 elite), this tree's base against batch 8's own tree (goal/wt_b8f at c758e56; goal/s24/wcmp.py): **20 of 20 identical**. No existing cell's samples moved.
+
+## The screen: ACCEPT under `--aim exploit`
+
+`climb_accept --base '{"dials": {}}' --cand docs/drills/climb/s24-candidate.json --set 10000:10200 --aim exploit --runout-term --stages confirm,guards,elite,exploit,aware,variants --workers 3` (goal/s24/run.sh, screen.md, screen.json; code 1a20f8df6a = the tree at 3d5dab6, 165 minutes). Corrected deltas (addendum 13), 200 seeds a cell; raw beside where it differs. Exploiters 1 to 5 and adapt1 in.
+
+| stage | cell | F | S24 | S24 - F | | raw | exploiter F / S24 |
+|---|---|---|---|---|---|---|---|
+| exploit | exploit5 (8-max) | 6.008 | 6.044 | +0.036 ± 0.040 | level | +0.039 ± 0.061 | 4.468 / 4.470 |
+| | exploit5_hu | 8.522 | 8.518 | -0.004 ± 0.041 | level | +0.000 ± 0.059 | 8.425 / 8.425 |
+| | exploit5_3 | 8.271 | 8.269 | -0.002 ± 0.030 | level | -0.020 ± 0.055 | 7.193 / 7.240 |
+| | exploit4 (8-max) | 5.622 | 5.703 | **+0.080 ± 0.054** | **UP** | +0.081 ± 0.068 UP | 5.272 / 5.171 |
+| | exploit4_hu / _3 | | | +0.007 ± 0.016 / +0.009 ± 0.022 | level | | |
+| | exploit (8-max) / _hu / _3 | | | +0.021 ± 0.033 / +0.019 ± 0.049 / +0.021 ± 0.031 | level | | |
+| | exploit2 (8-max) / _hu / _3 | | | +0.001 ± 0.036 / +0.009 ± 0.021 / -0.009 ± 0.021 | level | | |
+| | exploit3 (8-max) / _hu / _3 | | | +0.031 ± 0.040 / +0.005 ± 0.019 / +0.004 ± 0.023 | level | | |
+| | adapt (8-max) / _hu / _3 | | | +0.006 ± 0.036 / -0.004 ± 0.010 / -0.009 ± 0.033 | level | | |
+| confirm | night | 6.015 | 6.040 | **+0.024 ± 0.020** | **UP** | +0.009 ± 0.029 | |
+| guards | night_hard | 5.570 | 5.563 | -0.006 ± 0.018 | level | **-0.031 ± 0.030 DOWN** | |
+| | realistic | 6.350 | 6.350 | -0.000 ± 0.015 | level | +0.002 ± 0.016 | |
+| | top | 5.114 | 5.138 | **+0.025 ± 0.025** | **UP** | +0.034 ± 0.041 | |
+| | night @10/7/5/4/3/2/1/0 | 6.311 | 6.326 | +0.014 ± 0.039 | level | +0.019 ± 0.059 | |
+| | night @50/25/12/6/3/2/1/1 | 25.112 | 25.121 | +0.009 ± 0.288 | level | -0.035 ± 0.399 | |
+| | night, doubling blinds | 5.910 | 5.911 | +0.001 ± 0.018 | level | +0.001 ± 0.030 | |
+| elite | elite | 4.886 | 4.916 | **+0.029 ± 0.024** | **UP** | +0.050 ± 0.037 UP | |
+| | elite_b | 4.684 | 4.721 | **+0.037 ± 0.025** | **UP** | +0.043 ± 0.040 UP | |
+| | mirror | 4.484 | 4.510 | **+0.026 ± 0.026** | **UP** | +0.027 ± 0.038 | |
+| | mirror_b | 4.508 | 4.533 | +0.025 ± 0.028 | level | +0.037 ± 0.044 | |
+| | elite_night | 5.452 | 5.451 | -0.001 ± 0.018 | level | -0.001 ± 0.026 | |
+| variants | 27 catalog entries (realistic) | | | 23 identical; top_heavy +0.154 ± 0.212, antes_from_level_3 -0.010 ± 0.014, fast_schedule -0.002 ± 0.015, pot_limit identical to the printed digit | level | | |
+| aware | five aware fields | | | identical | level | | |
+
+0 timeouts and 0 errors in every chunk for both specs. Weighted score (addendum 11, six adapter bots): W +0.0064 ± 0.0060 night points, lower bound **+0.0004**; W-min +0.0049 ± 0.0077, lower bound -0.0028; the cap holds. Families: ordinary +0.0097 ± 0.0216, strong +0.0219 ± 0.0232, adapters +0.0077 ± 0.0158, twist on realistic +0.0002 ± 0.0012, twist aware 0.
+
+**Read these with care.**
+- **The heads-up flop read did not show.** exploit5_hu, the cell it was built for, is level. Each read alone on the same seeds, raw (goal/s24/q4.out): c-bettor read exploit5_hu +0.000 ± 0.059, exploit_hu +0.052 ± 0.067, exploit4_hu +0.000, adapt_hu -0.007; shove read exploit5_hu -0.007 ± 0.015, exploit5_3 -0.025 ± 0.050, exploit4_hu +0.015, adapt_hu +0.015. On diagnostics the c-bettor read was +0.083 ± 0.060. So it costs nothing visible, and its gain is unproven: exploiter 5's heads-up flop print is still there in points. Heads-up stays level (8.52 / 8.43), as the arena found it.
+- **The gain is the shove read at 8-max, and the screen probably flatters it.** First-order points put it about +0.01 a table (the rule's section), and played on diagnostics the nine 8-max cells averaged about zero. night +0.024 and elite_b +0.037 are above that; expect less on a held-out set.
+- **night_hard's raw delta is beyond noise down** (-0.031 ± 0.030); the term's difference accounts for it (-0.024 ± 0.021) and corrected it is level (-0.006 ± 0.018). Corrected deltas decide (addendum 13), but it is the cell to watch.
+- **F wins against exploiter 5 as before:** 8-max 6.04 vs 4.47, three-handed 8.27 vs 7.24, heads-up 8.52 vs 8.43 on 10/7. exploit5_3's exploiter moved 7.193 to 7.240 (F level), so the night seat paid for it.
+- **Not screened with S22.** The base is batch 8 without S22's river read, whose code is not on main. S22's read and this one act on different streets, but only a run on top of it can say they add. climb/b8-s22 does not merge cleanly with this branch (13 conflict blocks, including hyperion/compose/bot.py); main does (0).
+- The exploit stage's p99 column reads up to 4.1 ms for both specs in cells without any new read: those chunks finished in two windows of about ten minutes, one for each spec, on a box shared with other work, with 0 timeouts; model mode replays regardless. Not the bot.
+
+## Timing
+
+`climb_accept --stages timing` (goal/s24/timing.md, tools/latency.py, 20,000 calls at load about 9): act p50 64.0 against 69.2 µs, p99 144.7 against 161.3, max 359 against 515, none over 1 ms, for F and S24. The reads themselves are a counter at hand end and a short scan when a short all-in is faced. One run; under the climb's 200 µs check. Not the zip's proof through a kit's adapter.
+
+## Tests
+
+tests/test_s24_reads.py (12: the shove read's counts, first actions only, no chance behind an all-in, a blind posted as a raise; both reads reach the decisions; shut gates play as F; twist tables play as F; a table replays exactly). tests/test_sim_exploiter.py and tests/test_climb_accept.py gain exploiter 5. docs/packet/CONTRACTS.md regenerated (the apicard test asked).
+
+## Addendum 17, proposed (not in docs/decisions.md; the coordinator's)
+
+> **The climb: addendum 17 (exploiter 5 joins the exploit stage).** Batch 8 changed F at strong tables and in its three-handed preflop, so a fresh red-team agent played batch 8's ship as a black box through exploiter 3's arena and built exploiter 5 (goal/exploiter5, md5 f4121d395d7e533a128be36f35466353). On its own arena it trails F at 8-max (4.68-4.92 against 5.85-5.96) and three-handed (2.01 against 2.36) and is level heads-up on 2/1 points (1.47-1.50 against 1.51-1.54); its notebook lists heads-up probes of F's folds, whose size at each table size docs/drills/climb/s24-log.md measures.
+>
+> Fixed before it is measured by a climb_accept run on main: exploiter 5 joins the exploit stage as a tuning opponent, never in a night pool, with cells `exploit5` (8-max, with six night seats), `exploit5_hu` and `exploit5_3` (one night seat), as exploiter 4's; appended, so no earlier cell's seeds, file names or samples move (checked: 20 of 20 chunks of the exploit and elite stages, 14 of 14 of confirm and guards, identical). In the weighted score's adapter family (addendum 11's weights, tools/accept_weights.json) the six adapter bots take a fixed sixth each inside a format (a fifth before): 16.7% of the family, 5.6% in each format, which at the family's base weight of 0.15 is 0.025 of W. The family's weight and range are unchanged. The bot is deterministic: it imports no random and its one clock read cannot change an action, so it needs no fixed speed in model mode; two model-mode runs replay exactly. Its adapter puts back the collector threshold it raises at import. From the first climb_accept run started after its wiring merges; runs already started keep the protocol they started under. S24's screen ran with it from its branch before this addendum, as a tuning run.

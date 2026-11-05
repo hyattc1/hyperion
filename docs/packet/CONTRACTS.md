@@ -165,6 +165,10 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.bb_read` | `False` | with oa_read: the big blind's fold reads its answers as the big blind to a first-in raise by any seat this table (not all-in): (its folds + its fold-to-any-raise read x bb_k) / (its answers + bb_k); the layer's open_fold reads the same; off = O3's |
 | `r3.bb_k` | `10.0` | weight of a big blind's fold-to-any-raise read against its answers (bb_read) |
 | `r3.oa_bb_only` | `False` | with oa_read: only the big blind takes the open-answer read; the others keep their fold-to-any-raise read |
+| `r3.sr_depth` | `0.0` | facing an all-in of at most this many big blinds on a plain hold'em table (one bettor, no straddle): the width of its range is at least the seat's rate of all-ins per chance at this depth or under (its first action of a hand with no all-in before it, this hand's counted); 0 = off |
+| `r3.sr_prior` | `0.15` | prior of the shove read's rate |
+| `r3.sr_n` | `6.0` | chances the shove read's prior is worth |
+| `r3.sr_min` | `3` | chances seen, this hand's among them, before the shove read counts |
 
 The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"exploit": null}` turns the layer off):
 
@@ -419,6 +423,14 @@ The fallback Hero: `hero.<key>` for any key in the next table.
 | `postflop.stab_free_prior` | 0.4 |
 | `postflop.stab_free_n` | 2.0 |
 | `postflop.stab_holdem_only` | False |
+| `postflop.cbr_from` | 1.0 |
+| `postflop.cbr_full` | 1.0 |
+| `postflop.cbr_prior` | 0.6 |
+| `postflop.cbr_n` | 6.0 |
+| `postflop.cbr_min` | 4 |
+| `postflop.cbr_margin` | 0.03 |
+| `postflop.cbr_streets` | 3 |
+| `postflop.cbr_max_alive` | 2 |
 | `postflop.size_read` | 0.0 |
 | `postflop.size_read_n0` | 8.0 |
 | `postflop.size_read_margin` | 0.03 |
