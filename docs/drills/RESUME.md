@@ -6,6 +6,20 @@ frozen/B7-038c3f0, kit B zip 51c37f02; SHIP_DIALS in hyperion/compose/bot.py; BA
 (re-run at load 4): batch 7's zip is the known-good upload.
 Identity reference for worker branches: goal/idchk34/post (batch 7's F).
 
+
+## 2026-11-05 12:10: PAUSED for a WSL shutdown (owner's request). Start here.
+Nothing is running. The known-good upload is still batch 8 + G1 (frozen/B8G-e370fb3, zip 94136077); nothing was frozen or merged since. Deadlines are unchanged (goal text: docs/drills/goal-condition.txt).
+In order, on resuming:
+1. Re-arm the timers, which died with the session: Nov 7 08:00 ET and Nov 10 08:00 ET reveal searches, 3-hour progress check. If either time has passed, search at once.
+2. Re-run unchanged: goal/b42/run.sh (S25 on H42 on top of batch 9) and goal/b43/run.sh (batch 9 combined on H43). Cached chunks stand (674 and 499 at the pause; every chunk file loaded). First delete any chunk JSON that fails to load. Do not change the code in goal/wt_s25 or goal/wt_b9.
+3. Resume the workers with SendMessage if this session was resumed; otherwise start a fresh agent from the log and branch.
+   - Elite 6 (a79bb0ee6f32ef3d9, goal/elite/e6) and elite 7 (a569f48959aa8e0e9, goal/elite/e7): held-out judges in the making, about 2h of their 2.5h used, stopped mid-test. Give each 30 minutes to finish and deliver rival_bot.py, NOTEBOOK.md, FROZEN.md5, harness run. A fresh agent gets no repo access and the same brief. Do not read their notebooks or code beyond wiring them.
+   - S26 (a58537e12e6778722, climb/s26 e0d5aba, goal/wt_s26; log docs/drills/climb/s26-log.md): re-jam read v2 passes its coin; H1's reach and the three-alive read were on their fit coins, which were stopped and must be re-run.
+   - G2 (a94fdc3c575eb4c63, climb/g2-bare 7e0f7fb, goal/wt_g2; log docs/drills/climb/g2-log.md): root cause found, identity passes, dial off. Its timing run was stopped at load about 20: discard it and re-run at a stated load. Points runs have not started.
+4. When S25's verdict is in, run judges on 70800-71199 on what would ship, then freeze per PLAYBOOK. Next fresh held-out H44 = 85000-85399. Next plan after the two builds are wired: goal log "10:15" and "10:25" entries (out_reads opened as a study opponent; the guards are fixed in advance).
+Caches: goal/ on /tmp is on the real disk and has survived reboots. Backup at ~/dev/hyperion-goal-backup (goal/ and frozen/, taken at the pause). Do not clear /tmp/claude-1000.
+Owed from staging: addendum 17 text in docs/drills/climb/s24-log.md goes in docs/decisions.md when batch 9 merges.
+
 ## Restarted 2026-11-04 21:55 ET on the new box
 The new /goal's deadlines: last bot change Nov 10 18:00 ET; final rehearsal and deliverables Nov 11 12:00 ET. Section 2c's
 runs were restarted (workers 6 + 4 + 4); the goal log's newest entry says what else is live. Agents from session e2efc890

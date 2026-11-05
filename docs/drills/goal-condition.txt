@@ -1,0 +1,23 @@
+Our regional is Pittsburgh, Thu Nov 12, 6 PM ET. Resume the climb in ~/dev/hyperion from its clean pause on Nov 4: walk in with the strongest bot we can verify, finished early. Read docs/drills/RESUME.md (start at 2c), the end of docs/drills/goal-log.md, then docs/prompts/goal.md, which stays the brief: its acceptance protocol and rules still apply. G=/tmp/claude-1000/-home-connor-dev-grimoire/e2efc890-5e87-4f77-a595-b50b696294b8/scratchpad/goal holds the worktrees and result caches. The old session's agents are gone; resume workers from their logs and branches.
+
+RESTART, in order:
+1. Delete chunk JSONs that fail to load (3 known: 2 in G/accept_b8, 1 in G/accept_b8s22). Batch 7 already plays identically on the new CPU (9 of 9 rows).
+2. Re-run G/b34/run.sh, G/b35/run.sh, G/b36/run.sh, changing only --workers (16 threads now; keep load under about 14).
+3. If batch 8's judges pass, finish its freeze per RESUME 2c: identity (b), suite, pack, gate, merge, docs. Batch 7's zip stays the known-good upload until then.
+
+MUST LAND WITH BATCH 8:
+- tools/pack.py drops tables/extra/short_3b.json, so R6 would silently not play. Ship the file, and make a missing table a shipped dial names fail loudly.
+- We measure the repo but upload the zip. Add a check, run at every freeze, that plays the packed zip against the source bot on the same seeds and requires matching play.
+- The new CPU flatters timing. Loosen no budget; prove p99, max and setup time on the zip under heavy load and at 3x slowdown.
+
+PRIORITIES, in this order:
+1. The hour. Right after batch 8 freezes, run a full rehearsal on it (fresh agent, unseen twist, unfamiliar kit, 60 minutes). The last was on batch 6; batches 7 and 8 added specialists and tables. Fix what it finds. If the complexity costs more on the night than it gains, say so and switch.
+2. The twist. Search the web on the morning of Nov 7 (Bay Area, Nov 6) and Nov 10 (Boston, Nov 9) for the variant, kit interface and points; turn anything found into a catalog entry and a drill the same day. The rules reveal the variant at each event, so do not assume ours matches.
+3. Overfitting. After batch 8, have fresh agents with no repo access build at least two new outside bots and one new exploiter. Judge the ship on them before anyone tunes on them, and report the result honestly. Every opponent so far is ours, so a gain seen only against bots we wrote counts for little.
+4. Strength. O8 (H35) and S22 (H36) form batch 9 if they pass; then H1; then docs/drills/still-to-try.md by expected points on the night. Prefer new ideas at strong tables and heads-up over more dials.
+
+DEADLINES (check `date`): last bot change Nov 10 18:00 ET, or earlier if goal.md's stop rule fires. A batch that cannot finish its full protocol by then does not ship. Final rehearsal and all deliverables by Nov 11 12:00 ET.
+
+DONE only when all of this is committed and pushed: final SHIP and frozen zip with sha256, gate pass and zip-vs-source pass on that zip; a passing rehearsal on that exact ship within 60 minutes; both reveal searches recorded, even if empty; the new outside bots' and exploiter's results; a decisions entry, PLAYBOOK, HANDOFF, the one-page leaderboard and the still-to-try list; a one-page run sheet for the night in docs/night-of.md.
+
+ALWAYS: never read or modify ~/dev/sequoia-blind; never make the repo public; never email the organisers. Don't stop to ask: decide, log, keep going. Usage is not a constraint. Updates are short and in plain language.
