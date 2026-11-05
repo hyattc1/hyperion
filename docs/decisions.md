@@ -3542,3 +3542,11 @@ held-out set, then together, then the judges.
   up to 2x and stronger; its 3x row is worse until G1 lands.
 - Tests pinned to batch 7 start from BATCH8_OFF. A test that could never fail (test_s21_o5's "ship dials leave O5 off", which
   read the knobs before a table start) now starts a table.
+
+## The climb: addendum 16 (a fourth wave of outside judges) (2026-11-04, builder: the climb's coordinator)
+
+goal.md asks for new outside bots every few rounds. Three fresh agents with no repo access built o9 (an unconventional team), o10 (a strict 60-minute team, built in about 48) and o11 (a prepared top team), on models other than the coordinator's, to widen who wrote our opponents. Frozen at md5 f85066a0bd7e92551dad61a0d559bc89, bedcbd0c079f847c005af61f8807db10 and 5f92fb3b1b7519f06b79234d41cfa5ba.
+
+Fixed before they are measured by a batch's judges: they are held out as `out_o9`, `out_o10` and `out_o11`, never tuned on and never in a night pool. They form the judge cells `outside_d` (hero, the three, four night seats), `outside_d_strong` (hero, the three, out_reads, out_cfr, elite5, rival4) and each bot heads-up and three-handed with the first night seat (`outside_d_<bot>_hu`, `outside_d_<bot>_3`, rules hu and three), in the judges stage from the first judge run started after the wiring merges; runs already started keep the protocol they started under. The cells are appended, so no earlier cell's seeds, file names or samples move; they carry no weight in addendum 11's score. These eight alone record every seat's points and finishes, printed with F's rank. In model mode each bot's clock advances a measured step per read (18.8, 19.7 and 53.2 µs, the median within a decision at load 15), bound at act() after the module has loaded, and its generator is reseeded from the seat seed at every table, so runs replay exactly; at these steps their time guards do not bite.
+
+Measured once on batch 8 (70000-70399, runout term, paired against batch 7; docs/drills/climb/outside-d-log.md): no new bot beats F in any cell, and no cell is down against batch 7. At `outside_d_strong` the older out_reads leads F by 0.138 ± 0.093, with F second of eight by points and third by first places. These numbers are for reading, not for tuning. The cells pay 8..1, as the outside fields do; the strong room on the brief's payouts is unmeasured.

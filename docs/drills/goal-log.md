@@ -1739,3 +1739,16 @@ and (in judges) `elite_judge`.
   adapt_judge_hu +0.037, outside_b +0.040). Nothing beyond noise down. Timing against batch 7 at load 16: act p99 133 µs
   (134), hand end p99 201 µs (192), max 268 (249), none over 1 ms. Batch 8 goes to its freeze when the staging worker
   reports. Timing here is the new CPU's: the proof that counts is the zip under load and at 3x slowdown.
+
+## 23:45: batch 8 ships; the fourth wave of outside judges measured once
+- Batch 8 merged (eac472a), suite 1462 passed, 0 failed; frozen/B8-77c5ea6, zip 0d07654e: the known-good upload.
+- o9, o10, o11 (addendum 16) on batch 8, 70000-70399: F first in `outside_d` (5.871; o11 4.729, F +1.142 ± 0.092) and in every
+  heads-up and three-handed cell. `outside_d_strong`: F second of eight (4.906), behind the older out_reads (5.044; -0.138 ±
+  0.093), level with elite5 (4.895) on points, third by first places (12.9% against 22.3% and 17.8%). Batch 8 against batch 7:
+  outside_d +0.037 ± 0.034, outside_d_strong +0.091 ± 0.038 UP, nothing down. Not tuned on.
+- Reading: F is consistent but wins a strong table about as often as an even share. Two follow-ups, for reading only:
+  the strong room on a second seed set, and on 10/7/5/4/3/2/1/0, since these cells pay a flat 8..1.
+- Timing: the governor sees act() alone; through a kit's adapter 1.1% timeouts at 2x and 12% at 3x (docs/drills/climb/b8-timing.md).
+  The owner decided the governor must count the whole call: G1.
+- Git: `git pull --rebase` flattens a local merge and conflicts; after a merge, push directly or use `--rebase=merges`. The
+  attempt was aborted before anything was pushed.
