@@ -69,3 +69,46 @@ The solved tables' answers sit between the two rules (they call 17-26% facing th
 200-seed screen's realistic guard resolves ±0.007. Without a read that tells the jammers apart this fails the guard;
 the coin records the reads (the strong read, each opponent's re-raises of our opens, its fold / re-raise counts, its
 name) to see whether one does.
+- 05:40 Identity at bbc0b6c with the dials off (`goal/s23b/idchk`): **14 of 14 chunks identical** to idchk39's rows.
+- 06:25 **The fit under 10/7/5** (seven rooms, 120 seeds x 8 each; eligible = the hands where the tables wanted the jam
+  answer with the gates open; tables - F in points a table, 95%):
+
+| room | all jam answers | big blind | button (its open re-jammed) | small blind |
+|---|---|---|---|---|
+| four strong rooms pooled | **-0.010 ± 0.032** | -0.004 ± 0.020 | +0.010 ± 0.020 | -0.015 ± 0.018 |
+| realistic | -0.026 ± 0.050 | -0.015 ± 0.033 | -0.022 ± 0.032 | +0.012 ± 0.020 |
+| night | +0.017 ± 0.052 | +0.024 ± 0.027 | +0.012 ± 0.034 | -0.019 ± 0.029 |
+| top | +0.017 ± 0.060 | -0.009 ± 0.036 | +0.014 ± 0.036 | +0.011 ± 0.029 |
+
+  By R6's gate parts at the strong rooms nothing stands out (strong & all>=1: BB +0.004 ± 0.013, BTN +0.007 ± 0.011,
+  SB -0.012 ± 0.013; the other cells -0.015 to +0.005); by depth the only positive cell is the button's at 8-12 bb
+  (+0.009 ± 0.009 at the strong rooms, 60 hands an arm; realistic -0.006, night +0.001, top +0.010), which is a
+  split picked after the fact, not a rule. By opponents present, no pair is beyond noise.
+- **Reading: the solved tables' answers to jams are not better than F's own**, at the strong rooms (-0.010 ± 0.032)
+  or anywhere; the counterfactual's +0.036 a table for "call every jam with a top-20% hand at 8-18 bb" does not carry
+  to the equilibrium answers (which call other hands, and 31-52% facing a re-jam of the button's open), and the
+  hindsight in the counterfactual's buckets was worth more than I allowed. The 8..1 cells were stopped unplayed (the
+  effect under 8..1 is smaller still). **A clean no on the calls of jams**, as built here. `short.three2_jams` stays on
+  the branch, off, measured.
+
+## Summary
+
+1. **The small blind's first-in play three-handed: a clean no.** The solved tables' small blind is level with F's at the
+   strong rooms (+0.015 ± 0.024 under 10/7/5) and loses in the realistic (-0.081 ± 0.053) and night (-0.049) rooms;
+   no read of the big blind's answers over the table's history (fold-to-raise, re-raise rate, raises faced, pooled or
+   per seat) separates the rooms: the rates sit at 0.75-0.85 everywhere, because a table's answers are 8-max answers.
+   A read of the big blind's answers to small opens *when short-handed* would need its own counts and gets a handful
+   of hands a table; not built.
+2. **The button's first-in play**: R6 plus B18 (on H39) take what is clean; the remainder (about +0.01 a table) sits
+   behind a fold read (the most foldable opponent under 85%) that also keeps night level; not pursued while B18 is on
+   held-out from the other branch.
+3. **The calls of jams: a clean no** on the shape built (the tables' equilibrium answers; -0.010 ± 0.032 at the strong
+   rooms under 10/7/5, nothing by role, depth, gate part or opponents). The counterfactual that motivated it (F calls
+   60-75% of its top-10% hands and 2-10% of its top-20% facing a jam; a fixed top-20 rule at 8-18 bb +0.036 a table at
+   the strong rooms, -0.014 realistic) stands as a diagnosis: rival 3's core prices a three-handed jammer's range as
+   its PFR x 1.1, and the elites jam 20-45% first in. A rule on the core's range width (not the tables) is the untested
+   shape; it needs a read that tells the elites' jams from the push/fold bot's and rival 1's, which this data (15-30
+   hands a jammer) cannot fit honestly.
+4. Nothing from S23b goes to a screen. Branch climb/s23b (head this commit, code bbc0b6c: the jam-answer dials, off;
+   identity 14 of 14); tools in `goal/s23b/` (`sbread.py`, `cf_call.py`, `d9.py`, `ips3.py --jam`); recordings
+   `goal/s23/rec3_<room>_<pay>.jsonl.gz` now for all seven rooms, `goal/s23b/J_<room>_brief.jsonl.gz`.
