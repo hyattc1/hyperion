@@ -1783,3 +1783,19 @@ and (in judges) `elite_judge`.
   measures them at full tables first, fixes behind a per-seat read.
 - Drill 12 (kit J, Trailing Stop Hold'em, batch 8's ship): first valid minute 3, ship gated minute 8, final minute 17, stop minute 20; final
   zip 8.15 ± 0.41 a table against the kit's aware bot's 6.59 (fair share 4.875). H8 fixes what it found.
+
+## S23: where F's first places go (diagnosis, tuning rooms only, 16000-16199); B18 to held-out
+- At strong tables F's first places go to conversion, not to reaching the endgame. Elite room: F reaches 3 alive 42%, 2 alive 27%, as often as
+  anyone, with 32% and 48% of the chips (elite1 39%, 58%); first given 3 alive F 34% ± 4, elite1 57% ± 5; given 2 alive 53% and 70%. F busts third 35%
+  (elites 21%). Points by stage, elite, 10/7/5: start to 4 alive F +0.360, elite1 -0.175; 3 alive +0.020 and +0.071; heads-up +0.017 and +0.055.
+  All of F's strong-room margin is the 8-to-4 stage; with 3 or 2 left F is level under 8..1 and loses under 10/7/5. Under 50/25/12 its late play leads.
+  In the ordinary rooms F gains at every stage, so the leak is specific to elite opponents.
+- Points by leak, to the elites' level, 10/7/5: three alive +0.11 to +0.14 (first-in from the button and small blind at 8-27 bb: F min-raises 55% and
+  72%, is jammed on 36% and 22%, folds 85-95%, about 0.08-0.10; calls of jams about 0.03); heads-up +0.07 to +0.09; four alive up to +0.05.
+- B18 (`short_strong_free_bb` 18, `short.three2_free_max` 18: at 18 bb or less the button's three-handed tables play on either read): screen ACCEPT
+  against batch 8, 10000-10199: mirror +0.009, elite_b +0.009, mirror_b +0.010 UP, night @10/7/5 +0.020 UP; every exploit and adapt cell, variant and
+  aware cell level or identical; W +0.0021 ± 0.0026; elite rooms under 10/7/5 ACCEPT. A third of R6's size. On H39 (59000-59399) now.
+- H1 (climb/s20-h1 c927d02) screen ACCEPT: elite +0.007, elite_night +0.010, mirror +0.010, elite_b +0.008, mirror_b +0.009 UP, nothing down, W +0.0023 ±
+  0.0018; offline fresh seeds +0.0078 ± 0.0037 pooled; exploit cells not to be counted on (the coin does not back them). On H38 (58000-58399) now.
+- Held-out sets end at H39. **New range from H40: 80000-80399, then +1000 each** (60000+ and 70000+ are judge seeds). S23 continues on the rest of the
+  three-handed leak.
