@@ -220,6 +220,9 @@ class ShortParams:
         self.hu2_keep_defence = False  # ... once our own raise this hand is re-raised, F's 3-bet defence plays
         self.hu2_min = 0.0  # ... only at this effective depth (bb) or deeper
         self.hu2_max = 1000.0  # ... and at most this
+        # ... and only once S7's gate has had this many of the opponent's probe chances (prof.pb_opp) to admit the seat and
+        # has refused it (the probe read cannot admit under 3; goal: H1's early preflop must not keep S7's read low); 0 = off
+        self.hu2_like_opp = 0
         for k, v in kw.items():
             if not hasattr(self, k):
                 raise KeyError(f"unknown short dial {k!r}")
@@ -429,8 +432,16 @@ class ShortMember:
         alive = [j for j in range(len(obs.stacks)) if obs.stacks[j] + obs.bets[j] > 0 or obs.in_hand[j]]
         if len(alive) != 2:
             return False
-        if prof is not None and self._like_on() and self._like_ok(obs, prof, alive):
-            return False  # a seat S7's gates admit: S7's decision (or F's), never H1's
+        if prof is not None and self._like_on():
+            if self._like_ok(obs, prof, alive):
+                return False  # a seat S7's gates admit: S7's decision (or F's), never H1's
+            if self.p.hu2_like_opp > 0:
+                opp = next((j for j in alive if j != obs.seat), -1)
+                try:
+                    if prof.pb_opp[opp] < self.p.hu2_like_opp:
+                        return False  # S7's gate has not had its chances yet
+                except Exception:  # noqa: BLE001
+                    return False
         if base is not None and self.p.hu2_defer_3bet < 1.0:
             core = getattr(base, "core", None)
             v3o, v3n = getattr(core, "v3o", None), getattr(core, "v3n", None)

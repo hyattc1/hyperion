@@ -1127,18 +1127,31 @@ def cmd_hu2(a):
         with open(a.real) as fh:
             real = json.load(fh)
     heroes = [0, 1]
-    jobs = [(S, a.iters, a.every, real, heroes) for S in depths]
+    path = a.out or os.path.join(TABLES_DIR, "short_hu2.json")
     out = {"version": 2, "kind": "hu2", "q": Q, "classes": list(CLASSES), "depths": list(depths), "real": real,
            "solve": {}}
+    if os.path.exists(path):  # a resumed solve: the depths already saved at these iterations stand
+        with open(path) as fh:
+            old = json.load(fh)
+        if old.get("real") == real:
+            out["solve"] = {k: v for k, v in old.get("solve", {}).items()
+                            if v.get("iters") == a.iters and float(k) in depths}
+    jobs = [(S, a.iters, a.every, real, heroes) for S in depths if "%g" % S not in out["solve"]]
+
+    def save():
+        tmp = path + ".tmp"
+        with open(tmp, "w") as fh:
+            json.dump(out, fh, separators=(",", ":"))
+        os.replace(tmp, path)
+
     t0 = time.time()
     with Pool(a.workers) as p:
         for S, res in p.imap_unordered(solve_hu2_depth, jobs):
             out["solve"]["%g" % S] = res
             print(f"S={S:>5g} iters {res['iters']} expl {res['expl_mbb']} mbb/hand ({res['secs']} s)", flush=True)
+            save()  # progress: a stopped solve resumes from the depths saved here
     out["secs"] = round(time.time() - t0, 1)
-    path = a.out or os.path.join(TABLES_DIR, "short_hu2.json")
-    with open(path, "w") as fh:
-        json.dump(out, fh, separators=(",", ":"))
+    save()
     print("wrote", path, os.path.getsize(path), "bytes")
 
 
