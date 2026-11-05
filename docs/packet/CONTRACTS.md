@@ -173,6 +173,11 @@ Rival 3's core, `r3.<name>` (defaults are rival 3 as built, bit for bit):
 | `r3.sr_prior` | `0.15` | prior of the shove read's rate |
 | `r3.sr_n` | `6.0` | chances the shove read's prior is worth |
 | `r3.sr_min` | `3` | chances seen, this hand's among them, before the shove read counts |
+| `r3.veto_read` | `False` | count each seat's answers to any first-in raise this table (not all-in), for open_veto |
+| `r3.veto_t` | `0.8` | open_veto's switch: on while the seats behind's pooled fold to every open this table is under this |
+| `r3.veto_prior` | `0.8` | ... that rate shrunk to this prior |
+| `r3.veto_prior_n` | `10.0` | ... with the weight of this many answers |
+| `r3.open_veto` | `False` | with veto_read, four or more alive, plain hold'em, no limper: a first-in open the clause would make (base range or fold equity) is not made where the switch is on and pf x pot + (1 - pf) x the measured price when called (hybrid/open_ev.py) <= 0 |
 
 The exploit layer, `exploit.<name>`; hybrid3_x carries Hero's params (below; `{"exploit": null}` turns the layer off):
 

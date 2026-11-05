@@ -29,6 +29,7 @@ from ..sim.rivals import rival3 as R3
 from ..sim.rivals.rival3 import CLASSES, PCT, _cls, _eqvs
 from ..strategy.hero import blinds_owed, holdem_table, horizon_stack, icm_me, next_live, twist_families, twist_family
 from .dials import Rival3Knobs
+from .open_ev import open_ev
 from .kit import LeanICM, SoftDeadline
 
 
@@ -211,6 +212,31 @@ def sr_scan(hist, start, bb: float, depth: float) -> dict:
     return out
 
 
+def any_scan(hist, bbs, start) -> list:
+    """O8: one hand's answers to its first-in raise by any seat (kit shape, preflop first; the raise as bb_scan reads
+    it): each other seat's first action after it, until a re-raise or the raiser acts again, as (seat, 1 if it folded
+    else 0); [] where the hand had no such raise."""
+    opener = None
+    seen = set()
+    out = []
+    for s, a in hist:
+        k = a[0]
+        if opener is None:
+            if k == 'fold':
+                continue
+            if k != 'raise' or s == bbs or (a[1] or 0) >= 0.95 * start[s]:
+                return out
+            opener = s
+            continue
+        if s == opener or s in seen:
+            break
+        seen.add(s)
+        out.append((s, 1 if k == 'fold' else 0))
+        if k == 'raise':
+            break
+    return out
+
+
 def o3_scan(hist, opened: list, folded: list) -> None:
     """Add one hand's fold-to-3-bet read (kit shape (seat, (kind, amount)), preflop first): the hand's first raise is
     the open; the first raise after it by another seat is a 3-bet; the opener's next action is its reply to it."""
@@ -311,6 +337,9 @@ class Rival3Core(R3.Bot):
         # the shove read (r3.sr_depth; sr_scan): per seat, its chances at that depth or under and its all-ins among them
         self.srn = [0.0] * 12
         self.srk = [0.0] * 12
+        # O8's switch (r3.veto_read; any_scan): per seat, its answers to any first-in raise this table, and its folds
+        self.anyn = [0.0] * 12
+        self.anyf = [0.0] * 12
 
     def start_hand(self, kit_hand_no: int, totals) -> None:
         """Rival 3 prices each all-in from the stacks it sees. With r3.icm_horizon, the next hand's blinds owed are
@@ -378,6 +407,16 @@ class Rival3Core(R3.Bot):
                     if s < 12:
                         self.srn[s] += 1.0
                         self.srk[s] += 1.0 if sh else 0.0
+            except Exception:  # noqa: BLE001 - a malformed history leaves the read as it was
+                pass
+        if self.k.veto_read and start is not None:
+            try:
+                n = len(start)
+                bbs = self._blind_seats([s for s in range(n) if start[s] > 0], self.button, n)[1]
+                for s, f in any_scan(hist, bbs, start):
+                    if 0 <= s < len(self.anyn):
+                        self.anyn[s] += 1.0
+                        self.anyf[s] += f
             except Exception:  # noqa: BLE001 - a malformed history leaves the read as it was
                 pass
         self.hand_end({"hand_no": result.hand_no + 1, "deltas": result.deltas, "history": hist})
@@ -513,7 +552,9 @@ class Rival3Core(R3.Bot):
             size = bb * (2.5 if len(behind) > 1 else 2.2) + bb * len(limpers)
             if limpers and any(self._rates(s)[0] > 0.55 for s in limpers): size += bb * len(limpers)
             ev_steal = pf * pot_tot - (1 - pf) * (size - bets[seat]) * 0.55
-            if p <= base or (n_beh and ev_steal > 0 and p <= 0.85) or (n_beh and pf > 0.9):
+            if (p <= base or (n_beh and ev_steal > 0 and p <= 0.85) or (n_beh and pf > 0.9)) and not (
+                    kn.open_veto and not limpers and n_alive >= 4 and self._oa_h
+                    and self.open_vetoed(behind, pf, pot_tot / bb, p, eff_bb)):
                 return self._raise(legal, o, size)
             if 'check' in legal: return ('check', 0)
             if seat == sbs and to_call <= sbv and p <= 0.45 and len(limpers) == 0:
@@ -778,6 +819,26 @@ class Rival3Core(R3.Bot):
             if n > 0.0 and n >= kn.oa_min_n:
                 f += self.oax[s] / (n + kn.oa_s)
         return 0.05 if f < 0.05 else (0.97 if f > 0.97 else f)
+
+    # ------------------------------------------------------------------ O8: the veto on first-in opens
+    def veto_rate(self, behind) -> float:
+        """The seats behind's pooled fold to any first-in raise this table, shrunk to veto_prior with veto_prior_n."""
+        kn = self.k
+        n = f = 0.0
+        an, af = self.anyn, self.anyf
+        for s in behind:
+            if 0 <= s < len(an):
+                n += an[s]
+                f += af[s]
+        return (f + kn.veto_prior * kn.veto_prior_n) / (n + kn.veto_prior_n)
+
+    def open_vetoed(self, behind, pf: float, pot_bb: float, p: float, eff_bb: float) -> bool:
+        """O8 (r3.open_veto): a first-in open the clause would make is not made where the seats behind fold less than
+        veto_t to everyone's opens (r3.veto_read) and the measured price says it loses: pf x pot + (1 - pf) x
+        open_ev(p, seats behind, depth) <= 0, in big blinds (hyperion/hybrid/open_ev.py)."""
+        if not behind or self.veto_rate(behind) >= self.k.veto_t:
+            return False
+        return pf * pot_bb + (1.0 - pf) * open_ev(p, len(behind), eff_bb) <= 0.0
 
     # ------------------------------------------------------------------ S16: the trust weight on the steal's fold read
     def _fold_trust(self, s, short):
