@@ -146,3 +146,12 @@ class Rival3Knobs:
     bb_k: float = _dial(10.0, "weight of a big blind's fold-to-any-raise read against its answers (bb_read)")
     oa_bb_only: bool = _dial(False, "with oa_read: only the big blind takes the open-answer read; the others keep their "
                                     "fold-to-any-raise read")
+    # the shove read (S24, docs/drills/climb/s24-log.md): a seat's all-ins at short stacks, per chance, as the width of its
+    # all-in range. Calls only: the width only widens, and the all-in price still decides
+    sr_depth: float = _dial(0.0, "facing an all-in of at most this many big blinds on a plain hold'em table (one bettor, "
+                                 "no straddle): the width of its range is at least the seat's rate of all-ins per "
+                                 "chance at this depth or under (its first action of a hand with no all-in before it, "
+                                 "this hand's counted); 0 = off")
+    sr_prior: float = _dial(0.15, "prior of the shove read's rate")
+    sr_n: float = _dial(6.0, "chances the shove read's prior is worth")
+    sr_min: int = _dial(3, "chances seen, this hand's among them, before the shove read counts")
