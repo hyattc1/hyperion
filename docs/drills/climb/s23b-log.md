@@ -112,3 +112,45 @@ name) to see whether one does.
 4. Nothing from S23b goes to a screen. Branch climb/s23b (head this commit, code bbc0b6c: the jam-answer dials, off;
    identity 14 of 14); tools in `goal/s23b/` (`sbread.py`, `cf_call.py`, `d9.py`, `ips3.py --jam`); recordings
    `goal/s23/rec3_<room>_<pay>.jsonl.gz` now for all seven rooms, `goal/s23b/J_<room>_brief.jsonl.gz`.
+
+## S23c (asked 2026-11-05 04:10): a jam-range floor in rival 3's core behind a per-seat short-handed jam read: not built
+
+The coordinator's brief: a width floor on the jammer's range by depth and role for three-handed jammers, gated by a
+per-seat read of short-handed jams that keeps the strong rooms' +0.036 (10/7/5) / +0.020 (8..1) a table and loses the
+realistic room's -0.014; first compute whether such a read sees enough and separates. `goal/s23b/jamread.py` on the
+rec3 recordings (seven rooms, both tables, 14 cells, 18,553 three-handed jam decisions of F where its call closes the
+action): walking each table in hand order, each seat's first-in preflop opportunities and first-in jams with four or
+fewer alive; the read at the decision is (jams + 0.3 x 4) / (opportunities + 4) over the jammer's earlier short-handed
+hands.
+
+- **How much the read sees**: at the decision the jammer has had a median 17 short-handed first-in opportunities (p25
+  10, p75 26) but a **median of 1 observed jam (31% none, 50% two or more)**. The read is mostly its prior.
+- **How it reads the seats** (mean over F's jam decisions): elite1 0.26-0.29, elite2 0.22-0.25, **agent_pushfold 0.22**
+  (a Nash jammer reads like an elite), elite4 0.16-0.18, F's copies 0.18-0.20, rival2 0.14; realistic's rival1 0.12,
+  tag 0.11-0.12, pushfold 0.13-0.15; top's rival1 0.20-0.21, pushfold 0.18-0.20. The elites sit about 0.1 above the
+  realistic room's seats with wide overlap, and a push/fold bot sits on either side depending on the room.
+- **Whether it separates the gain from the loss** (the fixed rule "call every jam with a top-20% hand at 8-18 bb" on
+  F's folds, by read bucket; points a table x1000, folds, mean per fold):
+
+| group | read < .25 | .25-.35 | .35-.45 | .45-.55 | >= .55 | all |
+|---|---|---|---|---|---|---|
+| strong 10/7/5 | **+34.0** (518, +252) | +0.2 (61) | +0.7 (33) | +1.2 (15) | -0.4 (10) | +35.7 |
+| strong 8..1 | **+14.7** (477, +118) | +2.2 (59) | +1.6 (37) | +0.7 (15) | +0.8 (9) | +20.0 |
+| realistic 10/7/5 | **-14.0** (77, -175) | +0.2 (4) | 0 | 0 | 0 | -13.8 |
+| realistic 8..1 | -1.1 (90) | -0.5 (2) | +0.9 (2) | -0.3 (1) | 0 | -1.0 |
+| night 10/7/5 / 8..1 | +3.9 / +1.7 | +0.4 / +1.1 | +1.4 / +1.0 | 0 | 0 | +5.7 / +3.7 |
+| top 10/7/5 / 8..1 | +2.3 / +5.7 | -2.3 / +1.8 | +1.3 / +0.7 | 0 | 0 | +1.3 / +8.2 |
+
+  The whole gain at the strong rooms and the whole loss in the realistic room sit in the same bucket, read < 0.25: the
+  jams F faces come mostly from seats that had shown few or no short-handed jams before (the first jam a seat makes
+  three-handed is often the one F faces). **The read cannot keep the first and lose the second. Not built; stopped
+  here**, as the brief asked.
+
+**Ruled out for the jam calls, so nobody repeats it blind**: (1) the solved tables' equilibrium answers to jams (level
+at the strong rooms, -0.010 ± 0.032 under 10/7/5; S23b step 2); (2) a wider fixed call range (top-20% at 8-18 bb:
++0.036 strong, -0.014 realistic under 10/7/5; no room-independent rule); (3) a per-seat short-handed jam read as the
+gate (one jam observed at the median; the gain and the loss both at read < 0.25). What would still separate is the
+jammer's identity-level style over a whole table (8-max VPIP / PFR / shove share), which rival 3's core already reads
+(PFR x 1.1 is its range guess), or a larger depth-and-role prior for three-handed jams with no per-seat read at all,
+which the fixed rules above say loses the realistic guard. The open leak stays as diagnosed: F's three-handed calls of
+jams are too tight against the elites by about 0.02-0.035 a table under 10/7/5 and right against push/fold bots.
