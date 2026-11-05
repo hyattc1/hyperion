@@ -168,3 +168,37 @@ def test_the_second_path_plays_where_s7_does_not():
     _, bot = _digest({**H1, "strong_rr": 0.01}, 2, ["hero", "elite1"], R2)
     sh = next(m for m in bot.core.members if isinstance(m, SH.ShortMember))
     assert any(k.startswith("hu2:") for k in sh.counts) and bot.core.counts.get("short:error", 0) == 0
+
+
+class _Prof:
+    """A read of one opponent as `_like_ok` and the hold ask for it."""
+
+    def __init__(self, pb_opp, pb_bet, opp=1):
+        n = 2
+        self.pb_opp, self.pb_bet = [0] * n, [0] * n
+        self.ab_opp, self.ab_bet = [0] * n, [0] * n
+        self.pb_opp[opp], self.pb_bet[opp] = pb_opp, pb_bet
+
+    def pfr_rate(self, j):
+        return 0.5
+
+    def vpip_rate(self, j):
+        return 0.7
+
+    def archetype(self, j):
+        return "unknown"
+
+
+@has_dev
+def test_the_hold_waits_for_s7s_gate():
+    """`hu2_like_opp`: S7's probe read cannot admit a seat under 3 chances, so H1 holds until then; a seat the gate has
+    refused with its chances is H1's, a seat it admits is not."""
+    m = SH.ShortMember(SH.ShortParams(hu2=True, hu2_file="hu2_dev", pre_roles="bb", hu2_like_opp=3, like_probe=0.75,
+                                      like_bet=0.6, like_pfr=0.3, like_vpip_min=0.5, like_vpip_max=0.88))
+    m.new_table(R2, 0, 2)
+    m.strong_open = True
+    o = _obs([], bets=(10, 20), stacks=(290, 280), to_call=10, seat=0)
+    assert not m.wants(o, _Prof(0, 0))  # no chances yet
+    assert not m.wants(o, _Prof(2, 0))  # two chances, refused so far: the gate could not have admitted yet
+    assert m.wants(o, _Prof(3, 1)) and m._hu2_mode  # three chances, refused
+    assert not m.wants(o, _Prof(4, 4))  # admitted: never H1's (and S7 takes only the big blind)
