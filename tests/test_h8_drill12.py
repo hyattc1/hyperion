@@ -533,3 +533,59 @@ def test_the_docs_say_which_dial_cuts_time():
     assert "tools/latency.py --table-start" in flat
 
 
+# ---------------------------------------------------------------------------------------------- item 6
+@pytest.mark.night
+def test_one_adapter_is_one_table_at_a_time_and_says_so():
+    for name in ("closure_entry_template.py", "module_entry_template.py", "entry_template.py"):
+        assert "ONE TABLE AT A TIME" in (DRILLS / name).read_text(), name
+    assert "one table at a time per adapter" in _flat((DRILLS / "adapter_template.py").read_text())
+    assert "Tables at once in one process?" in _flat(_read("docs/prompts/01-rule-sheet.md"))
+
+
+@pytest.mark.night
+def test_closure_entry_fails_loudly_when_tables_overlap(tmp_path, clean_path, capsys):
+    """Tables in turn, old closures still held: nothing counted. A decide from a table whose adapter another table took: the
+    kit's check-or-fold, counted, one line on stderr, and the table that holds the adapter plays on."""
+    mod = _entry(tmp_path)
+    first = mod.sit_down(_table(mod, TAGS_A, "ab"))
+    first(_view(mod, TAGS_A, 3, 1))
+    second = mod.sit_down(_table(mod, TAGS_B, "ww"))
+    assert second(_view(mod, TAGS_B, 3, 1))[0] in "fcr"
+    assert not mod.ERRORS["table_overlap"]
+    v = _view(mod, TAGS_A, 3, 2)
+    assert first(v) == "f" and first(v._replace(owe=0.0)) == "c"
+    assert mod.ERRORS["table_overlap"] == 2
+    assert capsys.readouterr().err.count("tables overlap") == 1
+    assert second(_view(mod, TAGS_B, 3, 2, recap=(_done(mod, TAGS_B, 1, 3),)))[0] in "fcr"
+    assert mod.ERRORS["table_overlap"] == 2 and not mod.ERRORS["decide"] and not mod.SLOTS[0].ad.fallbacks
+
+
+@pytest.mark.night
+def test_closure_entry_plays_tables_at_once_on_their_own_adapters(tmp_path, clean_path):
+    """TABLES_AT_ONCE 2: two tables interleaved, each its own adapter and bot: every decision goes through the bot, nothing
+    counted, seats kept apart; a third table takes the adapter whose table spoke last longest ago."""
+    mod = _entry(tmp_path, tables_at_once=2)
+    a = mod.sit_down(_table(mod, TAGS_A, "ab"))
+    b = mod.sit_down(_table(mod, TAGS_B, "vv"))
+    assert mod.SLOTS[0].ad is not mod.SLOTS[1].ad and mod.SLOTS[0].ad.bot is not mod.SLOTS[1].ad.bot
+    for hand in (1, 2, 3):
+        ra = (_done(mod, TAGS_A, hand - 1, 3),) if hand > 1 else ()
+        rb = (_done(mod, TAGS_B, hand - 1, 4),) if hand > 1 else ()
+        assert a(_view(mod, TAGS_A, 3, hand, recap=ra))[0] in "fcr"
+        assert b(_view(mod, TAGS_B, 4, hand, recap=rb))[0] in "fcr"
+    assert not +mod.ERRORS, mod.ERRORS
+    assert mod.SLOTS[0].ad.fallbacks == 0 and mod.SLOTS[1].ad.fallbacks == 0
+    assert mod.SLOTS[0].ad.seat == 3 and mod.SLOTS[1].ad.seat == 4
+    assert mod.SLOTS[0].ad.tables_seen == 0 and mod.SLOTS[1].ad.tables_seen == 0  # no restart: no hand number went back
+    a(_view(mod, TAGS_A, 3, 4))  # table b now spoke last longest ago
+    c = mod.sit_down(_table(mod, TAGS_B, "ww"))
+    assert c(_view(mod, TAGS_B, 3, 1))[0] in "fcr" and a(_view(mod, TAGS_A, 3, 5))[0] in "fcr"
+    assert b(_view(mod, TAGS_B, 4, 4)) in "fc" and mod.ERRORS["table_overlap"] == 1  # b lost its adapter to c
+
+
+@pytest.mark.night
+def test_module_entry_counts_a_hand_number_that_went_back(tmp_path):
+    text = (DRILLS / "module_entry_template.py").read_text()
+    assert 'ERRORS["hand_went_back"] += AD.tables_seen' in text
+
+

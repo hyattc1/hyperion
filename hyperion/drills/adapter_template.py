@@ -7,7 +7,8 @@ adapters for four fake kits: `hyperion/drills/adapter.py`. If one of them fits t
 instead of filling this in. The bot behind it is `hyperion.ship.make_bot()` (the ship bot the switch names;
 `tools/pack.py --bot cheap` makes the same entry play Hero.cheap() at Stage 2). The entry that imports this file:
 `hyperion/drills/entry_template.py` (a kit that builds a bot object: it builds, starts and warms the bot at import,
-pins the package there, and defers a timed hand end), or event_player_template.py for an event-driven kit.
+pins the package there, and defers a timed hand end), or event_player_template.py for an event-driven kit. An adapter and
+its bot hold one table's state: one table at a time per adapter (closure_entry_template.py's TABLES_AT_ONCE if not).
 
 While the kit simulator runs, check every decision against the Observation invariants:
     HYPERION_CHECK=1 python -m <kit runner> submission/<entry>.py      # conformance report at exit
