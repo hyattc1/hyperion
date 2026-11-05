@@ -199,3 +199,55 @@ each opponent's re-raises of our opens, 3-bet read, archetype) so the gate is ch
 eligible hands (`ips3.py`: IPS in ICM points a table, per seed). Fit seeds 16400-16519; the check repeats the chosen
 gate on 16520-16639. Rooms: elite, elite_b, mirror, mirror_b, realistic, night, top under 10/7/5 and 8..1
 (`run_coin.sh`, files `C_<room>_<pay>.jsonl.gz`).
+
+### The coin's fit (seeds 16400-16519, 120 x 8 a room; `C_<room>_<pay>.jsonl.gz`; tables - F in points a table, 95%)
+
+The tables on every seat with the gates open (seat_rr 0, the strong read off; the 3-bet guard, the archetype guard and
+keep_defence kept), judged on the hands the tables wanted, per seed:
+
+| room, payouts | button | small blind | big blind |
+|---|---|---|---|
+| elite 10/7/5 | +0.054 ± 0.052 | +0.040 ± 0.056 | +0.017 ± 0.055 |
+| elite_b 10/7/5 | +0.033 ± 0.054 | -0.006 ± 0.050 | -0.060 ± 0.052 |
+| mirror 10/7/5 | +0.133 ± 0.066 | +0.012 ± 0.046 | -0.045 ± 0.053 |
+| mirror_b 10/7/5 | +0.068 ± 0.049 | +0.016 ± 0.042 | -0.060 ± 0.052 |
+| four strong rooms pooled, 10/7/5 | **+0.072 ± 0.028** | +0.015 ± 0.024 | -0.037 ± 0.027 |
+| realistic 10/7/5 | -0.042 ± 0.045 | **-0.081 ± 0.053** | (all -0.121 ± 0.086) |
+| night 10/7/5 | -0.025 ± 0.050 | -0.049 ± 0.056 | |
+| top 10/7/5 | +0.042 ± 0.046 | -0.024 ± 0.051 | |
+| elite / elite_b / mirror / mirror_b 8..1 | +0.023 / +0.022 / +0.025 / +0.025 (± 0.019-0.024) | +0.008 / +0.019 / +0.013 / +0.007 | -0.002 / -0.026 / -0.015 / -0.017 |
+| realistic / night / top 8..1 | -0.012 / -0.005 / +0.005 | **-0.020 / -0.021** / -0.007 (± 0.018-0.023) | +0.016 / -0.017 / -0.016 |
+
+- **The big blind** is F's to keep (the tables' flats lose to the elites, as S20 found). **The small blind** gains little
+  at the strong rooms and loses in the realistic and night rooms under both tables: the room dependence S20's R6 step 1
+  found, again; no read recorded here separates it (the pooled re-raise read `rr3` is under 0.10 at nearly every
+  decision in every room: over a table's history the seats re-raise 5-10% of the raises they face, strong or weak;
+  the strong read and the per-seat count split the small blind's loss, not its sign). The small blind stays F's, and
+  `short.three2_rr_t` stays off (built, measured, no use found).
+- **The button** is where the points are, and they are shallow. Pooled strong rooms, button only, by depth under 10/7/5:
+  < 8 bb +0.013 ± 0.011, 8-12 +0.015 ± 0.012, 12-18 **+0.035 ± 0.014**, 18-27 +0.006 ± 0.010, 27+ +0.003 ± 0.008; the
+  ordinary rooms lose only deep (realistic 18-27 -0.028, 27+ -0.017; night 18-27 -0.009; at 18 bb or less realistic
+  +0.003 ± 0.031, night -0.018 ± 0.034, top +0.048 ± 0.041). Under 8..1 the same shape (12-18 +0.015 ± 0.005,
+  8-12 +0.005, < 8 0.000; realistic -0.002, night -0.004, top +0.006 at 18 bb or less).
+- **By R6's gate parts, button, 18 bb or less** (strong = the table reads strong; all>=1 = every opponent alive has
+  re-raised us; R6 plays only "strong all>=1"):
+
+| cell | strong rooms 10/7/5 | realistic | night | top | strong rooms 8..1 | realistic / night / top 8..1 |
+|---|---|---|---|---|---|---|
+| strong, all>=1 (R6 today) | +0.032 ± 0.014 | -0.001 | +0.001 | +0.015 | +0.009 ± 0.006 | +0.001 / -0.004 / +0.003 |
+| strong, some 0 | **+0.016 ± 0.010** | -0.001 | +0.003 | -0.004 | +0.003 ± 0.004 | 0.000 / +0.002 / +0.003 |
+| weak, all>=1 | **+0.010 ± 0.007** | +0.005 | -0.002 | +0.021 | +0.003 ± 0.003 | 0.000 / +0.001 / +0.001 |
+| weak, some 0 | +0.006 ± 0.011 | -0.001 | **-0.020 ± 0.023** | +0.016 | +0.006 ± 0.004 | -0.003 / -0.003 / 0.000 |
+
+  The two cells R6 leaves out that are positive in every room (strong-some0: elite +0.008, elite_b +0.013, mirror
+  +0.027, mirror_b +0.015; weak-all>=1: +0.014, +0.005, +0.009, +0.013) are the ones where **one** of R6's two reads is
+  open. The cell with neither read open is where night loses (-0.020 ± 0.023), and is left out.
+
+**The candidate, fixed here: B18** = `{"short_strong_free_bb": 18, "short.three2_free_max": 18}` (goal/s23/cand_B18.json;
+commit c80753d): at 18 bb effective or less, the button's three2 tables play when **either** the table reads strong
+**or** every opponent alive has re-raised us; deeper, both as R6. Nothing else changes (button only, keep_defence, the
+3-bet guard 0.25, the archetype guard). Expected over batch 8 at a strong table: **+0.026 ± 0.012 under 10/7/5, +0.005
+± 0.005 under 8..1**; the ordinary rooms level (realistic +0.004, night +0.001, top +0.017 under 10/7/5). Honest note:
+under 8..1 that is below what a 200-seed screen resolves (elite cells ±0.01-0.04); under 10/7/5 about the elite cells'
+noise. The check is the same coin with B18's own gates on fresh seeds 16520-16639 (`run_check.sh`, `D_*`), then the
+screen (`screen.sh`: F's chunks pinned to H1's cache of batch 8 on the screen seeds, version c985750f5a, 473 chunks).
