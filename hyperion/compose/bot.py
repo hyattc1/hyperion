@@ -92,12 +92,20 @@ hand end, how every seat answered my first-in raise (not all-in): folds against 
 blind, the big blind, the rest). With `r3.oa_read` its steal price and open clauses in an unopened pot with no limper
 read each seat behind from that instead of its fold rate facing any raise; with `exploit.open_read` the layer's
 steal_min_fold reads the same (`Exploit.open_fold`, wired here to the base's core). docs/drills/climb/s16b-log.md.
+With `oa_strong` (S21, off by default) both act only while the table reads strong (strong_table(): the strong route's
+read and threshold, `strong_rr`, `strong_prior`, `strong_prior_n`), set before each preflop decision; the core goes on
+counting the answers all table long, so the read is warm when it opens (docs/drills/climb/s21-log.md).
+O5 (`r3.bb_read`, `r3.oa_bb_only`, `exploit.open_bb_only`, off by default): the big blind's fold reads its answers as
+the big blind to a first-in raise by any seat this table, with its fold-to-any-raise read as the prior (weight
+`r3.bb_k`), in both places; the other seats keep their own reads (docs/drills/climb/s21-log.md, "O5").
 
 **The short-handed route** (S13, `short_route`, off by default): sections played by another donor (the specialist
 `short`, hyperion/strategy/short.py) while at most `short_alive` players have chips and that member `wants` the decision
 (the hand maps onto its tables, no opponent alive reads as a clear leak); otherwise the section's donor as above. The
 member's dials are `short.<name>` (short_params). Plain hold'em tables only (holdem_only, plain_only), like the elite
-builds; its light shadow records only the hand's starting chips.
+builds; its light shadow records only the hand's starting chips. With `short_strong` (S20; True, or the sections it
+names) the route is open only while the table reads strong (the strong route's read: `strong_rr`, `strong_prior`,
+`strong_prior_n`).
 """
 from __future__ import annotations
 
@@ -617,6 +625,9 @@ class ComposeConfig:
     short_route: dict = field(default_factory=dict)
     short_alive: int = 3
     short_params: dict = field(default_factory=dict)  # the specialist's dials (strategy.short.ShortParams)
+    # S20: ... and only while the table reads strong (strong_table(): the strong route's read and threshold); off =
+    # wherever the member wants the decision. True = every section; or section names ("pre_3way": that one only)
+    short_strong: object = False
     # V-f: the hold'em-only members (the elite builds, twist-blind) may also play their sections on tables of these
     # one-step twist families (hero.TWIST_FAMILIES: "bounty,knockout,buy,swap"), where their play stays as right as the
     # base's: the base's core plays the table too (two hole cards; the families Hero plays whole, discard and exposed,
@@ -626,6 +637,9 @@ class ComposeConfig:
     # while the hero member's profiler reads the table strong (strong_rr / strong_prior / strong_prior_n), and with
     # this > 0 also to a seat that re-raised at least this many of my first-in raises this table (the per-seat gate)
     trust_seat_rr: int = 0
+    # S21 (module doc): the open-answer read (r3.oa_read, exploit.open_read) acts only while the table reads strong
+    # (strong_table(): the strong route's read and threshold); off = wherever its own dials let it
+    oa_strong: bool = False
     # V-j (docs/drills/climb/vj-log.md): payoff by street. On a table whose Rules settle each street's chips on the
     # hand as it stood then (extras settle="street"), every preflop decision is shown, to every member, the hold'em
     # class at the same combo percentile as our hand's two-card rank (a pair over any non-pair, then the high card,
@@ -712,11 +726,16 @@ class CompositeCore:
         self.strong = [(idx[DONORS[sr[s]][0]], DONORS[sr[s]][1]) if s in sr else None for s in SECTIONS] if sr else None
         s2 = cfg.strong2_route
         self.strong2 = [(idx[DONORS[s2[s]][0]], DONORS[s2[s]][1]) if s in s2 else None for s in SECTIONS] if s2 else None
-        self._rr_on = self.strong is not None or self.strong2 is not None  # keep the read
         bvb = cfg.strong_bvb
         if isinstance(bvb, str):
             bvb = set(parse_route({k.strip(): "1" for k in bvb.split(",") if k.strip()}))
         self._sbvb = [bool(bvb is True or (isinstance(bvb, set) and s in bvb)) for s in SECTIONS]
+        ss = cfg.short_strong
+        if isinstance(ss, str):
+            ss = set(parse_route({k.strip(): "1" for k in ss.split(",") if k.strip()}))
+        self._sstrong = [bool(ss is True or (isinstance(ss, set) and s in ss)) for s in SECTIONS]
+        # keep the read (the strong routes, the specialist's strong gate, S21's gate on the open-answer read)
+        self._rr_on = self.strong is not None or self.strong2 is not None or any(self._sstrong) or cfg.oa_strong
         hr = cfg.short_route
         self.short = [(idx[DONORS[hr[s]][0]], DONORS[hr[s]][1]) if s in hr else None for s in SECTIONS] if hr else None
         self._rr_reset()
@@ -779,6 +798,11 @@ class CompositeCore:
         if self.ex is not None and self.ex.p.open_read and core is not None and hasattr(core, "oa_fold"):
             core.oa_count = True
             self._oa_core = core
+        self._oa_fn = None  # ... the layer's read on this table (None: not a hold'em table, or a straddle)
+        # S21 (oa_strong): the core whose open-answer read waits while the table does not read strong
+        self._oa_gcore = core if cfg.oa_strong and r3k is not None and getattr(r3k, "oa_read", False) \
+            and hasattr(core, "oa_on") else None
+        self._oa_gate = cfg.oa_strong and (self._oa_gcore is not None or self._oa_core is not None)
 
     # ------------------------------------------------------------------ Bot protocol
     def _rr_reset(self) -> None:
@@ -847,6 +871,7 @@ class CompositeCore:
             from ..strategy.hero import holdem_table
 
             self.ex.open_fold = self._oa_core.oa_fold if holdem_table(rules) and not rules.straddle else None
+            self._oa_fn = self.ex.open_fold
 
     def _trust_gate(self, obs: Observation) -> None:
         """S16: mark, before a preflop decision, the seats whose steal reads take the trust weight (module doc)."""
@@ -957,8 +982,15 @@ class CompositeCore:
                     if (c2.strong2_rr <= 0.0 or r >= c2.strong2_rr) and r < c2.strong2_rr_max:
                         mi, layer = s2
                         counts["strong2"] += 1
+        if self._oa_gate and not obs.street:  # S21: the open-answer read only while the table reads strong
+            on = self.strong_table()
+            if self._oa_gcore is not None:
+                self._oa_gcore.oa_on = on
+            if self._oa_core is not None:
+                self.ex.open_fold = self._oa_fn if on else None
         short = self.short
-        if short is not None and short[sec] is not None and not self.panic and self.plain:
+        if short is not None and short[sec] is not None and not self.panic and self.plain and (
+                not self._sstrong[sec] or self.strong_table()):
             si, sl = short[sec]
             if not self._no_h[si]:
                 alive = 0
@@ -1217,14 +1249,25 @@ SHIP_DIALS: dict = {"route": SHIP_ROUTE, "exploit.bet_min_fold": 0.4, "hero.post
                     # looseness gate (H25) and S15e's gated stab read (H26), plain hold'em with three or fewer alive
                     "hero.voi": 1.5, "hero.sd_tax": True,
                     "tranche_twin": "all", "hero.tranche": "now,sunk", "hero.tranche_claim_early": 0.25,
-                    "short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short", "short.pre_roles": "bb",
-                    "short.pre_open_min": 0.65, "short.like_probe": 0.75, "short.like_bet": 0.6, "short.like_pfr": 0.3,
-                    "short.like_vpip_min": 0.5, "short.like_vpip_max": 0.88,
+                    "short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short,pre_3way=short",  # pre_3way: batch 8
+                    "short.pre_roles": "bb", "short.pre_open_min": 0.65, "short.like_probe": 0.75, "short.like_bet": 0.6,
+                    "short.like_pfr": 0.3, "short.like_vpip_min": 0.5, "short.like_vpip_max": 0.88,
                     "hero.postflop.stab_from": 0.55, "hero.postflop.stab_full": 0.8, "hero.postflop.stab_prior": 0.4,
                     "hero.postflop.stab_min": 3, "hero.postflop.stab_pool": 7, "hero.postflop.stab_margin": 0.03,
                     "hero.postflop.stab_max_alive": 3, "hero.postflop.stab_pfr_min": 0.35,
                     "hero.postflop.stab_lead_max": 0.4, "hero.postflop.stab_free_max": 0.5,
-                    "hero.postflop.stab_holdem_only": True}
+                    "hero.postflop.stab_holdem_only": True,
+                    # batch 8 (docs/decisions.md): C3h's one stab size, three or fewer alive, plain hold'em (H28); S20's
+                    # R6, the solved three-handed tables on the button behind the strong read and the per-seat re-raise
+                    # gate, with S7's gates kept to its heads-up routes (short_route above gains pre_3way; H32); O5's
+                    # big blind fold read from its answers to every first-in raise, four or more alive (H33)
+                    "exploit.stab_size": True, "exploit.stab_alive": 3, "exploit.stab_holdem_only": True,
+                    "short.like_max_alive": 2, "short.three2": True, "short.three2_file": "3b",
+                    "short.defer_3bet_three": 0.25, "short_strong": "pre_3way", "short.three2_keep_defence": True,
+                    "short.three2_roles": "btn", "short.defer_three": "dead,station,maniac,random,nit",
+                    "short.three2_seat_rr": 1,
+                    "r3.oa_read": True, "r3.bb_read": True, "r3.bb_k": 10.0, "r3.oa_bb_only": True, "r3.oa_min_alive": 4,
+                    "exploit.open_read": True, "exploit.open_bb_only": True, "exploit.open_min_alive": 4}
 
 
 # Batch 5's dials at their off values: on top of SHIP_DIALS they play batch 4's ship from this tree (the tests written
@@ -1259,6 +1302,20 @@ BATCH7_OFF: dict = {"hero.voi": 0.0, "hero.sd_tax": False,
                     "hero.postflop.stab_max_alive": 0, "hero.postflop.stab_pfr_min": 0.0,
                     "hero.postflop.stab_lead_max": 1.0, "hero.postflop.stab_free_max": 1.0,
                     "hero.postflop.stab_holdem_only": False}
+
+# Batch 8's dials at their off values: on top of SHIP_DIALS they play batch 7's ship from this tree (tests written
+# against batch 7's F; --base '{"dials": BATCH8_OFF}' for a paired check against the previous batch). short_route goes
+# back to batch 7's (S7's heads-up routes); short_strong False and the specialist's defer_three / defer_3bet_three None
+# (the heads-up values) are their defaults, as are the rest (ExploitParams, ShortParams, Rival3Knobs)
+BATCH8_OFF: dict = {"exploit.stab_size": False, "exploit.stab_alive": 0, "exploit.stab_holdem_only": False,
+                    "short_route": "pre_hu=short,post_hu_bet=short,post_hu_chk=short",
+                    "short.like_max_alive": 0, "short.three2": False, "short.three2_file": "3b",
+                    "short.defer_3bet_three": None, "short_strong": False, "short.three2_keep_defence": False,
+                    "short.three2_roles": "btn,sb,bb", "short.defer_three": None, "short.three2_seat_rr": 0,
+                    "r3.oa_read": False, "r3.bb_read": False, "r3.bb_k": 10.0, "r3.oa_bb_only": False,
+                    "r3.oa_min_alive": 0,
+                    "exploit.open_read": False, "exploit.open_bb_only": False, "exploit.open_min_alive": 0}
+
 
 def parse_dials(dials: dict | None) -> tuple:
     """One flat dials dict -> (route, make_bot keywords). The keys:

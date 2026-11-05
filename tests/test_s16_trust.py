@@ -2,6 +2,7 @@
 an unopened pot) and exploit.read_trust (the layer's steal_min_fold), applied per seat while the table reads strong
 (the hero member's Profiler.strong_table) or, with trust_seat_rr, to a seat that re-raised my first-in raises."""
 from hyperion import ship
+from hyperion.compose.bot import BATCH8_OFF
 from hyperion.core.types import Action, ActionKind, HandResult, Observation, Rules
 from hyperion.core.types import parse_cards as parse
 from hyperion.hybrid.core3 import Rival3Core
@@ -98,7 +99,7 @@ def _digest(dials, table, names=STRONG, rules=None):
     for b in bots:
         if hasattr(b, "use_cost_model"):
             b.use_cost_model(True)
-    bot = ship.make_bot("composite", {**QUIET, "late_us": 1e9, **dials}, seed=seed * 64)
+    bot = ship.make_bot("composite", {**QUIET, "late_us": 1e9, **BATCH8_OFF, **dials}, seed=seed * 64)  # on batch 7's F
     rec = bots[0] = _Recorder(bot)
     play_table(bots, rules or Rules(), seed=seed, mode="model")
     return rec.h.hexdigest(), bot

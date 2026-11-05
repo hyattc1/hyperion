@@ -19,8 +19,12 @@ Stage 2's Hero.cheap(); `--bot hero` restores Hero. The entry builds it with `hy
 
 Builds <out>/submission/: hyperion/ (never tests, docs or caches; with --slim also without
 drills/fakekits, the sim bestiary and the simulator's opponents: sim/field, sim/aware.py and every rival but
-rival 3, then puts back any module the recorded bot's build imports: a routed rival or elite member), tables/ (the default tables, plus tables/variants/<name>/ when the rules name a variant; --tables-dir DIR
-packages all of DIR instead), the entry file and any --extra files or directories beside it. The rules are --rules, else the first --extra JSON with Rules keys, else
+rival 3, then puts back any module the recorded bot's build imports: a routed rival or elite member), tables/ (the default tables, plus tables/variants/<name>/ when the rules name a variant, plus any table in a
+subdirectory that the recorded bot needs; --tables-dir DIR packages all of DIR instead), the entry file and any --extra files or directories beside it.
+What the recorded bot needs comes from the bot (tools/table_probe.py): every file under tables/ its build and a first
+table open, seen by an audit hook, plus the declared tables its dials read later (a twist table's start). A needed table
+the repo holds and the package does not is copied in; one the package still lacks fails the pack, exit 1, by name (batch
+8: tables/extra/short_3b.json was left out, the specialist's loader returned None, and R6 silently did not play). The rules are --rules, else the first --extra JSON with Rules keys, else
 rules_tonight.json beside the entry; their extras["variant"] is the active variant (drill 6 shipped
 without its variant set because --tables-dir was not passed). Then, from a fresh Python started in another
 directory with PYTHONPATH cleared, imports the entry module with <out>/submission first on sys.path,
@@ -51,6 +55,7 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+PROBE = ROOT / "tools" / "table_probe.py"
 # entry_template.py, process_entry_template.py, module_entry_template.py: the player's copy is the entry; the vendored
 # one would only import a sibling `adapter` that is not in the package, which a kit's static import check fails on
 SKIP_NAMES = {"__pycache__", "tests", "docs", ".benchmarks", ".pytest_cache", ".git", "entry_template.py",
@@ -151,6 +156,52 @@ def keep_built_modules(dest: Path, bot: str, dials: dict) -> list[str]:
             shutil.copy2(src, dest / rel)
             out.append(str(rel))
     return out
+
+
+def table_probe(root: Path, bot: str | None = None, dials: dict | None = None, rules: Path | None = None) -> dict:
+    """tools/table_probe.py on a tree (the repo, or the package): what its recorded bot needs and what the tree lacks.
+    A fresh Python, PYTHONPATH cleared, another directory, as verify_import. {"error": why} if the bot does not build or
+    start its first table."""
+    args = [sys.executable, "-I", "-B", str(PROBE), str(root)]
+    if bot is not None:
+        args += ["--bot", bot, "--dials", json.dumps(dials or {})]
+    if rules is not None:
+        args += ["--rules", str(rules)]
+    env = {k: v for k, v in os.environ.items() if not k.startswith("PYTHON")}
+    with tempfile.TemporaryDirectory() as elsewhere:
+        proc = subprocess.run(args, cwd=elsewhere, env=env, capture_output=True, text=True, timeout=300)
+    if proc.returncode != 0:
+        return {"error": " | ".join((proc.stderr or proc.stdout).strip().splitlines()[-3:])}
+    return json.loads(proc.stdout.strip().splitlines()[-1])
+
+
+def ship_needed_tables(dest: Path, need: dict, tables_dir: Path | None) -> list[str]:
+    """Copy into the package each table the recorded bot needs (`need`: table_probe on the repo) that the repo holds and
+    the package lacks, outside --tables-dir (which packages that directory and nothing else). Returns those copied."""
+    copied = []
+    if tables_dir is not None or "error" in need:
+        return copied
+    for rel in sorted(set(need["opened"]) | set(need["declared"])):
+        src, to = ROOT / "tables" / rel, dest / "tables" / rel
+        if src.is_file() and not to.exists():
+            to.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, to)
+            copied.append(rel)
+    return copied
+
+
+def table_failures(need: dict, have: dict, dest: Path) -> list[str]:
+    """What the package lacks for its recorded bot (`have`: table_probe on the package; `need`: on the repo), by name."""
+    for side in (need, have):
+        if "error" in side:
+            return [f"the recorded bot fails at its build or first table, so its tables cannot be checked: {side['error']}"]
+    out = sorted(set(have["lacking"]) | {t for t in set(need["opened"]) | set(need["declared"])
+                                         if not (dest / "tables" / t).is_file()
+                                         and not (t.startswith("generic/") and have.get("lacking_twist"))})
+    msgs = [f"tables/{t} (the recorded bot {have['bot']} needs it)" for t in out]
+    msgs += [f"tables/short_{k}.json or tables/extra/short_{k}.json (the specialist's loader: {why})"
+             for k, why in sorted(have["specialist_missing"].items()) if not any(f"short_{k}.json" in t for t in out)]
+    return msgs
 
 
 def _strip_kit_try(text: str) -> tuple[str, bool]:
@@ -441,6 +492,10 @@ def main(argv=None) -> int:
         back = keep_built_modules(dest, bot, dials)
         if back:
             print(f"slim     the recorded bot imports {', '.join(Path(b).name for b in back)}: kept ({', '.join(back)})")
+    need = table_probe(ROOT, bot, dials, rules_path)
+    copied = ship_needed_tables(dest, need, tables_dir)
+    if copied:
+        tables += " + what the recorded bot needs: " + ", ".join(copied)
 
     dropped = drop_kit_imports(dest)
     if dropped:
@@ -462,6 +517,22 @@ def main(argv=None) -> int:
         print("imports  stdlib and the package only")
     if not ok:
         return 1
+    have = table_probe(dest, rules=rules_path)
+    if have.get("lacking_twist"):
+        print(f"tables   WARN no {', '.join(have['lacking_twist'])} in --tables-dir: every twist not named by the rules plays "
+              f"without its own preflop table")
+    missing = table_failures(need, have, dest)
+    if missing:
+        if "entry does not import hyperion" in detail:  # no bot plays here (the build check above skips it too)
+            print("tables   WARN the entry does not import hyperion, so nothing reads them, but the recorded bot "
+                  "would need: " + "; ".join(missing))
+        else:
+            print("FAIL the package lacks tables its recorded bot needs, and would play without them, silently: "
+                  + "; ".join(missing))
+            return 1
+    else:
+        print(f"needs    {len(need.get('opened', ()))} tables at the build and first table, {len(need.get('declared', ()))} declared by "
+              f"the dials: all in the package")
     if size > a.max_mb * 1e6:
         print(f"FAIL package is {human(size)} unzipped, limit {a.max_mb:g} MB (--max-mb; --slim drops the opponents)")
         return 1

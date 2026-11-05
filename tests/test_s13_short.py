@@ -8,7 +8,7 @@ from hyperion.core.types import Action, ActionKind, Observation, Rules
 from hyperion.strategy import short as SH
 from hyperion.strategy.tables import CLASS_INDEX, TABLES_DIR
 
-from hyperion.compose.bot import BATCH7_OFF
+from hyperion.compose.bot import BATCH7_OFF, BATCH8_OFF
 
 from .test_s2_dials import _digest
 
@@ -16,7 +16,8 @@ HU = ["hero", "exploiter2"]
 THREE = ["hero", "exploiter2", "loose_aggro"]
 R2, R3 = Rules(n_players=2, payouts=(10, 7)), Rules(n_players=3, payouts=(10, 7, 5))
 ROUTE = "pre_hu=short,pre_3way=short,pre_allin=short,post_hu_bet=short,post_hu_chk=short"
-ON = {**BATCH7_OFF, "short_route": ROUTE, "short.three": True}  # on batch 6 (batch 7 ships S7's gated route)
+B6 = {**BATCH8_OFF, **BATCH7_OFF}  # batch 6's F
+ON = {**B6, "short_route": ROUTE, "short.three": True}  # on batch 6 (batch 7 ships S7's gated route)
 
 
 def _freq(node, cls, act):
@@ -55,10 +56,12 @@ def test_ship_routes_only_s7s_heads_up_sections_and_batch7_off_builds_no_special
 
     bot = ship.make_bot("composite", {})
     on = {s for s, x in zip(SECTIONS, bot.core.short) if x is not None}
-    assert on == {"pre_hu", "post_hu_bet", "post_hu_chk"} and "short" in bot.core.names
+    assert on == {"pre_hu", "post_hu_bet", "post_hu_chk", "pre_3way"} and "short" in bot.core.names  # pre_3way: batch 8
+    b7 = ship.make_bot("composite", BATCH8_OFF)
+    assert {s for s, x in zip(SECTIONS, b7.core.short) if x is not None} == {"pre_hu", "post_hu_bet", "post_hu_chk"}
     sh = bot.core.members[bot.core.names.index("short")]
     assert sh.p.like_vpip_min == 0.5 and sh.p.like_vpip_max == 0.88 and sh.p.pre_roles == "bb"
-    off = ship.make_bot("composite", BATCH7_OFF)
+    off = ship.make_bot("composite", B6)
     assert off.core.short is None and "short" not in off.core.names
 
 
@@ -103,7 +106,7 @@ def test_the_short_route_plays_and_replays_exactly(names, rules):
     assert d1 == _digest(ON, 1, names, rules)[0]
     assert bot.core.counts["short"] > 0
     assert not any(k.startswith("fallback:error") or k == "short:error" for k in bot.core.counts)
-    assert d1 != _digest(BATCH7_OFF, 1, names, rules)[0]
+    assert d1 != _digest(B6, 1, names, rules)[0]
 
 
 def test_the_short_route_defers_to_f_against_a_dead_seat():
