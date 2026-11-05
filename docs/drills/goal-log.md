@@ -1851,3 +1851,9 @@ and (in judges) `elite_judge`.
 - Fixed now: two fresh agents, no repo access, elite 1-5's brief (goal/elite/e6, e7), build strong bots. Both are held out as judges from the start and are measured before anyone tunes on them. When both are wired, out_reads leaves the judges and becomes a study opponent, under a decisions entry; its results stop counting as held-out from that moment. elite5 stays a judge.
 - Then, in order: out_reads through every room, seat by seat, to learn if it is strong everywhere; the same deals compared by decision; a handoff candidate (F to four alive, its way from three). It passes the same protocol as anything else or it does not ship, and it must be on a passing screen by Nov 9 12:00 ET. Batch 9 does not wait for it.
 - Correction: the batch 9 staging worker is gone and its run never started, though the diagnostics it waited for ended at 07:25. My 09:45 update said the batch 9 checks were running. They were not. Restarted at 10:15.
+
+## 10:25: guards on pulling from out_reads (fixed before any result; the owner asked how we avoid fitting a few top bots)
+- A candidate built from out_reads must gain against strong bots it did not come from: elite 6 and elite 7 (never studied) and elite5 count for this; a gain only against out_reads or the bots already tuned on does not ship.
+- New diagnostic before a handoff candidate is judged: mixed rooms, each table drawn at random from all the opponents (strong, ordinary, adaptive), so no fixed room's make-up decides it. If it is to gate acceptance, that needs a decisions entry first.
+- No automatic loop that keeps tuning toward whichever bot leads. It would chase one room's winner and the noise from many tries. Each change stays a named idea with a reason, screened, then held out on fresh seeds.
+- Known limit, to keep saying plainly: every opponent, however varied, was written by an AI agent working for us. Real student bots may share none of their habits.
