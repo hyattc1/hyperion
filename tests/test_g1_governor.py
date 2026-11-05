@@ -543,6 +543,8 @@ def test_the_shipped_ladder_ends_at_its_last_level_and_batch_8s_at_the_cheap_pat
         s.calls += 1
         s._count(0.0009)
     assert s.degrade_level == 3 and s.panic_mode is False and bot.core.panic is False and bot.core.level == 3
+    life = s.life_stats()
+    assert life["level_tables"] == 1 and life["panic_tables"] == 0  # the last level is not panic on the gate's line
     assert a is not None
     off = ship.make_bot(dials=G1_OFF, seed=1).safe
     assert off.no_panic is False and off._top() == 4

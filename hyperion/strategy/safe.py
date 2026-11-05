@@ -160,7 +160,8 @@ class SafeBot:
         if self.calls >= 8:  # (not an entry's warm-up, a few made-up decisions)
             life["tables"] += 1
             life["level_tables"] += self.level_max > 0
-            life["panic_tables"] += self.panic_mode or (self.gov is not None and self.level_max >= self._top())
+            life["panic_tables"] += self.panic_mode or (self.gov is not None and not self.no_panic
+                                                        and self.level_max >= self._top())
         life["level_max"] = max(life["level_max"], self.level_max)
         self._bank_level()
         for k, v in self.lvl_calls.items():
