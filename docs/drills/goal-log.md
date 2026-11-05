@@ -1857,3 +1857,8 @@ and (in judges) `elite_judge`.
 - New diagnostic before a handoff candidate is judged: mixed rooms, each table drawn at random from all the opponents (strong, ordinary, adaptive), so no fixed room's make-up decides it. If it is to gate acceptance, that needs a decisions entry first.
 - No automatic loop that keeps tuning toward whichever bot leads. It would chase one room's winner and the noise from many tries. Each change stays a named idea with a reason, screened, then held out on fresh seeds.
 - Known limit, to keep saying plainly: every opponent, however varied, was written by an AI agent working for us. Real student bots may share none of their habits.
+
+## 10:20: S24's shove read accepted on H41; it joins batch 9
+- S24sr (r3.sr_*, short re-shoves over opens read per seat; climb/s24-overfold ee281d3) against batch 8 + G1 on H41 (82000-82399, 400 x 8, every stage, --aim strong, runout term): **ACCEPT**. Elite +0.030 ± 0.017, mirror +0.039 ± 0.018, elite_b +0.025 ± 0.017, mirror_b +0.024 ± 0.018, night_hard +0.021 ± 0.015, exploit4 +0.054 ± 0.029; night level; no cell down on the corrected deltas.
+- W +0.0055 ± 0.0040, lower bound +0.0015; W-min lower bound -0.0012, so route 2 alone would not pass it. The acceptance rests on the protocol's elite route, and W is printed beside it. Raw (uncorrected) exploit5_hu -0.015 ± 0.015 and top_heavy -0.379 ± 0.298 are down, corrected level (-0.005 ± 0.007, -0.185 ± 0.255); batch 9's combined check will look at both.
+- The split was chosen after seeing H40; H41 is fresh, so the test is fair, but this is one more look at the same idea, and the gain is small.
