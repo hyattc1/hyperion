@@ -99,3 +99,34 @@ def test_the_composite_dial_is_off_and_not_shipped():
 
     assert ComposeConfig().short_strong_free_bb == 0.0
     assert "short_strong_free_bb" not in SHIP_DIALS and "short.three2_free_max" not in SHIP_DIALS
+
+
+@has_table
+def test_the_tables_answer_a_jam_only_with_the_dial_on():
+    from hyperion.core.types import Action, ActionKind
+
+    on = SH.ShortMember(SH.ShortParams(three2=True, defer_3bet=1.0, three2_jams=True, three2_roles="btn"))
+    off = SH.ShortMember(SH.ShortParams(three2=True, defer_3bet=1.0, three2_roles="btn"))
+    for m in (on, off):
+        m.new_table(R3, 2, 3)
+    # three-handed, we are the big blind (seat 2, button 0): the button folds, the small blind (seat 1) jams 300
+    hist = [(0, Action(ActionKind.FOLD, 0)), (1, Action(ActionKind.RAISE, 300))]
+    bb_vs_sb_jam = _obs(hist, bets=(0, 300, 20), stacks=(300, 0, 280), to_call=280, seat=2)
+    for m in (on, off):
+        m.light_observe(_obs([], bets=(0, 10, 20), stacks=(300, 290, 280), to_call=20, seat=0))
+    assert on._facing_jam(bb_vs_sb_jam)
+    assert on.wants(bb_vs_sb_jam, None)  # the big blind's answer to the small blind's jam: the tables, dial on
+    assert not off.wants(bb_vs_sb_jam, None)  # dial off: the big blind is not in three2_roles, F plays
+    # our own open re-jammed: keep_defence hands it to F unless three2_jams_after_raise
+    keep = SH.ShortMember(SH.ShortParams(three2=True, defer_3bet=1.0, three2_jams=True, three2_keep_defence=True,
+                                         three2_jams_after_raise=False))
+    keep.new_table(R3, 0, 3)
+    keep.light_observe(_obs([], bets=(0, 10, 20), stacks=(300, 290, 280), to_call=20, seat=0))
+    hist2 = [(0, Action(ActionKind.RAISE, 40)), (1, Action(ActionKind.FOLD, 0)), (2, Action(ActionKind.RAISE, 300))]
+    btn_vs_bb_jam = _obs(hist2, bets=(40, 10, 300), stacks=(260, 290, 0), to_call=260, seat=0)
+    assert not keep.wants(btn_vs_bb_jam, None)
+    keep2 = SH.ShortMember(SH.ShortParams(three2=True, defer_3bet=1.0, three2_jams=True, three2_keep_defence=True))
+    keep2.new_table(R3, 0, 3)
+    keep2.light_observe(_obs([], bets=(0, 10, 20), stacks=(300, 290, 280), to_call=20, seat=0))
+    assert keep2.wants(btn_vs_bb_jam, None)
+    assert not any(k.startswith("short.three2_jam") for k in SHIP_DIALS)

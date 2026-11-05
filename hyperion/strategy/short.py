@@ -38,6 +38,9 @@ tree's raise sizes follow the actual bet: the 3-bet is 3.5 times the open, the 4
   `three2_free_max` (S23): at or under that effective depth the per-seat gate is met by either the composite's strong
   read or the per-seat count (an either-or; deeper, both as R6): the coin found the tables' button worth most at 18 bb
   or less and no better than F's own core deeper in the ordinary rooms (s23-log, step 3).
+  `three2_jams`, `three2_jam_roles`, `three2_jams_after_raise` (S23b): the tables' fold / call answers to a jam
+  three-handed (the composite's short_route needs `pre_allin=short`); F's own answers call about 10-15% where the
+  equilibrium calls 17-50% at 8-18 bb (docs/drills/climb/s23b-log.md).
 
 **Postflop, heads-up pots** (two in the hand, at most `post_alive` alive): one size per street (flop 0.5 pot, turn
 0.66, river 0.75) for value and bluffs alike, so a size names nothing. The hand's place in its range is read from
@@ -229,6 +232,14 @@ class ShortParams:
         # three2_seat_rr times; deeper, the per-seat count alone as before (the composite's `short_strong_free_bb`
         # skips its own read at the same depth, so shallow the two reads are an either-or, deep both). 0 = off
         self.three2_free_max = 0.0
+        # S23b: the tables also answer a jam three-handed (the fold / call nodes after an all-in: the big blind facing
+        # the small blind's or the button's jam, the small blind facing the button's, the opener facing a re-jam of its
+        # own raise) for the seats `three2_jam_roles` names, under the same gates, the composite's short_route having
+        # `pre_allin=short`; `three2_jams_after_raise`: also when the jam re-raised our own raise this hand (otherwise
+        # three2_keep_defence's rule hands those to F's 3-bet defence). Off by default
+        self.three2_jams = False
+        self.three2_jam_roles = "btn,sb,bb"
+        self.three2_jams_after_raise = True
         for k, v in kw.items():
             if not hasattr(self, k):
                 raise KeyError(f"unknown short dial {k!r}")
@@ -250,6 +261,8 @@ class ShortMember:
         self._roles = frozenset(x.strip() for x in str(self.p.pre_roles).split(",") if x.strip())
         self._roles3 = frozenset({"btn": 0, "sb": 1, "bb": 2}[x.strip()] for x in str(self.p.three2_roles).split(",")
                                  if x.strip())
+        self._jroles3 = frozenset({"btn": 0, "sb": 1, "bb": 2}[x.strip()] for x in str(self.p.three2_jam_roles).split(",")
+                                  if x.strip())
         self._fo = [0] * 12  # our heads-up opens per big blind seat ...
         self._ff = [0] * 12  # ... and its folds to them
         self._prof = None
@@ -380,7 +393,8 @@ class ShortMember:
                         return False
                 return True
             if len(alive) == 3 and self.t3b is not None:
-                if self.p.three2_keep_defence and obs.to_call > 0 and any(
+                jam = self.p.three2_jams and self._facing_jam(obs)
+                if self.p.three2_keep_defence and obs.to_call > 0 and not (jam and self.p.three2_jams_after_raise) and any(
                         seat == obs.seat and a.kind is _RAISE for seat, a in obs.history):
                     return False
                 if self.p.three2_seat_rr > 0:
@@ -395,7 +409,11 @@ class ShortMember:
                     if r is None or r < self.p.three2_rr_t:
                         return False
                 got = self._three_node2(obs)
-                return got is not None and got[3] in self._roles3 and got[4] <= self.p.three_max * (obs.blinds[1] or 1)
+                if got is None or got[4] > self.p.three_max * (obs.blinds[1] or 1):
+                    return False
+                if jam:
+                    return got[3] in self._jroles3 and got[2]["a"] == "fc"  # a fold / call node: the answer to a jam
+                return got[3] in self._roles3
             if len(alive) == 3 and self.t3 is not None:
                 got = self._three_node(obs)
                 return got is not None and got[4] <= self.p.three_max * (obs.blinds[1] or 1)
@@ -413,6 +431,16 @@ class ShortMember:
             if rate < self.p.post_aggr:
                 return False
         return bool(self._start) and self._replay(obs) is not None
+
+    @staticmethod
+    def _facing_jam(obs: Observation) -> bool:
+        """Preflop, we face a bet from a seat that is all in (its chips behind are 0 and it has bet this street)."""
+        if obs.to_call <= 0:
+            return False
+        for j, (s_, b_, h_) in enumerate(zip(obs.stacks, obs.bets, obs.in_hand)):
+            if j != obs.seat and h_ and s_ == 0 and b_ > 0:
+                return True
+        return False
 
     @staticmethod
     def _eff(obs: Observation, alive) -> float:
