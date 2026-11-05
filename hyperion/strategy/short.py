@@ -35,6 +35,9 @@ tree's raise sizes follow the actual bet: the 3-bet is 3.5 times the open, the 4
   re-raise at least that share of the preflop raises they face (rival 3's per-seat counts fr / fr_r, shrunk to
   `three2_rr_prior` with weight `three2_rr_k`): the seats that re-jam our small opens are the ones the equilibrium
   tables beat, and the seats that fold to them are where F's own steal is better (docs/drills/climb/s23-log.md).
+  `three2_free_max` (S23): at or under that effective depth the per-seat gate is met by either the composite's strong
+  read or the per-seat count (an either-or; deeper, both as R6): the coin found the tables' button worth most at 18 bb
+  or less and no better than F's own core deeper in the ordinary rooms (s23-log, step 3).
 
 **Postflop, heads-up pots** (two in the hand, at most `post_alive` alive): one size per street (flop 0.5 pot, turn
 0.66, river 0.75) for value and bluffs alike, so a size names nothing. The hand's place in its range is read from
@@ -221,6 +224,11 @@ class ShortParams:
         self.three2_rr_t = 0.0
         self.three2_rr_k = 8.0
         self.three2_rr_prior = 0.075
+        # S23: at or under this effective depth (big blinds) the per-seat gate is met by either the composite's strong
+        # read (`strong_now`, set by the composite before each call) or every opponent having re-raised us
+        # three2_seat_rr times; deeper, the per-seat count alone as before (the composite's `short_strong_free_bb`
+        # skips its own read at the same depth, so shallow the two reads are an either-or, deep both). 0 = off
+        self.three2_free_max = 0.0
         for k, v in kw.items():
             if not hasattr(self, k):
                 raise KeyError(f"unknown short dial {k!r}")
@@ -258,6 +266,7 @@ class ShortMember:
         self._hand = -1
         self._start: list = []
         self.counts: dict = {}
+        self.strong_now = False  # S23: the composite's strong-table read at this decision (set before wants)
 
     # ------------------------------------------------------------------ member protocol
     def new_table(self, rules, seat: int, n_players: int) -> None:
@@ -376,8 +385,11 @@ class ShortMember:
                     return False
                 if self.p.three2_seat_rr > 0:
                     rb = getattr(prof, "rr_by", None) if prof is not None else None
-                    if rb is None or any(rb[j] < self.p.three2_seat_rr for j in alive if j != obs.seat):
-                        return False
+                    rr_ok = rb is not None and not any(rb[j] < self.p.three2_seat_rr for j in alive if j != obs.seat)
+                    if not rr_ok:
+                        free = self.p.three2_free_max
+                        if not (free > 0.0 and self.strong_now and self._eff(obs, alive) <= free * (obs.blinds[1] or 1)):
+                            return False
                 if self.p.three2_rr_t > 0.0:
                     r = self.rr3(base, alive, obs.seat)
                     if r is None or r < self.p.three2_rr_t:
@@ -401,6 +413,14 @@ class ShortMember:
             if rate < self.p.post_aggr:
                 return False
         return bool(self._start) and self._replay(obs) is not None
+
+    @staticmethod
+    def _eff(obs: Observation, alive) -> float:
+        """The effective stack now: our chips against the most chips of any other seat alive (stacks plus bets)."""
+        me = obs.seat
+        mine = obs.stacks[me] + obs.bets[me]
+        most = max((obs.stacks[j] + obs.bets[j] for j in alive if j != me), default=0)
+        return float(min(mine, most))
 
     def rr3(self, base, alive, me: int):
         """S23's gate read: the opponents alive, pooled, re-raise this share of the preflop raises they have faced this

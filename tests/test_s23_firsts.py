@@ -62,3 +62,40 @@ def test_the_gate_opens_against_re_raisers_and_shuts_against_folders():
     off.new_table(R3, 0, 3)
     off.light_observe(first)
     assert off.wants(first, None, folders)  # the dial off: the read is not consulted
+
+
+class _Prof:
+    def __init__(self, rr):
+        self.rr_by = rr
+
+    def archetype(self, s):
+        return "unknown"
+
+
+@has_table
+def test_shallow_the_strong_read_or_the_per_seat_count_opens_the_gate():
+    m = SH.ShortMember(SH.ShortParams(three2=True, defer_3bet=1.0, three2_seat_rr=1, three2_free_max=18.0))
+    m.new_table(R3, 0, 3)
+    shallow = _obs([], bets=(0, 10, 20), stacks=(300, 290, 280), to_call=20, seat=0)  # 15 bb effective
+    deep = _obs([], bets=(0, 10, 20), stacks=(800, 790, 780), to_call=20, seat=0)  # 40 bb
+    m.light_observe(shallow)
+    m.strong_now = True
+    assert m.wants(shallow, _Prof([0, 2, 0]))  # the big blind never re-raised us, but the table reads strong: shallow, ours
+    m.strong_now = False
+    assert not m.wants(shallow, _Prof([0, 2, 0]))  # neither read: F plays
+    assert m.wants(shallow, _Prof([0, 2, 1]))  # the per-seat count alone still opens it
+    m.light_observe(deep)
+    m.strong_now = True
+    assert not m.wants(deep, _Prof([0, 2, 0]))  # deep: the per-seat count is required whatever the table reads
+    off = SH.ShortMember(SH.ShortParams(three2=True, defer_3bet=1.0, three2_seat_rr=1))
+    off.new_table(R3, 0, 3)
+    off.light_observe(shallow)
+    off.strong_now = True
+    assert not off.wants(shallow, _Prof([0, 2, 0]))  # the dial off: R6's gate as it ships
+
+
+def test_the_composite_dial_is_off_and_not_shipped():
+    from hyperion.compose.bot import ComposeConfig
+
+    assert ComposeConfig().short_strong_free_bb == 0.0
+    assert "short_strong_free_bb" not in SHIP_DIALS and "short.three2_free_max" not in SHIP_DIALS
