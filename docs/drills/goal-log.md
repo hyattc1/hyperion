@@ -1761,3 +1761,11 @@ and (in judges) `elite_judge`.
   in both. So: F is consistent, not dominant, at the strongest tables, and the gap widens the more first place pays. The real
   point table is unknown until the night. Judges stay untuned: nobody reads their code; S23 studies the same question on tuning
   rooms only.
+
+## 00:07: O8 on H35: rejected on a twist cell's replicate; scoping it from a diagnosis
+- O8 on top of batch 8, H35 (55000-55399), every stage, --aim strong, runout term, exploiter 4 in: elite_night +0.050 ± 0.035,
+  elite_b +0.048 ± 0.046, mirror_b +0.053 ± 0.048 UP; elite +0.029, mirror +0.029, night -0.003, realistic -0.017 ± 0.029 level. One
+  cell DOWN, fast_schedule (realistic) -0.055 ± 0.043; addendum 7's replicate on H37 (57000-57399, 400 seeds) -0.039 ± 0.032 DOWN again.
+  **REJECT.** H35 and H37 used; next fresh H38 = 58000-58399.
+- O8s (climb/o8s): why the veto loses under faster blinds, by depth, on diagnostic seeds 17000-17999; a general gate if the
+  diagnosis supports one, not a gate on the twist's name, since the night's blind schedule is unpublished.
