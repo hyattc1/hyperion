@@ -31,7 +31,10 @@ tree's raise sizes follow the actual bet: the 3-bet is 3.5 times the open, the 4
   once our own raise this hand is re-raised, F's 3-bet defence plays the rest of the hand's preflop; `three2_seat_rr`:
   only while every opponent alive has re-raised at least that many of our first-in raises this table
   (docs/drills/climb/s20-log.md has the measurements; the candidate there plays btn and sb, keeps the defence, and
-  needs the composite's strong-table read, `short_strong`).
+  needs the composite's strong-table read, `short_strong`). `three2_rr_t` (S23): only while the opponents alive, pooled,
+  re-raise at least that share of the preflop raises they face (rival 3's per-seat counts fr / fr_r, shrunk to
+  `three2_rr_prior` with weight `three2_rr_k`): the seats that re-jam our small opens are the ones the equilibrium
+  tables beat, and the seats that fold to them are where F's own steal is better (docs/drills/climb/s23-log.md).
 
 **Postflop, heads-up pots** (two in the hand, at most `post_alive` alive): one size per street (flop 0.5 pot, turn
 0.66, river 0.75) for value and bluffs alike, so a size names nothing. The hand's place in its range is read from
@@ -213,6 +216,11 @@ class ShortParams:
         # (F's profiler, rr_by: S16's per-seat count): the table-level strong read is diluted by the seats it averages
         # over (S14), so each seat must have shown it contests our opens; 0 = off
         self.three2_seat_rr = 0
+        # S23: ... and only while the opponents alive, pooled, re-raise at least this share of the preflop raises they
+        # face (rival 3's fr / fr_r counts over the table, shrunk to three2_rr_prior with weight three2_rr_k); 0 = off
+        self.three2_rr_t = 0.0
+        self.three2_rr_k = 8.0
+        self.three2_rr_prior = 0.075
         for k, v in kw.items():
             if not hasattr(self, k):
                 raise KeyError(f"unknown short dial {k!r}")
@@ -370,6 +378,10 @@ class ShortMember:
                     rb = getattr(prof, "rr_by", None) if prof is not None else None
                     if rb is None or any(rb[j] < self.p.three2_seat_rr for j in alive if j != obs.seat):
                         return False
+                if self.p.three2_rr_t > 0.0:
+                    r = self.rr3(base, alive, obs.seat)
+                    if r is None or r < self.p.three2_rr_t:
+                        return False
                 got = self._three_node2(obs)
                 return got is not None and got[3] in self._roles3 and got[4] <= self.p.three_max * (obs.blinds[1] or 1)
             if len(alive) == 3 and self.t3 is not None:
@@ -389,6 +401,22 @@ class ShortMember:
             if rate < self.p.post_aggr:
                 return False
         return bool(self._start) and self._replay(obs) is not None
+
+    def rr3(self, base, alive, me: int):
+        """S23's gate read: the opponents alive, pooled, re-raise this share of the preflop raises they have faced this
+        table (rival 3's core counts, `st[j].fr` and `fr_r`), shrunk to three2_rr_prior with weight three2_rr_k; None
+        when the base has no such counts."""
+        core = getattr(base, "core", None)
+        st = getattr(core, "st", None)
+        if st is None:
+            return None
+        n = r = 0.0
+        for j in alive:
+            if j != me and j < len(st):
+                n += float(getattr(st[j], "fr", 0))
+                r += float(getattr(st[j], "fr_r", 0))
+        k = float(self.p.three2_rr_k)
+        return (r + self.p.three2_rr_prior * k) / (n + k) if n + k > 0 else None
 
     # ------------------------------------------------------------------ preflop: heads-up
     def _depth(self, table, S: float, hand_no: int, salt: str) -> float:
