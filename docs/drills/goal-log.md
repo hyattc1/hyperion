@@ -1715,3 +1715,19 @@ and (in judges) `elite_judge`.
 - Judges (13 cells, 60400-60799) running (goal/b34/judges.md), then timing. Freeze staging by a worker on
   climb/batch8-freeze (goal/wt_b8f: SHIP_DIALS + BATCH8_OFF, identity both ways, suite, setup time); pack, gate,
   merge and docs after the judges.
+
+## 2026-11-04 21:55: restart on the new box (this session replaces e2efc890); finish moved earlier
+- The owner swapped CPU and RAM: Ryzen 9850X3D, 16 threads, 64 GB (WSL sees about 31). New /goal: last bot change Nov 10
+  18:00 ET; final rehearsal and every deliverable by Nov 11 12:00 ET. docs/prompts/goal.md stays the brief. Added to the
+  deliverables: a zip-vs-source check at every freeze, timing proved under heavy load and at 3x slowdown (the new CPU
+  flatters it; no budget loosened), reveal searches on Nov 7 and Nov 10, a run sheet in docs/night-of.md.
+- Identity on the new CPU: batch 7's F, 10000:10039, confirm and guards, 9 of 9 rows equal to idchk34, so results saved on
+  the old CPU can be paired with new ones.
+- Three chunks cut by the shutdown deleted (2 in accept_b8, 1 in accept_b8s22). b34 (judges, timing), b35 (O8), b36 (S22)
+  re-run from cache, workers 6 + 4 + 4; only --workers changed. The old session's agents are gone: workers resume from
+  their logs and branches.
+- Started: the batch 8 freeze staging (climb/batch8-freeze: identity (b), suite, the pack fix for R6's table, zip-vs-source,
+  gate, timing proof). Drill 12's organiser (goal/drill12/kit), the player waits for batch 8's zip. Three new outside builds,
+  blind, no repo access, nobody tunes on them (goal/outside4): o9 unconventional and o11 prepared top team (built by a
+  different model, to widen the opponents' authorship), o10 a strict 60-minute team (a third model). Exploiter 5 waits for
+  batch 8's zip.

@@ -6,6 +6,11 @@ frozen/B7-038c3f0, kit B zip 51c37f02; SHIP_DIALS in hyperion/compose/bot.py; BA
 (re-run at load 4): batch 7's zip is the known-good upload.
 Identity reference for worker branches: goal/idchk34/post (batch 7's F).
 
+## Restarted 2026-11-04 21:55 ET on the new box
+The new /goal's deadlines: last bot change Nov 10 18:00 ET; final rehearsal and deliverables Nov 11 12:00 ET. Section 2c's
+runs were restarted (workers 6 + 4 + 4); the goal log's newest entry says what else is live. Agents from session e2efc890
+cannot be messaged; resume them from their logs and branches. Outside builds in goal/outside4, drill 12 in goal/drill12.
+
 ## Batch 6 (frozen 2026-11-03 13:37)
 - V-f (H15) + V-h (H18), twist tables only; H21 ACCEPT (exposed card +0.216, knockout bounty +0.111, bounty-aware
   +0.026 up, none down). Gate pass plain, exposed_card, knockout_bounty. Nothing left to do for it.
