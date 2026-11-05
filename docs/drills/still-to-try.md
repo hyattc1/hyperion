@@ -39,6 +39,9 @@ line says what it is, why we think it would help, and what it would cost.
 
 ## Tried and set aside (so nobody repeats them blind)
 
+- S23b and S23c (2026-11-05): the solved small blind three-handed (loses in ordinary rooms; no read of the big blind separates them), the tables' jam answers (level), a wider fixed call
+  of three-handed jams (+0.036 strong, -0.014 realistic) gated by a per-seat jam read (a median of 1 jam seen at the decision; gain and loss in the same bucket). Whole-table style is the
+  one idea left there. docs/drills/climb/s23b-log.md on climb/s23b.
 - O3 (the open-answer read): up at every strong table on held-out (+0.06 to +0.09), down in the realistic room; gated
   by the strong read (S21) still down. O6 and O7: see above. C3 (one stab size) leaked onto twists; C3h (plain
   hold'em only) was accepted.

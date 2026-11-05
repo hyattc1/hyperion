@@ -1799,3 +1799,12 @@ and (in judges) `elite_judge`.
   0.0018; offline fresh seeds +0.0078 ± 0.0037 pooled; exploit cells not to be counted on (the coin does not back them). On H38 (58000-58399) now.
 - Held-out sets end at H39. **New range from H40: 80000-80399, then +1000 each** (60000+ and 70000+ are judge seeds). S23 continues on the rest of the
   three-handed leak.
+
+## S23b and S23c: the rest of the three-handed leak: three clean no's
+- Small blind first-in from the solved tables: level at strong rooms (+0.015 ± 0.024), loses realistic (-0.081 ± 0.053) and night (-0.049) under 10/7/5. No read of the
+  big blind's answers separates them: the rates are 0.75-0.85 in every room, being 8-max answers.
+- Calling jams from the tables' equilibrium: strong rooms -0.010 ± 0.032. Not screened.
+- A wider fixed call range against three-handed jams: +0.036 strong, -0.014 realistic under 10/7/5, and a per-seat jam read cannot gate it: a seat has shown a median of 1 jam
+  (31% none) when the decision comes, elites read 0.22-0.29 and a Nash jammer 0.22, and strong rooms' gain and the realistic room's loss fall in the same bucket. Not built.
+- Left open, diagnosed: F's three-handed calls of jams are too tight against elites by 0.02-0.035 a table under 10/7/5 and right against push/fold bots. Whole-table style
+  might still separate them. Most of the 0.08-0.10 first-in leak is not recoverable without an ordinary-room cost by anything tried. climb/s23b 425823f (off by default, not for merge).
