@@ -352,3 +352,13 @@ is the hand's chips / total chips x (1st - 2nd): heads-up ICM is linear, so here
   strong, every stage, --runout-term, workers 4, nice 5; out goal/s20/h1screen, goal/s20/h1d/H1_screen.md and .json, RUN_DONE in
   screen.done). To resume: run screen.sh again at the same `hyperion/` tree (cached chunks stand). Do not change `hyperion/` or leave
   uncommitted changes in `tools/` while it runs: the cache key would move.
+- 01:01 **The screen: ACCEPT** (`goal/s20/h1d/H1_screen.md`, code c985750f5a, 123.9 min, on b4553bb): every strong cell UP on the corrected
+  deltas: elite +0.007 ± 0.005, elite_night +0.010 ± 0.005, mirror +0.010 ± 0.004, elite_b +0.008 ± 0.005, mirror_b +0.009 ± 0.006. Nothing
+  down. W +0.0023 ± 0.0018 (lower bound +0.0006), W-min +0.0024 ± 0.0030 (lower bound -0.0005), cap holds.
+- 01:05 **One scope bug it found: H1 played at twists it should not.** Bounty (and bounty_aware), knockout_bounty, bonus_card and auction
+  differed from batch 8 on 1-6 of 200 seeds (level, but not identical): the composite clears the member's "not hold'em" flag for
+  `strong_route_twists` "bounty,knockout,buy", which is the strong route's own list, and H1 is behind the same flag. The tree's chip EV is
+  not those games (a knockout pays outside the chips, a bought card changes the flop). Fix, not a tuning: H1 needs `holdem_table(rules)`
+  itself (test_h1_plays_plain_holdem_only). top_heavy (12 of 200) and fast_schedule (15 of 200) stay on, as they are hold'em by the same
+  test: heads-up the chips are the points whatever the payouts, and a schedule only moves the depth. Both level (-0.026 ± 0.034, +0.001 ±
+  0.002). Every other twist cell was identical already. Re-run of the affected cells and a sample of the rest, `goal/s20/h1d/fix.sh`.
