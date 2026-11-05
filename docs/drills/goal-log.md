@@ -1866,3 +1866,8 @@ and (in judges) `elite_judge`.
 ## 10:35: S25 passes its screen; on H42 on top of batch 9
 - S25 (heads-up: floors on how wide an all-in opponent is, at or under 20 bb, calls only): screen ACCEPT against batch 9 without the shove read. Five of five strong cells up under 8..1 (+0.004 to +0.007), four of five under 10/7/5 (+0.009 to +0.017), nothing down. W lower bound -0.0007. Small; about a third of the heads-up play gap. docs/drills/climb/s25-log.md on climb/s25-hu.
 - Held-out: H42 (83000-83399), base batch 9 with S24's shove read, candidate plus S25. S25's diagnosis stands for the next idea: of the heads-up gap, 70% is chips on arrival, made at three-handed and earlier.
+
+## 10:50: batch 9 staged; its combined check on H43
+- climb/batch9 6db96fe: S22, H1, B18, S24's shove read (20 dials). Identity both ways passes; zip parity 112,128 decisions identical (H1's route 358, R6 505); zip 3.0 MB, 7.2 MB unzipped; setup and p99 level with batch 8 + G1. Suite 1 failed of 1,615 run: a CPU-time assert in test_h5_drill9 under load; passes 5 of 5 alone and the measured value is level with main. Read as a flake, not proven; the freeze re-runs it. docs/drills/climb/batch9-log.md.
+- Combined check: H43 (84000-84399) against batch 8 + G1. Judges wait for S25's verdict on H42, so they measure what would ship.
+- Found, already on main: at the `bare` ladder level Hero's profiler misses preflop, so R6's and S7's gates starve (40 seeds, raw: elite 4.826 to 4.641 on F, 4.900 to 4.722 on the candidate). `bare` holds about 80% of decisions at 2x, so this may be part of G1's elite cost on a slow box. A worker (G2) takes it; a fix changes only slow-box play and gets its own check.
