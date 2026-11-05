@@ -1825,3 +1825,10 @@ and (in judges) `elite_judge`.
   W +0.0064 (lower bound +0.0004), W-min lower bound -0.0028. Cautions from the worker: first-order points say about +0.01 and played diagnostics about zero, so expect less on held-out; the c-bettor read alone scored level on
   exploit5_hu; never measured with S22, and 13 conflict blocks with climb/b8-s22 to resolve at batch 9. Tested as screened, not split: splitting now would be a choice made after seeing the screen.
 - **H40 = 81000-81399** (80000-80399 went to G1's slow-box table); then +1000 each. Next fresh H41 = 82000-82399.
+
+## O8s: no sound scope; O8 stays rejected; a window recipe instead
+- O8s (climb/o8s 33ab31f, log only; seeds 17000-17999): depth is out on both instruments, randomised veto and table for table: on fast_schedule the loss per firing is flat across depth, and under fast blinds the night's loss sits above
+  20 bb. Pace is out: no dose response (hands per level 25/20/15/10/doubling: realistic -0.009, -0.023, -0.021, -0.006, -0.007). What O8 has is a small real ordinary-room leak, about -0.014 ± 0.009 realistic at every ladder, against about +0.03 at strong
+  tables; fast_schedule's twice-down cell sits on that leak. The one repeating cut (hand band p 0.1-0.3) failed table for table. An over-20-bb veto would pass on size alone; not built. The coordinator's shallow-stack guess was wrong.
+- Decision: O8 is not in the default. The trade depends on the room, which the night's standings reveal: T5 and T6 are 52% of the score and the windows may switch dials. **Plan: merge O8's code off by default in batch 9 and offer it as a window recipe (`strong_room`), with a
+  signal from real standings for when to use it, measured as a recipe.** S21's parked O3 is the same shape and gets the same look.

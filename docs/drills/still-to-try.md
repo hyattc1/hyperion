@@ -39,6 +39,7 @@ line says what it is, why we think it would help, and what it would cost.
 
 ## Tried and set aside (so nobody repeats them blind)
 
+- O8 (veto the opens at tables where players behind fold under 80%): +0.03 strong, -0.014 realistic at every ladder. Rejected from the default; no depth, pace or alive gate separates (O8s, climb/o8s). Candidate window recipe once standings show a strong room.
 - S23b and S23c (2026-11-05): the solved small blind three-handed (loses in ordinary rooms; no read of the big blind separates them), the tables' jam answers (level), a wider fixed call
   of three-handed jams (+0.036 strong, -0.014 realistic) gated by a per-seat jam read (a median of 1 jam seen at the decision; gain and loss in the same bucket). Whole-table style is the
   one idea left there. docs/drills/climb/s23b-log.md on climb/s23b.
