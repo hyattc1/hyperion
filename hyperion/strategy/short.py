@@ -220,6 +220,7 @@ class ShortParams:
         self.hu2_keep_defence = False  # ... once our own raise this hand is re-raised, F's 3-bet defence plays
         self.hu2_min = 0.0  # ... only at this effective depth (bb) or deeper
         self.hu2_max = 1000.0  # ... and at most this
+        self.hu2_btn_max = 1000.0  # ... and our button at most this (under the tree's limps, from 25 bb: unmeasured, and they lose)
         # ... and only once S7's gate has had this many of the opponent's probe chances (prof.pb_opp) to admit the seat and
         # has refused it (the probe read cannot admit under 3; goal: H1's early preflop must not keep S7's read low); 0 = off
         self.hu2_like_opp = 0
@@ -464,7 +465,7 @@ class ShortMember:
         if got is None or got[3] not in self._roles2:
             return False
         S = got[4] / (obs.blinds[1] or 1)
-        return self.p.hu2_min <= S <= self.p.hu2_max
+        return self.p.hu2_min <= S <= (self.p.hu2_btn_max if got[3] == 0 else self.p.hu2_max) and S <= self.p.hu2_max
 
     def _hu2_node(self, obs: Observation):
         """(depth solve, node key, node, my role, eff chips) in the second heads-up tree, or None. Raises map onto each
