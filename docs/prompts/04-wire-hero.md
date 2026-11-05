@@ -47,6 +47,10 @@ Same adapter and `rules_tonight.json`. Verify in this order, pasting every outpu
    `--slim`), vendors the variant set the rules name, zips, writes the sha256 row: the submission. Then the kit's own
    checker on the zip, if it has one, by prompt 02 step 6's rule (its CPU clock; 0 errors; our timeouts no worse than
    the kit's sample bots' in the same run, the load written beside it).
+5b. Read the gate's `governor:` line in step 6. At this box's speed it must say `whole calls reported (counted)`, `level_max 0`
+   and `0 without their tail`. `the adapter does not report` is a FAIL: route the decision through `Adapter.decide`. A level above
+   0 here means the kit path is slow on a fast box: run docs/drills/climb/g1_profile_entry.py and fix the adapter before
+   anything else.
 6. Gate the zip itself, the step 2 sim measured the in-sim bot: `python tools/gate.py dist/submission.zip
    --kit <same as Stage 2> --tables 100 --rules rules_tonight.json --setup-budget-ms <the kit's table-start limit>` (plus
    `--variant <name>`, which a function patch must have, prompt 02 step 7; about

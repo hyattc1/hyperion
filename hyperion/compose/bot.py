@@ -61,7 +61,12 @@ the box turns out fine; each level adds its saving to the ones above it:
   hero       every section to Hero (the hero member, the layer on), no full shadows (light ones stay)
   lean       under payouts with no closed form (top-heavy), a decision the base would price with exact ICM (~50 us a
              call, four an all-in) is Hero's (the base's own Hero, its ICM precomputed at hand_end: `hero:lean`)
-Counted `level:<n>` once per decision played at level n > 0.
+Counted `level:<n>` once per decision played at level n > 0. The shipped ladder is "bare,lean,hero" since G1: `bare` takes a
+quarter off a decision for little play in model mode (a whole table at the level, 200 x 8: night +0.02 ± 0.05, realistic -0.02 ± 0.05,
+elite -0.11 ± 0.07, th -0.6 ± 0.7 of 100; `hero` costs night -0.17 ± 0.12), where `noshadow` saved nothing on the shipped routes. Behind a kit's adapter the governor counts the whole timed call (hyperion/strategy/safe.py),
+and an adapter that has measured a slow box holds the first rung without waiting for a cluster (Adapter._note_call). With that
+ladder and the whole-call clock (`whole_call`) panic is no rung: its last level is as fast as the cheap path, for a fraction of the
+price.
 
 Routes: a dict or "section=donor,..." (sections.parse_route: section names, "pre", "post", "*"). Unrouted sections go
 to the base's donor (`base`).
@@ -598,6 +603,8 @@ class ComposeConfig:
     panic_recover: int = 0
     panic_backoff: float = 2.0
     degrade: str = ""  # "noshadow,base": the intermediate levels, in order (module doc)
+    whole_call: bool = False  # G1: the governor counts the whole timed call an adapter reports (hyperion/strategy/safe.py)
+    hand_end_ms: float = 0.0  # G1: a kit's held hand end minds this budget (hyperion/drills/adapter.py Adapter.hand_end)
     start_level: int = 0  # measurement: play every table at this level from its first decision (a level's strength)
     # the strong-table route (backlog S9, module doc): these sections go to these donors while the table reads strong,
     # i.e. while the share of our first-in preflop raises that were re-raised, smoothed toward `strong_prior` with the
@@ -1172,7 +1179,12 @@ class Composite:
         self.core = CompositeCore(config)
         cfg = self.core.cfg
         self.safe = SafeBot(self.core, cfg.deadline_ms, cfg.panic_after, cfg.panic_rate,
-                            governor(cfg.panic_window, cfg.panic_ladder, cfg.panic_recover, cfg.panic_backoff))
+                            governor(cfg.panic_window, cfg.panic_ladder, cfg.panic_recover, cfg.panic_backoff),
+                            whole_call=cfg.whole_call, hand_end_ms=cfg.hand_end_ms)
+        # G1: a ladder that ends with no shadows and every section to Hero is as fast as the cheap path, at a fraction of its
+        # price (night -0.24 ± 0.12 against -1.58, th -2.0 against -13.2): the cheap path is no rung of it
+        lv = degrade_levels(cfg.degrade)
+        self.safe.no_panic = bool(cfg.whole_call and "bare" in lv and "hero" in lv)
 
     @property
     def config(self) -> ComposeConfig:
@@ -1218,7 +1230,11 @@ SHIP_ROUTE = "post=hero,pre_raised_short=hero"  # the route the composite ships 
 # and +0.14 (8..1) on a 3x slower box, held-out seeds 20000-20199 (docs/drills/goal-log.md; decisions "The climb").
 SHIP_DIALS: dict = {"route": SHIP_ROUTE, "exploit.bet_min_fold": 0.4, "hero.postflop.call_margin": 0.2,
                     "deadline_ms": 0.8, "panic_window": 60, "panic_ladder": True, "panic_recover": 40,
-                    "degrade": "noshadow,lean,hero",
+                    # G1 (docs/drills/climb/g1-log.md): the governor counts the whole timed call an adapter reports, a kit's
+                    # held hand end minds the budget, and the first rung saves time (no shadows: 25% of a decision, for
+                    # little play; noshadow saved nothing). Off (G1_OFF): batch 8's clock and ladder
+                    "degrade": "bare,lean,hero",
+                    "whole_call": True, "hand_end_ms": 0.75,
                     # batch 3 (V-b): twist tables only, plain hold'em identical (docs/decisions.md)
                     "hero.variant_preflop": {"call_raise_frac": 0.15, "three_bet_frac": 0.05},
                     "hero.toss_value_shift": 2, "hero.toss_dead": True, "base.hero_on_bounty": False,
@@ -1317,6 +1333,13 @@ BATCH8_OFF: dict = {"exploit.stab_size": False, "exploit.stab_alive": 0, "exploi
                     "exploit.open_read": False, "exploit.open_bb_only": False, "exploit.open_min_alive": 0}
 
 
+# G1's dials at their off values: on top of SHIP_DIALS they play batch 8's clock from this tree: `act` alone on the governor's
+# clock, batch 8's ladder, a kit's held hand end whole and inside the next timed call whatever the budget
+# (--dials '{"whole_call": false, "hand_end_ms": 0, "degrade": "noshadow,lean,hero"}'). The cheaper translation and inference stay:
+# they change no decision.
+G1_OFF: dict = {"whole_call": False, "hand_end_ms": 0.0, "degrade": "noshadow,lean,hero"}
+
+
 def parse_dials(dials: dict | None) -> tuple:
     """One flat dials dict -> (route, make_bot keywords). The keys:
       route          "section=donor,..." (default SHIP_ROUTE)
@@ -1331,6 +1354,8 @@ def parse_dials(dials: dict | None) -> tuple:
       late_us, deadline_ms, panic_after, panic_rate   the shell's clocks
       panic_window, panic_ladder, panic_recover, panic_backoff, degrade   SafeBot's governor and the composite's
                      degradation levels (module doc; off by default)
+      whole_call, hand_end_ms   the governor counts the whole timed call an adapter reports, and a kit's held hand end
+                     minds this budget (G1; G1_OFF: batch 8's clock)
       light          light shadows (ship() turns them on)
       soft_us, mc_max, ...   any flat HybridConfig field: every hybrid member (the base's soft deadline ...)"""
     d = dict(dials or {})

@@ -77,6 +77,11 @@ Otherwise Stage 4 as normal. Tonight's path: <...>
 
 ENGINE CANNOT REPRESENT: <none | the rule, and what every sim line is captioned "variant minus ...">
 
+## WHICH BOX (the one line, where the bot runs)
+
+`python3 tools/box_check.py` (3 s, stdlib only): NORMAL, SLOW CPU about Nx, or CPU SHARE, and what each means for the bot. Its numbers: ...
+It describes the machine it ran on: on a laptop that is the laptop, so also ask or find out how the sandbox runs bots (rule sheet).
+
 ## MOST DANGEROUS THING FOR A 1 ms BOT
 
 <one paragraph>

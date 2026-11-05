@@ -24,7 +24,7 @@ subdirectory that the recorded bot needs; --tables-dir DIR packages all of DIR i
 What the recorded bot needs comes from the bot (tools/table_probe.py): every file under tables/ its build and a first
 table open, seen by an audit hook, plus the declared tables its dials read later (a twist table's start). A needed table
 the repo holds and the package does not is copied in; one the package still lacks fails the pack, exit 1, by name (batch
-8: tables/extra/short_3b.json was left out, the specialist's loader returned None, and R6 silently did not play). The rules are --rules, else the first --extra JSON with Rules keys, else
+8: tables/extra/short_3b.json, today its .bin, was left out, the specialist's loader returned None, and R6 silently did not play). The rules are --rules, else the first --extra JSON with Rules keys, else
 rules_tonight.json beside the entry; their extras["variant"] is the active variant (drill 6 shipped
 without its variant set because --tables-dir was not passed). Then, from a fresh Python started in another
 directory with PYTHONPATH cleared, imports the entry module with <out>/submission first on sys.path,
@@ -199,8 +199,8 @@ def table_failures(need: dict, have: dict, dest: Path) -> list[str]:
                                          if not (dest / "tables" / t).is_file()
                                          and not (t.startswith("generic/") and have.get("lacking_twist"))})
     msgs = [f"tables/{t} (the recorded bot {have['bot']} needs it)" for t in out]
-    msgs += [f"tables/short_{k}.json or tables/extra/short_{k}.json (the specialist's loader: {why})"
-             for k, why in sorted(have["specialist_missing"].items()) if not any(f"short_{k}.json" in t for t in out)]
+    msgs += [f"tables/short_{k}.json or tables/extra/short_{k}.bin (the specialist's loader: {why})"
+             for k, why in sorted(have["specialist_missing"].items()) if not any(f"short_{k}." in t for t in out)]
     return msgs
 
 
@@ -400,7 +400,7 @@ def tree_size(root: Path) -> tuple[int, int]:
 def make_zip(dest: Path, zip_path: Path) -> str:
     if zip_path.exists():
         zip_path.unlink()
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         for p in package_files(dest):
             zf.write(p, p.relative_to(dest).as_posix())
     h = hashlib.sha256()

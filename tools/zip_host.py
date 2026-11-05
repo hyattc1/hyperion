@@ -47,6 +47,7 @@ def dilate(k: float) -> None:
     time.perf_counter_ns = lambda: pn0 + int((src() - s0) * k)
     time.monotonic = lambda: m0 + (src() - s0) * k * 1e-9
     time.monotonic_ns = lambda: mn0 + int((src() - s0) * k)
+    time.thread_time = lambda: (src() - s0) * k * 1e-9  # the governor's own read of the thread's CPU time, on the same clock
 
 
 def main(argv: list[str]) -> int:

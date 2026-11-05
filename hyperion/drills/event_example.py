@@ -67,6 +67,7 @@ class KitEStyleAdapter(EventAdapter):
 
 def build() -> KitEStyleAdapter:
     a = maybe_checked(KitEStyleAdapter(ship.make_bot(), RULES))
+    a.hand_end_timed = HAND_END_TIMED
     if HAND_END_TIMED:
         a.defer_hand_end(True)
     a.start(0, RULES.n_players, RULES)  # tables and modules load at import, never in a timed event

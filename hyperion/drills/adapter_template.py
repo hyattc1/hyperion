@@ -12,6 +12,11 @@ its bot hold one table's state: one table at a time per adapter (closure_entry_t
 
 While the kit simulator runs, check every decision against the Observation invariants:
     HYPERION_CHECK=1 python -m <kit runner> submission/<entry>.py      # conformance report at exit
+
+The governor counts the whole timed call (G1, hyperion/strategy/safe.py): Adapter.decide reports it, from the kit's call to our
+return, translation and inference included. Nothing to wire if the entry calls decide(); keep that line, do not write your own
+decide() around bot.act, and keep to_observation cheap: it is on the clock. tools/gate.py fails a package whose decisions do not
+report, and prints the governor's line: at this box's speed it must read level_max 0.
 """
 from __future__ import annotations
 

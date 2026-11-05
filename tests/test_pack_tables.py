@@ -1,6 +1,6 @@
 """tools/pack.py and tools/gate.py on the tables a recorded bot needs (batch 8's freeze).
 
-Batch 8's R6 reads tables/extra/short_3b.json. pack.py shipped only the top level of tables/*.json, the specialist's
+Batch 8's R6 reads tables/extra/short_3b.bin. pack.py shipped only the top level of tables/*.json, the specialist's
 loader returned None in the package, and R6 silently did not play there: no import failed, no bot failed to build, the
 gate passed. These tests hold the fix: the pack ships what the recorded bot needs, and exits 1 by name on a package
 that lacks a table, whether the bot opens it at its build (seen by tools/table_probe.py's audit hook) or only at a later
@@ -52,10 +52,10 @@ def entry(tmp_path) -> Path:
 def test_the_pack_ships_the_table_r6_reads(tmp_path, entry):
     r = run_pack(tmp_path, "--entry", "agent.py", "--out", "dist", "--slim", "--night", "/dev/null")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "extra/short_3b.json" in r.stdout
+    assert "extra/short_3b.bin" in r.stdout
     with zipfile.ZipFile(tmp_path / "dist" / "submission.zip") as z:
         names = z.namelist()
-    assert "tables/extra/short_3b.json" in names
+    assert "tables/extra/short_3b.bin" in names
     assert "tables/extra/short_3.json" not in names  # needs, not the whole directory: short.three is off
     # hero.twin_preflop: each twist's own preflop table, which the bot we measure reads on that twist's tables. Before this a
     # zip packed without tonight's rules played every twist without it (a fallback zip, or a frozen one), silently
@@ -68,7 +68,7 @@ def test_the_old_tables_fail_the_pack_by_name(tmp_path, entry):
     old = top_level_tables(tmp_path / "old")
     r = run_pack(tmp_path, "--entry", "agent.py", "--out", "dist", "--slim", "--night", "/dev/null", "--tables-dir", str(old))
     assert r.returncode == 1, r.stdout + r.stderr
-    assert "FAIL" in r.stdout and "extra/short_3b.json" in r.stdout
+    assert "FAIL" in r.stdout and "extra/short_3b.bin" in r.stdout
     assert not (tmp_path / "dist" / "submission.zip").exists()
 
 
@@ -129,7 +129,7 @@ def test_the_probe_reports_what_a_package_lacks(tmp_path):
     shutil.copytree(ROOT / "hyperion", pkg / "hyperion", ignore=shutil.ignore_patterns("__pycache__"))
     top_level_tables(pkg / "tables")
     got = probe(pkg)
-    assert "extra/short_3b.json" in got["lacking"]
+    assert "extra/short_3b.bin" in got["lacking"]
     assert got["specialist_missing"]  # the loader's own record agrees
     assert "generic/*.json" in got["lacking_twist"]  # no twist's own table at all: on record, not nothing to check
     assert "generic/auction-*.json" in probe(pkg, "--variant", "auction")["lacking"]  # on that twist's table it is a need
@@ -137,7 +137,7 @@ def test_the_probe_reports_what_a_package_lacks(tmp_path):
     shutil.copytree(ROOT / "tables" / "generic", pkg / "tables" / "generic")
     got = probe(pkg)
     assert got["lacking"] == [] and got["specialist_missing"] == {}
-    assert "extra/short_3b.json" in got["opened"] and "auction_bid.json" in got["declared"]
+    assert "extra/short_3b.bin" in got["opened"] and "auction_bid.json" in got["declared"]
 
 
 def test_a_zip_with_no_twist_tables_warns_on_plain_hold_em_and_fails_the_gate_on_a_twist(tmp_path, entry):
@@ -165,10 +165,10 @@ def test_a_stripped_zip_fails_the_gate_before_any_table(tmp_path, entry):
     bad = tmp_path / "stripped.zip"
     with zipfile.ZipFile(src) as zin, zipfile.ZipFile(bad, "w", zipfile.ZIP_DEFLATED) as zout:
         for n in zin.namelist():
-            if n != "tables/extra/short_3b.json":
+            if n != "tables/extra/short_3b.bin":
                 zout.writestr(n, zin.read(n))
     g = subprocess.run([sys.executable, str(GATE), str(bad), "--kit", "b", "--entry", "agent.py", "--tables", "2"],
                        cwd=tmp_path, capture_output=True, text=True, timeout=300)
     assert g.returncode == 1, g.stdout + g.stderr
-    assert "GATE FAIL" in g.stdout and "extra/short_3b.json" in g.stdout
+    assert "GATE FAIL" in g.stdout and "extra/short_3b.bin" in g.stdout
     assert "tables  package" not in g.stderr  # failed before playing

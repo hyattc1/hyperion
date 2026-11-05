@@ -79,6 +79,8 @@ class HybridConfig:
     panic_ladder: bool = False
     panic_recover: int = 0
     panic_backoff: float = 2.0
+    whole_call: bool = False  # G1: the governor counts the whole timed call an adapter reports (the slow_box recipe)
+    hand_end_ms: float = 0.0  # G1: a kit's held hand end minds this budget (hyperion/drills/adapter.py Adapter.hand_end)
     # payoff and information terms the core has no place for: Hero plays those tables
     hero_on_bounty: bool = True
     hero_on_exposed: bool = True
@@ -460,7 +462,8 @@ class Hybrid:
         self.core = HybridCore(config)
         cfg = self.core.cfg
         self.safe = SafeBot(self.core, cfg.deadline_ms, cfg.panic_after, cfg.panic_rate,
-                            governor(cfg.panic_window, cfg.panic_ladder, cfg.panic_recover, cfg.panic_backoff))
+                            governor(cfg.panic_window, cfg.panic_ladder, cfg.panic_recover, cfg.panic_backoff),
+                            whole_call=cfg.whole_call, hand_end_ms=cfg.hand_end_ms)
 
     @property
     def config(self) -> HybridConfig:

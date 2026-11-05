@@ -155,6 +155,17 @@ limits from the rule sheet: `--import-budget` its start budget, `--max-mb` its u
 zipped one (drill 10: kit H allowed 2 s to answer hello and 5 MB zipped / 20 MB unzipped; pack's 5 s default and a
 `--max-mb 5` that checked the unzipped size were both wrong for it).
 
+**The clock is the kit's, not `act`'s** (G1, docs/drills/climb/g1-log.md). What the kit times runs from its call to our return:
+translation, inference, a held hand end, then `act`. `Adapter.decide` reports that whole call to the bot's SafeBot, and the
+governor counts it, so a slow sandbox steps the bot down instead of timing out one decision in eight. Nothing to wire if the
+entry goes through `Adapter.decide` (every template does, and passes its first clock read as `decide(native, t0)`); do not write a
+`decide` of your own around `bot.act`: `tools/gate.py` FAILS a package whose decisions do not report, by name. Keep
+`to_observation` cheap, it is on the clock. The gate prints a `governor:` line; on this box it must read `level_max 0` and
+`0 without their tail`. Anything else at this box's speed means the adapter is slow (profile it:
+docs/drills/climb/g1_profile_entry.py), not that the governor is wrong. `python3 tools/box_check.py`, run where the bot runs, says which box it is
+(NORMAL, SLOW CPU about Nx, CPU SHARE) and what that means: on a share of a CPU the governor stays at level 0 by design, and no bot code
+answers those stalls.
+
 The entry template follows the kit's shape: a kit that imports a file and builds a bot object,
 `hyperion/drills/entry_template.py`; one call per event, `event_player_template.py`; **the bot as its own process on
 JSON lines** (kit H), `hyperion/drills/process_entry_template.py`, with `process_gate_seat_template.py` as the gate
@@ -459,6 +470,13 @@ layer's keys are `exploit.*`, never `hero.exploit.*`.
   - 23/23 variants READY, first on 22. Gate PASS on kit B (night, the log rebuilt) and kit A.
   - Strict timeouts level with hybrid3_x; p99 113 us at a table, 329 us through kit B with the deferred hand end.
   - The owner's other bot, tried as a black-box donor, won no section.
+- The whole timed call (G1, 2026-11-05, docs/drills/climb/g1-log.md; paired against batch 8, dilated clock, screen seeds 200 x 8, night). Timeouts
+  through kit B: 2x 0.24% to 0.07% (load 10), 3x 6.8% to 1.2%; at load 19, 1.18% to 0.62% and 13.4% to 2.7%. Kit J, the recap on the clock: 2x
+  0.51% to 0.21%, 3x 17.4% to 4.1%. So 0.3% at 2x holds on a box not oversubscribed. Points level under 8..1 (+0.04 ± 0.08, +0.03 ± 0.09, +0.01 ±
+  0.08, +0.08 ± 0.11), +4.06 ± 1.14 of 100 under 50/25/12/... at 3x. At 1x on the real clock, load 15-22, 900 tables: level 0 throughout.
+  A fold after our last reply is worth more than the timeout it costs: the first design dropped those tails and lost 0.4 points a table.
+  Setup 0.66 s to 0.43 s (load 15), zip 3.69 MB to 2.97 MB. On fresh seeds 80000-80199 x 8, at strong tables, where `bare` costs -0.11 in model mode:
+  elite at 2x -0.05 ± 0.07, 1.5x +0.01 ± 0.02, 3x +0.08 ± 0.11; mirror level at all three.
 
 - Windows on F (2026-11-02, docs/drills/f1-windows-log.md; paired, model mode, 200 x 8): each recipe moves F's play
   as stated after the fixes; none gains on night; `dead_seats` gains among timing-out seats (+0.06 ± 0.05) and loses
@@ -547,6 +565,7 @@ The track is decided in Stage 0, never on the night.
 | 2026-11-03 | Drill 11's fixes (H7, docs/drills/prompt-drill-11.md): `hyperion/drills/module_entry_template.py` and `module_gate_seat_template.py` for a kit of plain module-level functions (kit I: everything built at import, the loader's purge, the kit's Overtime never swallowed; the gate seat loads the entry as the kit's loader and raises the Overtime); every template's hand end asks "won: chips collected or net change?" and counts deltas that do not sum to 0; `extras.full_bb_call` for the full big blind after a short post; the organisers' checker's pass rule on a loaded box; `pytest -m night`, the one-minute subset; a latency recipe kept only by the kit's own simulator; one keep rule for a Stage 5 patch (prompt 05); the Stage 0 clause skipped on a solo night; `hyperion.ship --set` keeps the line | H7 |
 | 2026-11-04 | Freezing a batch: `tools/pack.py` ships what the recorded bot needs and fails by name on a table the package lacks (batch 8's R6 table was left out, and the bot played on without it, silently); `tools/gate.py` fails the same way; new `tools/zip_parity.py` (zip against source, decision for decision, the specialist's routes counted) and `tools/zip_timing.py` (the zip's bot at load and on a 3x slower clock) | batch 8 freeze |
 | 2026-11-05 | Drill 12's fixes (H8, docs/drills/prompt-drill-12.md): a table start never collects (Hero froze and collected one table in 16: 20-29 ms against kit J's 25, 6% of tables on autopilot; now p99 0.8 ms at four copies), and `tools/latency.py --table-start` and the gate's `--setup-budget-ms` state p99 and max against the kit's limit; `hyperion/drills/closure_entry_template.py` and `closure_gate_seat_template.py` for a closure kit; prompt 05's section on what a stack can lose; `--variant` for a function patch, with the gate's warning; the `timeouts` recipe pays only for what it reads (88 us a decision through kit J's adapter, was 221); one table per adapter stated and enforced. |
+| 2026-11-05 | The governor counts the whole timed call (G1, docs/drills/climb/g1-log.md): `Adapter.decide` reports it to SafeBot, every template passes its first clock read, `tools/gate.py` fails a package that does not report and prints a `governor:` line; a stall is not a slow box (CPU time, a slow mean of the box's speed: at 1x it never fires); the ladder is `bare,lean,hero` with no panic rung; a held hand end is lazy and past 0.75 ms goes at the kit's callback, one tail in two kept; R6's table in a binary form; `tools/kit_compare.py` pairs two zips through a kit; `G1_OFF` plays batch 8's clock | G1 worker |
 ---
 
 ## 10. The email (send before the event)

@@ -18,6 +18,11 @@ What it does without being asked, each from drill 12 unless marked:
 - THE HAND END IS ON THE CLOCK. `v.recap` is delivered inside the timed decide, so HAND_END is "defer" (TODO 1) and the bot's
   deferred work lands in the same call: there is no untimed moment to move it to. tools/latency.py's numbers leave this
   out; the gate's and the kit's simulator's do not.
+- THE GOVERNOR SEES ALL OF IT (G1). `decide` reads the clock on its first line and passes it to Adapter.decide, which reports
+  the whole call, the recap included, to the bot's SafeBot. And the recap minds the budget: when a typical decision with one
+  would pass 3/4 of the kit's limit (`short_of_time`), only the chip chain runs and the bot's hand end is dropped, at most
+  RECAP_SKIP_MAX in a row, and counted (`dropped` on tools/gate.py's governor line). The bot's reads of that hand stop at our
+  last decision in it. On a normal box the means never get there and nothing changes.
 - A TABLE START COLLECTS NOTHING: no `gc.collect()` here (a full one is 4-29 ms with our tables, against kit J's 25 ms).
   Hero's table start only freezes (hyperion/strategy/hero.py, the collector block); kits that collect between tables do
   it on their own time. Check it: `python tools/latency.py --table-start --budget-ms <the kit's limit> --copies <our seats>`.
@@ -39,6 +44,7 @@ import json
 import os
 import sys
 from collections import Counter, namedtuple
+from time import perf_counter
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 # in the package tools/pack.py builds, hyperion/ sits beside this file; run from the repo's submission/, one level up
@@ -74,6 +80,7 @@ TABLES_AT_ONCE = 1
 
 # TODO 1  from the RULE SHEET: is the hand end timed? Kit J: inside the next decide, "defer". Untimed: "eager".
 HAND_END = "defer"
+RECAP_SKIP_MAX = 1  # recaps whose bot hand end is dropped in a row while the budget is short (the next one is delivered)
 
 
 def safe_answer(v):
@@ -123,8 +130,8 @@ def table_start(ad, table) -> None:
     ad.start(ad.seat_of[table.me], ad.n, RULES)
 
 
-def hand_end(ad, r) -> None:
-    """TODO 5  one finished hand -> Adapter.hand_end, with everything it carries: the hand's actions (history), every seat's
+def hand_end(ad, r, deliver: bool = True) -> None:
+    """TODO 5  one finished hand -> Adapter.hand_end (with `deliver`; without, the chip chain alone: decide's budget), with everything it carries: the hand's actions (history), every seat's
     chip change (deltas), the hands shown (showdown, {} when none), the board, and the hand number to_observation passes
     as hand_no (kit J counts from 1, ours from 0).
 
@@ -145,6 +152,8 @@ def hand_end(ad, r) -> None:
         start[tag] = start.get(tag, 0) + d
     if sum(deltas) != 0:
         ERRORS["deltas_sum"] += 1
+    if not deliver:
+        return
     shown = {seat_of[t]: cards(m) for t, m in r.shown}
     ad.hand_end(r.hand - 1, deltas[ad.seat], ad.n, history=history(r.log, bb, seat_of), deltas=deltas, showdown=shown,
                 board=cards(r.board))
@@ -153,10 +162,10 @@ def hand_end(ad, r) -> None:
 class _Slot:
     """One adapter and the table it is playing. `owner` is that table's token; `tick` when that table last spoke."""
 
-    __slots__ = ("ad", "owner", "tick")
+    __slots__ = ("ad", "owner", "tick", "skipped")
 
     def __init__(self, ad):
-        self.ad, self.owner, self.tick = ad, None, 0
+        self.ad, self.owner, self.tick, self.skipped = ad, None, 0, 0
 
 
 def build() -> _Slot:
@@ -166,6 +175,9 @@ def build() -> _Slot:
     if HAND_END != "eager":
         bot.defer_hand_end(True)
     ad = make_adapter(bot, RULES)
+    ad.hand_end_timed = HAND_END != "eager"
+    ad.hand_end_stored = True  # hand_end runs inside the timed decide: it has its own mean (Adapter._note_call)
+    ad.log_at_end = True  # the recap carries the hand's whole log (TODO 5): no walk of the states to keep up on the clock
     table_start(ad, _WARM_TABLE)
     return _Slot(ad)
 
@@ -242,6 +254,7 @@ def sit_down(table):
 
     def decide(v):
         global _ticks
+        t0 = perf_counter()  # first, always: the kit's clock is running (Adapter.decide reports the whole call to the governor)
         repin_package()
         if slot.owner is not token:  # another table took this adapter: its state is not ours
             _overlap()
@@ -250,11 +263,15 @@ def sit_down(table):
         slot.tick = _ticks
         try:
             for r in v.recap:
-                hand_end(ad, r)
+                deliver = not ad.short_of_time() or slot.skipped >= RECAP_SKIP_MAX
+                slot.skipped = 0 if deliver else slot.skipped + 1
+                hand_end(ad, r, deliver)
+                if not deliver:
+                    ad.drop_hand_end()
         except Exception:  # noqa: BLE001
             ERRORS["hand_end"] += 1
         try:
-            return ad.decide(v)  # Adapter.decide: a translation or bot failure is already native_safe's answer
+            return ad.decide(v, t0)  # Adapter.decide: a translation or bot failure is already native_safe's answer
         except Exception:  # noqa: BLE001
             ERRORS["decide"] += 1
             return safe_answer(v)

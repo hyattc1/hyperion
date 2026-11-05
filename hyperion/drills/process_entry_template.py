@@ -25,6 +25,8 @@ What it does without being asked, each from drill 10:
   this file turns the conformance report and the error line on (both to stderr at exit). Never ship a marker:
   tools/pack.py copies only what --extra names.
 - Every kit call is wrapped: nothing raises out of the loop; an answer outside the kit's forms is its check-or-fold.
+- The governor sees what the kit times (G1): the loop reads the clock when the request's line arrives and hands it to
+  Adapter.decide, which reports the whole call to the bot's SafeBot.
 
 Checks, in order: the kit's simulator with `check.on` (0 violations, 0 exceptions; the exit line reads 0 errors and
 counts the skipped hand ends); tools/pack.py (--import-budget the kit's start budget, both its size caps); tools/gate.py
@@ -38,6 +40,7 @@ import json
 import os
 import sys
 from collections import Counter
+from time import perf_counter
 
 # run as the kit's process: the protocol's own copy of stdout first, before any import can print, and fd 1 becomes
 # stderr for everything else. Imported (tools/pack.py's import probe prints its timing on stdout): fds left alone
@@ -108,6 +111,7 @@ try:
     except Exception:  # noqa: BLE001
         pass
     AD = make_adapter(BOT, RULES)
+    AD.hand_end_timed = True  # every message is on the engine's clock; idle() is this loop's, when nothing waits
 except Exception as e:  # noqa: BLE001 - no bot: the loop still answers, check-or-fold
     ERRORS["build"] += 1
     sys.stderr.write(f"entry: build failed: {e!r}\n")
@@ -141,14 +145,14 @@ class Session:
         me = self.seats.index(self.you) if self.you in self.seats else 0
         self.ad.start(me, len(self.seats), RULES)
 
-    def act(self, m) -> str:
+    def act(self, m, t0: float | None = None) -> str:
         if self.ad is None or not self.active:
             return check_or_fold(m)
         h = m.get("hand")
         if h != self.hand_no:  # the hand's first decision: everyone's chips at its start
             self.hand_no = h
             self.hand_start = {p["h"]: int(p["stack"]) + int(p["total"]) for p in m["players"]}
-        return self.ad.decide(m)
+        return self.ad.decide(m, t0)
 
     def end(self, m, deliver: bool = True) -> None:
         """The hand's chips (always: a few dict entries) and, with `deliver`, the bot's hand end.
@@ -293,6 +297,7 @@ def serve(in_fd: int = 0, out_fd: int | None = None, sess: Session | None = None
     gc_due = False
     while True:
         raw = lines.readline()
+        t0 = perf_counter()  # the governor's clock (Adapter.decide reports the whole call): from the request's arrival
         if not raw:
             return
         try:
@@ -304,7 +309,7 @@ def serve(in_fd: int = 0, out_fd: int | None = None, sess: Session | None = None
             continue
         if t == DECIDE:
             try:
-                a = sess.act(m)
+                a = sess.act(m, t0)
                 if not answer_ok(a):
                     ERRORS["bad_answer"] += 1
                     a = check_or_fold(m)

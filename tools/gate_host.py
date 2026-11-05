@@ -213,6 +213,51 @@ def _dilate(k: float) -> None:
     time.perf_counter_ns = lambda: pn0 + int((src() - s0) * k)
     time.monotonic = lambda: m0 + (src() - s0) * k * 1e-9
     time.monotonic_ns = lambda: mn0 + int((src() - s0) * k)
+    time.thread_time = lambda: (src() - s0) * k * 1e-9  # the governor's own read of the thread's CPU time, on the same clock
+
+
+def governor_report() -> dict | None:
+    """What the package's SafeBots did in this process (hyperion/strategy/safe.py life_stats; a package from before G1:
+    its stats()), found by type name, so a kit loader's purge of sys.modules does not hide them. None when there is none: the
+    bot runs in another process (kits C, D, a process kit: GATE_GOV_REPORT), or it has no SafeBot."""
+    import gc
+
+    out = None
+    gc.unfreeze()  # a frozen object is not listed, and the bot's build may freeze (the elite members' modules do); nothing is timed now
+    for o in gc.get_objects():
+        if type(o).__name__ != "SafeBot":
+            continue
+        try:
+            fn = getattr(o, "life_stats", None)
+            if fn is not None:
+                r = fn()
+                if not (r.get("acts") or r.get("reports")):
+                    continue  # a bot the entry built and never played (a warm spare)
+                r = {"capable": True, **r}
+            else:
+                st = o.stats()
+                if not st.get("calls"):
+                    continue
+                r = {"capable": False, "acts": st["calls"], "reports": 0, "overruns": st["overruns"], "tables": 1,
+                     "level_tables": int(st["level_max"] > 0), "panic_tables": int(bool(st["panic_mode"])),
+                     "level_max": st["level_max"], "lvl_calls": {}, "whole_on": False, "whole": False}
+                inner = getattr(o, "inner", None)
+                for k, v in (getattr(inner, "counts", None) or {}).items():
+                    if isinstance(k, str) and k.startswith("level:"):
+                        r["lvl_calls"][k[6:]] = v
+        except Exception:  # noqa: BLE001 - a report: never in the way
+            continue
+        if out is None:
+            out = r
+        else:
+            for k in ("acts", "reports", "overruns", "tables", "level_tables", "panic_tables"):
+                out[k] = out.get(k, 0) + r.get(k, 0)
+            out["level_max"] = max(out.get("level_max", 0), r.get("level_max", 0))
+            out["whole_on"] = out.get("whole_on") or r.get("whole_on")
+            out["whole"] = out.get("whole") or r.get("whole")
+            for k, v in r.get("lvl_calls", {}).items():
+                out["lvl_calls"][k] = out["lvl_calls"].get(k, 0) + v
+    return out
 
 
 def serve(kind: str, pkg: str, entry: str, kit_dir: str, seat_file: str | None) -> int:
@@ -331,7 +376,7 @@ def serve(kind: str, pkg: str, entry: str, kit_dir: str, seat_file: str | None) 
                     errors += 1
                     note(f"close raised {type(e).__name__}: {e}")
             counts = getattr(seat, "gate_counts", None)  # a seat's own tallies (the module seat's Overtimes)
-            send({"errors": errors, "notes": notes, "counts": dict(counts) if counts else {}})
+            send({"errors": errors, "notes": notes, "counts": dict(counts) if counts else {}, "gov": governor_report()})
             break
     return 0
 

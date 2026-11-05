@@ -160,16 +160,19 @@ COMPOSITE_RECIPES = {
 # A slow or noisy sandbox (backlog R1, docs/drills/r1-timing-log.md). Not a window recipe: it is a property of the box,
 # set once when the sandbox's timing is known or suspect, and stacked with any window recipe (`slow_box+survival`).
 # SafeBot counts only near-timeouts (0.8 ms, not 0.5), and only when they cluster (5 in 60 calls); each cluster steps
-# one level down, and 40 quiet calls step back up (then 80, 160, ...). The composite's levels, in order: no full
-# shadows; the base's exact-ICM decisions to Hero under top-heavy payouts; every section to Hero; the cheap path last.
-# hybrid3_x has one level (lean) before the cheap path, Hero none. At k <= 3 the governor never fires on F; the cliff
-# it replaces cost F 2.2 points a table on th at k = 3 (100-point table) and 0.03-0.16 on 8..1.
+# one level down, and 40 quiet calls step back up (then 80, 160, ...). The composite's levels, in order: no shadows; the
+# base's exact-ICM decisions to Hero under top-heavy payouts; every section to Hero; the cheap path last.
+# hybrid3_x has one level (lean) before the cheap path, Hero none. The bot alone at k <= 3 never fires it on F; the cliff
+# it replaces cost F 2.2 points a table on th at k = 3 (100-point table) and 0.03-0.16 on 8..1. `whole_call` (G1): behind a
+# kit's adapter it counts the whole timed call, the adapter's and the deferred hand end's time too, not `act` alone, and
+# `hand_end_ms` keeps a kit's held hand end out of that call when a typical decision with it would pass that much of the budget.
 SLOW_RECIPES = {
     "slow_box": {
         "composite": {"deadline_ms": 0.8, "panic_window": 60, "panic_ladder": True, "panic_recover": 40,
-                      "degrade": "noshadow,lean,hero"},
-        "core": {"deadline_ms": 0.8, "panic_window": 60, "panic_ladder": True, "panic_recover": 40},
-        "hero": {"deadline_ms": 0.8, "panic_window": 60, "panic_recover": 40},
+                      "degrade": "bare,lean,hero", "whole_call": True, "hand_end_ms": 0.75},
+        "core": {"deadline_ms": 0.8, "panic_window": 60, "panic_ladder": True, "panic_recover": 40, "whole_call": True,
+                 "hand_end_ms": 0.75},
+        "hero": {"deadline_ms": 0.8, "panic_window": 60, "panic_recover": 40, "whole_call": True, "hand_end_ms": 0.75},
     },
 }
 

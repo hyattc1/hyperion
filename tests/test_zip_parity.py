@@ -73,14 +73,14 @@ def test_the_packed_zip_plays_as_the_source_and_every_route_fires(packed):
     assert set(rep["routes"]) == {"strong", "hu", "3b"}
     for route in rep["routes"]:
         assert rep["fired"][route] > 0, route  # not vacuous: each route played decisions, on the source's own count
-    assert "extra/short_3b.json" in rep["opened"]
+    assert "extra/short_3b.bin" in rep["opened"]
 
 
 def test_a_zip_without_r6s_table_fails(packed, tmp_path):
-    bad = edited(packed, tmp_path / "no_3b.zip", drop=("tables/extra/short_3b.json",))
+    bad = edited(packed, tmp_path / "no_3b.zip", drop=("tables/extra/short_3b.bin",))
     r, rep = parity(bad, "--quick")
     assert r.returncode == 1, r.stdout + r.stderr
-    assert "PARITY FAIL" in r.stdout and "extra/short_3b.json" in r.stdout
+    assert "PARITY FAIL" in r.stdout and "extra/short_3b.bin" in r.stdout
     # the play itself tells them apart too, without the static check: R6's counter on the source against the zip's
     assert rep["mismatches"], rep["fails"]
 

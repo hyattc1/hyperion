@@ -17,6 +17,9 @@ What it does without being asked, each from a drill:
 - One module-level adapter plays ONE TABLE AT A TIME per process. Ask the rule sheet; a kit that interleaves tables in one
   process needs a table per adapter, as closure_entry_template.py's TABLES_AT_ONCE does it.
 - Every kit call is wrapped: nothing raises into the kit; an answer outside the kit's set is its check-or-fold.
+- The governor sees what the kit times (G1): `decide` reads the clock on its first line and passes it to Adapter.decide, which
+  reports the whole call to the bot's SafeBot. A stored hand end (HAND_END "store") that would break the timed call it lands in
+  is dropped, at most STORE_SKIP_MAX in a row, and counted (`dropped` on tools/gate.py's governor line).
 
 Checks, in order: the kit's simulator with HYPERION_CHECK=1 (0 violations, 0 exceptions, 0 late hand ends, and this
 file's own error line at exit reads 0); tools/pack.py; tools/gate.py with submission/gate_seat.py (class Seat from
@@ -29,6 +32,7 @@ import json
 import os
 import sys
 from collections import Counter
+from time import perf_counter
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 # in the package tools/pack.py builds, hyperion/ sits beside this file; run from the repo's submission/, one level up
@@ -69,6 +73,7 @@ ERRORS: Counter = Counter()  # what the wrappers swallowed; printed at exit unde
 #   tables, defer 1-33, store 0-3; late decisions eager 15-223, defer 48-206, store 77-452 (the stored hand end puts
 #   p50 +90 us and p99 +300 us on the first decision of every hand). Points level within noise.
 HAND_END = "defer"
+STORE_SKIP_MAX = 1  # "store": stored hand ends dropped in a row while the budget is short (the next one is delivered)
 
 # TODO 1  the kit's answers: the closed set it accepts (kit G's tokens), or None when it takes values (kit F's int
 #   chips, kit A's "RAISE:<total>"), and its fold, the answer when even native_safe fails.
@@ -83,6 +88,8 @@ def build():
     if HAND_END != "eager":
         bot.defer_hand_end(True)
     ad = make_adapter(bot, RULES)
+    ad.hand_end_timed = HAND_END != "eager"
+    ad.hand_end_stored = HAND_END == "store"
     ad.start(0, SEATS, RULES)
     return ad
 
@@ -157,6 +164,7 @@ class Agent:
         repin_package()
         self.ad = _SPARE.pop() if _SPARE else build()  # a second Agent in the process builds and starts its own
         self.pending: list = []
+        self.skipped = 0
 
     def begin_table(self, info) -> None:
         """TODO 5  our seat and the seat count from the kit's table start (0 when the kit numbers seats from us)."""
@@ -168,11 +176,12 @@ class Agent:
             ERRORS["table_start"] += 1
 
     def decide(self, s):
+        t0 = perf_counter()  # first, always: the kit's clock is running (Adapter.decide reports the whole call to the governor)
         repin_package()
         if self.pending:
             self._flush()
         try:
-            out = self.ad.decide(s)  # Adapter.decide: a translation or bot failure is already the kit's check-or-fold
+            out = self.ad.decide(s, t0)  # Adapter.decide: a translation or bot failure is already the kit's check-or-fold
             if ANSWERS is None or out in ANSWERS:
                 return out
             ERRORS["bad_answer"] += 1
@@ -197,8 +206,15 @@ class Agent:
             ERRORS["hand_end"] += 1
 
     def _flush(self) -> None:
-        """The stored hand ends (HAND_END "store"), in order, before the next decision reads the table."""
+        """The stored hand ends (HAND_END "store"), in order, before the next decision reads the table. Inside the timed
+        call: when a typical decision with one would pass the budget it is dropped instead, at most STORE_SKIP_MAX in a row
+        (the bot's reads of that hand stop at our last decision in it; a bot that misses a hand end plays on)."""
         pend, self.pending = self.pending, []
+        if self.ad.short_of_time() and self.skipped < STORE_SKIP_MAX:
+            self.skipped += 1
+            self.ad.drop_hand_end(len(pend))
+            return
+        self.skipped = 0
         for r in pend:
             try:
                 hand_end(self.ad, r)

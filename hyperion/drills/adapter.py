@@ -8,9 +8,16 @@ from __future__ import annotations
 
 import os
 import sys
+from time import perf_counter
 from typing import Any, Callable, Iterable
 
+try:
+    from time import thread_time as _cpu_clock  # about 0.15 us a read
+except ImportError:  # a platform without it: the wall clock, stalls and all
+    _cpu_clock = perf_counter
+
 from hyperion.core.types import Action, ActionKind, Bot, HandResult, Observation, Rules, parse_card
+from hyperion.strategy.safe import SafeBot
 from hyperion.strategy.tables import quick_start
 
 KIND_BY_NAME = {"fold": ActionKind.FOLD, "check": ActionKind.CHECK, "call": ActionKind.CALL, "raise": ActionKind.RAISE}
@@ -84,6 +91,13 @@ class Adapter:
     (hyperion/drills/infer_history.py: each seat's in-hand flag, stack and bet between our decisions; every entry
     true, a gap ends it). For every source, hand_end() adds our last reply and, when the kit shows how the hand
     ended (every seat's chips or deltas, the hands at showdown), the folds after it.
+
+    The whole timed call (G1). decide() is what the kit times, so it reads the clock on its first line and sends the
+    whole call to the bot's SafeBot on its way out (hyperion/strategy/safe.py report_call): the governor sees the
+    translation, the inference and a held hand end, not `act` alone. There is nothing to wire: a subclass writes the three
+    hooks and calls nothing else. An entry whose method does work before decide() passes its own first clock read,
+    decide(native, t0) (the templates do). Do not override decide(); if you must, call self._safe.report_call(seconds).
+    tools/gate.py fails a package whose decisions do not report.
     """
 
     history_source = "log"
@@ -105,6 +119,23 @@ class Adapter:
         self.seat_fixes = 0  # tables whose hook named a seat the observations did not (decide() restarted the bot)
         self.fallbacks = 0  # decisions that went to native_safe (the translation or the bot raised)
         self._seat_check = False
+        # G1: the whole timed call goes to the bot's SafeBot (hyperion/strategy/safe.py), so its governor sees what the kit
+        # times. Nothing to wire in an entry: this constructor does it, decide() reports it. `t0` on decide() moves
+        # the clock's start back to the first line of an entry's own method
+        safe = bot if isinstance(bot, SafeBot) else getattr(bot, "safe", None)
+        self._safe = safe if isinstance(safe, SafeBot) else None
+        self._whole = self._safe.expect_reports() if self._safe is not None else False
+        if self._whole:
+            fn = getattr(bot, "defer_hand_end", None)  # the curve and the dials wait for the member that reads them
+            if fn is not None:
+                fn(True)
+        self._budget = self._safe.end_budget if self._whole else 0.0  # the hand end's budget (hand_end): 0 = no budget
+        self._e_call = self._e_end = self._e_slow = 0.0  # what a decision costs without a hand end, and a hand end: running means
+        self._n_call = 0
+        self._floored = False
+        self._tail_skips = 0
+        self._end_now = 0.0  # the hand end inside the decision in play
+        self.tails_lost = self.tails_forced = self.ends_dropped = 0
 
     # -- translation hooks ------------------------------------------------------------
     def to_observation(self, native: Any) -> Observation:
@@ -127,6 +158,10 @@ class Adapter:
         self.started = True
         self._pending = None
         self._hand_seen = None
+        self._e_call = self._e_end = self._e_slow = 0.0  # a warm-up's cold calls and the last table say nothing about this one's
+        self._n_call = 0
+        self._floored = False
+        self._tail_skips = 0
         self._seat_check = True  # the first decision's seat wins over the hook's (a 1-based or relative label)
         self.inference.new_table(self.rules)
         try:
@@ -141,17 +176,81 @@ class Adapter:
         kit it only watches."""
         kit = [] if (obs.extras and obs.extras.get("history_from_bets")) else obs.history
         if self.history_source == "log" and kit:
-            self.inference.history(obs)
+            if not self.log_at_end or self.conformance is not None:
+                self.inference.history(obs)
             out = obs
         else:
             out = self.inference.observe(obs, kit if self.history_source == "partial" else None)
         self._last_hist, self._last_hand = out.history, obs.hand_no
         return out
 
-    def decide(self, native: Any) -> Any:
+    conformance = None  # set by hyperion/drills/conformance.py's checked()
+
+    def decide(self, native: Any, t0: float | None = None) -> Any:
+        """The kit's timed call, and its report: `t0` the kit's call as the entry's first line read the clock (default:
+        now), and the whole call goes to the bot's SafeBot on every way out."""
+        now = perf_counter()
+        if t0 is None:
+            t0 = now
+        c0 = _cpu_clock()
+        reply = self._decide(native)
+        safe = self._safe
+        if safe is not None:
+            dt = perf_counter() - t0
+            cpu = _cpu_clock() - c0 + now - t0  # (what the entry did before this line: short, and taken as run, not stalled)
+            if self._budget:
+                self._note_call(cpu)
+                if self._n_call < 32 or self._e_slow < SLOW_BOX_S:  # this box is not slow: a late call here is noise
+                    cpu = 0.0
+            safe.report_call(dt, cpu)
+        return reply
+
+    # The budget-aware hand end (G1, hand_end). A decision's cost and a hand end's, in this thread's CPU time this table: the
+    # scheduler's stalls say nothing about the box, and these means must never move on a normal one. A sample is clipped at
+    # 1 ms, for what the thread's clock cannot tell from running (a hypervisor's stall, a page fault)
+    def _note_call(self, dt: float) -> None:
+        dt -= self._end_now  # the hand end has its own mean
+        self._end_now = 0.0
+        x = dt if dt < 0.001 else 0.001
+        n = self._n_call = self._n_call + 1
+        self._e_call = x if n == 1 else self._e_call + (x - self._e_call) / 16.0
+        # the box's speed: an average to the 64th call, a slow mean after, so a burst of stalls the thread's clock counts (5 at
+        # 1 ms in 16 calls) never reads as a slow box. The floor and the governor's overruns go by it (decide)
+        e = self._e_slow = self._e_slow + (x - self._e_slow) / (n if n < 64 else 64)
+        if n >= 32:
+            # a box this slow plays the first rung of the governor's ladder from now on, without waiting for a cluster of
+            # overruns: no shadows, a quarter of a decision for little play (the composite's module doc). A loaded 1x box's
+            # mean is under 0.2 ms; coming back is lower than going down, as the rung itself takes a quarter off the mean
+            if not self._floored:
+                if e > FLOOR_ON_S:
+                    self._floored = True
+                    self._safe.set_floor(1)
+            elif e < FLOOR_OFF_S:
+                self._floored = False
+                self._safe.set_floor(0)
+
+    def _note_end(self, dt: float) -> None:
+        x = dt if dt < 0.001 else 0.001
+        self._e_end = x if self._e_end == 0.0 else self._e_end + (x - self._e_end) / 8.0
+
+    def short_of_time(self) -> bool:
+        """A typical decision with a hand end inside it would pass the budget: most of those calls would time out on their
+        own, reads or no reads. Needs a table's worth of calls: never on a cold start. The line is that high because the reads
+        are worth more than the timeouts they cost. Kit B at 3x against batch 8: every tail kept +0.01 ± 0.18 points a table,
+        one hand in two without its tail -0.24 ± 0.18 (400 tables each), seven in eight -0.48 ± 0.33 (150 tables), while
+        timeouts fell about as far in the first two (docs/drills/climb/g1-log.md)."""
+        return bool(self._budget) and self._n_call >= 16 and self._e_call + self._e_end > self._budget
+
+    def _decide(self, native: Any) -> Any:
+        global _STAND_IN
         repin_package()
         try:
-            obs = self.to_observation(native)
+            if self.conformance is None:  # with_history replaces the stand-in; the conformance report reads it
+                _STAND_IN = False
+            try:
+                obs = self.to_observation(native)
+            finally:
+                _STAND_IN = True
             # A table start here runs inside the kit's timed decision: quick_start() lets it read and build nothing
             # (hyperion/strategy/tables.py), so what the import-time warm-up loaded is used and the rest is plain.
             if not self.started:
@@ -173,11 +272,18 @@ class Adapter:
             self._seat_check = False
             self._hand_seen = obs.hand_no
             if self._pending is not None:
-                self._deliver(obs)
+                if self._budget:
+                    t = _cpu_clock()
+                    self._deliver(obs)
+                    self._end_now = _cpu_clock() - t
+                    self._note_end(self._end_now)
+                else:
+                    self._deliver(obs)
             try:
                 obs = self.with_history(obs)
-            except Exception:  # noqa: BLE001 - the bot still decides, on the history make_observation gave
-                pass
+            except Exception:  # noqa: BLE001 - the bot still decides, on the history make_observation would give
+                if not obs.history:
+                    obs.history = history_from_bets(obs.street, obs.button, obs.stacks, obs.bets, obs.blinds[1])
             action = self.bot.act(obs).clamp(obs)
             self.inference.acted(action)
             return self.from_action(action, obs, native)
@@ -198,22 +304,69 @@ class Adapter:
         every seat's chips after this hand: it is delivered at the top of that decision (50-200 us of the bot's own
         hand end inside it; `defer_hand_end = False` keeps it at the kit's hand end, untimed, without those
         folds). Rival 3's core (hybrid3_x, the composite) replays the hand's history here, as
-        the simulator gives it."""
+        the simulator gives it.
+
+        Budget-aware (G1; the dial `hand_end_ms`, the bot's SafeBot.end_budget). On a slow box that hand end is what breaks
+        the timed call it lands in. While a typical decision with it would pass the budget (`short_of_time`), it runs
+        here, at the kit's hand end, without those folds; one hand in `tail_every` still waits for its tail, so the reads
+        of folds are thinned, never cut off, and `tails_lost` and `tails_forced` count them. On a normal box the means never
+        reach it and nothing changes, in any decision."""
         repin_package()
         try:
             if self._pending is not None:  # two hand ends with no decision between them (a walk in our big blind)
                 self._deliver(None)
             if (deltas is None and final_stacks is None and showdown is None and self.defer_hand_end
                     and self.inference.hand_no == hand_no and (self.hold_all or self.inference.tail_open())):
-                self._pending = (hand_no, delta, n_players, history, board)
-                return
+                if not self.short_of_time():
+                    self._tail_skips = 0
+                    self._pending = (hand_no, delta, n_players, history, board)
+                    return
+                # the budget (G1): held, this hand end would run inside the next timed call, and that call would be the
+                # one to time out. It runs here instead, with what the kit says; the folds after our last reply and the
+                # other seats' chips stay unknown for this hand. The bound: one hand in `tail_every` still waits for its tail,
+                # whatever the budget, so the reads of folds keep coming; tools/gate.py prints both counts
+                self._tail_skips += 1
+                if self._tail_skips >= self.tail_every:
+                    self._tail_skips = 0
+                    self.tails_forced += 1
+                    self._life("forced")
+                    self._pending = (hand_no, delta, n_players, history, board)
+                    return
+                self.tails_lost += 1
+                self._life("tail_lost")
+            t = _cpu_clock()
             self._end(hand_no, delta, n_players, history, deltas, final_stacks, showdown, board)
+            if self._whole and not self.hand_end_timed:
+                fn = getattr(self.bot, "idle", None)  # this call is on no clock: the curve and the dials, now
+                if fn is not None:
+                    fn()
+            if self._budget:
+                t = _cpu_clock() - t
+                self._note_end(t)
+                if self.hand_end_stored:
+                    self._end_now += t
         except Exception:  # noqa: BLE001
             pass
 
     defer_hand_end = True
     hold_all = False  # hold every hand end we acted in: every seat's chip change for the bot's stacks (Hero's ICM
     #                  curve), at the cost of the bot's hand end inside the next decision on every hand
+    hand_end_timed = False  # the kit times its hand-end callback (the entry templates set it from HAND_END: "eager" is False)
+    hand_end_stored = False  # an entry calls hand_end inside the next decision (entry_template.py "store", the closure template)
+    log_at_end = False  # a "log" kit whose hand end carries the whole log: the inference has nothing to watch for (closure template)
+    tail_every = 2  # short of time: one hand end in this many still waits for the next state, for its tail (hand_end)
+
+    def _life(self, key: str) -> None:
+        safe = self._safe
+        if safe is not None:
+            safe.life[key] += 1
+
+    def drop_hand_end(self, n: int = 1) -> None:
+        """An entry's stored hand end, not delivered for the budget (entry_template.py "store", the closure template's recap)."""
+        self.ends_dropped += n
+        safe = self._safe
+        if safe is not None:
+            safe.life["dropped"] += n
 
     def _deliver(self, obs: Observation | None) -> None:
         """The waiting hand end, settled by `obs` when it is the next hand's first state."""
@@ -234,13 +387,20 @@ class Adapter:
     def _end(self, hand_no, delta, n_players, history, deltas, final_stacks, showdown, board) -> None:
         try:
             n = n_players or getattr(self, "n_players", 0) or max(1, self.seat + 1)
-            shown = None if showdown is None else dict(showdown)
-            hist = self.inference.hand_end(final_stacks=final_stacks, deltas=deltas, shown=shown, hand_no=hand_no)
-            seen = self._last_hist if self._last_hand == hand_no else []
-            hist = self.inference.merge(hist, list(seen))
             kit = list(history or [])
-            if kit:
-                hist = kit if self.history_source == "log" else self.inference.merge(hist, kit)
+            if kit and self.history_source == "log":  # the kit's whole log is the answer: nothing to rebuild on the clock
+                hist = kit
+                inf = self.inference
+                inf.live = inf.paused = False
+                inf.sent = None
+            else:
+                shown = None if showdown is None else dict(showdown)
+                hist = self.inference.hand_end(final_stacks=final_stacks, deltas=deltas, shown=shown, hand_no=hand_no)
+                if self.history_source != "bets":  # (with no log, what the last decision saw starts this: the same walk)
+                    seen = self._last_hist if self._last_hand == hand_no else []
+                    hist = self.inference.merge(hist, list(seen))
+                if kit:
+                    hist = self.inference.merge(hist, kit)
             if deltas is None:
                 deltas = [0] * n
                 deltas[self.seat] = delta
@@ -262,6 +422,8 @@ def history_from_bets(street: int, button: int, stacks, bets, big_blind: int) ->
     n = len(bets)
     base = big_blind if street == 0 else 0
     top = max(bets) if n else 0
+    if top <= base:  # nobody above the base: no raise to credit (most decisions, and this runs inside the timed call)
+        return []
     first = 3 if street == 0 else 1  # UTG preflop, the first seat left of the button after
     order = sorted(range(n), key=lambda x: (x - button - first) % n)
     out: list[tuple[int, Action]] = []
@@ -366,14 +528,23 @@ def _legal_word(item) -> str:
     return name[:-6] if name.endswith("action") and len(name) > 6 else name
 
 
+_LEGAL_NAMES: dict = {}  # a kit's list of our names -> the frozenset (legal_kinds; no state, the answer depends on the words)
+
+
 def legal_kinds(legal, to_call: int, my_stack: int) -> frozenset:
     """A kit's legal actions -> frozenset[ActionKind]. Takes our names in any case, the usual other words (bet, the
     one-letter F/K/X/C/R/B, check/call, all-in), a comma or space separated string, dicts ({"type": "raise", ...}),
     ActionKinds and objects (CheckAction). An "all in" is a call when the call already takes every chip, else a raise
     (the raise bounds then end at the all-in). Raises KeyError on a word it does not know: say what the kit means."""
-    try:  # the usual case, our names in any case: as fast as before
+    try:  # the usual case, our names in any case: a list of a dozen shapes, cached (this runs inside the timed call)
         if not isinstance(legal, str):
-            return frozenset(KIND_BY_NAME[k.lower()] for k in legal)
+            key = tuple(legal)
+            got = _LEGAL_NAMES.get(key)
+            if got is None:
+                got = frozenset(KIND_BY_NAME[k.lower()] for k in key)
+                if len(_LEGAL_NAMES) < 256:
+                    _LEGAL_NAMES[key] = got
+            return got
     except (KeyError, AttributeError, TypeError):
         pass
     if isinstance(legal, str):
@@ -458,6 +629,11 @@ def drop_blind_posts(history, big_blind: int, street: int = 0) -> tuple[list, in
     return (history[i:], i) if i else (history, 0)
 
 
+FLOOR_ON_S, FLOOR_OFF_S = 0.0003, 0.00019  # a decision's mean, without a hand end, that holds the ladder's first rung (_note_call)
+SLOW_BOX_S = 0.00026  # ... under which a late call is noise, not a slow box: at 1x under load the mean is about 0.2 ms (decide)
+_STAND_IN = True  # False while Adapter.decide translates for a kit with no log: the rebuilt log replaces the stand-in
+
+
 def make_observation(*, hole, board, street, seat, button, stacks, bets, in_hand, pot, to_call=None, min_raise=None,
                      max_raise=None, legal: Iterable, hand_no, blinds, history=None, extras=None) -> Observation:
     """Assemble an Observation from already-translated pieces. `legal`: our names fold / check / call / raise, or the
@@ -485,7 +661,8 @@ def make_observation(*, hole, board, street, seat, button, stacks, bets, in_hand
         if dropped:
             fixed.append("blind_posts_dropped")
     if not hist:
-        hist = history_from_bets(int(street), int(button), stacks, bets, int(blinds[1]))
+        if _STAND_IN:
+            hist = history_from_bets(int(street), int(button), stacks, bets, int(blinds[1]))
         extras["history_from_bets"] = True
     if fixed:
         extras["kit_fixes"] = tuple(fixed)
@@ -567,8 +744,11 @@ class KitAAgent:
 
 # ------------------------------------------------------------------ kit B: dict in, dict out, increments
 
+_B_SUIT = {"C": 0, "D": 1, "H": 2, "S": 3, "c": 0, "d": 1, "h": 2, "s": 3}
+
+
 def _b_card(d: dict) -> int:
-    return (int(d["rank"]) - 2) * 4 + "cdhs".index(str(d["suit"]).lower())
+    return (int(d["rank"]) - 2) * 4 + _B_SUIT[d["suit"]]
 
 
 _B_STREETS = {0: 0, 3: 1, 4: 2, 5: 3}
