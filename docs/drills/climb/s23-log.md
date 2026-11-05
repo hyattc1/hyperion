@@ -120,3 +120,82 @@ room (15.67; rival2 14.85, elite1 13.24).
 margin is the 8-to-4-alive stage; with three left it gives ICM value back under a 10/7/5-shaped table, where the
 elites take it. Next: the three-handed hands themselves (step 2, `d3b.py` on 16200-16319 under 8..1 and 10/7/5),
 booked by spot in ICM points, to find which seat and decision loses.
+
+## Step 2: the three-handed hands (seeds 16200-16319, `d3b.py` = S20's recorder with 2-4 alive and 8-max payouts)
+
+Tools: `summ_pts.py` (S20's line book with each hand booked in ICM points: the seat's ICM value after the hand minus
+before, a bust taking its place's payout), `jamdetail.py` (one spot by depth), `whodecided.py` (F's first decision by
+seat and depth, split by who decided: R6's tables or F's own core). Rooms elite, elite_b, mirror, mirror_b under 8..1
+and 10/7/5; 120 seeds x 8 each (3,840 F table-rotations a payout table). "pts" below are milli-points a hand.
+
+**The line book, four rooms pooled, 10/7/5** (F against elite1 / elite2; n = hands in the spot; busts = the actor's):
+
+| spot | F: mix (fold / call / raise / jam), pts a hand, n | elite1 | elite2 |
+|---|---|---|---|
+| BTN first in | 39 / - / 55 / 7 %, **+3.7**, 10,312 | 49 / - / 30 / 21 %, **+24.6**, 8,992 | 48 / - / 36 / 16 %, **+30.0**, 8,494 |
+| BTN opener facing a jam | fold 85 % (-192 each), call 15 % (+172): **-137.5**, **2,053** times | fold 59 / call 41 %: -48.5, 677 | fold 58 / call 42 %: +0.3, 913 |
+| BTN opener facing a 3-bet > 2.6x | fold 87 %: -136.7, 245 | fold 33 / call 50 / jam 15 %: -181, 154 | fold 88 %: -85, 170 |
+| SB first in | 8 / - / 72 / 20 %, **+1.6**, 5,258 | 25 / - / 28 / 45 %, **+12.0**, 4,434 | 29 / - / 33 / 37 %, +7.4, 4,422 |
+| SB opener facing a jam | fold 94 % (-201 each): **-172.3**, **851** times | fold 95 %: -204.7, 129 | fold 85 %: -123.3, 189 |
+| SB vs BTN open | 77 / 9 / 3 / 11 %: +8.1, 3,844 | 60 / 19 / 2 / 19 %: +22.0, 3,776 | 66 / 16 / 3 / 15 %: +10.4, 3,292 |
+| SB vs BTN jam | fold 88 / call 12 %: -2.7, 1,250 | 83 / 17 %: -24.0, 806 | -9.1, 703 |
+| BB vs BTN open (SB folded) | 45 / 24 / 3 / 29 %: -1.2, 2,715 (106 busts) | 57 / 19 / 2 / 22 %: -3.7, 2,690 (27) | 52 / 24 / 2 / 22 %: -3.9, 2,651 (44) |
+| BB vs SB open | 54 / 24 / 3 / 19 %: -10.5, 2,155 | 53 / 21 / 2 / 24 %: +1.3, 2,196 | -8.5, 1,940 |
+| BB vs BTN jam | fold 87 / call 13 %: -85.2, 1,183 | 74 / 26 %: -59.9, 720 | -49.2, 644 |
+| BB vs SB jam | fold 89 / call 11 %: -72.4, 1,545 | 82 / 18 %: -60.9, 914 | -62.2, 880 |
+
+Per F table-rotation under 10/7/5: BTN first in F +0.010 against elite1 +0.058 and elite2 +0.066 (**gap 0.05**); of
+which the opener facing a jam F -0.074 (2,053 times: 36% of F's 5,700 button raises are jammed on, and it folds 85%)
+against elite1 -0.009 and elite2 0.000 (its raises are jammed on 26%, and it calls 41-42%). SB first in F +0.002
+against +0.014 / +0.009 (gap 0.01); the SB opener facing a jam F -0.038 (851 times: 22% of its 3,800 SB raises)
+against -0.007. SB vs the button's open F +0.008 against +0.022 (gap 0.014). The big blind is level with the elites
+in every spot but the calls of jams (F's calls lose where theirs win: BB vs BTN jam gap 0.015, BB vs SB jam 0.015).
+Under 8..1 the same picture at a third to a half the size (BTN facing a jam F -0.026 against -0.003; SB -0.018 against
+-0.003; BTN first in F +0.011 against +0.027).
+
+**So the three-handed leak is F's first-in play from the button and the small blind at 8-27 bb: a 2.2-2.5x raise with
+55% (button) and 72% (small blind) of hands, jammed on 36% / 22% of the time, folded 85-95%, about 0.08-0.10 points a
+table under 10/7/5 at a strong table against the elites' 0.015.** The elites raise 28-36%, jam 16-45% first in, fold
+25-49%, and call the jams they do face 41-42% of the time. That is what S20's tables play, and R6 ships them on the
+button behind its gates.
+
+**Where R6's tables play now** (`whodecided.py`, F's first decision by seat and depth; 10/7/5, four rooms):
+
+| seat | depth | F's decisions | by the tables | pts a hand, the tables | pts a hand, F's own core |
+|---|---|---|---|---|---|
+| BTN | < 8 | 860 | 52 % | +34.2 | +42.6 |
+| BTN | 8-12 | 1,586 | 54 % | **+28.5** | **-18.2** |
+| BTN | 12-18 | 2,986 | 47 % | **+9.3** | **-13.6** |
+| BTN | 18-27 | 2,714 | 33 % | **+10.8** | **-7.8** |
+| BTN | 27+ | 2,166 | 21 % | -6.6 | +5.8 |
+| SB | 8-12 / 12-18 / 18-27 | 1,509 / 2,947 / 2,728 | 0 % | - | +18.1 / -4.9 / +10.7 |
+| BB | 8-12 / 12-18 / 18-27 | 1,554 / 2,384 / 2,318 | 0 % | - | -30.3 / -23.5 / -27.1 |
+
+(8..1: BTN 8-12 +15.9 against +2.7; 12-18 +4.9 against -10.1; 18-27 +12.1 against -3.1; 27+ +4.6 against +2.5.) The
+tables play about half of F's button decisions at 8-18 bb and a third at 18-27 (the strong read, every opponent
+having re-raised us, no 3-bettor at 0.25, no leak archetype), and where they play they beat F's own core by 18-47
+milli-points a decision at 8-27 bb under 10/7/5 and 13-15 under 8..1; deeper than 27 bb they are no better. This is
+not a randomised comparison (the gate picks the hands), so the coin decides (step 3). F's own button decisions at
+8-27 bb are 4,132 over 3,840 table-rotations: if the tables' edge carried to them the prize is about +0.02 to +0.05 a
+table under 10/7/5 at a strong table, plus the small blind's share.
+
+**Candidate (S23): the tables on the button and the small blind, their reach decided by the seats, not the table.**
+R6's reach is set by a table-level read (the share of all our opens re-raised) and a per-seat count (every opponent
+alive has re-raised us at least once). The leak is punished by seats that re-jam small opens; the realistic room's
+blinds, which fold to them, are where R5's small blind lost (s20-log, R6 step 1). New dial `short.three2_rr_t`
+(hyperion/strategy/short.py, off): the tables play only while the opponents alive, pooled, re-raise at least that
+share of the preflop raises they have faced this table (rival 3's core's per-seat counts fr / fr_r, shrunk to
+`three2_rr_prior` 0.075 with weight `three2_rr_k` 8). `three_max` caps the depth. Commit 3bccce2; tests
+tests/test_s23_firsts.py (3) and tests/test_s20_three.py, test_b7_scope.py pass (21 passed, 4 skipped). Identity with
+the dials off against batch 8 (`goal/s23/idchk`, 10000:10040 confirm,guards): **14 of 14 chunks identical** to
+goal/idchk39's rows.
+
+## Step 3: the coin (points-valued, offline, before any screen)
+
+`goal/s23/d8.py --coin` (H1's method): the tables on btn, sb and bb with the gates open (seat_rr 0, the strong read
+off; the 3-bet guard 0.25, the archetype guard and keep_defence stay), a fair coin per three-handed hand says whether
+the tables may play it; every read is recorded at F's first decision (the strong read, the pooled re-raise read rr3,
+each opponent's re-raises of our opens, 3-bet read, archetype) so the gate is chosen offline from the arms on the same
+eligible hands (`ips3.py`: IPS in ICM points a table, per seed). Fit seeds 16400-16519; the check repeats the chosen
+gate on 16520-16639. Rooms: elite, elite_b, mirror, mirror_b, realistic, night, top under 10/7/5 and 8..1
+(`run_coin.sh`, files `C_<room>_<pay>.jsonl.gz`).
