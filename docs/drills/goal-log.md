@@ -1808,3 +1808,10 @@ and (in judges) `elite_judge`.
   (31% none) when the decision comes, elites read 0.22-0.29 and a Nash jammer 0.22, and strong rooms' gain and the realistic room's loss fall in the same bucket. Not built.
 - Left open, diagnosed: F's three-handed calls of jams are too tight against elites by 0.02-0.035 a table under 10/7/5 and right against push/fold bots. Whole-table style
   might still separate them. Most of the 0.08-0.10 first-in leak is not recoverable without an ordinary-room cost by anything tried. climb/s23b 425823f (off by default, not for merge).
+
+## 04:25: H1 accepted on H38 (joins batch 9)
+- H1 (solved heads-up preflop per seat; climb/s20-h1 c927d02; dials goal/b38/h1.json, table tables/short_hu2.json 139 KB) against batch 8 on H38 (58000-58399), every stage, --aim strong, runout
+  term: **ACCEPT**. Strong rooms pooled +0.0078 ± 0.0033, all five UP; night +0.002 ± 0.002, night @10/7/5 +0.009 ± 0.006 UP; exploit2_3 +0.029 ± 0.014, exploit3_3 +0.025 ± 0.020 UP (H1 cannot play three-handed,
+  so read those as noise or knock-on); realistic, top level; nothing down. W +0.0023 ± 0.0013 (lower bound +0.0009), W-min lower bound -0.0002. H38 used. It matches the coin's +0.0078 ± 0.0037, which is the point
+  of pricing in points first.
+- Batch 9 so far: S22, H1. Waiting: B18 (H39), G1, S24, O8s.
