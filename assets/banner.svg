@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img" aria-label="hyperion: a poker bot that answers in under a millisecond">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07130d"/>
+      <stop offset="0.55" stop-color="#0b1f15"/>
+      <stop offset="1" stop-color="#050b08"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e9f5ec"/>
+      <stop offset="1" stop-color="#8fd3a6"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#1a3a28" stroke-width="1" opacity="0.55"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="360" fill="url(#bg)"/>
+  <rect width="1280" height="360" fill="url(#grid)"/>
+  <!-- the redwood: one tall trunk and its tiers -->
+  <g transform="translate(1080 44)" fill="none" stroke="#2f7a4d" stroke-width="3" stroke-linecap="round" opacity="0.9">
+    <path d="M0 0V272"/>
+    <path d="M0 26L-18 44M0 26L18 44"/>
+    <path d="M0 62L-30 90M0 62L30 90"/>
+    <path d="M0 104L-42 140M0 104L42 140"/>
+    <path d="M0 150L-54 194M0 150L54 194"/>
+    <path d="M0 200L-66 252M0 200L66 252"/>
+  </g>
+  <text x="84" y="168" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="96" font-weight="700" letter-spacing="10" fill="url(#ink)">HYPERION</text>
+  <text x="88" y="222" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="26" fill="#b7d9c2">a poker bot that answers in under a millisecond</text>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="20" fill="#6fae87">
+    <text x="88" y="284">&#9824; &#9829; &#9830; &#9827;</text>
+    <text x="210" y="284">pure Python &#183; standard library only &#183; 8-max sit-and-go &#183; 27 variants</text>
+  </g>
+</svg>
