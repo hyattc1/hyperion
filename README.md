@@ -29,7 +29,7 @@ In October 2026, Sequoia, Citadel Securities and OpenAI announced
 - every decision must come back within **one millisecond**, or the bot folds
   ([official rules](https://pokerbot.sequoiacap.com/rules.html)).
 
-I didn't have the opportunity to fly out and compete, so I built this instead, for fun: the engine, the tables and
+I had too much going on to make the trip, so I built this instead, for fun: the engine, the tables and
 the practice room I would have wanted to walk in with. Six days, 848 commits.
 
 It is not an entry and it never played in the tournament. It is what the problem looks like when you take
